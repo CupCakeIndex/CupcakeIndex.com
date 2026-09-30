@@ -911,14 +911,17 @@ const Live = (() => {
   // ---------------------------------------------------------------- team
   async function team(id, params) {
     const lg = league, my = token;
-    const tab = params.get("tab") || "schedule";
+    const nfl = lg === "nfl";
+    const tab = ["roster", ...(nfl ? ["depth", "moves"] : [])].includes(params.get("tab")) ? params.get("tab") : "schedule";
     loading("team");
-    let sch, ros, ranks;
+    let sch, ros, ranks, extra;
     try {
-      [sch, ros, ranks] = await Promise.all([
+      [sch, ros, ranks, extra] = await Promise.all([
         api(`${SITE(lg)}/teams/${encodeURIComponent(id)}/schedule`, 60000),
         api(`${SITE(lg)}/teams/${encodeURIComponent(id)}/roster`, 600000).catch(() => null),
         modelRanks(lg),
+        tab === "depth" ? api(`${SITE(lg)}/teams/${encodeURIComponent(id)}/depthcharts`, 600000).catch(() => null)
+          : tab === "moves" ? api(`${SITE(lg)}/transactions?limit=1000`, 1800000).catch(() => null) : null,
       ]);
     } catch (e) { return fail("team", e); }
     if (my !== token) return;
@@ -948,6 +951,25 @@ const Live = (() => {
         <td>${esc(lg === "nfl" ? p.age ?? "" : p.experience?.abbreviation || "")}</td>
         <td>${injTag(p.injuries?.[0], p.id)}</td></tr>`).join("")}</tbody></table></div>`).join("");
 
+    // depth chart: offense, defense, special teams; each position shows starter, then backups (with injury tags from the roster)
+    const injById = new Map((ros?.athletes || []).flatMap((g) => g.items || []).map((p) => [String(p.id), p.injuries?.[0]]));
+    const POS_ORDER = ["qb", "rb", "fb", "wr1", "wr2", "wr3", "te", "lt", "lg", "c", "rg", "rt"];
+    const depthRows = tab !== "depth" ? "" : (extra?.depthchart || []).map((f) => {
+      const keys = Object.keys(f.positions || {});
+      const kind = keys.includes("qb") ? [0, "Offense"] : keys.includes("pk") ? [2, "Special teams"] : [1, "Defense"];
+      if (kind[0] === 0) keys.sort((a, b) => (POS_ORDER.indexOf(a) + 1 || 99) - (POS_ORDER.indexOf(b) + 1 || 99));
+      const deep = Math.min(4, Math.max(1, ...keys.map((k) => f.positions[k].athletes?.length || 0)));
+      return [kind[0], `<h4>${kind[1]} <small class="muted">${esc(kind[0] === 2 ? "" : f.name || "")}</small></h4>
+        <div class="table-wrap"><table class="box depth"><thead><tr><th>Pos</th>${Array.from({ length: deep }, (_, i) => `<th>${i ? ["2nd", "3rd", "4th"][i - 1] : "Starter"}</th>`).join("")}</tr></thead><tbody>
+        ${keys.map((k) => { const P = f.positions[k], list = (P.athletes || []).slice(0, deep);
+          return `<tr><td title="${esc(P.position?.displayName || "")}"><b>${esc(P.position?.abbreviation || k.toUpperCase())}</b></td>${Array.from({ length: deep }, (_, i) => {
+            const a = list[i];
+            return a ? `<td><a href="${link("player", a.id)}">${esc(a.shortName || a.displayName)}</a>${injTag(injById.get(String(a.id)))}</td>` : `<td></td>`;
+          }).join("")}</tr>`; }).join("")}</tbody></table></div>`];
+    }).sort((a, b) => a[0] - b[0]).map((x) => x[1]).join("");
+    // recent roster moves for this team, from ESPN's league-wide transactions feed
+    const moves = tab !== "moves" ? [] : (extra?.transactions || []).filter((t, i, all) => String(t.team?.id) === String(T.id) && !all.slice(0, i).some((u) => u.description === t.description && String(u.team?.id) === String(T.id))); // ESPN sometimes posts the same move twice
+    const movesRows = moves.map((t) => `<tr><td class="muted">${esc(new Date(t.date).toLocaleDateString(undefined, { month: "short", day: "numeric" }))}</td><td>${esc(t.description)}</td></tr>`).join("");
     const tabLink = (t, label) => `<a class="subtab${tab === t ? " on" : ""}" href="${link("team", id, { tab: t })}">${label}</a>`;
     view("team").innerHTML = `
       <div class="card team-head" style="--tc:#${esc((T.color || "").replace(/[^0-9a-f]/gi, ""))}">
@@ -957,9 +979,13 @@ const Live = (() => {
           ${ours ? `<p><a href="${link("rankings", null, { team: ours.team })}" class="boxlink">Cupcake Index #${ours.rank} · Power ${ours.rating > 0 ? "+" : ""}${ours.rating.toFixed(1)}${lg === "cfb" ? ` · Cupcake ${Math.round(ours.scores.cupcake)}` : ""} · see why →</a></p>` : ""}
         </div>
       </div>
-      <div class="subtabs">${tabLink("schedule", "Schedule")}${tabLink("roster", "Roster")}</div>
+      <div class="subtabs">${tabLink("schedule", "Schedule")}${tabLink("roster", "Roster")}${nfl ? tabLink("depth", "Depth chart") + tabLink("moves", "Transactions") : ""}</div>
       <div class="card">${tab === "roster"
         ? rosterRows || `<p class="muted">Roster not available.</p>`
+        : tab === "depth" ? depthRows || `<p class="muted">Depth chart not available.</p>`
+        : tab === "moves" ? (movesRows ? `<div class="table-wrap"><table class="box moves"><tbody>${movesRows}</tbody></table></div>
+            <p class="note">Signings, releases and injured-reserve moves since ${esc(new Date(extra.transactions[extra.transactions.length - 1].date).toLocaleDateString(undefined, { month: "long", day: "numeric" }))}.</p>`
+            : `<p class="muted">No recent transactions.</p>`)
         : `<div class="table-wrap"><table class="box"><thead><tr><th>Week</th><th>Opponent</th><th>Result</th></tr></thead><tbody>${games}</tbody></table></div>`}</div>`;
     // NFL rosters only carry the status; the league injury report adds the body part and expected return
     if (lg === "nfl" && tab === "roster" && view("team").querySelector(".inj-tag[data-pid]")) {
