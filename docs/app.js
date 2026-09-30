@@ -71,7 +71,20 @@ async function route() {
 }
 
 // ------------------------------------------------------------------ init
+const SITE_VERSION = "56"; // keep in sync with docs/version.txt and the ?v= in index.html
+async function checkVersion() {
+  try {
+    const r = await fetch("version.txt", { cache: "no-store" });
+    const v = (await r.text()).trim();
+    if (v && v !== SITE_VERSION && sessionStorage.getItem("reloaded-for") !== v) {
+      sessionStorage.setItem("reloaded-for", v);
+      location.reload();
+    }
+  } catch {}
+}
+
 async function init() {
+  checkVersion();
   try {
     INDEX = await getJSON("data/index.json");
   } catch (e) {
@@ -461,6 +474,9 @@ function render() {
   }
   const rows = ordered.filter((t) => (!q || t.team.toLowerCase().includes(q)) && (!conf || t.conference === conf) && (!top || inTopFilter(t)) && (!prof || profileOf(t) === prof));
   const only = soloKey();
+  // Score column: the blended score, or the sorted factor's own score during a single-factor sort
+  const shown = (t) => (only ? t.scores[only] : t.comp);
+  $("th.score-col").textContent = only ? SHORT[only] || "Score" : "Score";
   // Overrated/Underrated and Beaten Nobody compare the overall ranking; hide them while sorting by one column
   const blended = !only && !reverse;
   $("#table tbody").innerHTML = rows.map((t) => {
@@ -479,7 +495,7 @@ function render() {
       <td class="num">${esc(t.record)}</td>
       <td class="num diff ${pd.diff > 0 ? "up" : pd.diff < 0 ? "down" : ""}" title="${pd.pf} scored, ${pd.pa} allowed">${pd.diff > 0 ? "+" : ""}${pd.diff}</td>
       <td class="num ap">${t.ap_rank ? esc(t.ap_rank) : '<span class="muted">–</span>'}</td>
-      <td><div class="score">${t.comp.toFixed(1)}<span class="bar"><i style="width:${+t.comp || 0}%"></i></span></div></td>
+      <td><div class="score">${shown(t).toFixed(1)}<span class="bar"><i style="width:${+shown(t) || 0}%"></i></span></div></td>
       <td class="factors"><div class="chips">${chips}</div></td></tr>`;
   }).join("");
   const labels = LG.factors.map((f) => `<button class="chip head${only === f.key ? " sel" : ""}" data-only="${esc(f.key)}" title="Click: sort by ${esc(f.label)}, high to low. Again: low to high. Again: back to your blend. ${esc(f.help)}">${SHORT[f.key] || esc(f.label.slice(0, 4))}${only === f.key ? (soloDir === "hi" ? " ▼" : " ▲") : ""}</button>`).join("");
