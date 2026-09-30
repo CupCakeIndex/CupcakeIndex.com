@@ -954,7 +954,10 @@ const Live = (() => {
   const stat = (e, key) => e.stats.find((s) => s.type === key || s.name === key)?.displayValue ?? "";
   const statNum = (e, key) => +(e.stats.find((s) => s.type === key || s.name === key)?.value ?? 0);
 
-  async function standings() {
+  // One conference at a time (CFB) or AFC/NFC with its divisions (NFL); ?conf= keeps the pick in the URL.
+  const CONF_SHORT = { 8: "SEC", 5: "Big Ten", 4: "Big 12", 1: "ACC", 9: "Pac-12", 151: "AAC", 12: "C-USA", 18: "Ind.", 15: "MAC", 17: "MWC", 37: "Sun Belt" };
+  const CONF_ORDER = ["8", "5", "4", "1", "9", "151", "12", "15", "17", "37", "18"]; // Power 4 first
+  async function standings(_, params) {
     const lg = league, my = token;
     loading("standings");
     let d, ranks;
@@ -963,22 +966,41 @@ const Live = (() => {
     } catch (e) { return fail("standings", e); }
     if (my !== token) return;
     const nfl = lg === "nfl";
+    // [label, ESPN stat, shown on phones too]
     const cols = nfl
-      ? [["W", "wins"], ["L", "losses"], ["T", "ties"], ["PCT", "winPercent"], ["PF", "pointsFor"], ["PA", "pointsAgainst"], ["DIFF", "differential"], ["STRK", "streak"], ["DIV", "divisionRecord"], ["CONF", "vs. Conf."]]
-      : [["CONF", "vsconf"], ["OVR", "total"], ["PF", "pointsfor"], ["PA", "pointsagainst"], ["STRK", "streak"], ["vs AP", "vsaprankedteams"]];
-    const groups = groupsOf(d);
-    view("standings").innerHTML = groups.map((g) => {
-      const entries = [...g.entries].sort((a, b) => (statNum(a, "playoffseed") || 99) - (statNum(b, "playoffseed") || 99));
-      return `<div class="card"><h3>${esc(g.name)}</h3><div class="table-wrap"><table class="standings"><thead><tr><th>Team</th>${cols.map(([l]) => `<th class="num">${l}</th>`).join("")}
-        <th class="num" title="Cupcake Index rank">Our #</th>${nfl ? "" : `<th class="num" title="Cupcake score: higher = softer schedule">CUP</th>`}</tr></thead><tbody>
-        ${entries.map((e) => {
-          const ours = ourTeam(ranks, lg, e.team);
-          return `<tr><td><a href="${link("team", e.team.id)}"><span class="tm">${img(teamLogo(e.team), "xs")} ${esc(nfl ? e.team.displayName : e.team.location || e.team.displayName)}</span></a></td>
-            ${cols.map(([, k]) => `<td class="num">${esc(stat(e, k))}</td>`).join("")}
-            <td class="num">${ours ? `<a href="${link("rankings", null, { team: ours.team })}">#${ours.rank}</a>` : "–"}</td>
-            ${nfl ? "" : `<td class="num">${ours ? `<span class="chip" style="${heat(100 - ours.scores.cupcake)}">${Math.round(ours.scores.cupcake)}</span>` : "–"}</td>`}</tr>`;
-        }).join("")}</tbody></table></div></div>`;
-    }).join("") || `<div class="card muted">No standings available.</div>`;
+      ? [["REC", "total", 1], ["PCT", "winPercent"], ["PF", "pointsFor"], ["PA", "pointsAgainst"], ["DIFF", "differential", 1], ["STRK", "streak", 1], ["DIV", "divisionRecord"], ["CONF", "vs. Conf."]]
+      : [["CONF", "vsconf", 1], ["OVR", "total", 1], ["PF", "pointsfor"], ["PA", "pointsagainst"], ["STRK", "streak", 1], ["vs AP", "vsaprankedteams"]];
+    const confs = (d.children || []).map((c) => ({ id: String(c.id), name: c.name, short: nfl ? c.abbreviation : CONF_SHORT[c.id] || c.abbreviation || c.name, groups: groupsOf(c) }))
+      .sort((a, b) => ((CONF_ORDER.indexOf(a.id) + 1) || 99) - ((CONF_ORDER.indexOf(b.id) + 1) || 99));
+    // default: the conference of the last team page you opened, else SEC / AFC
+    const last = store.get("lastTeam-" + lg);
+    const home = confs.find((c) => c.groups.some((g) => g.entries.some((e) => String(e.team.id) === String(last)))) || confs.find((c) => c.id === "8") || confs[0];
+    const want = params.get("conf");
+    const pick = want === "all" ? "all" : (confs.find((c) => c.id === want) || home)?.id;
+    const shown = pick === "all" ? confs : confs.filter((c) => c.id === pick);
+    const chips = [...confs.map((c) => [c.id, c.short, c.name]), ...(nfl ? [] : [["all", "All", "Every conference"]])];
+
+    const table = (name, entries) => `<div class="card"><h3>${esc(name)}</h3><div class="table-wrap"><table class="standings"><thead><tr>
+      <th class="num" title="Cupcake Index rank">Our #</th><th>Team</th>${cols.map(([l, , ph]) => `<th class="num${ph ? "" : " wide"}">${l}</th>`).join("")}
+      ${nfl ? `<th class="num" title="Playoff seed if the season ended today (1-7 make it)">Seed</th>` : ""}${nfl ? "" : `<th class="num" title="Cupcake score: higher = softer schedule">CUP</th>`}</tr></thead><tbody>
+      ${entries.map((e) => {
+        const ours = ourTeam(ranks, lg, e.team), seed = statNum(e, "playoffseed");
+        const nm = nfl ? e.team.displayName : e.team.location || e.team.displayName;
+        return `<tr><td class="num">${ours ? `<a class="our-rk" href="${link("rankings", null, { team: ours.team })}" title="Cupcake Index rank">#${ours.rank}</a>` : "–"}</td>
+          <td><a href="${link("team", e.team.id)}"><span class="tm">${img(teamLogo(e.team), "xs")} <span class="tn" title="${esc(nm)}">${esc(nm)}</span>${nfl ? `<span class="tn-short">${esc(e.team.shortDisplayName || nm)}</span>` : ""}</span></a></td>
+          ${cols.map(([, k, ph]) => `<td class="num${ph ? "" : " wide"}">${esc(stat(e, k))}</td>`).join("")}
+          ${nfl ? `<td class="num${seed && seed <= 7 ? " seed-in" : " muted"}">${seed || "–"}</td>` : ""}
+          ${nfl ? "" : `<td class="num">${ours ? `<span class="chip" style="${heat(100 - ours.scores.cupcake)}">${Math.round(ours.scores.cupcake)}</span>` : "–"}</td>`}</tr>`;
+      }).join("")}</tbody></table></div></div>`;
+    const bySeed = (g) => [...g.entries].sort((a, b) => (statNum(a, "playoffseed") || 99) - (statNum(b, "playoffseed") || 99));
+    view("standings").innerHTML = `<div class="sc-bar"><div class="presets" id="st-conf">${chips.map(([v, l, t]) =>
+        `<button data-conf="${esc(v)}" title="${esc(t)}" class="${v === pick ? "on" : ""}">${esc(l)}</button>`).join("")}</div></div>
+      ${shown.flatMap((c) => c.groups.map((g) => table(c.groups.length > 1 || nfl ? g.name : c.name, bySeed(g)))).join("") || `<div class="card muted">No standings available.</div>`}
+      ${nfl && shown.length ? `<p class="note">Seed = playoff seed if the season ended today; seeds 1–7 make the playoffs.</p>` : ""}`;
+    $("#st-conf").onclick = (e) => {
+      const v = e.target.dataset?.conf;
+      if (v) location.hash = link("standings", null, { conf: v });
+    };
   }
 
 
@@ -1066,6 +1088,7 @@ const Live = (() => {
   // ---------------------------------------------------------------- team
   async function team(id, params) {
     const lg = league, my = token;
+    store.set("lastTeam-" + lg, String(id)); // standings open on this team's conference
     const nfl = lg === "nfl";
     const tab = ["roster", ...(nfl ? ["depth", "moves"] : [])].includes(params.get("tab")) ? params.get("tab") : "schedule";
     loading("team");

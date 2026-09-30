@@ -875,3 +875,16 @@ table.moves td:last-child { white-space: normal; min-width: 240px; }
   border-left: 1px solid var(--accent); border-right: 1px solid var(--accent); }
 .cc-hint { font-size: 11px; margin: -4px 0 10px; text-align: center; }
 .cc-hint .link { font-size: 11px; }
+
+/* Standings: conference picker (one conference / AFC or NFC at a time) and compact phone tables */
+#st-conf { margin: 0; }
+.standings .tn-short { display: none; }
+.standings td.seed-in { color: var(--accent); font-weight: 700; }
+.standings .our-rk { text-decoration: none; }
+@media (max-width: 640px) {
+  .standings .wide { display: none; }
+  .standings th, .standings td { padding: 6px 4px; white-space: nowrap; }
+  .standings .tn { display: inline-block; max-width: 92px; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+  .standings .tm:has(.tn-short) .tn { display: none; }
+  .standings .tn-short { display: inline; }
+}
