@@ -15,9 +15,10 @@ let soloDir = "hi";    // "hi" = selected column high to low, "lo" = low to high
 let reverse = false;   // true = list shown bottom-up by blended score
 let colSort = null;    // {key: "record" | "ap", dir: "best" | "worst"}: overrides row order, keeps model ranks
 
-let mode = "best";     // "best" (learned from results) | "deserving" (earned) | "custom" (your sliders)
-const MODES = { best: "Best teams", deserving: "Most deserving", custom: "Custom" };
 const PRESETS = {
+  "Default": null,
+  "Who'd you beat": { resume: 60, sos: 25, cupcake: 15 },
+  "Who'd win": { power: 45, efficiency: 40, recent: 15 },
   "Hot right now": { power: 15, resume: 10, efficiency: 15, sos: 5, recent: 55 },
   "Equal": { power: 15, resume: 15, efficiency: 15, sos: 15, recent: 15, cupcake: 15, luck: 10 },
 };
@@ -91,10 +92,9 @@ async function init() {
 
   $("#presets").onclick = (e) => {
     const p = e.target.dataset.preset;
-    if (p) setWeights(PRESETS[p]);
+    if (p) setWeights(PRESETS[p] || LG.default_weights);
   };
-  $("#reset").onclick = () => setMode("best");
-  $("#mode").onclick = (e) => { const m = e.target.dataset.mode; if (m) setMode(m); };
+  $("#reset").onclick = () => setWeights(LG.default_weights);
   // Phones: sliders start collapsed so the rankings table is on the first screen
   $("#weights-toggle").onclick = () => {
     const open = $("#weights").classList.toggle("collapsed") === false;
@@ -116,7 +116,6 @@ async function init() {
     if (!soloKey()) beforeSolo = { ...weights };
     applySolo(k, dir);
   };
-  $("#disagree").onclick = (e) => { const a = e.target.closest("[data-team]"); if (a) { e.preventDefault(); openTeam(a.dataset.team); } };
   $("#season").onchange = () => { fillWeeks(); loadWeek(true); };
   $("#week").onchange = () => loadWeek(true);
   ["#search", "#conf", "#top25", "#profile"].forEach((s) => $(s).addEventListener("input", render));
@@ -142,11 +141,9 @@ function setLeague(l) {
   $("#profile").innerHTML = `<option value="">All schedule profiles</option>` + Object.entries(PROFILES).map(([k, p]) => `<option value="${k}">${p.icon} ${p.name}</option>`).join("");
   $("#league-tag").textContent = LEAGUE_NAME[l] || l;
   document.querySelectorAll("#nav .tab").forEach((a) => (a.href = link(a.dataset.view)));
-  mode = store.get("mode_" + l) || "best";
   weights = loadWeights(l);
   reverse = false;
   beforeSolo = null;
-  $("#mode").innerHTML = Object.entries(MODES).map(([k, v]) => `<button data-mode="${k}">${v}</button>`).join("");
 
   const seasons = Object.keys(LG.seasons).sort((a, b) => b - a);
   $("#season").innerHTML = seasons.map((s) => `<option>${esc(s)}</option>`).join("");
@@ -157,67 +154,12 @@ function setLeague(l) {
   $("#rankby").innerHTML = `<option value="">Blend (sliders)</option>` + LG.factors.map((f) =>
     `<option value="${esc(f.key)}:hi">${esc(f.label)}: high to low</option><option value="${esc(f.key)}:lo">${esc(f.label)}: low to high</option>`).join("");
   buildSliders();
-  renderModeBar();
-}
-
-const fillWeights = (info, w) => Object.fromEntries(info.factors.map((f) => [f.key, (w || {})[f.key] ?? 0]));
-
-// Weights for a mode. Best = learned from results each week; Deserving = fixed definition; Custom = your sliders.
-function modeWeights(lg, m) {
-  const info = INDEX.leagues[lg];
-  if (m === "custom") return fillWeights(info, store.get("weights_" + lg) || info.default_weights);
-  return fillWeights(info, info.modes?.[m] || info.default_weights);
 }
 
 function loadWeights(l) {
-  return modeWeights(l, store.get("mode_" + l) || "best");
-}
-
-function setMode(m) {
-  mode = m;
-  store.set("mode_" + league, m);
-  beforeSolo = null;
-  colSort = null;
-  setWeights(modeWeights(league, m), false, false);
-}
-
-const pct = (x) => (x == null ? "—" : (100 * x).toFixed(1) + "%");
-function weightText(w) {
-  return LG.factors.filter((f) => w[f.key]).sort((a, b) => w[b.key] - w[a.key]).map((f) => `${f.label} ${w[f.key]}%`).join(", ");
-}
-
-function renderModeBar() {
-  document.querySelectorAll("#mode button").forEach((b) => b.classList.toggle("active", b.dataset.mode === mode));
-  const M = LG.modes;
-  let note = "";
-  if (mode === "best") {
-    note = M ? `Weights learned from ${M.games} games, choosing whatever best predicts who wins the following week: <b>${weightText(M.best)}</b>. `
-      + `The higher-ranked team won <b>${pct(M.accuracy.best)}</b> of those games`
-      + (M.out_of_sample?.best != null ? `, and <b>${pct(M.out_of_sample.best)}</b> of ${M.out_of_sample.games} ${M.out_of_sample.tested_on} games the weights never saw.` : ".")
-      + (league === "nfl" ? " In the NFL every blend lands within a few points of the others at this sample size, so treat close spots as ties." : "")
-      : "Weights learned from results appear once enough games have been played.";
-  } else if (mode === "deserving") {
-    note = `What a team has <i>earned</i>: <b>${weightText(modeWeights(league, "deserving"))}</b>. Margin of victory and luck are left out on purpose. This list is about the wins and who they came against, not how good a team looks.`;
-  } else {
-    note = "Your own blend. Move the sliders, or pick Best teams or Most deserving to go back.";
-  }
-  $("#mode-note").innerHTML = note;
-}
-
-// Best vs. Deserving: where the two lists disagree most
-function renderDisagree() {
-  if (!DATA) return;
-  const b = composite(DATA.teams, modeWeights(league, "best")), d = composite(DATA.teams, modeWeights(league, "deserving"));
-  const dr = Object.fromEntries(d.map((t) => [t.team, t.rank]));
-  const top = league === "nfl" ? 10 : 25;
-  const rows = b.map((t) => ({ t, best: t.rank, des: dr[t.team] }));
-  const better = rows.filter((r) => r.best <= top && r.des - r.best >= 5).sort((x, y) => (y.des - y.best) - (x.des - x.best)).slice(0, 3);
-  const earned = rows.filter((r) => r.des <= top && r.best - r.des >= 5).sort((x, y) => (y.best - y.des) - (x.best - x.des)).slice(0, 3);
-  const item = (r) => `<li><a href="#" data-team="${esc(r.t.team)}">${esc(r.t.team)}</a>${profileIcon(r.t)} <span class="muted">Best #${r.best} · Deserving #${r.des}</span></li>`;
-  $("#disagree").classList.toggle("hidden", !better.length && !earned.length);
-  $("#disagree").innerHTML = `
-    <div><b>Better than their résumé</b><small class="muted">Good teams whose wins don't show it yet</small><ul>${better.map(item).join("") || '<li class="muted">None this week</li>'}</ul></div>
-    <div><b>Résumé outruns their play</b><small class="muted">Records that look better than the team</small><ul>${earned.map(item).join("") || '<li class="muted">None this week</li>'}</ul></div>`;
+  const lgInfo = INDEX.leagues[l];
+  const saved = store.get("weights_" + l);
+  return Object.fromEntries(lgInfo.factors.map((f) => [f.key, (saved && f.key in saved ? saved : lgInfo.default_weights)[f.key] ?? 0]));
 }
 
 function fillWeeks() {
@@ -259,7 +201,6 @@ async function loadWeek(force = false) {
     ? `Early season: the preseason expectation still counts like ${DATA.prior_weight} game(s) in the Power rating. It fades to zero in a few weeks.`
     : "";
   renderCotw();
-  renderDisagree();
   render();
   renderPicks();
   if (parseHash().view === "schedules") renderSchedules();
@@ -287,25 +228,15 @@ function buildSliders() {
   LG.factors.forEach((f) => {
     const el = $("#w-" + f.key);
     el.value = weights[f.key] ?? 0;
-    el.oninput = () => {
-      reverse = false; colSort = null; weights[f.key] = +el.value;
-      mode = "custom"; store.set("mode_" + league, "custom"); store.set("weights_" + league, weights);
-      showWeights(); renderModeBar(); render();
-    };
+    el.oninput = () => { reverse = false; colSort = null; weights[f.key] = +el.value; store.set("weights_" + league, weights); showWeights(); render(); };
   });
   showWeights();
 }
 
-// custom=true: this is the user's own blend (presets, Clear all); false: a mode or a temporary column sort
-function setWeights(w, rev = false, custom = true) {
+function setWeights(w, rev = false) {
   reverse = rev;
-  weights = fillWeights(LG, w);
-  if (custom) {
-    mode = "custom";
-    store.set("mode_" + league, "custom");
-    store.set("weights_" + league, weights);
-  }
-  renderModeBar();
+  weights = Object.fromEntries(LG.factors.map((f) => [f.key, (w || {})[f.key] ?? 0]));
+  store.set("weights_" + league, weights);
   LG.factors.forEach((f) => ($("#w-" + f.key).value = weights[f.key]));
   showWeights();
   if (DATA) render();
@@ -316,7 +247,7 @@ const factor = (key) => LG.factors.find((f) => f.key === key);
 // "hi" = the column's displayed value high to low (for Cupcake: most cupcakes = #1)
 function applySolo(key, dir) {
   soloDir = dir;
-  setWeights({ [key]: 100 }, dir === "lo", false);
+  setWeights({ [key]: 100 }, dir === "lo");
 }
 
 // Header clicks cycle: high to low -> low to high -> back to the previous blend
@@ -328,7 +259,7 @@ function solo(key) {
 }
 
 function restoreBlend() {
-  setWeights(beforeSolo || modeWeights(league, mode), false, false);
+  setWeights(beforeSolo || LG.default_weights);
   beforeSolo = null;
 }
 
@@ -454,10 +385,6 @@ function render() {
   }
   const rows = ordered.filter((t) => (!q || t.team.toLowerCase().includes(q)) && (!conf || t.conference === conf) && (!top || inTopFilter(t)) && (!prof || profileOf(t) === prof));
   const only = soloKey();
-  const otherMode = mode === "best" ? "deserving" : "best";
-  const otherRank = Object.fromEntries(composite(DATA.teams, modeWeights(league, otherMode)).map((t) => [t.team, t.rank]));
-  $("#other-h").textContent = otherMode === "best" ? "Best" : "Deserv.";
-  $("#other-h").title = `Rank in the ${MODES[otherMode]} list`;
   $("#table tbody").innerHTML = rows.map((t) => {
     const p = prevRank[t.team], d = p ? p - t.rank : 0, pd = pointDiff(t);
     const mv = !p ? "" : d > 0 ? `<span class="up">▲${d}</span>` : d < 0 ? `<span class="down">▼${-d}</span>` : `<span class="muted">–</span>`;
@@ -471,7 +398,6 @@ function render() {
       <td class="num">${esc(t.record)}</td>
       <td class="num diff ${pd.diff > 0 ? "up" : pd.diff < 0 ? "down" : ""}" title="${pd.pf} scored, ${pd.pa} allowed">${pd.diff > 0 ? "+" : ""}${pd.diff}</td>
       <td class="num ap">${t.ap_rank ? esc(t.ap_rank) : '<span class="muted">–</span>'}</td>
-      <td class="num other-col muted">${otherRank[t.team] ?? ""}</td>
       <td><div class="score">${t.comp.toFixed(1)}<span class="bar"><i style="width:${+t.comp || 0}%"></i></span></div></td>
       <td class="factors"><div class="chips">${chips}</div></td></tr>`;
   }).join("");
@@ -525,8 +451,6 @@ function openTeam(name) {
       <div><a id="team-page-link" class="boxlink" href="#">Roster, schedule &amp; stats →</a></div></div></div>
     ${why.length ? `<div class="why"><b>Why they're here</b><ul>${why.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
     <div class="stats">
-      <div class="stat"><small>Best teams rank</small><b>#${composite(DATA.teams, modeWeights(league, "best")).find((x) => x.team === name)?.rank ?? "–"}</b></div>
-      <div class="stat"><small>Most deserving rank</small><b>#${composite(DATA.teams, modeWeights(league, "deserving")).find((x) => x.team === name)?.rank ?? "–"}</b></div>
       <div class="stat"><small>Power rating</small><b>${t.rating > 0 ? "+" : ""}${t.rating.toFixed(1)}</b></div>
       <div class="stat"><small>Schedule rank</small><b>#${sosRank}</b></div>
       <div class="stat"><small>One-score games</small><b>${esc(t.one_score)}</b></div>

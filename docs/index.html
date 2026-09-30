@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://a.espncdn.com">
 <meta name="theme-color" content="#0f1216">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=19">
+<link rel="stylesheet" href="style.css?v=18">
 </head>
 <body>
 <header class="top">
@@ -41,7 +41,7 @@
     <aside class="weights card collapsed" id="weights">
       <div class="weights-head">
         <h2>Weights</h2>
-        <span><button id="clear" class="link">Clear all</button> · <button id="reset" class="link" title="Back to Best teams">Reset</button></span>
+        <span><button id="clear" class="link">Clear all</button> · <button id="reset" class="link">Reset</button></span>
         <button id="weights-toggle" class="btn weights-toggle" aria-expanded="false">Adjust ▾</button>
       </div>
       <div class="presets" id="presets"></div>
@@ -51,11 +51,6 @@
     </aside>
 
     <div class="board">
-      <div class="modebar">
-        <div class="seg" id="mode" role="group" aria-label="Ranking"></div>
-        <p class="note" id="mode-note"></p>
-      </div>
-      <div id="disagree" class="disagree hidden"></div>
       <div id="cotw" class="cotw hidden"></div>
       <div class="filters">
         <input id="search" type="search" placeholder="Search team…" aria-label="Search team">
@@ -69,7 +64,7 @@
           <thead><tr>
             <th class="num">#</th><th class="mv"></th><th>Team</th><th class="num sortable" data-col="record" title="Sort by record: best first, then worst first, then off">Record<span class="arrow"></span></th>
             <th class="num diff sortable" data-col="diff" title="Point differential (points scored minus allowed). Sort: best first, then worst first, then off">Diff<span class="arrow"></span></th>
-            <th class="num ap sortable" data-col="ap" title="Sort by AP rank: #1 first, then #25 first, then off">AP<span class="arrow"></span></th><th class="num other-col" id="other-h"></th><th class="score-col">Score</th><th class="factors-col" title="Click a column to sort by it (high to low), again for low to high, again to go back to your blend"></th>
+            <th class="num ap sortable" data-col="ap" title="Sort by AP rank: #1 first, then #25 first, then off">AP<span class="arrow"></span></th><th class="score-col">Score</th><th class="factors-col" title="Click a column to sort by it (high to low), again for low to high, again to go back to your blend"></th>
           </tr></thead>
           <tbody></tbody>
         </table>
@@ -111,8 +106,6 @@
       <ul id="factor-help"></ul>
       <h3>The cupcake problem (college)</h3>
       <p>Every FCS opponent is rated like a team about 25 points worse than an average FBS team, and FCS games count only 25% as much in the power rating. Margins are capped at 24 points. Beating an FCS team 70-0 proves about as much as a close loss to an average FBS team. On top of that, the Cupcake score measures how padded a schedule is <i>relative to the team playing it</i>. An opponent counts as a cupcake once they are below average and at least 14 points worse than you on a neutral field, and bigger mismatches count more. FCS opponents always count. A bad team playing other bad teams isn't padding; a top-10 team scheduling them is. A higher Cupcake score counts against a team. It only counts games already played: a cupcake still on the schedule is added once the game is final.</p>
-      <h3>Best teams vs. Most deserving</h3>
-      <p>There are two honest ways to rank teams, and they answer different questions. <b>Best teams</b> asks who would win. Its weights aren't anyone's opinion: every week they're re-learned from results, picking the blend that best predicts who wins the <i>following</i> week, and the site shows how often it's right. <b>Most deserving</b> asks who has earned it: strength of record, how hard the schedule was, and a penalty for padding. Margin of victory and luck are left out on purpose. Where the two lists disagree, you've found a team whose record is lying to you in one direction or the other.</p>
       <h3>Schedule vs. Cupcake</h3>
       <p><b>Schedule</b> asks "how hard was your road?" It's the average strength of everyone you played, and it's the same no matter how good you are. <b>Cupcake</b> asks "how much did you pad it?" It only looks at the games far below <i>your</i> level. Together they give every college team a schedule profile:</p>
       <ul>
@@ -143,7 +136,7 @@
   </div>
 </div>
 
-<script src="app.js?v=19"></script>
-<script src="live.js?v=19"></script>
+<script src="app.js?v=18"></script>
+<script src="live.js?v=18"></script>
 </body>
 </html>

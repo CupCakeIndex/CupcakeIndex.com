@@ -317,20 +317,3 @@ body[data-league="nfl"] .cfb-only { display: none !important; }
   .sp-dot img, .sp-dot span { width: 20px; height: 20px; line-height: 20px; }
   .sp-ql { font-size: 11px; }
 }
-
-/* ---------- Best / Deserving modes ---------- */
-.modebar { margin-bottom: 10px; }
-.modebar .seg { display: inline-flex; }
-.modebar .seg button { padding: 7px 14px; }
-.modebar .note { margin: 6px 0 0; line-height: 1.5; }
-.disagree { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; box-shadow: var(--shadow); }
-.disagree small { display: block; }
-.disagree ul { margin: 6px 0 0; padding-left: 18px; }
-.disagree li { margin: 3px 0; }
-.disagree a { font-weight: 700; }
-th.other-col, td.other-col { font-size: 12px; }
-@media (max-width: 640px) {
-  .other-col { display: none; }
-  .disagree { grid-template-columns: 1fr; }
-  .modebar .seg button { padding: 6px 10px; font-size: 13px; }
-}
