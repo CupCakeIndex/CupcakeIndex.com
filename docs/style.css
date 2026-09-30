@@ -418,3 +418,14 @@ body.drawer-open { overflow: hidden; }
   .cotw-logo { width: 34px; height: 34px; }
   .cotw-btn { display: none; }
 }
+
+/* schedule chart zoom/pan */
+.sp-chart { touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.sp-chart.zoomed { cursor: grab; }
+.sp-chart.dragging { cursor: grabbing; }
+.sp-chart .sp-dot { transition: none; }
+.sp-zoom { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 6; display: flex; gap: 4px; }
+.sp-zoom button { min-width: 34px; height: 30px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink);
+  font-weight: 700; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+.sp-zoom button:hover { border-color: var(--accent); }
+.sp-axis { z-index: 5; pointer-events: none; }

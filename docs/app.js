@@ -561,18 +561,106 @@ function renderSchedules() {
   const y0 = Math.min(...ys) - 12, y1 = Math.max(...ys) + 10;
   const px = (v) => ((v - x0) / (x1 - x0)) * 100, py = (v) => 100 - ((v - y0) / (y1 - y0)) * 100;
   const cx = px(HARD_SOS), cy = py(PADDED);
-  const quad = (k, l, t, w, h, pos) => `<div class="sp-q sp-${k}" style="left:${l}%;top:${t}%;width:${w}%;height:${h}%"><span class="sp-ql ${pos}">${profileBadge(k)}</span></div>`;
+  // positions are stored as 0-1 fractions; initZoom() turns them into pixels for the current zoom/pan
+  const quad = (k, l, t, w, h, pos) => `<div class="sp-q sp-${k}" data-x0="${l / 100}" data-x1="${(l + w) / 100}" data-y0="${t / 100}" data-y1="${(t + h) / 100}"><span class="sp-ql ${pos}">${profileBadge(k)}</span></div>`;
   $("#sp-chart").innerHTML = `
     ${quad("walk", 0, 0, cx, cy, "tl")}${quad("barbell", cx, 0, 100 - cx, cy, "tr")}
     ${quad("grind", 0, cy, cx, 100 - cy, "bl")}${quad("gauntlet", cx, cy, 100 - cx, 100 - cy, "br")}
     <span class="sp-axis sp-x">Schedule: harder →</span><span class="sp-axis sp-y">Cupcake: more padded →</span>
-    ${teams.map((t) => `<button class="sp-dot" data-team="${esc(t.team)}" style="left:${px(t.scores.sos)}%;top:${py(t.scores.cupcake)}%"
+    <div class="sp-zoom" role="group" aria-label="Zoom"><button data-z="in" aria-label="Zoom in">+</button><button data-z="out" aria-label="Zoom out">−</button><button data-z="reset">Reset</button></div>
+    ${teams.map((t) => `<button class="sp-dot" data-team="${esc(t.team)}" data-fx="${px(t.scores.sos) / 100}" data-fy="${py(t.scores.cupcake) / 100}"
         title="#${t.rank} ${esc(t.team)} (${esc(t.record)}) · Schedule ${Math.round(t.scores.sos)} · Cupcake ${Math.round(t.scores.cupcake)}">
         ${safeUrl(t.logo) ? `<img src="${esc(thumb(t.logo, 26))}" alt="${esc(t.team)}" width="26" height="26" loading="lazy" decoding="async">` : `<span>${esc(t.team.slice(0, 3))}</span>`}</button>`).join("")}`;
-  $("#sp-chart").onclick = (e) => { const b = e.target.closest("[data-team]"); if (b) { ranked = rankTeams(DATA.teams); openTeam(b.dataset.team); } };
+  initZoom($("#sp-chart"), (team) => { ranked = rankTeams(DATA.teams); openTeam(team); });
   const counts = Object.fromEntries(Object.keys(PROFILES).map((k) => [k, teams.filter((t) => profileOf(t) === k)]));
   $("#sp-legend").innerHTML = Object.entries(PROFILES).map(([k, p]) => `<div class="sp-leg sp-${k}">${profileBadge(k)} <span class="muted">(${counts[k].length})</span><small>${p.desc}</small>
     <small>${counts[k].slice(0, 6).map((t) => `#${t.rank} ${esc(t.team)}`).join(", ")}${counts[k].length > 6 ? "…" : ""}</small></div>`).join("");
+}
+
+// Pinch-zoom (phones), drag-to-pan, +/- buttons, double-click and Ctrl/trackpad-pinch zoom (computers).
+// Logos keep their size while the space between them stretches, so crowded clusters spread apart.
+function initZoom(el, onPick) {
+  const st = { k: 1, tx: 0, ty: 0 }, MAX = 8;
+  const W = () => el.clientWidth, H = () => el.clientHeight;
+  function layout() {
+    st.k = Math.min(MAX, Math.max(1, st.k));
+    st.tx = Math.min(0, Math.max(W() * (1 - st.k), st.tx));
+    st.ty = Math.min(0, Math.max(H() * (1 - st.k), st.ty));
+    const w = W() * st.k, h = H() * st.k;
+    el.querySelectorAll("[data-fx]").forEach((d) => { d.style.left = `${d.dataset.fx * w + st.tx}px`; d.style.top = `${d.dataset.fy * h + st.ty}px`; });
+    el.querySelectorAll("[data-x0]").forEach((q) => {
+      const x0 = q.dataset.x0 * w + st.tx, y0 = q.dataset.y0 * h + st.ty;
+      Object.assign(q.style, { left: `${x0}px`, top: `${y0}px`, width: `${(q.dataset.x1 - q.dataset.x0) * w}px`, height: `${(q.dataset.y1 - q.dataset.y0) * h}px` });
+    });
+    const zoomed = st.k > 1.01;
+    el.classList.toggle("zoomed", zoomed);
+    el.style.touchAction = zoomed ? "none" : "pan-y"; // when zoomed, one-finger drags pan the chart instead of the page
+  }
+  function zoomAt(factor, cx, cy) {
+    const k2 = Math.min(MAX, Math.max(1, st.k * factor));
+    st.tx = cx - (cx - st.tx) * (k2 / st.k);
+    st.ty = cy - (cy - st.ty) * (k2 / st.k);
+    st.k = k2;
+    layout();
+  }
+  const local = (e) => { const r = el.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+
+  const pts = new Map();
+  let pinch = null, moved = 0, downOn = null;
+  el.onpointerdown = (e) => {
+    if (e.target.closest(".sp-zoom")) return;
+    pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pts.size === 1) { moved = 0; downOn = e.target.closest("[data-team]")?.dataset.team || null; }
+    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); downOn = null; }
+    if (e.pointerType === "mouse") el.classList.add("dragging");
+  };
+  const onMove = (e) => {
+    if (!pts.has(e.pointerId)) return;
+    const prev = pts.get(e.pointerId), cur = [e.clientX, e.clientY];
+    pts.set(e.pointerId, cur);
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+      const r = el.getBoundingClientRect(), mx = (a[0] + b[0]) / 2 - r.left, my = (a[1] + b[1]) / 2 - r.top;
+      if (pinch) zoomAt(d / pinch, mx, my);
+      pinch = d;
+      e.preventDefault();
+    } else if (st.k > 1.01) {
+      st.tx += cur[0] - prev[0]; st.ty += cur[1] - prev[1];
+      moved += Math.abs(cur[0] - prev[0]) + Math.abs(cur[1] - prev[1]);
+      layout();
+      e.preventDefault();
+    } else {
+      moved += Math.abs(cur[0] - prev[0]) + Math.abs(cur[1] - prev[1]);
+    }
+  };
+  const onUp = (e) => {
+    if (!pts.has(e.pointerId)) return;
+    pts.delete(e.pointerId);
+    if (pts.size < 2) pinch = null;
+    if (!pts.size) {
+      el.classList.remove("dragging");
+      if (downOn && moved < 8 && e.type === "pointerup") onPick(downOn); // a tap/click, not a drag
+      downOn = null;
+    }
+  };
+  window.addEventListener("pointermove", onMove, { passive: false });
+  window.addEventListener("pointerup", onUp);
+  window.addEventListener("pointercancel", onUp);
+  el.onclick = (e) => e.preventDefault();
+  el.ondblclick = (e) => { const [x, y] = local(e); zoomAt(2, x, y); };
+  el.onwheel = (e) => { // Ctrl/Cmd + scroll, or a trackpad pinch (browsers report it as ctrl+wheel)
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    const [x, y] = local(e);
+    zoomAt(Math.exp(-e.deltaY * 0.01), x, y);
+  };
+  el.querySelector(".sp-zoom").onclick = (e) => {
+    const z = e.target.dataset.z;
+    if (z === "reset") { st.k = 1; st.tx = st.ty = 0; layout(); }
+    else if (z) zoomAt(z === "in" ? 1.6 : 1 / 1.6, W() / 2, H() / 2);
+  };
+  window.addEventListener("resize", layout);
+  layout();
 }
 
 // ------------------------------------------------------------------ compare vs. other systems
