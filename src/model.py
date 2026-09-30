@@ -314,6 +314,31 @@ def lines_by_game(raw_lines):
     return out
 
 
+def cupcake_of_week(games, ratings, week, cfg):
+    """The team that beat up the most on the biggest cupcake this week.
+
+    Eligible: a win by 21+ (cotw_min_margin) over an FCS team or an FBS team ranked worse than cupcake_rank.
+    Score = margin of victory + how far below an average FBS team the opponent is.
+    """
+    fbs = [t for t in ratings if t != FCS]
+    rank = {t: i + 1 for i, t in enumerate(sorted(fbs, key=lambda t: -ratings[t]))}
+    best = None
+    for x in games:
+        if not x["done"] or x["week"] != week:
+            continue
+        for home in (True, False):
+            t, o = (x["hnode"], x["anode"]) if home else (x["anode"], x["hnode"])
+            us, them = (x["hp"], x["ap"]) if home else (x["ap"], x["hp"])
+            if t == FCS or us - them < cfg.get("cotw_min_margin", 21) or not (o == FCS or rank[o] > cfg["cupcake_rank"]):
+                continue
+            score = (us - them) - ratings[o]
+            if best is None or score > best["score"]:
+                best = {"week": week, "team": t, "opp": x["away"] if home else x["home"], "fcs": o == FCS,
+                        "opp_rank": rank.get(o), "score_line": f"{us}-{them}", "margin": us - them,
+                        "score": round(score, 1), "espn_id": x["espn"]}
+    return best
+
+
 def predictions(games, ratings, week, cfg, lines=None):
     """Model picks for week+1 games vs. the sportsbooks, graded if they've been played.
 

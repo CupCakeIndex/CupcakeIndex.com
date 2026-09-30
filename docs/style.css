@@ -243,3 +243,9 @@ tr.tot td { font-weight: 700; border-top: 2px solid var(--line); }
   .player-head, .team-head { align-items: flex-start; }
   img.headshot { width: 84px; height: 62px; }
 }
+
+/* Cupcake of the Week */
+.cotw { display: flex; gap: 12px; align-items: center; background: var(--card); border: 1px solid var(--line); border-left: 5px solid #e86fa6; border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; box-shadow: var(--shadow); }
+.cotw-icon { font-size: 30px; line-height: 1; }
+.cotw a[data-team] { font-weight: 800; }
+.pill.cup-badge { background: color-mix(in srgb, #e86fa6 18%, transparent); color: #e86fa6; }

@@ -19,6 +19,7 @@ cfb:
     game_sigma: 15          # Std. dev. of a game result in points (used for win probabilities)
     recent_games: 3         # Games used for "recent form"
     cupcake_rank: 100       # FBS opponents ranked worse than this count as cupcakes
+    cotw_min_margin: 21     # Cupcake of the Week needs a win by at least this much
     benchmark_rank: 25      # Résumé = wins compared with what the #25 team would get
     prior_games: 3          # Preseason expectation counts like this many games in week 1...
     prior_fade_week: 7      # ...and fades to zero by this week

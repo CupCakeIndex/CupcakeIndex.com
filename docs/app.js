@@ -188,8 +188,20 @@ async function loadWeek(force = false) {
   $("#prior-note").textContent = DATA.prior_weight > 0
     ? `Early season: the preseason expectation still counts like ${DATA.prior_weight} game(s) in the Power rating. It fades to zero in a few weeks.`
     : "";
+  renderCotw();
   render();
   renderPicks();
+}
+
+function renderCotw() {
+  const c = DATA.cupcake_of_week;
+  $("#cotw").classList.toggle("hidden", !c);
+  if (!c) return;
+  const opp = `${esc(c.opp)} (${c.fcs ? "FCS" : "#" + esc(c.opp_rank) + " FBS"})`;
+  $("#cotw").innerHTML = `<span class="cotw-icon">🧁</span><div><b>Cupcake of the Week</b> <span class="muted">· week ${esc(c.week)}</span><br>
+    <a href="#" data-team="${esc(c.team)}">${esc(c.team)}</a> beat up on ${opp}, ${esc(c.score_line)}.
+    ${c.espn_id ? `<a class="boxlink" href="${link("game", c.espn_id)}">box score</a>` : ""}</div>`;
+  $("#cotw").querySelector("[data-team]").onclick = (e) => { e.preventDefault(); openTeam(c.team); };
 }
 
 // ------------------------------------------------------------------ weights
@@ -283,6 +295,12 @@ const logo = (t, cls = "") => safeUrl(t.logo) ? `<img src="${esc(t.logo)}" alt="
 // CFB: show only teams in the AP Top 25 (at wherever the model ranks them). NFL has no poll: model top 10.
 const inTopFilter = (t) => (document.body.classList.contains("no-ap") ? t.rank <= (league === "nfl" ? 10 : 25) : !!t.ap_rank);
 
+function cotwTag(t) {
+  const c = DATA.cupcake_of_week;
+  if (!c || c.team !== t.team) return "";
+  return ` <span class="pill cup-badge" title="Cupcake of the Week: ${esc(c.score_line)} over ${esc(c.opp)}">🧁 of the week</span>`;
+}
+
 function apTag(t) {
   if (t.ap_rank && t.rank - t.ap_rank >= 10) return `<span class="pill over" title="AP has them ${t.rank - t.ap_rank} spots higher">Overrated</span>`;
   if ((t.ap_rank && t.ap_rank - t.rank >= 10) || (!t.ap_rank && t.rank <= 15 && !document.body.classList.contains("no-ap"))) return `<span class="pill under" title="Model ranks them well above the AP poll">Underrated</span>`;
@@ -317,7 +335,7 @@ function render() {
     }).join("");
     return `<tr data-team="${esc(t.team)}">
       <td class="num rank">${t.rank}</td><td class="mv">${mv}</td>
-      <td><div class="team">${logo(t)}<div><b>${esc(t.team)}${apTag(t)}</b><small>${esc(t.conference || "")}</small></div></div></td>
+      <td><div class="team">${logo(t)}<div><b>${esc(t.team)}${cotwTag(t)}${apTag(t)}</b><small>${esc(t.conference || "")}</small></div></div></td>
       <td class="num">${esc(t.record)}</td>
       <td class="num ap">${t.ap_rank ? esc(t.ap_rank) : '<span class="muted">–</span>'}</td>
       <td><div class="score">${t.comp.toFixed(1)}<span class="bar"><i style="width:${+t.comp || 0}%"></i></span></div></td>
@@ -342,6 +360,8 @@ function whyBullets(t) {
   if (weak.length) out.push("Weaknesses: " + weak.map((x) => `${x.label.toLowerCase()} (${Math.round(x.v)})`).join(", ") + ".");
   const games = t.wins + t.losses, cups = t.fcs_games + t.weak_games;
   if (league === "cfb" && cups >= 2) out.push(`Cupcake score ${Math.round(t.scores.cupcake)}: ${cups} of ${games} games were cupcakes (${t.fcs_games} FCS, ${t.weak_games} bottom-tier FBS). Those wins barely count.`);
+  const cw = t.cotw_weeks || [];
+  if (cw.length) out.push(`🧁 Cupcake of the Week ${cw.length === 1 ? "once" : cw.length + " times"} this season (week ${cw.join(", ")}).`);
   if (t.luck_wins >= 1) out.push(`Lucky: about ${t.luck_wins.toFixed(1)} more wins than their play deserved (${t.one_score} in one-score games).`);
   if (t.luck_wins <= -1) out.push(`Unlucky: about ${(-t.luck_wins).toFixed(1)} fewer wins than their play deserved (${t.one_score} in one-score games).`);
   if (t.ap_rank && t.rank - t.ap_rank >= 10) out.push(`AP has them #${t.ap_rank}; the numbers say #${t.rank}.`);

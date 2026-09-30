@@ -47,9 +47,15 @@ def run_league(league, season, cfg_league, offline):
 
     out_dir = OUT / league / str(season)
     out_dir.mkdir(parents=True, exist_ok=True)
-    weeks, graded = [], []
+    weeks, graded, cotw_hist = [], [], {}
     for week in (range(1, last + 1) if last else [0]):
         res = model.build_week(teams, games, d["advanced"], d["polls"], week, cfg, prior)
+        cotw = model.cupcake_of_week(games, res["ratings"], week, cfg) if league == "cfb" else None
+        if cotw:
+            cotw_hist.setdefault(cotw["team"], []).append(week)
+        res["cupcake_of_week"] = cotw
+        for t in res["teams"]:
+            t["cotw_weeks"] = list(cotw_hist.get(t["team"], []))
         picks = model.predictions(games, res.pop("ratings"), week, cfg, lines)
         graded += [p for p in picks if "actual" in p]
         res.update(season=season, league=league, predictions=picks,
