@@ -8,7 +8,7 @@ from math import erf, sqrt
 
 import numpy as np
 
-FCS = "FCS"  # every non-FBS opponent is pooled into this one node
+FCS = "FCS"  # pooled non-FBS node, used only for efficiency (EPA) stats; power ratings rate FCS teams individually
 INVERTED = {"cupcake"}  # higher score = worse; the website blends these as (100 - score)
 
 FACTORS = [
@@ -68,6 +68,41 @@ def fbs_teams(raw_teams):
     return {g(t, "school"): t for t in raw_teams}
 
 
+def _norm(x, home, away):
+    hp, ap = g(x, "homePoints", "home_points"), g(x, "awayPoints", "away_points")
+    done = bool(g(x, "completed", default=hp is not None)) and hp is not None and ap is not None
+    return {
+        "id": g(x, "id"), "week": g(x, "week"), "home": home, "away": away, "hnode": home, "anode": away,
+        "hp": hp, "ap": ap, "done": done, "neutral": bool(g(x, "neutralSite", "neutral_site", default=False)),
+        "hwp": g(x, "homePostgameWinProbability", "home_post_win_prob"),
+        "start": g(x, "startDate", "start_date"),
+        "espn": g(x, "espn", default=g(x, "id")),  # CFBD game ids are ESPN ids; nflverse provides them
+        "hqb": g(x, "homeQB"), "aqb": g(x, "awayQB"), "hrest": g(x, "homeRest"), "arest": g(x, "awayRest"),
+    }
+
+
+def divisions(raw_games):
+    """Team name -> classification ('fbs', 'fcs', 'ii', 'iii'), from the games feed."""
+    div = {}
+    for x in raw_games:
+        for side in ("home", "away"):
+            name, c = g(x, side + "Team", side + "_team"), g(x, side + "Classification", side + "_classification")
+            if name and c:
+                div[name] = c
+    return div
+
+
+def rating_games(raw_games, fbs):
+    """Games used to fit power ratings: anything involving an FBS or FCS team.
+
+    FCS-vs-FCS results are what let each FCS team get its own rating instead of one pooled number.
+    """
+    div = divisions(raw_games)
+    keep = lambda n: n in fbs or div.get(n) == "fcs"
+    return [_norm(x, g(x, "homeTeam", "home_team"), g(x, "awayTeam", "away_team")) for x in raw_games
+            if keep(g(x, "homeTeam", "home_team")) or keep(g(x, "awayTeam", "away_team"))]
+
+
 def normalize_games(raw_games, fbs):
     """All regular-season games involving at least one FBS team (completed or not)."""
     out = []
@@ -75,17 +110,7 @@ def normalize_games(raw_games, fbs):
         home, away = g(x, "homeTeam", "home_team"), g(x, "awayTeam", "away_team")
         if home not in fbs and away not in fbs:
             continue
-        hp, ap = g(x, "homePoints", "home_points"), g(x, "awayPoints", "away_points")
-        done = bool(g(x, "completed", default=hp is not None)) and hp is not None and ap is not None
-        out.append({
-            "id": g(x, "id"), "week": g(x, "week"), "home": home, "away": away,
-            "hnode": home if home in fbs else FCS, "anode": away if away in fbs else FCS,
-            "hp": hp, "ap": ap, "done": done, "neutral": bool(g(x, "neutralSite", "neutral_site", default=False)),
-            "hwp": g(x, "homePostgameWinProbability", "home_post_win_prob"),
-            "start": g(x, "startDate", "start_date"),
-            "espn": g(x, "espn", default=g(x, "id")),  # CFBD game ids are ESPN ids; nflverse provides them
-            "hqb": g(x, "homeQB"), "aqb": g(x, "awayQB"), "hrest": g(x, "homeRest"), "arest": g(x, "awayRest"),
-        })
+        out.append(_norm(x, home, away))
     return out
 
 
@@ -104,11 +129,12 @@ def last_completed_week(games, done_share=0.9):
 
 # --------------------------------------------------------------------------- solver
 
-def solve(teams, rows, fixed=None, prior=None, prior_strength=0.0, ridge=0.05):
+def solve(teams, rows, fixed=None, prior=None, prior_strength=0.0, ridge=0.05, node_prior=None, node_strength=0.0):
     """Weighted least squares: rating[a] - rating[b] = value.
 
-    rows: (a, b, value, weight). `fixed` pins nodes (e.g. FCS) to a value; any other
-    node not in `teams` is solved as an extra pooled node. The FBS average is forced to 0.
+    rows: (a, b, value, weight). `fixed` pins nodes to a value. Nodes not in `teams` (FCS and lower
+    divisions) are solved too, pulled toward `node_prior` with `node_strength` (in games) so a team
+    with only a couple of results can't swing wildly. The FBS average is forced to 0.
     """
     fixed = fixed or {}
     nodes = list(teams) + sorted({n for a, b, _, _ in rows for n in (a, b)} - set(teams) - set(fixed))
@@ -125,13 +151,17 @@ def solve(teams, rows, fixed=None, prior=None, prior_strength=0.0, ridge=0.05):
         s = sqrt(w)
         A.append(r * s)
         y.append(rhs * s)
-    for n in nodes:  # ridge toward prior (or 0) keeps early-season ratings sane
+    team_set = set(teams)
+    for n in nodes:  # ridge toward a prior keeps thin-data ratings sane
         r = np.zeros(len(nodes))
-        k = ridge + (prior_strength if n in teams else 0)
+        if n in team_set:
+            strength, target = prior_strength, (prior or {}).get(n, 0.0)
+        else:
+            strength, target = (node_strength, node_prior.get(n, 0.0)) if node_prior else (0.0, 0.0)
+        k = ridge + strength
         r[idx[n]] = sqrt(k)
         A.append(r)
-        target = (prior or {}).get(n, 0.0) if n in teams else 0.0
-        y.append(sqrt(k) * target * (prior_strength / k if k else 0))
+        y.append(sqrt(k) * target * (strength / k if k else 0))
     r = np.zeros(len(nodes))
     r[: len(teams)] = 100.0 / len(teams)  # mean of FBS teams = 0
     A.append(r)
@@ -148,14 +178,30 @@ def capped_margin(x, cfg):
     return m - (0 if x["neutral"] else cfg["home_field"])
 
 
-def power_ratings(teams, games, cfg, prior=None, prior_strength=0.0):
+def power_ratings(teams, games, cfg, prior=None, prior_strength=0.0, node_prior=None):
+    """Ratings for FBS teams AND every FCS/lower-division team that appears in `games`."""
+    team_set = set(teams)
     rows = []
     for x in games:
         if not x["done"]:
             continue
-        w = cfg["fcs_game_weight"] if FCS in (x["hnode"], x["anode"]) else 1.0
+        fbs_h, fbs_a = x["hnode"] in team_set, x["anode"] in team_set
+        # FBS vs non-FBS games count less toward the FBS side; FCS vs FCS games count fully
+        w = cfg["fcs_game_weight"] if fbs_h != fbs_a else 1.0
         rows.append((x["hnode"], x["anode"], capped_margin(x, cfg), w))
-    return solve(teams, rows, fixed={FCS: cfg["fcs_rating"]}, prior=prior, prior_strength=prior_strength)
+    return solve(teams, rows, prior=prior, prior_strength=prior_strength,
+                 node_prior=node_prior, node_strength=cfg.get("fcs_prior_games", 2.0))
+
+
+def lower_div_prior(names, div, prev_ratings, cfg):
+    """Starting point for FCS/lower-division teams: last season's rating regressed toward the
+    division average (FCS: fcs_rating; D-II and below: lower_div_rating)."""
+    out = {}
+    for n in names:
+        base = cfg["fcs_rating"] if div.get(n) == "fcs" else cfg.get("lower_div_rating", cfg["fcs_rating"] - 15)
+        prev = prev_ratings.get(n)
+        out[n] = base if prev is None else 0.5 * prev + 0.5 * base
+    return out
 
 
 def efficiency_ratings(teams, advanced, fbs, week, cfg):
@@ -226,11 +272,12 @@ def to_scores(raw):
     return {t: round(float(np.clip(50 + 50 / 3 * (v - mu) / sd, 0, 100)), 1) for t, v in raw.items()}
 
 
-def build_week(fbs, games, advanced, polls, week, cfg, prior):
+def build_week(fbs, games, advanced, polls, week, cfg, prior, rgames=None, node_prior=None):
     teams = sorted(fbs)
-    played = [x for x in games if x["done"] and x["week"] <= week]
+    played = [x for x in (rgames if rgames is not None else games) if x["done"] and x["week"] <= week]
     k = prior_strength(week, cfg)
-    R = power_ratings(teams, played, cfg, prior, k)
+    R = power_ratings(teams, played, cfg, prior, k, node_prior)
+    is_low = lambda n: n not in fbs  # FCS or lower division
     rank = {t: i + 1 for i, t in enumerate(sorted(teams, key=lambda t: -R[t]))}
     ppa, sr = efficiency_ratings(teams, advanced, fbs, week, cfg)
     bench_rank = min(cfg.get("benchmark_rank", 25), len(teams)) - 1
@@ -247,12 +294,12 @@ def build_week(fbs, games, advanced, polls, week, cfg, prior):
         for x in sorted((x for x in games if t in (x["home"], x["away"])), key=lambda x: (x["week"], x["start"] or "")):
             home = x["home"] == t
             opp, onode = (x["away"], x["anode"]) if home else (x["home"], x["hnode"])
+            ro = R.get(onode, cfg["fcs_rating"])
             loc = "N" if x["neutral"] else ("H" if home else "A")
             loc_pts = 0 if x["neutral"] else (cfg["home_field"] if home else -cfg["home_field"])
-            ro = R[onode]
-            row = {"week": x["week"], "opp": opp, "fcs": onode == FCS, "loc": loc, "espn_id": x["espn"],
+            row = {"week": x["week"], "opp": opp, "fcs": is_low(onode), "loc": loc, "espn_id": x["espn"],
                    "opp_rank": rank.get(onode), "opp_rating": round(ro, 1)}
-            cw = cupcake_weight(R[t], ro, onode == FCS, cfg)
+            cw = cupcake_weight(R[t], ro, is_low(onode), cfg)
             row["cupcake"] = cw > 0
             qb = x["hqb"] if home else x["aqb"]
             if qb:
@@ -274,7 +321,7 @@ def build_week(fbs, games, advanced, polls, week, cfg, prior):
                 if abs(us - them) <= cfg["one_score"]:
                     os_w += won
                     os_l += not won
-                if onode == FCS:
+                if is_low(onode):
                     fcs_n += 1
                 elif cw > 0:
                     weak_n += 1
@@ -320,7 +367,9 @@ def build_week(fbs, games, advanced, polls, week, cfg, prior):
             "raw": {f: round(raw[f][t], 3) for f in raw},
             **detail[t],
         })
-    return {"week": week, "prior_weight": round(k, 2), "teams": out, "ratings": R}
+    low = sorted(((n, r) for n, r in R.items() if is_low(n) and n != FCS), key=lambda x: -x[1])
+    return {"week": week, "prior_weight": round(k, 2), "teams": out, "ratings": R,
+            "fcs_ratings": [[n, round(r, 1)] for n, r in low]}
 
 
 def lines_by_game(raw_lines):
@@ -336,13 +385,12 @@ def lines_by_game(raw_lines):
     return out
 
 
-def cupcake_of_week(games, ratings, week, cfg):
+def cupcake_of_week(games, ratings, week, cfg, fbs):
     """The team that beat up the most on the biggest cupcake this week.
 
     Eligible: a win by 21+ (cotw_min_margin) over an opponent that is a cupcake for the winner (see cupcake_weight).
     Score = margin of victory + how far below an average FBS team the opponent is.
     """
-    fbs = [t for t in ratings if t != FCS]
     rank = {t: i + 1 for i, t in enumerate(sorted(fbs, key=lambda t: -ratings[t]))}
     best = None
     for x in games:
@@ -351,11 +399,11 @@ def cupcake_of_week(games, ratings, week, cfg):
         for home in (True, False):
             t, o = (x["hnode"], x["anode"]) if home else (x["anode"], x["hnode"])
             us, them = (x["hp"], x["ap"]) if home else (x["ap"], x["hp"])
-            if t == FCS or us - them < cfg.get("cotw_min_margin", 21) or not cupcake_weight(ratings[t], ratings[o], o == FCS, cfg):
+            if t not in fbs or us - them < cfg.get("cotw_min_margin", 21) or not cupcake_weight(ratings[t], ratings.get(o, cfg["fcs_rating"]), o not in fbs, cfg):
                 continue
-            score = (us - them) - ratings[o]
+            score = (us - them) - ratings.get(o, cfg["fcs_rating"])
             if best is None or score > best["score"]:
-                best = {"week": week, "team": t, "opp": x["away"] if home else x["home"], "fcs": o == FCS,
+                best = {"week": week, "team": t, "opp": x["away"] if home else x["home"], "fcs": o not in fbs,
                         "opp_rank": rank.get(o), "score_line": f"{us}-{them}", "margin": us - them,
                         "score": round(score, 1), "espn_id": x["espn"]}
     return best
@@ -371,7 +419,8 @@ def predictions(games, ratings, week, cfg, lines=None):
     for x in games:
         if x["week"] != week + 1:
             continue
-        spread = (ratings[x["hnode"]] - ratings[x["anode"]] + (0 if x["neutral"] else cfg["home_field"])) * cfg.get("spread_scale", 1.0)
+        rh, ra = ratings.get(x["hnode"], cfg["fcs_rating"]), ratings.get(x["anode"], cfg["fcs_rating"])
+        spread = (rh - ra + (0 if x["neutral"] else cfg["home_field"])) * cfg.get("spread_scale", 1.0)
         p = {"week": x["week"], "home": x["home"], "away": x["away"], "espn_id": x["espn"], "spread": round(spread, 1),
              "home_win_prob": round(phi(spread / cfg["game_sigma"]), 3),
              "pick": x["home"] if spread >= 0 else x["away"]}

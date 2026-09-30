@@ -34,10 +34,17 @@ def run_league(league, season, cfg_league, offline):
     prev = src.fetch_season(season - 1, with_extras=False)
 
     prev_teams = model.fbs_teams(prev["teams"])
-    prev_R = model.power_ratings(sorted(prev_teams), model.normalize_games(prev["games"], prev_teams), cfg)
+    prev_div = model.divisions(prev["games"])
+    prev_rg = model.rating_games(prev["games"], prev_teams)
+    prev_low = {n for x in prev_rg for n in (x["hnode"], x["anode"]) if n not in prev_teams}
+    prev_R = model.power_ratings(sorted(prev_teams), prev_rg, cfg, node_prior=model.lower_div_prior(prev_low, prev_div, {}, cfg))
 
     teams = model.fbs_teams(d["teams"])
     games = model.normalize_games(d["games"], teams)
+    rgames = model.rating_games(d["games"], teams)
+    div = model.divisions(d["games"])
+    low = {n for x in rgames for n in (x["hnode"], x["anode"]) if n not in teams}
+    node_prior = model.lower_div_prior(low, div, prev_R, cfg)
     prior = model.preseason_prior(sorted(teams), prev_R, d["talent"], d["returning"])
     last = model.last_completed_week(games, cfg.get("done_share", 0.9))
     if league == "nfl" and not offline:
@@ -49,8 +56,8 @@ def run_league(league, season, cfg_league, offline):
     out_dir.mkdir(parents=True, exist_ok=True)
     weeks, graded, cotw_hist = [], [], {}
     for week in (range(1, last + 1) if last else [0]):
-        res = model.build_week(teams, games, d["advanced"], d["polls"], week, cfg, prior)
-        cotw = model.cupcake_of_week(games, res["ratings"], week, cfg) if league == "cfb" else None
+        res = model.build_week(teams, games, d["advanced"], d["polls"], week, cfg, prior, rgames, node_prior)
+        cotw = model.cupcake_of_week(games, res["ratings"], week, cfg, teams) if league == "cfb" else None
         if cotw:
             cotw_hist.setdefault(cotw["team"], []).append(week)
         res["cupcake_of_week"] = cotw

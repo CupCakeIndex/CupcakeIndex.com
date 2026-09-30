@@ -14,7 +14,9 @@ cfb:
   model:
     margin_cap: 24          # Points. A 63-0 win counts the same as a 24-0 win.
     home_field: 2.5         # Points of home-field advantage
-    fcs_rating: -25         # Rating given to every FCS/lower opponent (average FBS team = 0)
+    fcs_rating: -25         # Starting point for an FCS team with no track record (average FBS team = 0)
+    lower_div_rating: -40   # Starting point for Division II/III opponents
+    fcs_prior_games: 8      # FCS teams are pulled toward last year's rating / the FCS average like this many games (tested: 8 beat 1, 2, 4 and 16 on 2025-26 results)
     fcs_game_weight: 0.25   # FCS games count 25% as much as FBS games in the power rating
     game_sigma: 15          # Std. dev. of a game result in points (used for win probabilities)
     recent_games: 3         # Games used for "recent form"
