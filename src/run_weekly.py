@@ -15,6 +15,7 @@ import yaml
 import fetch_data
 import model
 import nfl_data
+import tune
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "data"
@@ -121,6 +122,11 @@ def main():
         weights = cfg_all[league]["default_weights"]
         L = idx["leagues"].setdefault(league, {"seasons": {}})
         L["seasons"][str(args.season)] = {"weeks": weeks, "accuracy": acc}
+        # "Best teams" weights are learned from results each run; "Most deserving" is fixed by definition
+        modes = tune.tune(league, args.season, [k for k, _, _ in model.FACTORS if k in weights], model.INVERTED, weights)
+        if modes:
+            L["modes"] = modes
+            print(f"  best-team weights (learned from {modes['games']} games): {modes['best']}")
         latest = max(L["seasons"], key=int)
         L.update(
             latest={"season": int(latest), "week": max(L["seasons"][latest]["weeks"])},
