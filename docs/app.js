@@ -397,6 +397,18 @@ const bestWinText = (g) => g ? `${g.opp_rank && !g.fcs ? "#" + g.opp_rank + " " 
 const untestedTag = (t) => isUntested(t)
   ? ` <span class="pill untested" title="No win over a top-${TESTED[league].quality} team yet. Best win: ${esc(bestWinText(bestWin(t)))}">Beaten Nobody</span>` : "";
 
+// Cupcake meter: 0-5 cupcakes from the Cupcake score (50 = average FBS schedule). 0 = no cupcakes played.
+const CUP_STEPS = [20, 40, 55, 70, 85];
+function cupMeter(t) {
+  if (league !== "cfb" || t.scores.cupcake == null || !(t.wins + t.losses)) return "";
+  const cups = t.schedule.filter((g) => g.result && g.cupcake);
+  const lvl = cups.length ? CUP_STEPS.filter((x) => t.scores.cupcake >= x).length || 1 : 0;
+  const tip = cups.length
+    ? `Cupcake meter ${lvl}/5 (score ${Math.round(t.scores.cupcake)}). Cupcakes: ${cups.map((g) => g.opp + (g.fcs ? " (FCS)" : "")).join(", ")}`
+    : "Cupcake meter 0/5: no cupcakes played yet";
+  return `<span class="cupm" title="${esc(tip)}" aria-label="${esc(tip)}">${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= lvl ? "on" : ""}">🧁</i>`).join("")}</span>`;
+}
+
 function cotwTag(t) {
   const c = DATA.cupcake_of_week;
   if (!c || c.team !== t.team) return "";
@@ -439,7 +451,7 @@ function render() {
     }).join("");
     return `<tr data-team="${esc(t.team)}">
       <td class="num rank">${t.rank}</td><td class="mv">${mv}</td>
-      <td><div class="team">${logo(t)}<div><b>${t.ap_rank ? `<span class="ap-rk" title="AP Poll rank">${esc(t.ap_rank)}</span> ` : ""}${esc(t.team)}${profileIcon(t)}${cotwTag(t)}${blended ? untestedTag(t) + apTag(t) : ""}</b><small>${esc(t.conference || "")}</small></div></div></td>
+      <td><div class="team">${logo(t)}<div><b>${t.ap_rank ? `<span class="ap-rk" title="AP Poll rank">${esc(t.ap_rank)}</span> ` : ""}${esc(t.team)}${profileIcon(t)}${cotwTag(t)}${blended ? untestedTag(t) + apTag(t) : ""}</b><small>${esc(t.conference || "")}</small>${cupMeter(t)}</div></div></td>
       <td class="num">${esc(t.record)}</td>
       <td class="num diff ${pd.diff > 0 ? "up" : pd.diff < 0 ? "down" : ""}" title="${pd.pf} scored, ${pd.pa} allowed">${pd.diff > 0 ? "+" : ""}${pd.diff}</td>
       <td class="num ap">${t.ap_rank ? esc(t.ap_rank) : '<span class="muted">–</span>'}</td>

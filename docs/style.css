@@ -343,3 +343,9 @@ body.drawer-open { overflow: hidden; }
 .disagree a { font-weight: 700; }
 @media (max-width: 640px) { .disagree { grid-template-columns: 1fr; } }
 .team .ap-rk { font-size: 11px; margin-right: 2px; }
+
+/* cupcake meter */
+.cupm { display: flex; gap: 1px; margin-top: 3px; cursor: help; line-height: 1; }
+.cupm i { font-style: normal; font-size: 11px; filter: grayscale(1); opacity: .22; }
+.cupm i.on { filter: none; opacity: 1; }
+@media (max-width: 640px) { .cupm { display: flex; } .cupm i { font-size: 10px; } }
