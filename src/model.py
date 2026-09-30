@@ -390,7 +390,8 @@ def lines_by_game(raw_lines):
 def cupcake_of_week(games, ratings, week, cfg, fbs):
     """The team that beat up the most on the biggest cupcake this week.
 
-    Eligible: a win by 21+ (cotw_min_margin) over an opponent that is a cupcake for the winner (see cupcake_weight).
+    Eligible: a win by 21+ (cotw_min_margin) over an opponent that is a cupcake for the winner (see cupcake_weight),
+    and at least cotw_min_gap rating points worse than the winner (a real mismatch, not two bad teams).
     Score = margin of victory + how far below an average FBS team the opponent is.
     """
     rank = {t: i + 1 for i, t in enumerate(sorted(fbs, key=lambda t: -ratings[t]))}
@@ -402,6 +403,8 @@ def cupcake_of_week(games, ratings, week, cfg, fbs):
             t, o = (x["hnode"], x["anode"]) if home else (x["anode"], x["hnode"])
             us, them = (x["hp"], x["ap"]) if home else (x["ap"], x["hp"])
             if t not in fbs or us - them < cfg.get("cotw_min_margin", 21) or not cupcake_weight(ratings[t], ratings.get(o, cfg["fcs_rating"]), o not in fbs, cfg):
+                continue
+            if ratings[t] - ratings.get(o, cfg["fcs_rating"]) < cfg.get("cotw_min_gap", 0):
                 continue
             score = (us - them) - ratings.get(o, cfg["fcs_rating"])
             if best is None or score > best["score"]:

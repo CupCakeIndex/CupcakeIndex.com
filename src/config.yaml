@@ -54,7 +54,8 @@ nfl:
     cupcake_gap: 0          # Any below-average opponent worse than you counts a little...
     cupcake_span: 14        # ...scaling up to full credit at 14+ points worse
     cupcake_max_opp: 0      # ...and only if they're below an average NFL team
-    cotw_min_margin: 17     # Cupcake Bully of the Week needs a win by at least this much
+    cotw_min_margin: 17     # Cupcake Bully of the Week needs a win by at least this much...
+    cotw_min_gap: 7         # ...over a team at least this many points worse than the winner (a real mismatch)
     prior_games: 3
     prior_fade_week: 6
     one_score: 8
