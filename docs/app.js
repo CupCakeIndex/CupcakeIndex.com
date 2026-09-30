@@ -378,6 +378,23 @@ const profileIcon = (t) => {
   return k ? ` <span class="prof" title="Schedule profile: ${PROFILES[k].name}. ${PROFILES[k].desc}">${PROFILES[k].icon}</span>` : "";
 };
 
+// "Best win" receipt: the highest-ranked opponent a team has beaten (FBS/NFL rank from the power ratings)
+const TESTED = { cfb: { top: 25, quality: 40 }, nfl: { top: 10, quality: 16 } };
+function bestWin(t) {
+  const wins = t.schedule.filter((g) => g.result === "W");
+  const ranked = wins.filter((g) => g.opp_rank && !g.fcs).sort((a, b) => a.opp_rank - b.opp_rank);
+  return ranked[0] || wins[0] || null;
+}
+function isUntested(t) {
+  const q = TESTED[league];
+  if (!q || t.rank > q.top || !(t.wins + t.losses)) return false;
+  const b = bestWin(t);
+  return !b || !b.opp_rank || b.fcs || b.opp_rank > q.quality;
+}
+const bestWinText = (g) => g ? `${g.opp_rank && !g.fcs ? "#" + g.opp_rank + " " : ""}${g.opp}${g.fcs ? " (FCS)" : ""}, ${g.score}` : "none yet";
+const untestedTag = (t) => isUntested(t)
+  ? ` <span class="pill untested" title="No win over a top-${TESTED[league].quality} team yet. Best win: ${esc(bestWinText(bestWin(t)))}">Untested</span>` : "";
+
 function cotwTag(t) {
   const c = DATA.cupcake_of_week;
   if (!c || c.team !== t.team) return "";
@@ -418,7 +435,7 @@ function render() {
     }).join("");
     return `<tr data-team="${esc(t.team)}">
       <td class="num rank">${t.rank}</td><td class="mv">${mv}</td>
-      <td><div class="team">${logo(t)}<div><b>${esc(t.team)}${profileIcon(t)}${cotwTag(t)}${apTag(t)}</b><small>${esc(t.conference || "")}</small></div></div></td>
+      <td><div class="team">${logo(t)}<div><b>${esc(t.team)}${profileIcon(t)}${cotwTag(t)}${untestedTag(t)}${apTag(t)}</b><small>${esc(t.conference || "")}</small></div></div></td>
       <td class="num">${esc(t.record)}</td>
       <td class="num diff ${pd.diff > 0 ? "up" : pd.diff < 0 ? "down" : ""}" title="${pd.pf} scored, ${pd.pa} allowed">${pd.diff > 0 ? "+" : ""}${pd.diff}</td>
       <td class="num ap">${t.ap_rank ? esc(t.ap_rank) : '<span class="muted">–</span>'}</td>
@@ -444,6 +461,7 @@ function whyBullets(t) {
   if (weak.length) out.push("Weaknesses: " + weak.map((x) => `${x.label.toLowerCase()} (${Math.round(x.v)})`).join(", ") + ".");
   const games = t.wins + t.losses, cups = t.fcs_games + t.weak_games;
   if (league === "cfb" && cups >= 2) out.push(`Cupcake score ${Math.round(t.scores.cupcake)}: ${cups} of ${games} games were cupcakes for a team this good (${t.fcs_games} FCS, ${t.weak_games} FBS teams far below them). Those wins barely count.`);
+  if (isUntested(t)) out.push(`Untested: no win over a top-${TESTED[league].quality} team yet. Best win: ${bestWinText(bestWin(t))}.`);
   const cw = t.cotw_weeks || [];
   if (cw.length) out.push(`🧁 Cupcake of the Week ${cw.length === 1 ? "once" : cw.length + " times"} this season (week ${cw.join(", ")}).`);
   if (t.luck_wins >= 1) out.push(`Lucky: about ${t.luck_wins.toFixed(1)} more wins than their play deserved (${t.one_score} in one-score games).`);
@@ -475,6 +493,7 @@ function openTeam(name) {
       <div><a id="team-page-link" class="boxlink" href="#">Roster, schedule &amp; stats →</a></div></div></div>
     ${why.length ? `<div class="why"><b>Why they're here</b><ul>${why.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
     <div class="stats">
+      <div class="stat wide-stat"><small>Best win</small><b>${esc(bestWinText(bestWin(t)))}</b></div>
       <div class="stat"><small>Power rating</small><b>${t.rating > 0 ? "+" : ""}${t.rating.toFixed(1)}</b></div>
       <div class="stat"><small>Schedule rank</small><b>#${sosRank}</b></div>
       <div class="stat"><small>One-score games</small><b>${esc(t.one_score)}</b></div>
