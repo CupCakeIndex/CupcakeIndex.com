@@ -198,7 +198,7 @@ const Live = (() => {
       ${st === "in" && s.situation?.lastPlay?.text ? `<p class="note">Last play: ${esc(s.situation.lastPlay.text)}</p>` : ""}
     </div>`;
 
-    const blocks = [];
+    const col = { left: [], right: [], full: [] }; // two independent columns so short cards never leave gaps
     // highlights: official YouTube video (found by the weekly job) + ESPN's own clips (open on ESPN)
     const hlAll = await getJSON(`data/${lg}/${season}/highlights.json`).catch(() => ({}));
     if (my !== token) return;
@@ -206,7 +206,7 @@ const Live = (() => {
     const clips = (s.videos || []).filter((v) => v.links?.web?.href).slice(0, 8);
     if (yt?.id || clips.length) {
       const mmss = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
-      blocks.push(`<div class="card wide"><h3>Highlights</h3>
+      col.left.push(`<div class="card"><h3>Highlights</h3>
         ${yt?.id ? `<div class="yt"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(yt.id)}" title="${esc(yt.title || "Game highlights")}"
             allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy"></iframe></div>
           <p class="note">${esc(yt.title || "")} · ${esc(yt.channel || "YouTube")}</p>` : ""}
@@ -219,16 +219,16 @@ const Live = (() => {
     // odds + model
     const pc = s.pickcenter || [];
     if (pc.length || pred) {
-      blocks.push(`<div class="card"><h3>Lines</h3><div class="books">
+      col.left.push(`<div class="card"><h3>Lines</h3><div class="books">
         ${pc.map((o) => `<span class="book">${esc(o.provider?.name || "Book")}: ${esc(o.details || "—")}${o.overUnder ? ` · O/U ${esc(o.overUnder)}` : ""}</span>`).join("")}
         ${pred ? `<span class="book hot">Cupcake Index model: ${lineText(pred, pred.spread)}</span>` : ""}</div></div>`);
     }
     // win probability
     const wp = s.winprobability || [];
-    if (wp.length > 2) blocks.push(`<div class="card"><h3>Win probability</h3>${wpChart(wp, away, home)}</div>`);
+    if (wp.length > 2) col.right.push(`<div class="card"><h3>Win probability</h3>${wpChart(wp, away, home)}</div>`);
     // leaders
     if (s.leaders?.length && st !== "pre") {
-      blocks.push(`<div class="card"><h3>Game leaders</h3><div class="leaders">${s.leaders.map((tl) => `<div><b>${esc(tl.team?.abbreviation || "")}</b>${(tl.leaders || []).map((cat) => {
+      col.left.push(`<div class="card"><h3>Game leaders</h3><div class="leaders">${s.leaders.map((tl) => `<div><b>${esc(tl.team?.abbreviation || "")}</b>${(tl.leaders || []).map((cat) => {
         const L = cat.leaders?.[0];
         return L ? `<div class="leader"><small class="muted">${esc(cat.displayName)}</small> <a href="${link("player", L.athlete.id)}">${esc(L.athlete.displayName)}</a> <span class="muted">${esc(L.displayValue)}</span></div>` : "";
       }).join("")}</div>`).join("")}</div></div>`);
@@ -238,14 +238,14 @@ const Live = (() => {
     if (bt.length === 2 && bt[0].statistics?.length) {
       const byId = Object.fromEntries(bt.map((t) => [t.team.id, t]));
       const A = byId[away.team.id] || bt[0], H = byId[home.team.id] || bt[1];
-      blocks.push(`<div class="card"><h3>Team stats</h3><table class="teamstats"><thead><tr><th></th><th class="num">${esc(away.team.abbreviation)}</th><th class="num">${esc(home.team.abbreviation)}</th></tr></thead><tbody>
+      col.right.push(`<div class="card"><h3>Team stats</h3><table class="teamstats"><thead><tr><th></th><th class="num">${esc(away.team.abbreviation)}</th><th class="num">${esc(home.team.abbreviation)}</th></tr></thead><tbody>
         ${A.statistics.map((x, i) => `<tr><td>${esc(x.label)}</td><td class="num">${esc(x.displayValue)}</td><td class="num">${esc(H.statistics[i]?.displayValue ?? "")}</td></tr>`).join("")}</tbody></table></div>`);
     }
     // player box score
     const bp = s.boxscore?.players || [];
     if (bp.length) {
       const cats = [...new Set(bp.flatMap((t) => t.statistics.map((x) => x.name)))];
-      blocks.push(`<div class="card"><h3>Box score</h3>${cats.map((cn) => `<h4>${esc(CAT_NAME[cn] || cn)}</h4><div class="box-pair">${bp.map((t) => {
+      col.full.push(`<div class="card"><h3>Box score</h3>${cats.map((cn) => `<h4>${esc(CAT_NAME[cn] || cn)}</h4><div class="box-pair">${bp.map((t) => {
         const cat = t.statistics.find((x) => x.name === cn);
         if (!cat || !cat.athletes?.length) return `<div></div>`;
         return `<div class="table-wrap"><table class="box"><thead><tr><th>${esc(t.team.abbreviation)}</th>${cat.labels.map((l) => `<th class="num">${esc(l)}</th>`).join("")}</tr></thead><tbody>
@@ -256,17 +256,17 @@ const Live = (() => {
     // scoring plays
     const sp = s.scoringPlays || [];
     if (sp.length) {
-      blocks.push(`<div class="card"><h3>Scoring plays</h3><table class="plays"><tbody>${sp.map((p) => `<tr>
+      col.right.push(`<div class="card"><h3>Scoring plays</h3><table class="plays"><tbody>${sp.map((p) => `<tr>
         <td class="muted">Q${esc(p.period?.number)} ${esc(p.clock?.displayValue || "")}</td><td>${img(p.team?.logo, "sm")}</td>
         <td><b>${esc(p.type?.abbreviation || "")}</b> ${esc(p.text)}</td><td class="num">${esc(p.awayScore)}-${esc(p.homeScore)}</td></tr>`).join("")}</tbody></table></div>`);
     }
     // injuries (mostly useful before kickoff)
     const inj = (s.injuries || []).filter((t) => t.injuries?.length);
     if (inj.length && st !== "post") {
-      blocks.push(`<div class="card"><h3>Injuries</h3><div class="box-pair">${inj.map((t) => `<div><b>${esc(t.team?.displayName || "")}</b><ul class="inj">${t.injuries.slice(0, 15).map((i) =>
+      col.right.push(`<div class="card"><h3>Injuries</h3><div class="box-pair">${inj.map((t) => `<div><b>${esc(t.team?.displayName || "")}</b><ul class="inj">${t.injuries.slice(0, 15).map((i) =>
         `<li><a href="${link("player", i.athlete?.id)}">${esc(i.athlete?.displayName)}</a> <span class="muted">${esc(i.athlete?.position?.abbreviation || "")}</span> <span class="pill over">${esc(i.status)}</span></li>`).join("")}</ul></div>`).join("")}</div></div>`);
     }
-    view("game").innerHTML = `<p><a href="${link("scores")}" class="boxlink">← Scores</a></p>${head}<div class="game-grid">${blocks.join("")}</div>`;
+    view("game").innerHTML = `<p><a href="${link("scores")}" class="boxlink">← Scores</a></p>${head}<div class="game-cols"><div class="gcol">${col.left.join("")}</div><div class="gcol">${col.right.join("")}</div></div>${col.full.join("")}`;
     if (wp.length > 2) initWp(wp, s, away, home);
     if (st === "in") poll((r) => game(id, params, r), 20000);
   }

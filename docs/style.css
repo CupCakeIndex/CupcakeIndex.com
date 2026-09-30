@@ -464,3 +464,11 @@ body.drawer-open { overflow: hidden; }
 .tmeta .cupm { flex: none; width: 63px; }
 .tmeta small { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 body[data-league="nfl"] .tmeta .cupm { display: none; }
+
+/* game page: two independent columns + full-width box score */
+.game-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; margin-top: 12px; }
+.gcol { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.gcol > .card { margin: 0 !important; }
+#view-game > .card:last-child { margin-top: 12px; }
+.gcol .clips { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+@media (max-width: 760px) { .game-cols { grid-template-columns: 1fr; } }
