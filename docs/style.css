@@ -349,3 +349,26 @@ body.drawer-open { overflow: hidden; }
 .cupm i { font-style: normal; font-size: 11px; filter: grayscale(1); opacity: .22; }
 .cupm i.on { filter: none; opacity: 1; }
 @media (max-width: 640px) { .cupm { display: flex; } .cupm i { font-size: 10px; } }
+
+/* ---------- broadcast-style badges & meter (replaces emoji) ---------- */
+.prof-badge { display: inline-block; font-family: "Barlow Condensed", Inter, sans-serif; font-weight: 700; font-size: 11px; letter-spacing: .06em;
+  line-height: 1; padding: 3px 6px 2px; border: 1.5px solid currentColor; border-radius: 3px; vertical-align: 2px; white-space: nowrap; cursor: help; }
+.prof-gauntlet { color: #2fa866; }
+.prof-barbell { color: #d9962b; }
+.prof-grind { color: var(--muted); }
+.prof-walk { color: #e0527a; }
+.stat .prof-badge { font-size: 13px; }
+.sp-ql .prof-badge { font-size: 13px; background: var(--card); }
+.sp-leg .prof-badge { font-size: 13px; }
+.prose li .prof-badge { margin-right: 6px; }
+.prof { display: none; }
+
+.cupm { display: flex; align-items: center; gap: 2px; margin-top: 4px; cursor: help; line-height: 1; --c: var(--good); }
+.cupm em { font-style: normal; font-family: "Barlow Condensed", Inter, sans-serif; font-weight: 700; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
+.cupm i { width: 11px; height: 6px; border-radius: 1px; background: var(--line); }
+.cupm i.on { background: var(--c); }
+.cupm.lvl1 { --c: #2fa866; } .cupm.lvl2 { --c: #8fbf3a; } .cupm.lvl3 { --c: #d9b32b; } .cupm.lvl4 { --c: #e0782b; } .cupm.lvl5 { --c: #e0443a; }
+
+.cotw-icon { font-family: "Barlow Condensed", Inter, sans-serif; font-weight: 700; font-size: 15px; letter-spacing: .08em; line-height: 1;
+  color: #fff; background: #e0527a; padding: 8px 9px 7px; border-radius: 4px; }
+.pill.cup-badge { font-family: "Barlow Condensed", Inter, sans-serif; letter-spacing: .06em; background: #e0527a; color: #fff; }

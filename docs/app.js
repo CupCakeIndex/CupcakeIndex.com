@@ -140,7 +140,7 @@ function setLeague(l) {
   store.set("league", l);
   document.querySelectorAll("#league button").forEach((b) => b.classList.toggle("active", b.dataset.league === l));
   document.body.dataset.league = l;
-  $("#profile").innerHTML = `<option value="">All schedule profiles</option>` + Object.entries(PROFILES).map(([k, p]) => `<option value="${k}">${p.icon} ${p.name}</option>`).join("");
+  $("#profile").innerHTML = `<option value="">All schedule profiles</option>` + Object.entries(PROFILES).map(([k, p]) => `<option value="${k}">${p.name}</option>`).join("");
   $("#league-tag").textContent = LEAGUE_NAME[l] || l;
   document.querySelectorAll("#nav .tab").forEach((a) => (a.href = link(a.dataset.view)));
   $("#notes-link").href = link("updates");
@@ -235,7 +235,7 @@ function renderCotw() {
   $("#cotw").classList.toggle("hidden", !c);
   if (!c) return;
   const opp = `${esc(c.opp)} (${c.fcs ? "FCS" : "#" + esc(c.opp_rank) + " FBS"})`;
-  $("#cotw").innerHTML = `<span class="cotw-icon">🧁</span><div><b>Cupcake of the Week</b> <span class="muted">· week ${esc(c.week)}</span><br>
+  $("#cotw").innerHTML = `<span class="cotw-icon">COTW</span><div><b>Cupcake of the Week</b> <span class="muted">· week ${esc(c.week)}</span><br>
     <a href="#" data-team="${esc(c.team)}">${esc(c.team)}</a> beat up on ${opp}, ${esc(c.score_line)}.
     ${c.espn_id ? `<a class="boxlink" href="${link("game", c.espn_id)}">box score</a>` : ""}</div>`;
   $("#cotw").querySelector("[data-team]").onclick = (e) => { e.preventDefault(); openTeam(c.team); };
@@ -364,10 +364,10 @@ function pointDiff(t) {
 
 // Schedule profile: Schedule (how hard was your road?) x Cupcake (how much did you pad it?)
 const PROFILES = {
-  gauntlet: { icon: "🛡️", name: "Gauntlet", desc: "Hard schedule, no fluff." },
-  barbell: { icon: "🏋️", name: "Barbell", desc: "Hard schedule, but padded with cupcakes too." },
-  grind: { icon: "⚙️", name: "Honest Grind", desc: "Easier schedule, but no padding. They played their peers." },
-  walk: { icon: "🧁", name: "Cupcake Walk", desc: "Easy schedule and padded. The records to be most skeptical of." },
+  gauntlet: { badge: "GAUNTLET", name: "Gauntlet", desc: "Hard schedule, no fluff." },
+  barbell: { badge: "BARBELL", name: "Barbell", desc: "Hard schedule, but padded with cupcakes too." },
+  grind: { badge: "GRIND", name: "Honest Grind", desc: "Easier schedule, but no padding. They played their peers." },
+  walk: { badge: "CUPCAKE WALK", name: "Cupcake Walk", desc: "Easy schedule and padded. The records to be most skeptical of." },
 };
 const HARD_SOS = 55, PADDED = 60; // score thresholds (50 = average)
 function profileOf(t) {
@@ -375,9 +375,10 @@ function profileOf(t) {
   const hard = t.scores.sos >= HARD_SOS, padded = t.scores.cupcake >= PADDED;
   return hard ? (padded ? "barbell" : "gauntlet") : padded ? "walk" : "grind";
 }
+const profileBadge = (k) => `<span class="prof-badge prof-${k}" title="Schedule profile: ${PROFILES[k].name}. ${PROFILES[k].desc}">${PROFILES[k].badge}</span>`;
 const profileIcon = (t) => {
   const k = profileOf(t);
-  return k ? ` <span class="prof" title="Schedule profile: ${PROFILES[k].name}. ${PROFILES[k].desc}">${PROFILES[k].icon}</span>` : "";
+  return k ? ` ${profileBadge(k)}` : "";
 };
 
 // "Best win" receipt: the highest-ranked opponent a team has beaten (FBS/NFL rank from the power ratings)
@@ -406,13 +407,13 @@ function cupMeter(t) {
   const tip = cups.length
     ? `Cupcake meter ${lvl}/5 (score ${Math.round(t.scores.cupcake)}). Cupcakes: ${cups.map((g) => g.opp + (g.fcs ? " (FCS)" : "")).join(", ")}`
     : "Cupcake meter 0/5: no cupcakes played yet";
-  return `<span class="cupm" title="${esc(tip)}" aria-label="${esc(tip)}">${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= lvl ? "on" : ""}">🧁</i>`).join("")}</span>`;
+  return `<span class="cupm lvl${lvl}" title="${esc(tip)}" aria-label="${esc(tip)}"><em>Padding</em>${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= lvl ? "on" : ""}"></i>`).join("")}</span>`;
 }
 
 function cotwTag(t) {
   const c = DATA.cupcake_of_week;
   if (!c || c.team !== t.team) return "";
-  return ` <span class="pill cup-badge" title="Cupcake of the Week: ${esc(c.score_line)} over ${esc(c.opp)}">🧁 of the week</span>`;
+  return ` <span class="pill cup-badge" title="Cupcake of the Week: ${esc(c.score_line)} over ${esc(c.opp)}">COTW</span>`;
 }
 
 function apTag(t) {
@@ -479,7 +480,7 @@ function whyBullets(t) {
   if (league === "cfb" && cups >= 2) out.push(`Cupcake score ${Math.round(t.scores.cupcake)}: ${cups} of ${games} games were cupcakes for a team this good (${t.fcs_games} FCS, ${t.weak_games} FBS teams far below them). Those wins barely count.`);
   if (isUntested(t)) out.push(`Beaten Nobody: no win over a top-${TESTED[league].quality} team yet. Best win: ${bestWinText(bestWin(t))}.`);
   const cw = t.cotw_weeks || [];
-  if (cw.length) out.push(`🧁 Cupcake of the Week ${cw.length === 1 ? "once" : cw.length + " times"} this season (week ${cw.join(", ")}).`);
+  if (cw.length) out.push(`Cupcake of the Week ${cw.length === 1 ? "once" : cw.length + " times"} this season (week ${cw.join(", ")}).`);
   if (t.luck_wins >= 1) out.push(`Lucky: about ${t.luck_wins.toFixed(1)} more wins than their play deserved (${t.one_score} in one-score games).`);
   if (t.luck_wins <= -1) out.push(`Unlucky: about ${(-t.luck_wins).toFixed(1)} fewer wins than their play deserved (${t.one_score} in one-score games).`);
   if (t.ap_rank && t.rank - t.ap_rank >= 10) out.push(`AP has them #${t.ap_rank}; the numbers say #${t.rank}.`);
@@ -516,7 +517,7 @@ function openTeam(name) {
       <div class="stat"><small>Wins vs. deserved</small><b>${t.luck_wins > 0 ? "+" : ""}${t.luck_wins.toFixed(1)}</b></div>
       ${nfl ? `<div class="stat"><small>Main starting QB</small><b>${esc(t.usual_qb || "—")}</b></div>`
             : `<div class="stat"><small>FCS games</small><b>${esc(t.fcs_games)}</b></div><div class="stat"><small>FBS mismatches</small><b>${esc(t.weak_games)}</b></div>`}
-      ${!nfl && profileOf(t) ? `<div class="stat wide-stat"><small>Schedule profile</small><b>${PROFILES[profileOf(t)].icon} ${PROFILES[profileOf(t)].name}</b><small class="muted">${PROFILES[profileOf(t)].desc} <a href="${link("schedules")}">See all →</a></small></div>` : ""}
+      ${!nfl && profileOf(t) ? `<div class="stat wide-stat"><small>Schedule profile</small><b>${profileBadge(profileOf(t))}</b><small class="muted">${PROFILES[profileOf(t)].desc} <a href="${link("schedules")}">See all →</a></small></div>` : ""}
     </div>
     <h3>Factor scores</h3>
     ${LG.factors.map((f) => `<div class="frow" title="${esc(f.help)}"><span>${esc(f.label)}</span><span class="bar${f.invert ? " inv" : ""}"><i style="width:${+t.scores[f.key] || 0}%"></i></span><b class="num">${Math.round(t.scores[f.key])}</b></div>`).join("")}
@@ -550,7 +551,7 @@ function renderSchedules() {
   const y0 = Math.min(...ys) - 12, y1 = Math.max(...ys) + 10;
   const px = (v) => ((v - x0) / (x1 - x0)) * 100, py = (v) => 100 - ((v - y0) / (y1 - y0)) * 100;
   const cx = px(HARD_SOS), cy = py(PADDED);
-  const quad = (k, l, t, w, h, pos) => `<div class="sp-q sp-${k}" style="left:${l}%;top:${t}%;width:${w}%;height:${h}%"><span class="sp-ql ${pos}">${PROFILES[k].icon} ${PROFILES[k].name}</span></div>`;
+  const quad = (k, l, t, w, h, pos) => `<div class="sp-q sp-${k}" style="left:${l}%;top:${t}%;width:${w}%;height:${h}%"><span class="sp-ql ${pos}">${profileBadge(k)}</span></div>`;
   $("#sp-chart").innerHTML = `
     ${quad("walk", 0, 0, cx, cy, "tl")}${quad("barbell", cx, 0, 100 - cx, cy, "tr")}
     ${quad("grind", 0, cy, cx, 100 - cy, "bl")}${quad("gauntlet", cx, cy, 100 - cx, 100 - cy, "br")}
@@ -560,7 +561,7 @@ function renderSchedules() {
         ${safeUrl(t.logo) ? `<img src="${esc(thumb(t.logo, 26))}" alt="${esc(t.team)}" width="26" height="26" loading="lazy" decoding="async">` : `<span>${esc(t.team.slice(0, 3))}</span>`}</button>`).join("")}`;
   $("#sp-chart").onclick = (e) => { const b = e.target.closest("[data-team]"); if (b) { ranked = rankTeams(DATA.teams); openTeam(b.dataset.team); } };
   const counts = Object.fromEntries(Object.keys(PROFILES).map((k) => [k, teams.filter((t) => profileOf(t) === k)]));
-  $("#sp-legend").innerHTML = Object.entries(PROFILES).map(([k, p]) => `<div class="sp-leg sp-${k}"><b>${p.icon} ${p.name}</b> <span class="muted">(${counts[k].length})</span><small>${p.desc}</small>
+  $("#sp-legend").innerHTML = Object.entries(PROFILES).map(([k, p]) => `<div class="sp-leg sp-${k}">${profileBadge(k)} <span class="muted">(${counts[k].length})</span><small>${p.desc}</small>
     <small>${counts[k].slice(0, 6).map((t) => `#${t.rank} ${esc(t.team)}`).join(", ")}${counts[k].length > 6 ? "…" : ""}</small></div>`).join("");
 }
 
