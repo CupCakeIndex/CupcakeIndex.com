@@ -628,15 +628,15 @@ body, button, select, input { font-family: "JetBrains Mono", ui-monospace, monos
 h1 { font-size: 26px; letter-spacing: -.02em; }
 /* header logo: monoline cupcake mark (ink = text color, laces = accent) + CUPCAKE_INDEX wordmark */
 .logo { display: inline-flex; align-items: center; gap: 10px; vertical-align: middle; }
-.logo-mark { width: 36px; height: 36px; flex: none; }
-.logo-mark .ink { stroke: currentColor; stroke-width: 2; }
-.logo-mark .acc { stroke: var(--accent); stroke-width: 1.6; }
+.logo-mark { height: 40px; width: auto; aspect-ratio: 217 / 304; flex: none; }
+.logo-mark .ink { fill: currentColor; }
+.logo-mark .acc { fill: var(--accent); }
 #brand { font-weight: 800; letter-spacing: -.03em; }
 #brand b { color: var(--accent); font-weight: inherit; }
 @media (max-width: 640px) {
   h1 { font-size: 21px; }
   .logo { gap: 7px; }
-  .logo-mark { width: 29px; height: 29px; }
+  .logo-mark { height: 33px; width: auto; }
 }
 .tag { background: transparent; color: var(--accent); border: 1px solid var(--accent); border-radius: 0; }
 .tab { text-transform: uppercase; font-size: 12px; letter-spacing: .06em; }
