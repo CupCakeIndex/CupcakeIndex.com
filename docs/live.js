@@ -636,9 +636,12 @@ const Live = (() => {
       const official = PC?.career?.[metric];
       return { p, color: CMP_COLORS[i], rows, total: official != null ? official : rows.reduce((a, r) => a + r.v, 0).toLocaleString() };
     });
-    const xs = [...new Set(series.flatMap((s) => s.rows.map((r) => r.x)))].sort((a, b) => a - b);
+    const allXs = [...new Set(series.flatMap((s) => s.rows.map((r) => r.x)))].sort((a, b) => a - b);
+    const zFrom = +st.from || -Infinity, zTo = +st.to || Infinity;
+    const zoomed = allXs.filter((x) => x >= zFrom && x <= zTo);
+    const xs = zoomed.length >= 2 ? zoomed : allXs, isZoomed = xs.length < allXs.length, inView = new Set(xs);
     const benchAt = (x) => (bench && align === "season" ? bench.get(x) : undefined);
-    const max = Math.max(1, ...series.flatMap((s) => s.rows.map((r) => r.v)), ...xs.map(benchAt).filter((v) => v != null));
+    const max = Math.max(1, ...series.flatMap((s) => s.rows.filter((r) => inView.has(r.x)).map((r) => r.v)), ...xs.map(benchAt).filter((v) => v != null));
     // line chart (SVG): one line per player, a dot on each season; the line breaks over seasons with no stats
     const W = 720, H = 230, padL = 46, padR = 14, top = 18, base = H - 22;
     const gw = (W - padL - padR) / Math.max(1, xs.length), px = (gi) => padL + gi * gw + gw / 2, py = (v) => base - (Math.max(0, v) / max) * (base - top);
@@ -669,10 +672,22 @@ const Live = (() => {
       }).join("");
       return `<path d="${d}" stroke="${sr.color}" class="cc-line" pathLength="1" style="animation-delay:${si * 0.15}s"/>${dots}`;
     }).join("");
-    const chart = `<div class="cc-box" id="cc-box"><svg viewBox="0 0 ${W} ${H}" class="cc-chart" role="img" aria-label="${esc(C.labels[metric])} by ${align === "career" ? "career year" : "season"}">
-      ${grid}${xlabels}${lines}</svg><div class="cc-tip"></div></div>`;
+    // bar version: grouped bars that grow up from the axis, one group per season (top-10 average drawn over them)
+    const bnodes = [], bw = Math.min(34, (gw - 10) / series.length);
+    const bars = xs.map((x, gi) => series.map((sr, si) => {
+      const r = sr.rows.find((q) => q.x === x);
+      if (!r) return "";
+      const bx = padL + gi * gw + (gw - bw * series.length) / 2 + si * bw, by = py(r.v);
+      bnodes.push({ x: bx + (bw - 2) / 2, y: by, x0: bx, x1: bx + bw - 2, si, label: align === "career" ? `Career yr ${x} · ${r.year}` : String(r.year), team: r.team.abbr, val: r.vals[metric] });
+      return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${(bw - 2).toFixed(1)}" height="${(base - by).toFixed(1)}" fill="${sr.color}" class="cc-bar" data-n="${bnodes.length - 1}" style="animation-delay:${(0.05 + (gi / Math.max(1, xs.length - 1)) * 0.6).toFixed(2)}s"/>`;
+    }).join("")).join("");
+    const benchOver = benchLine ? benchLine.replace(/data-n="(\d+)"/g, (_, n) => { bnodes.push({ ...nodes[+n] }); return `data-n="${bnodes.length - 1}"`; }) : "";
+    const svg = (mode, body) => `<svg viewBox="0 0 ${W} ${H}" class="cc-chart cc-${mode}" data-mode="${mode}" role="img" aria-label="${esc(C.labels[metric])} by ${align === "career" ? "career year" : "season"}">${grid}${xlabels}${body}</svg>`;
+    const mode = ccPref("view", "line") === "bar" ? "bar" : "line";
+    const chart = `<div class="cc-box" id="cc-box" data-mode="${mode}">${svg("line", lines)}${svg("bar", bars + benchOver)}<div class="cc-brush"></div><div class="cc-tip"></div></div>
+      <p class="cc-hint muted">${isZoomed ? `Showing ${align === "career" ? "career years " : ""}${xs[0]}–${xs[xs.length - 1]} · <button class="link" id="cc-unzoom">Reset zoom</button>` : "Drag across the chart to zoom in on a stretch of seasons"}</p>`;
     // what the hover box needs (read by initCcHover once the chart is on the page)
-    ccHover = { W, H, nodes, stat: C.labels[metric], series: series.map((sr) => ({ name: sr.p.name, color: sr.color })) };
+    ccHover = { W, H, top, base, cols: xs.map((x, gi) => ({ x, px: px(gi) })), sets: { line: nodes, bar: bnodes }, stat: C.labels[metric], series: series.map((sr) => ({ name: sr.p.name, color: sr.color })) };
     const legend = series.map((sr, i) => `<span class="cc-chip" style="--c:${sr.color}">${face(sr.p.headshot, sr.p.name, "hs", sr.p.lg === "nfl", sr.p.born)} ${esc(sr.p.name)} <small>${esc(sr.p.pos || "")}</small>
       ${i ? `<button class="cc-x-btn" data-rm="${esc(sr.p.lg)}:${esc(sr.p.id)}" aria-label="Remove">×</button>` : ""}</span>`).join("")
       + (benchLine ? `<span class="cc-bench-key" title="Each season's average for the top 10 players in this stat"><i></i>Top-10 avg</span>` : "");
@@ -696,13 +711,19 @@ const Live = (() => {
       <div class="cc-controls">
         <label>Chart <select id="cc-metric">${C.names.map((n) => `<option value="${esc(n)}"${n === metric ? " selected" : ""}>${esc(C.labels[n])}</option>`).join("")}</select></label>
         <label>Line up by <select id="cc-align"><option value="season"${align === "season" ? " selected" : ""}>Season</option><option value="career"${align === "career" ? " selected" : ""}>Career year</option></select></label>
+        <div class="seg" id="cc-view"><button data-v="line" class="${mode === "line" ? "active" : ""}">Line</button><button data-v="bar" class="${mode === "bar" ? "active" : ""}">Bar</button></div>
+        <div class="seg"><button id="cc-tbl" class="${ccPref("table", "1") === "1" ? "active" : ""}" title="Show or hide the data table">Table</button></div>
         <div class="cc-search"><input id="cc-q" type="search" placeholder="Compare with another player…" autocomplete="off"${players.length >= 4 ? " disabled" : ""}><div id="cc-results" class="cc-results hidden"></div></div>
       </div>
       <div class="cc-legend">${legend}</div>
       ${chart}
-      <div class="table-wrap">${table}</div>
+      <div class="table-wrap${ccPref("table", "1") === "1" ? "" : " hidden"}" id="cc-table">${table}</div>
     </div>`;
   }
+
+  // chart style and table on/off are remembered per browser (a convenience; everything works without it)
+  function ccPref(k, def) { try { return localStorage.getItem("cc-" + k) ?? def; } catch { return def; } }
+  function ccSetPref(k, v) { try { localStorage.setItem("cc-" + k, v); } catch {} }
 
   let playerIndexP = null; // all-time NFL player list, loaded the first time someone searches
   const playerIndex = () => (playerIndexP ||= fetch("data/players_nfl.json").then((r) => r.json()).catch(() => { playerIndexP = null; return []; }));
@@ -729,21 +750,27 @@ const Live = (() => {
   let ccHover = null;
   function initCcHover() {
     const box = $("#cc-box"), H = ccHover;
-    if (!box || !H || !H.nodes.length) return;
-    const svg = box.querySelector("svg"), tip = box.querySelector(".cc-tip"), dots = box.querySelectorAll(".cc-dot");
-    let cur = -1;
-    const hide = () => { cur = -1; tip.classList.remove("on"); dots.forEach((d) => d.classList.remove("on")); };
+    if (!box || !H) return;
+    const tip = box.querySelector(".cc-tip");
+    let cur = -1, mode = box.dataset.mode;
+    const marks = () => box.querySelectorAll(`svg[data-mode="${mode}"] [data-n]`);
+    const hide = () => { cur = -1; tip.classList.remove("on"); box.querySelectorAll("[data-n].on").forEach((d) => d.classList.remove("on")); };
+    box.ccMode = (m) => { mode = m; box.dataset.mode = m; hide(); };
     const show = (e, touch) => {
+      const svg = box.querySelector(`svg[data-mode="${mode}"]`), nodes = H.sets[mode];
       const r = svg.getBoundingClientRect(), k = Math.min(r.width / H.W, r.height / H.H);
       const ox = (r.width - H.W * k) / 2, oy = (r.height - H.H * k) / 2;
-      const mx = e.clientX - r.left, my = e.clientY - r.top;
+      const mx = e.clientX - r.left, my = e.clientY - r.top, sx = (mx - ox) / k, sy = (my - oy) / k;
       let best = -1, bd = Infinity;
-      H.nodes.forEach((n, i) => { const dd = Math.hypot(ox + n.x * k - mx, oy + n.y * k - my); if (dd < bd) { bd = dd; best = i; } });
-      if (bd > (touch ? 60 : 28)) return hide(); // only when you're on (or right next to) a dot
+      nodes.forEach((n, i) => { if (n.x0 == null) { const dd = Math.hypot(ox + n.x * k - mx, oy + n.y * k - my); if (dd < bd) { bd = dd; best = i; } } });
+      if (bd > (mode === "bar" ? (touch ? 22 : 10) : (touch ? 60 : 28))) { // not on a dot: on a bar?
+        best = nodes.findIndex((n) => n.x0 != null && sx >= n.x0 - 2 && sx <= n.x1 + 2 && sy >= Math.min(n.y, H.H - 40) - 6 && sy <= H.H - 22);
+        if (best < 0) return hide();
+      }
       if (best === cur) return;
       cur = best;
-      const n = H.nodes[best], s = n.si < 0 ? { name: "Top-10 average", color: "#6b6b70" } : H.series[n.si], x = ox + n.x * k, y = oy + n.y * k;
-      dots.forEach((d) => d.classList.toggle("on", +d.dataset.n === best));
+      const n = nodes[best], s = n.si < 0 ? { name: "Top-10 average", color: "#6b6b70" } : H.series[n.si], x = ox + n.x * k, y = oy + n.y * k;
+      marks().forEach((d) => d.classList.toggle("on", +d.dataset.n === best));
       tip.innerHTML = `<small>${esc(n.label)}${n.team ? ` · ${esc(n.team)}` : ""}</small><b>${esc(n.val)} <em>${esc(H.stat)}</em></b>${H.series.length > 1 || n.si < 0 ? `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>` : ""}`;
       tip.style.left = `${x}px`; tip.style.top = `${y}px`;
       tip.classList.toggle("below", y < 70);
@@ -751,13 +778,57 @@ const Live = (() => {
       tip.classList.toggle("edge-r", x > r.width - 80);
       tip.classList.remove("on"); void tip.offsetWidth; tip.classList.add("on"); // replay the pop-in for each new dot
     };
-    box.addEventListener("pointermove", (e) => show(e, e.pointerType === "touch"));
-    box.addEventListener("pointerdown", (e) => show(e, e.pointerType === "touch"));
-    box.addEventListener("pointerleave", hide);
+    const brush = box.querySelector(".cc-brush");
+    let drag = null;
+    const colAt = (clientX) => { // nearest season column to the pointer, and its x on screen
+      const svg = box.querySelector(`svg[data-mode="${mode}"]`), r = svg.getBoundingClientRect(), k = Math.min(r.width / H.W, r.height / H.H);
+      const ox = (r.width - H.W * k) / 2, sx = (clientX - r.left - ox) / k;
+      let i = 0;
+      H.cols.forEach((c, j) => { if (Math.abs(c.px - sx) < Math.abs(H.cols[i].px - sx)) i = j; });
+      return { i, left: clientX - box.getBoundingClientRect().left, k, oy: (r.height - H.H * k) / 2 };
+    };
+    box.addEventListener("pointerdown", (e) => {
+      show(e, e.pointerType === "touch");
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      drag = { x0: e.clientX, a: colAt(e.clientX) };
+    });
+    box.addEventListener("pointermove", (e) => {
+      if (drag && Math.abs(e.clientX - drag.x0) > 12) {
+        drag.moved = true;
+        hide();
+        const b = colAt(e.clientX), l = Math.min(drag.a.left, b.left), w = Math.abs(b.left - drag.a.left);
+        Object.assign(brush.style, { display: "block", left: `${l}px`, width: `${w}px`, top: `${b.oy + H.top * b.k}px`, height: `${(H.base - H.top) * b.k}px` });
+        return;
+      }
+      if (!drag) show(e, e.pointerType === "touch");
+    });
+    const end = (e) => {
+      if (!drag) return;
+      const d = drag;
+      drag = null;
+      brush.style.display = "none";
+      if (!d.moved || !e) return;
+      const b = colAt(e.clientX), lo = Math.min(d.a.i, b.i), hi = Math.max(d.a.i, b.i);
+      if (hi > lo && box.ccZoom) box.ccZoom(H.cols[lo].x, H.cols[hi].x); // need at least two seasons
+    };
+    box.addEventListener("pointerup", end);
+    box.addEventListener("pointerleave", () => { end(null); hide(); });
   }
 
   function wireCareer(id, params) {
     initCcHover();
+    $("#cc-view").onclick = (e) => {
+      const v = e.target.dataset.v, box = $("#cc-box");
+      if (!v || !box || box.dataset.mode === v) return;
+      ccSetPref("view", v);
+      $("#cc-view").querySelectorAll("button").forEach((b) => b.classList.toggle("active", b.dataset.v === v));
+      box.ccMode(v); // switching shows the other chart, which replays its animation
+    };
+    $("#cc-tbl").onclick = (e) => {
+      const on = $("#cc-table").classList.toggle("hidden") === false;
+      e.currentTarget.classList.toggle("active", on);
+      ccSetPref("table", on ? "1" : "0");
+    };
     const go = (changes) => {
       const p = new URLSearchParams(params);
       Object.entries(changes).forEach(([k, v]) => (v == null || v === "" ? p.delete(k) : p.set(k, v)));
@@ -767,7 +838,9 @@ const Live = (() => {
     const vs = (params.get("vs") || "").split(",").filter(Boolean);
     $("#cc-cats").onclick = (e) => { const c = e.target.dataset.cat; if (c) go({ cat: c, metric: null }); };
     $("#cc-metric").onchange = (e) => go({ metric: e.target.value });
-    $("#cc-align").onchange = (e) => go({ align: e.target.value });
+    $("#cc-align").onchange = (e) => go({ align: e.target.value, from: null, to: null });
+    if ($("#cc-box")) $("#cc-box").ccZoom = (from, to) => go({ from, to });
+    if ($("#cc-unzoom")) $("#cc-unzoom").onclick = () => go({ from: null, to: null });
     document.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = () => go({ vs: vs.filter((v) => v !== b.dataset.rm).join(",") })));
     const q = $("#cc-q"), box = $("#cc-results");
     let t;
@@ -858,7 +931,7 @@ const Live = (() => {
     $("#pl-season").onchange = (e) => { location.hash = link("player", id, { season: e.target.value }); };
     const careers = await careersP;
     if (my !== token) return;
-    const cst = { cat: params.get("cat"), metric: params.get("metric"), align: params.get("align") };
+    const cst = { cat: params.get("cat"), metric: params.get("metric"), align: params.get("align"), from: params.get("from"), to: params.get("to") };
     // top-10 average line; don't hold the chart up more than a few seconds for it
     const bench = careers ? await Promise.race([top10Avg(careers, cst).catch(() => null), new Promise((r) => setTimeout(() => r(null), 4000))]) : null;
     if (my !== token) return;
