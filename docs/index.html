@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://a.espncdn.com">
 <meta name="theme-color" content="#0f1216">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=80">
+<link rel="stylesheet" href="style.css?v=81">
 </head>
 <body>
 <header class="top">
@@ -104,6 +104,14 @@
       <div id="sp-chart" class="sp-chart"></div>
       <div class="sp-legend" id="sp-legend"></div>
     </div>
+    <div class="sp-more">
+      <div class="card"><h3 id="sb-teams-title">Who's had the toughest road</h3>
+        <p class="note sb-cap">How good each team's opponents have been. Right of the middle line = tougher than an average schedule, left = easier.</p>
+        <div id="sb-teams" class="sb"></div></div>
+      <div class="card"><h3 id="sb-confs-title">Schedule strength by conference</h3>
+        <p class="note sb-cap" id="sb-confs-cap">The average Schedule score of each conference's teams. Tap one to show just that conference.</p>
+        <div id="sb-confs" class="sb"></div></div>
+    </div>
   </section>
   <section id="view-compare" class="view hidden">
     <div class="card">
@@ -169,7 +177,7 @@
   </div>
 </div>
 
-<script src="app.js?v=80"></script>
-<script src="live.js?v=80"></script>
+<script src="app.js?v=81"></script>
+<script src="live.js?v=81"></script>
 </body>
 </html>

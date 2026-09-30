@@ -111,7 +111,7 @@ async function route() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "80"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "81"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -642,16 +642,33 @@ function renderSchedules() {
   const px = (v) => ((v - x0) / (x1 - x0)) * 100, py = (v) => 100 - ((v - y0) / (y1 - y0)) * 100;
   const cx = px(HARD_SOS), cy = py(PADDED);
   // positions are stored as 0-1 fractions; initZoom() turns them into pixels for the current zoom/pan
-  const quad = (k, l, t, w, h, pos) => `<div class="sp-q sp-${k}" data-x0="${l / 100}" data-x1="${(l + w) / 100}" data-y0="${t / 100}" data-y1="${(t + h) / 100}"><span class="sp-ql ${pos}">${profileBadge(k)}</span></div>`;
-  $("#sp-chart").innerHTML = `
+  const quad = (k, l, t, w, h, pos) => `<div class="sp-q sp-${k}" data-x0="${l / 100}" data-x1="${(l + w) / 100}" data-y0="${t / 100}" data-y1="${(t + h) / 100}"><span class="sp-ql ${pos}">${profileBadge(k)}<small>${SP_QDESC[k]}</small></span></div>`;
+  // dotted grid every 10 points (labels on the bottom and right edges) + dashed lines where the profiles split
+  const tens = (a, b) => { const out = []; for (let v = Math.ceil(a / 10) * 10; v <= b; v += 10) out.push(v); return out; };
+  const grid = tens(x0, x1).filter((v) => px(v) > 3 && px(v) < 96).map((v) => `<i class="sp-gl v" data-gx="${px(v) / 100}" data-l="${v}"></i>`).join("")
+    + tens(y0, y1).filter((v) => v !== PADDED && py(v) > 12 && py(v) < 90).map((v) => `<i class="sp-gl h" data-gy="${py(v) / 100}" data-l="${v}"></i>`).join("")
+    + `<i class="sp-gl v mid" data-gx="${cx / 100}"></i><i class="sp-gl h mid" data-gy="${cy / 100}"></i>`;
+  const byName = new Map(teams.map((t) => [t.team, t]));
+  $("#sp-chart").innerHTML = `${grid}
     ${quad("walk", 0, 0, cx, cy, "tl")}${quad("barbell", cx, 0, 100 - cx, cy, "tr")}
     ${quad("grind", 0, cy, cx, 100 - cy, "bl")}${quad("gauntlet", cx, cy, 100 - cx, 100 - cy, "br")}
     <span class="sp-axis sp-x">Schedule: harder →</span><span class="sp-axis sp-y">Cupcake: more padded →</span>
     <div class="sp-zoom" role="group" aria-label="Zoom"><button data-z="in" aria-label="Zoom in">+</button><button data-z="out" aria-label="Zoom out">−</button><button data-z="reset">Reset</button></div>
+    <div class="cc-tip"></div>
     ${teams.map((t) => `<button class="sp-dot${t === focusTeam ? " focus" : ""}" data-team="${esc(t.team)}" data-fx="${px(t.scores.sos) / 100}" data-fy="${py(t.scores.cupcake) / 100}"
-        title="#${t.rank} ${esc(t.team)} (${esc(t.record)}) · Schedule ${Math.round(t.scores.sos)} · Cupcake ${Math.round(t.scores.cupcake)}">
+        style="animation-delay:${Math.round((px(t.scores.sos) / 100) * 450)}ms" aria-label="#${t.rank} ${esc(t.team)} (${esc(t.record)}) · Schedule ${Math.round(t.scores.sos)} · Cupcake ${Math.round(t.scores.cupcake)}">
         ${safeUrl(t.logo) ? `<img src="${esc(thumb(t.logo, 26))}" alt="${esc(t.team)}" width="26" height="26" loading="lazy" decoding="async">` : `<span>${esc(t.team.slice(0, 3))}</span>`}${t === focusTeam ? `<b class="sp-flabel">${esc(t.team)}</b>` : ""}</button>`).join("")}`;
   const zoom = initZoom($("#sp-chart"), (team) => { ranked = rankTeams(DATA.teams); openTeam(team); });
+  // hover a logo (mouse): the same pop-in box as the Stats-by-year chart
+  const box = $("#sp-chart"), tip = box.querySelector(".cc-tip");
+  box.onpointerover = (e) => {
+    const dot = e.pointerType === "mouse" && e.target.closest(".sp-dot"), t = dot && byName.get(dot.dataset.team);
+    if (!t) return;
+    const p = profileOf(t);
+    showTip(box, tip, parseFloat(dot.style.left), parseFloat(dot.style.top) - 12, `<small>#${t.rank} · ${esc(t.record)} · ${esc(t.conference || "")}</small><b>${esc(t.team)}</b>
+      <span>Schedule ${Math.round(t.scores.sos)} · Cupcake ${Math.round(t.scores.cupcake)}</span>${p ? `<span>${profileBadge(p)}</span>` : ""}`);
+  };
+  box.onpointerout = (e) => { if (e.target.closest(".sp-dot") && !e.relatedTarget?.closest?.(".sp-dot")) tip.classList.remove("on"); };
   if (focusTeam) {
     const dot = $("#sp-chart .sp-dot.focus");
     zoom.focusOn(+dot.dataset.fx, +dot.dataset.fy, 1.8);
@@ -661,6 +678,71 @@ function renderSchedules() {
   const counts = Object.fromEntries(Object.keys(PROFILES).map((k) => [k, teams.filter((t) => profileOf(t) === k)]));
   $("#sp-legend").innerHTML = Object.entries(PROFILES).map(([k, p]) => `<div class="sp-leg sp-${k}">${profileBadge(k)} <span class="muted">(${counts[k].length})</span><small>${p.desc}</small>
     <small>${counts[k].slice(0, 6).map((t) => `#${t.rank} ${esc(t.team)}`).join(", ")}${counts[k].length > 6 ? "…" : ""}</small></div>`).join("");
+  renderSchedBars(teams, all, conf, focusTeam);
+}
+const SP_QDESC = { walk: "easy road, padded", barbell: "hard road, padded", grind: "easy road, no padding", gauntlet: "hard road, no padding" };
+
+// Hover box shared by the schedule charts (reuses the Stats-by-year .cc-tip look). x/y = anchor inside box.
+function showTip(box, tip, x, y, html) {
+  tip.innerHTML = html;
+  tip.style.left = `${x}px`; tip.style.top = `${y}px`;
+  tip.classList.toggle("below", y < 90);
+  tip.classList.toggle("edge-l", x < 90);
+  tip.classList.toggle("edge-r", x > box.clientWidth - 90);
+  tip.classList.remove("on"); void tip.offsetWidth; tip.classList.add("on"); // replay the pop-in
+}
+
+// Two companion charts under the quadrant: each team's Schedule score (hardest first) and each
+// conference's average. Bars grow out from 50 (an average schedule): right = tougher, left = easier.
+function renderSchedBars(teams, all, conf, focusTeam) {
+  const nfl = league === "nfl", r = (v) => Math.round(v);
+  const sosRank = new Map([...all].sort((a, b) => b.scores.sos - a.scores.sos).map((t, i) => [t, i + 1]));
+  const row = (x, n) => {
+    const lo = Math.min(x.v, 50), w = Math.abs(x.v - 50);
+    return `<button class="sb-row${x.on ? " on" : ""}" data-i="${n}"><span class="sb-lab">${x.logo || ""}<span>${x.label}</span></span>
+      <span class="sb-track"><i class="sb-bar ${x.v >= 50 ? "up" : "dn"}" style="left:${lo}%;width:${w}%;animation-delay:${n * 22}ms"></i></span><span class="sb-val">${r(x.v)}</span></button>`;
+  };
+  const axis = `<div class="sb-axis"><span style="left:0">0</span><span style="left:25%">← easier</span><span style="left:50%">50</span><span style="left:75%">tougher →</span><span style="left:100%">100</span></div>`;
+  const chart = (el, rows, onPick) => {
+    let gap = -1;
+    const hidden = rows.length - 24;
+    if (rows.length > 32) { gap = 12; rows = [...rows.slice(0, 12), ...rows.slice(-12)]; } // long lists (all FBS): hardest 12 + easiest 12
+    el.innerHTML = `<div class="sb-grid">${[0, 25, 50, 75, 100].map((v) => `<i class="${v === 50 ? "mid" : ""}" style="left:${v}%"></i>`).join("")}</div>`
+      + rows.map((x, n) => (n === gap ? `<div class="sb-gap muted">⋯ ${hidden} more in between ⋯</div>` : "") + row(x, n)).join("") + axis + `<div class="cc-tip"></div>`;
+    const tip = el.querySelector(".cc-tip");
+    el.onpointerover = (e) => {
+      const b = e.target.closest(".sb-row");
+      if (!b || e.pointerType !== "mouse") return;
+      const x = rows[+b.dataset.i], bar = b.querySelector(".sb-bar").getBoundingClientRect(), br = el.getBoundingClientRect();
+      showTip(el, tip, (x.v >= 50 ? bar.right : bar.left) - br.left, bar.top - br.top - 4, x.tip);
+    };
+    el.onpointerleave = () => tip.classList.remove("on");
+    el.onclick = (e) => { const b = e.target.closest(".sb-row"); if (b) onPick(rows[+b.dataset.i]); };
+  };
+
+  // 1) every team in the current filter, hardest schedule first
+  const list = [...teams].sort((a, b) => b.scores.sos - a.scores.sos);
+  chart($("#sb-teams"), list.map((t) => ({
+    t, v: t.scores.sos, on: t === focusTeam,
+    label: `<em>${t.rank}</em> ${esc(t.team)}`,
+    logo: safeUrl(t.logo) ? `<img src="${esc(thumb(t.logo, 16))}" alt="" width="16" height="16" loading="lazy" decoding="async">` : "",
+    tip: `<small>#${t.rank} · ${esc(t.record)} · ${esc(t.conference || "")}</small><b>${esc(t.team)}</b>
+      <span>Schedule ${r(t.scores.sos)} · #${sosRank.get(t)} hardest of ${all.length}</span><span>Cupcake ${r(t.scores.cupcake)}</span>`,
+  })), (x) => { ranked = rankTeams(DATA.teams); openTeam(x.t.team); });
+
+  // 2) conference (NFL: division) averages over all of its teams; tap one to filter everything to it
+  const groups = new Map();
+  all.forEach((t) => { if (t.conference) { if (!groups.has(t.conference)) groups.set(t.conference, []); groups.get(t.conference).push(t); } });
+  const avg = (ts, k) => ts.reduce((s, t) => s + t.scores[k], 0) / ts.length;
+  const confs = [...groups].filter(([, ts]) => ts.length > 1).map(([c, ts]) => ({ c, ts, v: avg(ts, "sos"), cup: avg(ts, "cupcake") })).sort((a, b) => b.v - a.v);
+  const unit = nfl ? "division" : "conference";
+  $("#sb-confs-title").textContent = `Schedule strength by ${unit}`;
+  $("#sb-confs-cap").textContent = `The average Schedule score of each ${unit}'s teams. Tap one to show just that ${unit}${conf ? " (tap it again to show all)" : ""}.`;
+  chart($("#sb-confs"), confs.map((g) => {
+    const top = [...g.ts].sort((a, b) => b.scores.sos - a.scores.sos)[0];
+    return { c: g.c, v: g.v, on: g.c === conf, label: esc(g.c),
+      tip: `<small>${g.ts.length} teams · average Cupcake ${r(g.cup)}</small><b>${esc(g.c)}</b><span>Average schedule ${r(g.v)}</span><span>Toughest: ${esc(top.team)} (${r(top.scores.sos)})</span>` };
+  }), (x) => { $("#sp-conf").value = x.c === conf ? "" : x.c; renderSchedules(); });
 }
 
 // Pinch-zoom (phones), drag-to-pan, +/- buttons, double-click and Ctrl/trackpad-pinch zoom (computers).
@@ -674,6 +756,8 @@ function initZoom(el, onPick) {
     st.ty = Math.min(0, Math.max(H() * (1 - st.k), st.ty));
     const w = W() * st.k, h = H() * st.k;
     el.querySelectorAll("[data-fx]").forEach((d) => { d.style.left = `${d.dataset.fx * w + st.tx}px`; d.style.top = `${d.dataset.fy * h + st.ty}px`; });
+    el.querySelectorAll("[data-gx]").forEach((g) => { g.style.left = `${g.dataset.gx * w + st.tx}px`; });
+    el.querySelectorAll("[data-gy]").forEach((g) => { g.style.top = `${g.dataset.gy * h + st.ty}px`; });
     el.querySelectorAll("[data-x0]").forEach((q) => {
       const x0 = q.dataset.x0 * w + st.tx, y0 = q.dataset.y0 * h + st.ty;
       Object.assign(q.style, { left: `${x0}px`, top: `${y0}px`, width: `${(q.dataset.x1 - q.dataset.x0) * w}px`, height: `${(q.dataset.y1 - q.dataset.y0) * h}px` });
