@@ -111,7 +111,7 @@ async function route() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "81"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "82"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -562,7 +562,7 @@ function whyBullets(t) {
   if (weak.length) out.push("Weaknesses: " + weak.map((x) => `${x.label.toLowerCase()} (${Math.round(x.v)})`).join(", ") + ".");
   const games = t.wins + t.losses, cups = t.fcs_games + t.weak_games;
   if (t.scores.cupcake != null && cups >= 2) out.push(league === "nfl"
-    ? `Cupcake score ${Math.round(t.scores.cupcake)}: ${cups} of ${games} games were against bottom-third teams far below them. Those wins barely count.`
+    ? `Cupcake score ${Math.round(t.scores.cupcake)}: ${cups} of ${games} games were against weaker, below-average teams. Those wins count for less.`
     : `Cupcake score ${Math.round(t.scores.cupcake)}: ${cups} of ${games} games were cupcakes for a team this good (${t.fcs_games} FCS, ${t.weak_games} FBS teams far below them). Those wins barely count.`);
   if (isUntested(t)) out.push(`Beaten Nobody: no win over a top-${TESTED[league].quality} team yet. Best win: ${bestWinText(bestWin(t))}.`);
   const cw = t.cotw_weeks || [];

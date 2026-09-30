@@ -26,7 +26,7 @@ NFL_HELP = {
     "resume": "Strength of record: how many more wins than a top-8 team would have with this schedule.",
     "efficiency": "Opponent-adjusted EPA per play (offense minus defense).",
     "sos": "How hard was your road? The average strength of every opponent played. Higher = tougher schedule.",
-    "cupcake": "How much did you pad it? NFL teams can't pick cupcakes, but schedules still hand them out. Only games against bottom-third teams (3+ points worse than average) that are 6+ points worse than YOU count, and bigger mismatches count more. A bad team playing other bad teams isn't padding. Higher = more padded, and it counts against the team. Only games already played count.",
+    "cupcake": "How much did you pad it? NFL teams can't pick cupcakes, but schedules still hand them out. Only games against below-average teams that are worse than YOU count, and the bigger the mismatch the more it counts (full credit at 14+ points worse). A bad team playing other bad teams isn't padding. Higher = more padded, and it counts against the team. Only games already played count.",
     "luck": "Higher = has had bad luck in close games (one-score results are treated as coin flips). Lower = has been winning coin flips.",
 }
 
