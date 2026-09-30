@@ -71,7 +71,7 @@ async function route() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "58"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "59"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -508,7 +508,8 @@ function render() {
 }
 
 function whyBullets(t) {
-  const f = LG.factors.filter((x) => !x.invert).map((x) => ({ ...x, v: t.scores[x.key] })).sort((a, b) => b.v - a.v);
+  // luck isn't a strength or weakness (it reads backwards: a low "Bad luck" score means GOOD luck); it gets its own line below
+  const f = LG.factors.filter((x) => !x.invert && x.key !== "luck").map((x) => ({ ...x, v: t.scores[x.key] })).sort((a, b) => b.v - a.v);
   const out = [];
   if (t.next_qb && t.usual_qb && t.next_qb !== t.usual_qb) out.push(`QB change: ${t.next_qb} is listed to start next, not ${t.usual_qb}, who started most games so far. The rating doesn't account for this.`);
   const strong = f.filter((x) => x.v >= 65).slice(0, 2);
