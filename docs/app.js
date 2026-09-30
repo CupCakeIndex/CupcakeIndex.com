@@ -111,7 +111,7 @@ async function route() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "75"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "76"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -954,7 +954,7 @@ function renderPicks() {
       : `<label class="pick">${open ? tick(`${g.ats_pick} ${signed(g.best_line)} (${g.best_book})`) : ""}<b class="${Math.abs(g.edge) >= 3 ? "hot" : ""}">${esc(g.ats_pick)} ${signed(g.best_line)}</b></label><small class="muted">edge ${Math.abs(g.edge).toFixed(1)} · best at ${esc(BOOK_ABBR[g.best_book] || g.best_book)}</small>`;
     const m = moneyline(g);
     const mlCell = !m ? '<span class="muted">—</span>'
-      : `<label class="pick">${open ? tick(`${m.team} ML ${american(m.ml)} (${m.book})`) : ""}<b class="${m.edge >= 0.05 ? "hot" : ""}">${esc(m.team)} ${american(m.ml)}</b></label><small class="muted">us ${pct(m.model)} · books ${pct(m.fair)} · best at ${esc(BOOK_ABBR[m.book] || m.book)}</small>`;
+      : `<label class="pick">${open ? tick(`${m.team} ML ${american(m.ml)} (${m.book})`) : ""}<b>${esc(m.team)} ${american(m.ml)}</b></label><small class="muted">us ${pct(m.model)} · books ${pct(m.fair)} · best at ${esc(BOOK_ABBR[m.book] || m.book)}</small>`;
     let res = '<span class="muted">—</span>';
     if (!open) {
       const mark = (ok) => ok == null ? '<span class="muted">push</span>' : `<span class="${ok ? "W" : "L"}">${ok ? "✓" : "✗"}</span>`;
