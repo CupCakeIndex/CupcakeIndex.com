@@ -24,6 +24,46 @@ const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
 const RANK_VIEWS = new Set(["rankings", "picks", "schedules"]);
 const VIEWS = new Set(["rankings", "picks", "schedules", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team"]);
 
+// ------------------------------------------------------------------ forgiving name search
+// Lowercase, strip accents/punctuation ("D.J." -> "dj", "Smith-Njigba" -> "smith njigba"), drop jr/sr/ii/iii.
+const normName = (x) => String(x || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+  .replace(/[.'’]/g, "").replace(/[^a-z0-9]+/g, " ").replace(/\b(jr|sr|ii|iii|iv)\b/g, " ").trim();
+function editDistance(a, b, max) {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    let rowMin = i;
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      rowMin = Math.min(rowMin, cur[j]);
+    }
+    if (rowMin > max) return max + 1;
+    prev = cur;
+  }
+  return prev[b.length];
+}
+// Score how well a query matches a name (lower = better); null = no match.
+// Every query word must match a word in the name: exact/prefix is free, typos allowed by word length.
+function fuzzyScore(query, name) {
+  const qw = normName(query).split(" ").filter(Boolean), nw = normName(name).split(" ").filter(Boolean);
+  if (!qw.length || !nw.length) return null;
+  let score = 0;
+  for (const q of qw) {
+    const tol = q.length <= 3 ? 0 : q.length <= 6 ? 1 : 2;
+    let best = Infinity;
+    for (const w of nw) {
+      if (w === q) { best = 0; break; }
+      if (w.startsWith(q)) { best = Math.min(best, 0.1); continue; }
+      const d = Math.min(editDistance(q, w, tol), q.length < w.length ? editDistance(q, w.slice(0, q.length), tol) + 0.2 : Infinity);
+      if (d <= tol) best = Math.min(best, d);
+    }
+    if (best === Infinity) return null;
+    score += best;
+  }
+  return score + (nw[0].startsWith(qw[0]) ? 0 : 0.05);
+}
+
 async function getJSON(url) {
   const r = await fetch(url, { cache: "no-cache" });
   if (!r.ok) throw new Error(url + " " + r.status);
@@ -71,7 +111,7 @@ async function route() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "61"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "62"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -811,10 +851,10 @@ function initSearch() {
     const text = q.value.trim();
     if (text.length < 2) { close(); return; }
     timer = setTimeout(async () => {
-      const words = text.toLowerCase().split(/\s+/);
       const teams = (await allTeams())
-        .filter(({ t }) => words.every((w) => `${t.team} ${t.conference || ""}`.toLowerCase().includes(w)))
-        .sort((a, b) => (b.t.team.toLowerCase().startsWith(words[0]) - a.t.team.toLowerCase().startsWith(words[0])) || a.t.team.localeCompare(b.t.team))
+        .map((x) => ({ ...x, sc: fuzzyScore(text, x.t.team) }))
+        .filter((x) => x.sc != null)
+        .sort((a, b) => a.sc - b.sc || a.t.team.localeCompare(b.t.team))
         .slice(0, 5).map((x) => ({ type: "team", ...x }));
       const players = (await Live.searchPlayers(text, 8)).map((p) => ({ type: "player", ...p }));
       if (q.value.trim() !== text) return; // user kept typing

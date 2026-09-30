@@ -563,14 +563,15 @@ const Live = (() => {
 
   // Players: all-time NFL index (includes retired legends) + ESPN's live search (active college and NFL players)
   async function searchPlayers(text, limit = 10) {
-    const words = text.toLowerCase().split(/\s+/).filter(Boolean);
     const [index, d] = await Promise.all([
       playerIndex(),
       api(`https://site.web.api.espn.com/apis/common/v3/search?query=${encodeURIComponent(text)}&limit=20&type=player`, 60000).catch(() => null),
     ]);
-    const local = index.filter((p) => words.every((w) => p[0].toLowerCase().includes(w)))
-      .sort((a, b) => (b[0].toLowerCase().startsWith(words[0]) - a[0].toLowerCase().startsWith(words[0])) || ((b[4] || 0) - (b[3] || 0)) - ((a[4] || 0) - (a[3] || 0)))
-      .slice(0, 8).map((p) => ({ key: `nfl:${p[1]}`, name: p[0], tag: `NFL · ${p[2]}${p[3] ? ` · ${p[3]}–${p[4] || ""}` : ""}` }));
+    // forgiving match (typos, accents, punctuation); ties go to longer/more recent careers
+    const scored = [];
+    for (const p of index) { const sc = fuzzyScore(text, p[0]); if (sc != null) scored.push([sc, p]); }
+    const local = scored.sort((a, b) => a[0] - b[0] || ((b[1][4] || 0) - (b[1][3] || 0)) - ((a[1][4] || 0) - (a[1][3] || 0)) || (b[1][4] || 0) - (a[1][4] || 0))
+      .slice(0, 8).map(([, p]) => ({ key: `nfl:${p[1]}`, name: p[0], tag: `NFL · ${p[2]}${p[3] ? ` · ${p[3]}–${p[4] || ""}` : ""}` }));
     const seen = new Set(local.map((x) => x.key));
     const live = (d?.items || []).filter((it) => it.league === "nfl" || it.league === "college-football")
       .map((it) => ({ key: `${it.league === "nfl" ? "nfl" : "cfb"}:${it.id}`, name: it.displayName, tag: it.league === "nfl" ? "NFL" : "College" }))
