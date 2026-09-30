@@ -97,12 +97,17 @@ async function init() {
     if (p) setWeights(presets()[p] || LG.default_weights);
   };
   $("#reset").onclick = () => setWeights(LG.default_weights);
-  // Phones: sliders start collapsed so the rankings table is on the first screen
-  $("#weights-toggle").onclick = () => {
-    const open = $("#weights").classList.toggle("collapsed") === false;
-    $("#weights-toggle").setAttribute("aria-expanded", open);
-    $("#weights-toggle").textContent = open ? "Done ▴" : "Adjust ▾";
-  };
+  // Weights live in a floating panel opened from the bottom-right button
+  const wpanel = $("#weights"), fab = $("#weights-fab");
+  const setWeightsOpen = (open) => { wpanel.hidden = !open; fab.setAttribute("aria-expanded", open); fab.classList.toggle("open", open); };
+  fab.onclick = () => setWeightsOpen(wpanel.hidden);
+  $("#weights-close").onclick = () => setWeightsOpen(false);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") setWeightsOpen(false); });
+  document.addEventListener("pointerdown", (e) => { if (!wpanel.hidden && !wpanel.contains(e.target) && !fab.contains(e.target)) setWeightsOpen(false); });
+  // Factor columns hidden until "Breakdown" is on (remembered per browser)
+  const setBreakdown = (on) => { document.body.classList.toggle("show-breakdown", on); $("#breakdown").setAttribute("aria-pressed", on); $("#breakdown").classList.toggle("on", on); store.set("breakdown", on); };
+  setBreakdown(!!store.get("breakdown"));
+  $("#breakdown").onclick = () => setBreakdown(!document.body.classList.contains("show-breakdown"));
   $("#clear").onclick = () => setWeights({});
   document.querySelector("th.factors-col").onclick = (e) => { const k = e.target.dataset.only; if (k) { colSort = null; solo(k); } };
   document.querySelector("#table thead").addEventListener("click", (e) => {
@@ -224,7 +229,7 @@ async function loadWeek(force = false) {
   document.body.classList.toggle("no-ap", !hasAP);
   $("#top25-label").lastChild.textContent = hasAP ? " AP Poll top 25 only" : league === "nfl" ? " Top 10 only" : " Top 25 only";
   $("#prior-note").textContent = DATA.prior_weight > 0
-    ? `Early season: the preseason expectation still counts like ${DATA.prior_weight} game(s) in the Power rating. It fades to zero in a few weeks.`
+    ? `Early season: the preseason expectation still counts like ${(+DATA.prior_weight).toFixed(1)} games in the Power rating. It fades to zero in a few weeks.`
     : "";
   renderCotw();
   render();
@@ -257,7 +262,7 @@ function renderCotw() {
 function buildSliders() {
   $("#sliders").innerHTML = LG.factors.map((f) => `
     <div class="slider">
-      <div class="slider-top"><span>${esc(f.label)}</span><span id="v-${esc(f.key)}"></span></div>
+      <div class="slider-top"><span title="${esc(f.help)}">${esc(f.label)}</span><span id="v-${esc(f.key)}"></span></div>
       <input type="range" min="0" max="100" step="5" id="w-${esc(f.key)}" aria-label="${esc(f.label)} weight">
       <p>${esc(f.help)}</p>
     </div>`).join("");
@@ -314,6 +319,8 @@ function showWeights() {
   $("#rankby").value = only ? `${only}:${soloDir}` : "";
   const P = presets();
   document.querySelectorAll("#presets button").forEach((b) => b.classList.toggle("on", sameWeights(weights, P[b.dataset.preset])));
+  const active = Object.keys(P).find((k) => sameWeights(weights, P[k]));
+  $("#wf-preset").textContent = only ? `${factor(only).label} only` : active || "Custom";
   $("#weights-note").textContent = !total ? "All weights are 0. Showing teams ordered by Power rating. Move a slider or click a column header."
     : only ? `Sorted by ${factor(only).label} only, ${soloDir === "hi" ? "high to low. Click the header again for low to high." : "low to high. Click the header again to go back to your blend."}` : "";
 }
