@@ -234,10 +234,20 @@ function renderCotw() {
   const c = DATA.cupcake_of_week;
   $("#cotw").classList.toggle("hidden", !c);
   if (!c) return;
-  const opp = `${esc(c.opp)} (${c.fcs ? "FCS" : "#" + esc(c.opp_rank) + " FBS"})`;
-  $("#cotw").innerHTML = `<span class="cotw-icon">COTW</span><div><b>Cupcake of the Week</b> <span class="muted">· week ${esc(c.week)}</span><br>
-    <a href="#" data-team="${esc(c.team)}">${esc(c.team)}</a> beat up on ${opp}, ${esc(c.score_line)}.
-    ${c.espn_id ? `<a class="boxlink" href="${link("game", c.espn_id)}">box score</a>` : ""}</div>`;
+  const team = DATA.teams.find((t) => t.team === c.team) || {};
+  const [us, them] = String(c.score_line).split("-");
+  const oppTag = c.fcs ? `<span class="prof-badge prof-walk">FCS</span>` : `<span class="muted">#${esc(c.opp_rank)}</span>`;
+  $("#cotw").innerHTML = `
+    <div class="cotw-tag"><span>Cupcake</span><span>of the Week</span><small>Week ${esc(c.week)}</small></div>
+    <div class="cotw-main">
+      ${safeUrl(team.logo) ? `<img src="${esc(thumb(team.logo, 46))}" alt="" width="46" height="46" class="cotw-logo">` : ""}
+      <div>
+        <div class="cotw-line"><a href="#" data-team="${esc(c.team)}" class="cotw-team">${esc(c.team)}</a>
+          <span class="cotw-score">${esc(us)}<span>–</span>${esc(them)}</span></div>
+        <div class="cotw-sub">over ${esc(c.opp)} ${oppTag} · won by ${esc(c.margin)}</div>
+      </div>
+    </div>
+    ${c.espn_id ? `<a class="cotw-btn" href="${link("game", c.espn_id)}">Box score →</a>` : ""}`;
   $("#cotw").querySelector("[data-team]").onclick = (e) => { e.preventDefault(); openTeam(c.team); };
 }
 
