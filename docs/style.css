@@ -763,3 +763,11 @@ img.wiki { object-position: 50% 20%; }
 @media (max-width: 640px) { .logo-ph.ph-face.headshot { width: 84px; height: 62px; font-size: 22px; } }
 /* box score scoring plays: keep "0-3" on one line */
 .plays td.num { white-space: nowrap; }
+
+/* Cupcake Bully of the Week: highlighted row */
+#table tbody tr.bully { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--accent) 4%, transparent) 70%); }
+#table tbody tr.bully:hover { background: color-mix(in srgb, var(--accent) 26%, transparent); }
+#table tbody tr.bully td:first-child { box-shadow: inset 4px 0 0 var(--accent); }
+#table tbody tr.bully td { border-top-color: color-mix(in srgb, var(--accent) 45%, var(--line)); border-bottom-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+#table tbody tr.bully .tname { color: var(--accent); }
+.tmeta .pill.cup-badge { background: var(--accent) !important; color: #000 !important; border-color: var(--accent) !important; }

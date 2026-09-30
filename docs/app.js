@@ -111,7 +111,7 @@ async function route() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "65"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "66"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -527,7 +527,8 @@ function render() {
       const v = t.scores[f.key];
       return `<span class="chip${only === f.key ? " sel" : ""}" style="${heat(f.invert ? 100 - v : v)}" title="${esc(f.label)}: ${esc(v)}">${Math.round(v)}</span>`;
     }).join("");
-    return `<tr data-team="${esc(t.team)}">
+    const bully = DATA.cupcake_of_week && DATA.cupcake_of_week.team === t.team;
+    return `<tr data-team="${esc(t.team)}"${bully ? ' class="bully"' : ""}>
       <td class="num rank">${t.rank}</td><td class="mv">${mv}</td>
       <td><div class="team">${logo(t)}<div class="tcell">
         <b class="tname" title="${esc(t.conference || "")}">${t.ap_rank ? `<span class="ap-rk" title="AP Poll rank">${esc(t.ap_rank)}</span>` : ""}${esc(t.team)}</b>
