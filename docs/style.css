@@ -330,3 +330,15 @@ body.drawer-open { overflow: hidden; }
 }
 #notes-link { color: var(--accent); font-weight: 600; }
 .pill.untested { background: color-mix(in srgb, #e0a13a 18%, transparent); color: #d08a1a; }
+
+/* ---------- compare ---------- */
+.cmp-agree { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; margin: 10px 0; }
+.cmp-agree .stat small.muted { display: block; }
+#cmp-table tbody tr { cursor: pointer; }
+#cmp-table tbody tr:hover { background: var(--accent-soft); }
+.disagree { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; }
+.disagree small { display: block; }
+.disagree ul { margin: 6px 0 0; padding-left: 18px; }
+.disagree li { margin: 3px 0; }
+.disagree a { font-weight: 700; }
+@media (max-width: 640px) { .disagree { grid-template-columns: 1fr; } }

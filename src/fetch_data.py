@@ -61,14 +61,17 @@ def fetch_season(year, refresh=False, with_extras=True):
     d["lines"] = cached(year, "lines", "/lines", refresh, year=year, seasonType="regular")
     d["polls"] = cached(year, "rankings", "/rankings", refresh, year=year, seasonType="regular")
     # Talent/returning production are preseason numbers: never need a refresh once present.
+    # Other rating systems, for the Compare tab (season-to-date, so refreshed each run)
+    d["fpi"] = _optional(year, "fpi", "/ratings/fpi", refresh, year=year)
+    d["sp"] = _optional(year, "sp", "/ratings/sp", refresh, year=year)
     d["talent"] = _optional(year, "talent", "/talent", year=year)
     d["returning"] = _optional(year, "returning", "/player/returning", year=year)
     return d
 
 
-def _optional(season, name, path, **params):
+def _optional(season, name, path, refresh=False, **params):
     try:
-        return cached(season, name, path, False, **params)
-    except requests.HTTPError as e:
+        return cached(season, name, path, refresh, **params)
+    except (requests.HTTPError, SystemExit) as e:  # SystemExit = no key offline; extras are optional
         print(f"  warning: {path} unavailable ({e}); continuing without it")
         return []

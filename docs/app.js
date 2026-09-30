@@ -22,7 +22,7 @@ const BASE_PRESETS = {
 const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", recent: "FORM", cupcake: "CUP", luck: "UNLK" };
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
 const RANK_VIEWS = new Set(["rankings", "picks", "schedules"]);
-const VIEWS = new Set(["rankings", "picks", "schedules", "about", "updates", "scores", "stats", "standings", "game", "player", "team"]);
+const VIEWS = new Set(["rankings", "picks", "schedules", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team"]);
 
 async function getJSON(url) {
   const r = await fetch(url, { cache: "no-cache" });
@@ -63,6 +63,8 @@ async function route() {
     if (r.view === "schedules") renderSchedules();
   } else if (r.view === "updates") {
     renderNotes();
+  } else if (r.view === "compare") {
+    renderCompare();
   } else if (Live[r.view]) {
     Live[r.view](r.arg, r.params);
   }
@@ -546,6 +548,78 @@ function renderSchedules() {
   const counts = Object.fromEntries(Object.keys(PROFILES).map((k) => [k, teams.filter((t) => profileOf(t) === k)]));
   $("#sp-legend").innerHTML = Object.entries(PROFILES).map(([k, p]) => `<div class="sp-leg sp-${k}"><b>${p.icon} ${p.name}</b> <span class="muted">(${counts[k].length})</span><small>${p.desc}</small>
     <small>${counts[k].slice(0, 6).map((t) => `#${t.rank} ${esc(t.team)}`).join(", ")}${counts[k].length > 6 ? "…" : ""}</small></div>`).join("");
+}
+
+// ------------------------------------------------------------------ compare vs. other systems
+let cmpSort = { k: "ours", dir: 1 };
+async function renderCompare() {
+  const tb = $("#cmp-table tbody");
+  if (league !== "cfb") { tb.innerHTML = `<tr><td colspan="8" class="muted">The comparison is a college football feature.</td></tr>`; return; }
+  const season = LG.latest.season;
+  let cmp, cur;
+  try {
+    [cmp, cur] = await Promise.all([getJSON(`data/cfb/${season}/compare.json`), weekData("cfb", season, LG.latest.week)]);
+  } catch {
+    tb.innerHTML = `<tr><td colspan="8" class="muted">Comparison data isn't available yet.</td></tr>`;
+    return;
+  }
+  const ours = composite(cur.teams);
+  const UNRANKED = 30; // polls stop at 25
+  const rows = ours.map((t) => {
+    const c = cmp.teams[t.team] || {};
+    const vals = [c.ap || UNRANKED, c.coaches || UNRANKED, c.fpi, c.sp].filter((v) => v != null);
+    const cons = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    return { t, ours: t.rank, ap: c.ap, coaches: c.coaches, fpi: c.fpi, sp: c.sp, cons, gap: cons == null ? null : cons - t.rank };
+  });
+
+  // agreement (Spearman rank correlation) with each system, over teams both rank
+  const spearman = (k) => {
+    const pairs = rows.filter((r) => r[k] != null).map((r) => [r.ours, r[k]]);
+    const rk = (arr) => { const s = [...arr].map((v, i) => [v, i]).sort((a, b) => a[0] - b[0]); const out = []; s.forEach(([, i], j) => (out[i] = j + 1)); return out; };
+    const a = rk(pairs.map((p) => p[0])), b = rk(pairs.map((p) => p[1])), n = pairs.length;
+    if (n < 10) return null;
+    const d2 = a.reduce((s, v, i) => s + (v - b[i]) ** 2, 0);
+    return 1 - (6 * d2) / (n * (n * n - 1));
+  };
+  const top25 = (k) => rows.filter((r) => r[k] && r[k] <= 25);
+  const overlap = (k) => top25(k).filter((r) => r.ours <= 25).length;
+  $("#cmp-agree").innerHTML = [["fpi", "ESPN FPI"], ["sp", "SP+"], ["ap", "AP Poll"], ["coaches", "Coaches Poll"]].map(([k, label]) => {
+    const rho = k === "fpi" || k === "sp" ? spearman(k) : null;
+    return `<div class="stat"><small>vs. ${label}</small><b>${overlap(k)} of 25</b><small class="muted">same top-25 teams${rho != null ? ` · agreement ${rho.toFixed(2)}` : ""}</small></div>`;
+  }).join("");
+
+  // where we stand alone
+  const eligible = rows.filter((r) => r.cons != null && (r.ours <= 25 || r.cons <= 25));
+  const higher = eligible.filter((r) => [r.ap || UNRANKED, r.coaches || UNRANKED, r.fpi, r.sp].every((v) => v == null || v > r.ours)).sort((a, b) => b.gap - a.gap).slice(0, 4);
+  const lower = eligible.filter((r) => [r.ap || UNRANKED, r.coaches || UNRANKED, r.fpi, r.sp].every((v) => v == null || v < r.ours)).sort((a, b) => a.gap - b.gap).slice(0, 4);
+  const item = (r) => `<li><a href="#" data-team="${esc(r.t.team)}">${esc(r.t.team)}</a>${profileIcon(r.t)} <span class="muted">us #${r.ours} · consensus #${Math.round(r.cons)}</span></li>`;
+  $("#cmp-callouts").innerHTML = `
+    <div><b>We're higher than everyone</b><small class="muted">Every other system ranks them lower</small><ul>${higher.map(item).join("") || '<li class="muted">None this week</li>'}</ul></div>
+    <div><b>We're lower than everyone</b><small class="muted">Every other system ranks them higher</small><ul>${lower.map(item).join("") || '<li class="muted">None this week</li>'}</ul></div>`;
+  $("#cmp-callouts").onclick = (e) => { const a = e.target.closest("[data-team]"); if (a) { e.preventDefault(); ranked = rankTeams(DATA ? DATA.teams : cur.teams); openTeam(a.dataset.team); } };
+
+  const draw = () => {
+    const show = $("#cmp-show").value;
+    const list = rows.filter((r) => show === "all" || r.ours <= 25 || (r.ap && r.ap <= 25) || (r.coaches && r.coaches <= 25) || (r.fpi && r.fpi <= 25) || (r.sp && r.sp <= 25));
+    const v = (r, k) => (r[k] == null ? (k === "gap" ? 0 : 999) : r[k]);
+    list.sort((a, b) => cmpSort.dir * (v(a, cmpSort.k) - v(b, cmpSort.k)) || a.ours - b.ours);
+    const cell = (x) => (x == null ? '<span class="muted">–</span>' : x);
+    tb.innerHTML = list.map((r) => `<tr data-team="${esc(r.t.team)}">
+      <td><div class="team">${logo(r.t)}<div><b>${esc(r.t.team)}${profileIcon(r.t)}</b><small>${esc(r.t.record)}</small></div></div></td>
+      <td class="num"><b>${r.ours}</b></td><td class="num">${cell(r.ap)}</td><td class="num">${cell(r.coaches)}</td>
+      <td class="num">${cell(r.fpi)}</td><td class="num">${cell(r.sp)}</td><td class="num">${r.cons == null ? "–" : Math.round(r.cons)}</td>
+      <td class="num ${r.gap >= 3 ? "up" : r.gap <= -3 ? "down" : "muted"}"><b>${r.gap == null ? "–" : (r.gap > 0 ? "+" : "") + Math.round(r.gap)}</b></td></tr>`).join("");
+    document.querySelectorAll("#cmp-table th[data-k]").forEach((th) => th.classList.toggle("on", th.dataset.k === cmpSort.k));
+  };
+  $("#cmp-show").onchange = draw;
+  document.querySelector("#cmp-table thead").onclick = (e) => {
+    const k = e.target.closest("th[data-k]")?.dataset.k;
+    if (!k) return;
+    cmpSort = cmpSort.k === k ? { k, dir: -cmpSort.dir } : { k, dir: k === "gap" ? -1 : 1 };
+    draw();
+  };
+  tb.onclick = (e) => { const tr = e.target.closest("tr[data-team]"); if (tr) { ranked = rankTeams(DATA ? DATA.teams : cur.teams); openTeam(tr.dataset.team); } };
+  draw();
 }
 
 // ------------------------------------------------------------------ release notes

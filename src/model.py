@@ -250,15 +250,15 @@ def prior_strength(week, cfg):
 
 # --------------------------------------------------------------------------- polls
 
-def ap_ranks(polls, week):
-    """AP poll released after `week`'s games (CFBD labels it week+1)."""
+def ap_ranks(polls, week, name="AP Top 25"):
+    """A poll released after `week`'s games (CFBD labels it week+1). `name` matches the poll title."""
     best, best_week = {}, -1
     for pw in polls:
         pwk = g(pw, "week", default=0)
         if pwk > week + 1 or pwk <= best_week:
             continue
         for p in g(pw, "polls", default=[]):
-            if "AP" in (g(p, "poll") or ""):
+            if (g(p, "poll") or "") == name:  # exact: "Coaches Poll" must not match "FCS Coaches Poll"
                 best = {g(r, "school"): g(r, "rank") for r in g(p, "ranks", default=[])}
                 best_week = pwk
     return best
@@ -407,6 +407,16 @@ def cupcake_of_week(games, ratings, week, cfg, fbs):
                         "opp_rank": rank.get(o), "score_line": f"{us}-{them}", "margin": us - them,
                         "score": round(score, 1), "espn_id": x["espn"]}
     return best
+
+
+def comparison(fbs, polls, week, fpi, sp):
+    """Other systems' ranks for each FBS team: AP, Coaches, ESPN FPI, SP+ (ratings ranked among FBS)."""
+    def rank_of(rows, key):
+        vals = sorted(((g(r, "team"), g(r, key)) for r in rows if g(r, "team") in fbs and g(r, key) is not None), key=lambda x: -x[1])
+        return {t: i + 1 for i, (t, _) in enumerate(vals)}
+    ap, coaches = ap_ranks(polls, week, "AP Top 25"), ap_ranks(polls, week, "Coaches Poll")
+    f, s = rank_of(fpi or [], "fpi"), rank_of(sp or [], "rating")
+    return {t: {"ap": ap.get(t), "coaches": coaches.get(t), "fpi": f.get(t), "sp": s.get(t)} for t in fbs}
 
 
 def predictions(games, ratings, week, cfg, lines=None):

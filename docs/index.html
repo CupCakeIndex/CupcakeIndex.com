@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://a.espncdn.com">
 <meta name="theme-color" content="#0f1216">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=25">
+<link rel="stylesheet" href="style.css?v=27">
 </head>
 <body>
 <header class="top">
@@ -29,6 +29,7 @@
 <nav class="tabs" id="nav">
   <a class="tab" data-view="rankings" href="#/rankings">Rankings</a>
   <a class="tab cfb-only" data-view="schedules" href="#/schedules">Schedules</a>
+  <a class="tab cfb-only" data-view="compare" href="#/compare">Compare</a>
   <a class="tab" data-view="scores" href="#/scores">Scores</a>
   <a class="tab" data-view="stats" href="#/stats">Stats</a>
   <a class="tab" data-view="standings" href="#/standings">Standings</a>
@@ -92,6 +93,20 @@
       <div class="sp-legend" id="sp-legend"></div>
     </div>
   </section>
+  <section id="view-compare" class="view hidden">
+    <div class="card">
+      <h2>Us vs. everyone else</h2>
+      <p class="note">Our rankings next to the AP Poll, the Coaches Poll, ESPN's FPI and SP+. <b>Consensus</b> is the average of the four. <b>Gap</b> is how far we are from it: green means we rank a team higher, red means lower. Tap any column to sort.</p>
+      <div id="cmp-agree" class="cmp-agree"></div>
+      <div id="cmp-callouts" class="disagree"></div>
+      <div class="sc-bar"><select id="cmp-show"><option value="25">Anyone's top 25</option><option value="all">All FBS</option></select></div>
+      <div class="table-wrap"><table id="cmp-table"><thead><tr>
+        <th>Team</th><th class="num sortable" data-k="ours">Ours</th><th class="num sortable" data-k="ap">AP</th><th class="num sortable" data-k="coaches">Coaches</th>
+        <th class="num sortable" data-k="fpi">ESPN FPI</th><th class="num sortable" data-k="sp">SP+</th><th class="num sortable" data-k="cons">Consensus</th><th class="num sortable" data-k="gap">Gap</th>
+      </tr></thead><tbody></tbody></table></div>
+      <p class="note">FPI and SP+ are computer ratings, ranked here among FBS teams. Polls only rank 25 teams, so an unranked team counts as #30 in the consensus. "Ours" uses your current slider blend.</p>
+    </div>
+  </section>
   <section id="view-scores" class="view hidden"></section>
   <section id="view-stats" class="view hidden"></section>
   <section id="view-standings" class="view hidden"></section>
@@ -140,7 +155,7 @@
   </div>
 </div>
 
-<script src="app.js?v=25"></script>
-<script src="live.js?v=25"></script>
+<script src="app.js?v=27"></script>
+<script src="live.js?v=27"></script>
 </body>
 </html>
