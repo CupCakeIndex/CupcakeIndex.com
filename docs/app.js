@@ -586,6 +586,7 @@ function renderSchedules() {
     const dot = $("#sp-chart .sp-dot.focus");
     zoom.focusOn(+dot.dataset.fx, +dot.dataset.fy, 1.8);
     dot.scrollIntoView({ block: "center", behavior: "smooth" });
+    setTimeout(() => dot.classList.add("faded"), 10000); // highlight fades after ~10 seconds
   }
   const counts = Object.fromEntries(Object.keys(PROFILES).map((k) => [k, teams.filter((t) => profileOf(t) === k)]));
   $("#sp-legend").innerHTML = Object.entries(PROFILES).map(([k, p]) => `<div class="sp-leg sp-${k}">${profileBadge(k)} <span class="muted">(${counts[k].length})</span><small>${p.desc}</small>
