@@ -1,0 +1,40 @@
+name: Weekly rankings
+
+on:
+  schedule:
+    # Mondays 13:00 UTC (9am Eastern), Aug-Jan only. Tuesday run picks up late stat corrections.
+    - cron: "0 13 * 8-12,1 1"
+    - cron: "0 13 * 8-12,1 2"
+  workflow_dispatch:          # "Run workflow" button on GitHub
+    inputs:
+      season:
+        description: "Season to rebuild (blank = current)"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Build rankings
+        env:
+          CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+          SEASON: ${{ inputs.season }}
+        run: |
+          if [[ "$SEASON" =~ ^[0-9]{4}$ ]]; then python src/run_weekly.py --season "$SEASON"; else python src/run_weekly.py; fi
+      - name: Publish
+        run: |
+          git config user.name "rankings-bot"
+          git config user.email "rankings-bot@users.noreply.github.com"
+          git add docs/data
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "Rankings update $(date -u +%Y-%m-%d)"
+          git push

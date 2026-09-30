@@ -1,0 +1,255 @@
+{
+ "leagues": {
+  "cfb": {
+   "seasons": {
+    "2025": {
+     "weeks": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16
+     ],
+     "accuracy": {
+      "games": 792,
+      "correct": 588,
+      "mae": 12.6,
+      "vegas_su": {
+       "games": 792,
+       "correct": 601
+      },
+      "model_su_lined": {
+       "games": 792,
+       "correct": 588
+      },
+      "ats": {
+       "games": 771,
+       "correct": 400
+      },
+      "ats_strong": {
+       "games": 475,
+       "correct": 253
+      },
+      "vegas_mae": 11.9
+     }
+    },
+    "2026": {
+     "weeks": [
+      1,
+      2,
+      3,
+      4
+     ],
+     "accuracy": {
+      "games": 232,
+      "correct": 190,
+      "mae": 12.7,
+      "vegas_su": {
+       "games": 232,
+       "correct": 203
+      },
+      "model_su_lined": {
+       "games": 232,
+       "correct": 190
+      },
+      "ats": {
+       "games": 226,
+       "correct": 116
+      },
+      "ats_strong": {
+       "games": 155,
+       "correct": 75
+      },
+      "vegas_mae": 10.8
+     }
+    }
+   },
+   "latest": {
+    "season": 2026,
+    "week": 4
+   },
+   "factors": [
+    {
+     "key": "power",
+     "label": "Power",
+     "help": "Opponent-adjusted scoring margin, capped so blowouts of bad teams don't count extra."
+    },
+    {
+     "key": "resume",
+     "label": "R\u00e9sum\u00e9",
+     "help": "Strength of record: how many more wins than an average top-25 team would have with this schedule."
+    },
+    {
+     "key": "efficiency",
+     "label": "Efficiency",
+     "help": "Opponent-adjusted EPA/play and success rate, garbage time removed."
+    },
+    {
+     "key": "sos",
+     "label": "Schedule",
+     "help": "Average rating of opponents played (FCS opponents drag this down)."
+    },
+    {
+     "key": "recent",
+     "label": "Recent form",
+     "help": "How the team has played in its last few games."
+    },
+    {
+     "key": "cupcake",
+     "label": "Cupcake",
+     "help": "How padded the schedule is with FCS and bottom-tier FBS opponents. Higher = more cupcakes, and it counts against the team.",
+     "invert": true
+    },
+    {
+     "key": "luck",
+     "label": "Bad luck",
+     "help": "Higher = has had bad luck: lost games they statistically won, so the record undersells them. Lower = has been winning coin flips."
+    }
+   ],
+   "default_weights": {
+    "power": 30,
+    "resume": 20,
+    "efficiency": 20,
+    "sos": 10,
+    "recent": 10,
+    "cupcake": 5,
+    "luck": 5
+   },
+   "updated": "2026-09-30T16:39+00:00"
+  },
+  "nfl": {
+   "seasons": {
+    "2025": {
+     "weeks": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18
+     ],
+     "accuracy": {
+      "games": 255,
+      "correct": 160,
+      "mae": 10.6,
+      "vegas_su": {
+       "games": 255,
+       "correct": 164
+      },
+      "model_su_lined": {
+       "games": 255,
+       "correct": 160
+      },
+      "ats": {
+       "games": 251,
+       "correct": 125
+      },
+      "ats_strong": {
+       "games": 95,
+       "correct": 43
+      },
+      "vegas_mae": 10.0
+     }
+    },
+    "2026": {
+     "weeks": [
+      1,
+      2,
+      3
+     ],
+     "accuracy": {
+      "games": 32,
+      "correct": 17,
+      "mae": 10.9,
+      "vegas_su": {
+       "games": 32,
+       "correct": 20
+      },
+      "model_su_lined": {
+       "games": 32,
+       "correct": 17
+      },
+      "ats": {
+       "games": 30,
+       "correct": 16
+      },
+      "ats_strong": {
+       "games": 15,
+       "correct": 7
+      },
+      "vegas_mae": 10.0
+     }
+    }
+   },
+   "latest": {
+    "season": 2026,
+    "week": 3
+   },
+   "factors": [
+    {
+     "key": "power",
+     "label": "Power",
+     "help": "Opponent-adjusted scoring margin, capped at 21 so garbage-time scores don't count extra."
+    },
+    {
+     "key": "resume",
+     "label": "R\u00e9sum\u00e9",
+     "help": "Strength of record: how many more wins than a top-8 team would have with this schedule."
+    },
+    {
+     "key": "efficiency",
+     "label": "Efficiency",
+     "help": "Opponent-adjusted EPA per play (offense minus defense)."
+    },
+    {
+     "key": "sos",
+     "label": "Schedule",
+     "help": "Average rating of opponents played."
+    },
+    {
+     "key": "recent",
+     "label": "Recent form",
+     "help": "How the team has played in its last few games."
+    },
+    {
+     "key": "luck",
+     "label": "Bad luck",
+     "help": "Higher = has had bad luck in close games (one-score results are treated as coin flips). Lower = has been winning coin flips."
+    }
+   ],
+   "default_weights": {
+    "power": 35,
+    "resume": 15,
+    "efficiency": 25,
+    "sos": 10,
+    "recent": 10,
+    "luck": 5
+   },
+   "updated": "2026-09-30T16:39+00:00"
+  }
+ },
+ "updated": "2026-09-30T16:39+00:00"
+}

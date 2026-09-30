@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Cupcake Index</title>
+<meta name="description" content="College football and NFL power rankings that call out padded schedules, plus live scores, box scores, player stats and standings.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧁</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=9">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <h1><a href="#/rankings" class="home"><span id="brand">The Cupcake Index</span></a> <span class="tag" id="league-tag">CFB</span></h1>
+    <p class="sub">Who you played, how you played, and what the record hides. <span id="updated"></span></p>
+  </div>
+  <div class="controls">
+    <div class="seg" id="league" role="group" aria-label="League"></div>
+    <label class="rank-ctl">Season <select id="season"></select></label>
+    <label class="rank-ctl">After week <select id="week"></select></label>
+  </div>
+</header>
+
+<nav class="tabs" id="nav">
+  <a class="tab" data-view="rankings" href="#/rankings">Rankings</a>
+  <a class="tab" data-view="scores" href="#/scores">Scores</a>
+  <a class="tab" data-view="stats" href="#/stats">Stats</a>
+  <a class="tab" data-view="standings" href="#/standings">Standings</a>
+  <a class="tab" data-view="picks" href="#/picks">Picks</a>
+  <a class="tab" data-view="about" href="#/about">How it works</a>
+</nav>
+
+<main>
+  <section id="view-rankings" class="view">
+    <aside class="weights card">
+      <div class="weights-head">
+        <h2>Weights</h2>
+        <span><button id="clear" class="link">Clear all</button> · <button id="reset" class="link">Reset</button></span>
+      </div>
+      <div class="presets" id="presets"></div>
+      <div id="sliders"></div>
+      <p class="note" id="weights-note"></p>
+      <p class="note" id="prior-note"></p>
+    </aside>
+
+    <div class="board">
+      <div class="filters">
+        <input id="search" type="search" placeholder="Search team…" aria-label="Search team">
+        <select id="conf" aria-label="Conference"><option value="">All conferences</option></select>
+        <select id="rankby" aria-label="Rank by"></select>
+        <label class="chk" id="top25-label"><input type="checkbox" id="top25"> AP Poll top 25 only</label>
+      </div>
+      <div class="table-wrap">
+        <table id="table">
+          <thead><tr>
+            <th class="num">#</th><th class="mv"></th><th>Team</th><th class="num sortable" data-col="record" title="Sort by record: best first, then worst first, then off">Record<span class="arrow"></span></th>
+            <th class="num ap sortable" data-col="ap" title="Sort by AP rank: #1 first, then #25 first, then off">AP<span class="arrow"></span></th><th class="score-col">Score</th><th class="factors-col" title="Click a column to sort by it (high to low), again for low to high, again to go back to your blend"></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-picks" class="view hidden">
+    <div class="card">
+      <h2 id="picks-title">Picks</h2>
+      <p class="note" id="acc"></p>
+      <div class="table-wrap"><table id="picks"><thead><tr>
+        <th>Matchup</th><th>Model line</th><th>Books (median)</th><th>Model's side vs. spread</th><th>Result</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <section id="view-scores" class="view hidden"></section>
+  <section id="view-stats" class="view hidden"></section>
+  <section id="view-standings" class="view hidden"></section>
+  <section id="view-game" class="view hidden"></section>
+  <section id="view-player" class="view hidden"></section>
+  <section id="view-team" class="view hidden"></section>
+
+  <section id="view-about" class="view hidden">
+    <div class="card prose">
+      <h2>How it works</h2>
+      <p>Every Monday morning the model downloads the weekend's results and rebuilds the rankings from scratch. Each team gets a set of scores from 0 to 100, where 50 is average. The sliders decide how much each score counts.</p>
+      <ul id="factor-help"></ul>
+      <h3>The cupcake problem (college)</h3>
+      <p>Every FCS opponent is rated like a team about 25 points worse than an average FBS team, and FCS games count only 25% as much in the power rating. Margins are capped at 24 points. Beating an FCS team 70-0 proves about as much as a close loss to an average FBS team. On top of that, the Cupcake score measures how much of a schedule was FCS and bottom-tier FBS opponents. A higher Cupcake score counts against a team.</p>
+      <h3>NFL</h3>
+      <p>NFL rankings use the same engine without the Cupcake factor. Résumé is measured against a top-8 team, efficiency is opponent-adjusted EPA per play, and margins are capped at 21 points. Each team's panel shows the starting QB for every game and flags when someone other than the usual starter played or is listed to start. The rating itself doesn't know about QB changes, so a ⚠ is a good reason to trust it less. Monday's update runs before Monday Night Football. Tuesday's update adds that game.</p>
+      <h3>Early season</h3>
+      <p>In the first few weeks there isn't enough data, so ratings start from a preseason guess: last year's rating scaled by returning production, plus roster talent. That guess fades to zero within a few weeks. After that it's pure on-field results.</p>
+      <h3>Keeping it honest</h3>
+      <p>Each week the ratings pick every game of the following week and set their own point spread. The Picks tab compares that spread with sportsbook lines and tracks how often the model is right, both straight up and against the spread.</p>
+      <h3>Scores, stats and standings</h3>
+      <p>Live scores, box scores, player stats, rosters and standings load straight from ESPN's public data feed in your browser. They update automatically every 30 seconds while games are in progress.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">Rankings data: <a href="https://collegefootballdata.com" rel="noopener">CollegeFootballData.com</a> and <a href="https://github.com/nflverse" rel="noopener">nflverse</a>. Scores and player stats: ESPN. Betting lines are shown for comparison only. This is for entertainment, not betting advice.</footer>
+
+<div id="drawer" class="drawer hidden" role="dialog" aria-modal="true">
+  <div class="drawer-bg" data-close></div>
+  <div class="drawer-panel">
+    <button class="close" data-close aria-label="Close">×</button>
+    <div id="drawer-body"></div>
+  </div>
+</div>
+
+<script src="app.js?v=9"></script>
+<script src="live.js?v=9"></script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+# Power Rankings settings. Edit numbers here, commit, and the next run uses them.
+# (The sliders on the website override the weights in your browser without changing this file.)
+
+cfb:
+  # Default slider positions (0-100). The website starts with these.
+  default_weights:
+    power: 30        # Opponent-adjusted scoring margin (who you beat, by how much, capped)
+    resume: 20       # Strength of record: wins that a top-25 team would NOT be guaranteed
+    efficiency: 20   # Opponent-adjusted EPA/play + success rate, garbage time removed
+    sos: 10          # Average strength of opponents played
+    recent: 10       # How the team has played in its last few games
+    cupcake: 5       # Cupcake score (higher = softer schedule) counts AGAINST a team
+    luck: 5          # "Bad luck": boost for unlucky teams, penalty for teams winning coin flips
+  model:
+    margin_cap: 24          # Points. A 63-0 win counts the same as a 24-0 win.
+    home_field: 2.5         # Points of home-field advantage
+    fcs_rating: -25         # Rating given to every FCS/lower opponent (average FBS team = 0)
+    fcs_game_weight: 0.25   # FCS games count 25% as much as FBS games in the power rating
+    game_sigma: 15          # Std. dev. of a game result in points (used for win probabilities)
+    recent_games: 3         # Games used for "recent form"
+    cupcake_rank: 100       # FBS opponents ranked worse than this count as cupcakes
+    benchmark_rank: 25      # Résumé = wins compared with what the #25 team would get
+    prior_games: 3          # Preseason expectation counts like this many games in week 1...
+    prior_fade_week: 7      # ...and fades to zero by this week
+    one_score: 8            # Margin that counts as a "one-score game"
+    spread_scale: 1.2       # Stretch predicted spreads (the margin cap compresses them). Fit on 2025 results.
+    done_share: 0.9         # Share of a week's games that must be final before it's published
+
+nfl:
+  default_weights:
+    power: 35
+    resume: 15       # Wins compared with what the #8 team would get against the same schedule
+    efficiency: 25   # Opponent-adjusted EPA/play (offense minus defense)
+    sos: 10
+    recent: 10
+    luck: 5          # "Bad luck": one-score results count as coin flips
+  model:
+    margin_cap: 21          # Three scores. NFL blowouts are rarer; this mostly trims garbage time.
+    home_field: 1.5         # Modern NFL home-field edge is small
+    fcs_rating: 0           # (not used in the NFL)
+    fcs_game_weight: 1
+    game_sigma: 13.5
+    recent_games: 3
+    cupcake_rank: 99
+    benchmark_rank: 8
+    prior_games: 3
+    prior_fade_week: 6
+    one_score: 8
+    spread_scale: 1.0       # Calibrated on past seasons (see README)
+    done_share: 0.8         # Publish Monday morning even with Monday Night Football still to play
