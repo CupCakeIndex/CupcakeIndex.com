@@ -33,16 +33,21 @@ NFL_HELP = {
 def cupcake_weight(team_r, opp_r, is_fcs, cfg):
     """How much of a cupcake an opponent is FOR THIS TEAM (0-1).
 
-    Relative, not absolute: a below-average opponent counts once they're `cupcake_gap` points worse
+    Relative, not absolute: a below-average FBS opponent counts once they're `cupcake_gap` points worse
     than you on a neutral field, reaching 1.0 at gap + span. Bad teams playing other bad teams isn't padding.
-    FCS opponents always count at least 0.5.
+    FCS opponents always count something, scaled by the gap from zero (full credit at gap + span), so a
+    top team's FCS game counts fully and a weak team's counts a little. (A flat minimum here made dozens
+    of teams tie at the same score.)
     """
     if "cupcake_gap" not in cfg:
         return 0.0
-    w = 0.0
-    if opp_r < cfg.get("cupcake_max_opp", 0.0):
-        w = min(1.0, max(0.0, (team_r - opp_r - cfg["cupcake_gap"]) / cfg["cupcake_span"]))
-    return max(w, 0.5) if is_fcs else w
+    full = cfg["cupcake_gap"] + cfg["cupcake_span"]
+    gap = team_r - opp_r
+    if is_fcs:
+        return min(1.0, max(0.05, gap / full))
+    if opp_r >= cfg.get("cupcake_max_opp", 0.0):
+        return 0.0
+    return min(1.0, max(0.0, (gap - cfg["cupcake_gap"]) / cfg["cupcake_span"]))
 
 
 def phi(x):
