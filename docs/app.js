@@ -533,7 +533,7 @@ function openTeam(name) {
       <div class="stat"><small>Wins vs. deserved</small><b>${t.luck_wins > 0 ? "+" : ""}${t.luck_wins.toFixed(1)}</b></div>
       ${nfl ? `<div class="stat"><small>Main starting QB</small><b>${esc(t.usual_qb || "—")}</b></div>`
             : `<div class="stat"><small>FCS games</small><b>${esc(t.fcs_games)}</b></div><div class="stat"><small>FBS mismatches</small><b>${esc(t.weak_games)}</b></div>`}
-      ${!nfl && profileOf(t) ? `<div class="stat wide-stat"><small>Schedule profile</small><b>${profileBadge(profileOf(t))}</b><small class="muted">${PROFILES[profileOf(t)].desc} <a href="${link("schedules")}">See all →</a></small></div>` : ""}
+      ${!nfl && profileOf(t) ? `<div class="stat wide-stat"><small>Schedule profile</small><b>${profileBadge(profileOf(t))}</b><small class="muted">${PROFILES[profileOf(t)].desc} <a href="${link("schedules", null, { team: t.team })}">See it on the chart →</a></small></div>` : ""}
     </div>
     <h3>Factor scores</h3>
     ${LG.factors.map((f) => `<div class="frow" title="${esc(f.help)}"><span>${esc(f.label)}</span><span class="bar${f.invert ? " inv" : ""}"><i style="width:${+t.scores[f.key] || 0}%"></i></span><b class="num">${Math.round(t.scores[f.key])}</b></div>`).join("")}
@@ -561,6 +561,10 @@ function renderSchedules() {
   const show = $("#sp-show").value, conf = $("#sp-conf").value;
   let teams = show === "ap" ? all.filter((t) => t.ap_rank) : show === "all" ? all : all.filter((t) => t.rank <= +show);
   if (conf) teams = all.filter((t) => t.conference === conf);
+  // arriving from a team panel: always include that team, even if the current filter would hide it
+  const focus = parseHash().params.get("team");
+  const focusTeam = focus && all.find((t) => t.team === focus);
+  if (focusTeam && !teams.includes(focusTeam)) teams = [...teams, focusTeam];
   const xs = all.map((t) => t.scores.sos), ys = all.map((t) => t.scores.cupcake);
   // padded domain so logos at the extremes aren't clipped or covering the corner labels
   const x0 = Math.min(...xs) - 7, x1 = Math.max(...xs) + 9;
@@ -574,10 +578,15 @@ function renderSchedules() {
     ${quad("grind", 0, cy, cx, 100 - cy, "bl")}${quad("gauntlet", cx, cy, 100 - cx, 100 - cy, "br")}
     <span class="sp-axis sp-x">Schedule: harder →</span><span class="sp-axis sp-y">Cupcake: more padded →</span>
     <div class="sp-zoom" role="group" aria-label="Zoom"><button data-z="in" aria-label="Zoom in">+</button><button data-z="out" aria-label="Zoom out">−</button><button data-z="reset">Reset</button></div>
-    ${teams.map((t) => `<button class="sp-dot" data-team="${esc(t.team)}" data-fx="${px(t.scores.sos) / 100}" data-fy="${py(t.scores.cupcake) / 100}"
+    ${teams.map((t) => `<button class="sp-dot${t === focusTeam ? " focus" : ""}" data-team="${esc(t.team)}" data-fx="${px(t.scores.sos) / 100}" data-fy="${py(t.scores.cupcake) / 100}"
         title="#${t.rank} ${esc(t.team)} (${esc(t.record)}) · Schedule ${Math.round(t.scores.sos)} · Cupcake ${Math.round(t.scores.cupcake)}">
-        ${safeUrl(t.logo) ? `<img src="${esc(thumb(t.logo, 26))}" alt="${esc(t.team)}" width="26" height="26" loading="lazy" decoding="async">` : `<span>${esc(t.team.slice(0, 3))}</span>`}</button>`).join("")}`;
-  initZoom($("#sp-chart"), (team) => { ranked = rankTeams(DATA.teams); openTeam(team); });
+        ${safeUrl(t.logo) ? `<img src="${esc(thumb(t.logo, 26))}" alt="${esc(t.team)}" width="26" height="26" loading="lazy" decoding="async">` : `<span>${esc(t.team.slice(0, 3))}</span>`}${t === focusTeam ? `<b class="sp-flabel">${esc(t.team)}</b>` : ""}</button>`).join("")}`;
+  const zoom = initZoom($("#sp-chart"), (team) => { ranked = rankTeams(DATA.teams); openTeam(team); });
+  if (focusTeam) {
+    const dot = $("#sp-chart .sp-dot.focus");
+    zoom.focusOn(+dot.dataset.fx, +dot.dataset.fy, 1.8);
+    dot.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
   const counts = Object.fromEntries(Object.keys(PROFILES).map((k) => [k, teams.filter((t) => profileOf(t) === k)]));
   $("#sp-legend").innerHTML = Object.entries(PROFILES).map(([k, p]) => `<div class="sp-leg sp-${k}">${profileBadge(k)} <span class="muted">(${counts[k].length})</span><small>${p.desc}</small>
     <small>${counts[k].slice(0, 6).map((t) => `#${t.rank} ${esc(t.team)}`).join(", ")}${counts[k].length > 6 ? "…" : ""}</small></div>`).join("");
@@ -667,6 +676,15 @@ function initZoom(el, onPick) {
   };
   window.addEventListener("resize", layout);
   layout();
+  return {
+    // center the view on a point (0-1 fractions) at zoom level k
+    focusOn(fx, fy, k) {
+      st.k = k;
+      st.tx = W() / 2 - fx * W() * k;
+      st.ty = H() / 2 - fy * H() * k;
+      layout();
+    },
+  };
 }
 
 // ------------------------------------------------------------------ compare vs. other systems
