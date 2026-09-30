@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://a.espncdn.com">
 <meta name="theme-color" content="#0f1216">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=17">
+<link rel="stylesheet" href="style.css?v=18">
 </head>
 <body>
 <header class="top">
@@ -28,6 +28,7 @@
 
 <nav class="tabs" id="nav">
   <a class="tab" data-view="rankings" href="#/rankings">Rankings</a>
+  <a class="tab cfb-only" data-view="schedules" href="#/schedules">Schedules</a>
   <a class="tab" data-view="scores" href="#/scores">Scores</a>
   <a class="tab" data-view="stats" href="#/stats">Stats</a>
   <a class="tab" data-view="standings" href="#/standings">Standings</a>
@@ -54,6 +55,7 @@
       <div class="filters">
         <input id="search" type="search" placeholder="Search team…" aria-label="Search team">
         <select id="conf" aria-label="Conference"><option value="">All conferences</option></select>
+        <select id="profile" class="cfb-only" aria-label="Schedule profile"></select>
         <select id="rankby" aria-label="Rank by"></select>
         <label class="chk" id="top25-label"><input type="checkbox" id="top25"> AP Poll top 25 only</label>
       </div>
@@ -80,6 +82,16 @@
     </div>
   </section>
 
+  <section id="view-schedules" class="view hidden">
+    <div class="card">
+      <div class="sc-bar"><h2>Schedule profiles</h2>
+        <select id="sp-show"><option value="25">Our top 25</option><option value="50">Our top 50</option><option value="ap">AP Top 25</option><option value="all">All FBS</option></select>
+        <select id="sp-conf"><option value="">All conferences</option></select></div>
+      <p class="note">Across: <b>Schedule</b>, how hard was your road? Up: <b>Cupcake</b>, how much did you pad it? Every team lands in one of four profiles. Tap a logo for the full breakdown.</p>
+      <div id="sp-chart" class="sp-chart"></div>
+      <div class="sp-legend" id="sp-legend"></div>
+    </div>
+  </section>
   <section id="view-scores" class="view hidden"></section>
   <section id="view-stats" class="view hidden"></section>
   <section id="view-standings" class="view hidden"></section>
@@ -94,6 +106,14 @@
       <ul id="factor-help"></ul>
       <h3>The cupcake problem (college)</h3>
       <p>Every FCS opponent is rated like a team about 25 points worse than an average FBS team, and FCS games count only 25% as much in the power rating. Margins are capped at 24 points. Beating an FCS team 70-0 proves about as much as a close loss to an average FBS team. On top of that, the Cupcake score measures how padded a schedule is <i>relative to the team playing it</i>. An opponent counts as a cupcake once they are below average and at least 14 points worse than you on a neutral field, and bigger mismatches count more. FCS opponents always count. A bad team playing other bad teams isn't padding; a top-10 team scheduling them is. A higher Cupcake score counts against a team. It only counts games already played: a cupcake still on the schedule is added once the game is final.</p>
+      <h3>Schedule vs. Cupcake</h3>
+      <p><b>Schedule</b> asks "how hard was your road?" It's the average strength of everyone you played, and it's the same no matter how good you are. <b>Cupcake</b> asks "how much did you pad it?" It only looks at the games far below <i>your</i> level. Together they give every college team a schedule profile:</p>
+      <ul>
+        <li>🛡️ <b>Gauntlet</b>: hard schedule, no fluff.</li>
+        <li>🏋️ <b>Barbell</b>: hard schedule, but padded with cupcakes too.</li>
+        <li>⚙️ <b>Honest Grind</b>: easier schedule, but no padding. They played their peers.</li>
+        <li>🧁 <b>Cupcake Walk</b>: easy schedule <i>and</i> padded. The records to be most skeptical of.</li>
+      </ul>
       <h3>NFL</h3>
       <p>NFL rankings use the same engine without the Cupcake factor. Résumé is measured against a top-8 team, efficiency is opponent-adjusted EPA per play, and margins are capped at 21 points. Each team's panel shows the starting QB for every game and flags when someone other than the usual starter played or is listed to start. The rating itself doesn't know about QB changes, so a ⚠ is a good reason to trust it less. Monday's update runs before Monday Night Football. Tuesday's update adds that game.</p>
       <h3>Early season</h3>
@@ -116,7 +136,7 @@
   </div>
 </div>
 
-<script src="app.js?v=17"></script>
-<script src="live.js?v=17"></script>
+<script src="app.js?v=18"></script>
+<script src="live.js?v=18"></script>
 </body>
 </html>

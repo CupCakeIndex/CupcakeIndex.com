@@ -24,8 +24,8 @@ const PRESETS = {
 };
 const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", recent: "FORM", cupcake: "CUP", luck: "UNLK" };
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
-const RANK_VIEWS = new Set(["rankings", "picks"]);
-const VIEWS = new Set(["rankings", "picks", "about", "scores", "stats", "standings", "game", "player", "team"]);
+const RANK_VIEWS = new Set(["rankings", "picks", "schedules"]);
+const VIEWS = new Set(["rankings", "picks", "schedules", "about", "scores", "stats", "standings", "game", "player", "team"]);
 
 async function getJSON(url) {
   const r = await fetch(url, { cache: "no-cache" });
@@ -62,6 +62,7 @@ async function route() {
     await loadWeek();
     const team = r.params.get("team");
     if (r.view === "rankings" && team) openTeam(team);
+    if (r.view === "schedules") renderSchedules();
   } else if (Live[r.view]) {
     Live[r.view](r.arg, r.params);
   }
@@ -117,7 +118,8 @@ async function init() {
   };
   $("#season").onchange = () => { fillWeeks(); loadWeek(true); };
   $("#week").onchange = () => loadWeek(true);
-  ["#search", "#conf", "#top25"].forEach((s) => $(s).addEventListener("input", render));
+  ["#search", "#conf", "#top25", "#profile"].forEach((s) => $(s).addEventListener("input", render));
+  ["#sp-show", "#sp-conf"].forEach((s) => $(s).addEventListener("input", renderSchedules));
   const closeDrawer = () => { $("#drawer").classList.add("hidden"); history.replaceState(null, "", link("rankings")); };
   $("#drawer").onclick = (e) => { if ("close" in e.target.dataset) closeDrawer(); };
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#drawer").classList.contains("hidden")) closeDrawer(); });
@@ -136,6 +138,7 @@ function setLeague(l) {
   store.set("league", l);
   document.querySelectorAll("#league button").forEach((b) => b.classList.toggle("active", b.dataset.league === l));
   document.body.dataset.league = l;
+  $("#profile").innerHTML = `<option value="">All schedule profiles</option>` + Object.entries(PROFILES).map(([k, p]) => `<option value="${k}">${p.icon} ${p.name}</option>`).join("");
   $("#league-tag").textContent = LEAGUE_NAME[l] || l;
   document.querySelectorAll("#nav .tab").forEach((a) => (a.href = link(a.dataset.view)));
   weights = loadWeights(l);
@@ -188,6 +191,9 @@ async function loadWeek(force = false) {
   const cur = $("#conf").value;
   $("#conf").innerHTML = `<option value="">${league === "nfl" ? "All divisions" : "All conferences"}</option>` + confs.map((c) => `<option>${esc(c)}</option>`).join("");
   $("#conf").value = confs.includes(cur) ? cur : "";
+  const spc = $("#sp-conf").value;
+  $("#sp-conf").innerHTML = `<option value="">All conferences</option>` + confs.map((c) => `<option>${esc(c)}</option>`).join("");
+  $("#sp-conf").value = confs.includes(spc) ? spc : "";
   const hasAP = DATA.teams.some((t) => t.ap_rank);
   document.body.classList.toggle("no-ap", !hasAP);
   $("#top25-label").lastChild.textContent = hasAP ? " AP Poll top 25 only" : league === "nfl" ? " Top 10 only" : " Top 25 only";
@@ -197,6 +203,7 @@ async function loadWeek(force = false) {
   renderCotw();
   render();
   renderPicks();
+  if (parseHash().view === "schedules") renderSchedules();
 }
 
 function renderCotw() {
@@ -329,6 +336,24 @@ function pointDiff(t) {
   return (t._pd = { pf, pa, diff: pf - pa });
 }
 
+// Schedule profile: Schedule (how hard was your road?) x Cupcake (how much did you pad it?)
+const PROFILES = {
+  gauntlet: { icon: "🛡️", name: "Gauntlet", desc: "Hard schedule, no fluff." },
+  barbell: { icon: "🏋️", name: "Barbell", desc: "Hard schedule, but padded with cupcakes too." },
+  grind: { icon: "⚙️", name: "Honest Grind", desc: "Easier schedule, but no padding. They played their peers." },
+  walk: { icon: "🧁", name: "Cupcake Walk", desc: "Easy schedule and padded. The records to be most skeptical of." },
+};
+const HARD_SOS = 55, PADDED = 60; // score thresholds (50 = average)
+function profileOf(t) {
+  if (t.scores.cupcake == null || !(t.wins + t.losses)) return null;
+  const hard = t.scores.sos >= HARD_SOS, padded = t.scores.cupcake >= PADDED;
+  return hard ? (padded ? "barbell" : "gauntlet") : padded ? "walk" : "grind";
+}
+const profileIcon = (t) => {
+  const k = profileOf(t);
+  return k ? ` <span class="prof" title="Schedule profile: ${PROFILES[k].name}. ${PROFILES[k].desc}">${PROFILES[k].icon}</span>` : "";
+};
+
 function cotwTag(t) {
   const c = DATA.cupcake_of_week;
   if (!c || c.team !== t.team) return "";
@@ -345,7 +370,7 @@ function render() {
   if (!DATA) return;
   ranked = rankTeams(DATA.teams);
   const prevRank = PREV ? Object.fromEntries(rankTeams(PREV.teams).map((t) => [t.team, t.rank])) : {};
-  const q = $("#search").value.trim().toLowerCase(), conf = $("#conf").value, top = $("#top25").checked;
+  const q = $("#search").value.trim().toLowerCase(), conf = $("#conf").value, top = $("#top25").checked, prof = league === "cfb" ? $("#profile").value : "";
   let ordered = reverse ? [...ranked].reverse() : ranked;
   if (colSort) {
     const pct = (t) => (t.wins + t.losses ? t.wins / (t.wins + t.losses) : 0);
@@ -358,7 +383,7 @@ function render() {
       return flip * cmp(a, b) || a.rank - b.rank;
     });
   }
-  const rows = ordered.filter((t) => (!q || t.team.toLowerCase().includes(q)) && (!conf || t.conference === conf) && (!top || inTopFilter(t)));
+  const rows = ordered.filter((t) => (!q || t.team.toLowerCase().includes(q)) && (!conf || t.conference === conf) && (!top || inTopFilter(t)) && (!prof || profileOf(t) === prof));
   const only = soloKey();
   $("#table tbody").innerHTML = rows.map((t) => {
     const p = prevRank[t.team], d = p ? p - t.rank : 0, pd = pointDiff(t);
@@ -369,7 +394,7 @@ function render() {
     }).join("");
     return `<tr data-team="${esc(t.team)}">
       <td class="num rank">${t.rank}</td><td class="mv">${mv}</td>
-      <td><div class="team">${logo(t)}<div><b>${esc(t.team)}${cotwTag(t)}${apTag(t)}</b><small>${esc(t.conference || "")}</small></div></div></td>
+      <td><div class="team">${logo(t)}<div><b>${esc(t.team)}${profileIcon(t)}${cotwTag(t)}${apTag(t)}</b><small>${esc(t.conference || "")}</small></div></div></td>
       <td class="num">${esc(t.record)}</td>
       <td class="num diff ${pd.diff > 0 ? "up" : pd.diff < 0 ? "down" : ""}" title="${pd.pf} scored, ${pd.pa} allowed">${pd.diff > 0 ? "+" : ""}${pd.diff}</td>
       <td class="num ap">${t.ap_rank ? esc(t.ap_rank) : '<span class="muted">–</span>'}</td>
@@ -432,6 +457,7 @@ function openTeam(name) {
       <div class="stat"><small>Wins vs. deserved</small><b>${t.luck_wins > 0 ? "+" : ""}${t.luck_wins.toFixed(1)}</b></div>
       ${nfl ? `<div class="stat"><small>Main starting QB</small><b>${esc(t.usual_qb || "—")}</b></div>`
             : `<div class="stat"><small>FCS games</small><b>${esc(t.fcs_games)}</b></div><div class="stat"><small>FBS mismatches</small><b>${esc(t.weak_games)}</b></div>`}
+      ${!nfl && profileOf(t) ? `<div class="stat wide-stat"><small>Schedule profile</small><b>${PROFILES[profileOf(t)].icon} ${PROFILES[profileOf(t)].name}</b><small class="muted">${PROFILES[profileOf(t)].desc} <a href="${link("schedules")}">See all →</a></small></div>` : ""}
     </div>
     <h3>Factor scores</h3>
     ${LG.factors.map((f) => `<div class="frow" title="${esc(f.help)}"><span>${esc(f.label)}</span><span class="bar${f.invert ? " inv" : ""}"><i style="width:${+t.scores[f.key] || 0}%"></i></span><b class="num">${Math.round(t.scores[f.key])}</b></div>`).join("")}
@@ -445,6 +471,37 @@ function openTeam(name) {
     const a = $("#team-page-link");
     if (a && id) a.href = link("team", id); else if (a) a.remove();
   });
+}
+
+// ------------------------------------------------------------------ schedule profile chart
+function renderSchedules() {
+  if (!DATA || league !== "cfb") {
+    $("#sp-chart").innerHTML = `<p class="muted" style="padding:16px">Schedule profiles are a college football feature. NFL teams don't schedule cupcakes.</p>`;
+    $("#sp-legend").innerHTML = "";
+    return;
+  }
+  const all = composite(DATA.teams).filter((t) => profileOf(t));
+  const show = $("#sp-show").value, conf = $("#sp-conf").value;
+  let teams = show === "ap" ? all.filter((t) => t.ap_rank) : show === "all" ? all : all.filter((t) => t.rank <= +show);
+  if (conf) teams = all.filter((t) => t.conference === conf);
+  const xs = all.map((t) => t.scores.sos), ys = all.map((t) => t.scores.cupcake);
+  // padded domain so logos at the extremes aren't clipped or covering the corner labels
+  const x0 = Math.min(...xs) - 7, x1 = Math.max(...xs) + 9;
+  const y0 = Math.min(...ys) - 12, y1 = Math.max(...ys) + 10;
+  const px = (v) => ((v - x0) / (x1 - x0)) * 100, py = (v) => 100 - ((v - y0) / (y1 - y0)) * 100;
+  const cx = px(HARD_SOS), cy = py(PADDED);
+  const quad = (k, l, t, w, h, pos) => `<div class="sp-q sp-${k}" style="left:${l}%;top:${t}%;width:${w}%;height:${h}%"><span class="sp-ql ${pos}">${PROFILES[k].icon} ${PROFILES[k].name}</span></div>`;
+  $("#sp-chart").innerHTML = `
+    ${quad("walk", 0, 0, cx, cy, "tl")}${quad("barbell", cx, 0, 100 - cx, cy, "tr")}
+    ${quad("grind", 0, cy, cx, 100 - cy, "bl")}${quad("gauntlet", cx, cy, 100 - cx, 100 - cy, "br")}
+    <span class="sp-axis sp-x">Schedule: harder →</span><span class="sp-axis sp-y">Cupcake: more padded →</span>
+    ${teams.map((t) => `<button class="sp-dot" data-team="${esc(t.team)}" style="left:${px(t.scores.sos)}%;top:${py(t.scores.cupcake)}%"
+        title="#${t.rank} ${esc(t.team)} (${esc(t.record)}) · Schedule ${Math.round(t.scores.sos)} · Cupcake ${Math.round(t.scores.cupcake)}">
+        ${safeUrl(t.logo) ? `<img src="${esc(thumb(t.logo, 26))}" alt="${esc(t.team)}" width="26" height="26" loading="lazy" decoding="async">` : `<span>${esc(t.team.slice(0, 3))}</span>`}</button>`).join("")}`;
+  $("#sp-chart").onclick = (e) => { const b = e.target.closest("[data-team]"); if (b) { ranked = rankTeams(DATA.teams); openTeam(b.dataset.team); } };
+  const counts = Object.fromEntries(Object.keys(PROFILES).map((k) => [k, teams.filter((t) => profileOf(t) === k)]));
+  $("#sp-legend").innerHTML = Object.entries(PROFILES).map(([k, p]) => `<div class="sp-leg sp-${k}"><b>${p.icon} ${p.name}</b> <span class="muted">(${counts[k].length})</span><small>${p.desc}</small>
+    <small>${counts[k].slice(0, 6).map((t) => `#${t.rank} ${esc(t.team)}`).join(", ")}${counts[k].length > 6 ? "…" : ""}</small></div>`).join("");
 }
 
 // ------------------------------------------------------------------ picks

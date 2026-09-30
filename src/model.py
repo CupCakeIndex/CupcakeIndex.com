@@ -15,9 +15,9 @@ FACTORS = [
     ("power", "Power", "Opponent-adjusted scoring margin, capped so blowouts of bad teams don't count extra."),
     ("resume", "Résumé", "Strength of record: how many more wins than an average top-25 team would have with this schedule."),
     ("efficiency", "Efficiency", "Opponent-adjusted EPA/play and success rate, garbage time removed."),
-    ("sos", "Schedule", "Average rating of opponents played (FCS opponents drag this down)."),
+    ("sos", "Schedule", "How hard was your road? The average strength of every opponent you played, no matter how good you are. Higher = tougher schedule."),
     ("recent", "Recent form", "How the team has played in its last few games."),
-    ("cupcake", "Cupcake", "How padded the schedule is, relative to the team's own level: FCS opponents, plus below-average teams 14+ points worse than you (bigger mismatches count more). Bad teams playing other bad teams isn't padding. Higher = softer, and it counts against the team. Only games already played count."),
+    ("cupcake", "Cupcake", "How much did you pad it? Only the games far below YOUR level count: FCS opponents, plus below-average teams 14+ points worse than you (bigger mismatches count more). A bad team playing other bad teams isn't padding. Higher = more padded, and it counts against the team. Only games already played count."),
     ("luck", "Bad luck", "Higher = has had bad luck: lost games they statistically won, so the record undersells them. Lower = has been winning coin flips."),
 ]
 
@@ -25,7 +25,7 @@ NFL_HELP = {
     "power": "Opponent-adjusted scoring margin, capped at 21 so garbage-time scores don't count extra.",
     "resume": "Strength of record: how many more wins than a top-8 team would have with this schedule.",
     "efficiency": "Opponent-adjusted EPA per play (offense minus defense).",
-    "sos": "Average rating of opponents played.",
+    "sos": "How hard was your road? The average strength of every opponent played. Higher = tougher schedule.",
     "luck": "Higher = has had bad luck in close games (one-score results are treated as coin flips). Lower = has been winning coin flips.",
 }
 
