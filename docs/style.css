@@ -715,3 +715,37 @@ table.career th.cc-h { text-align: left; border-bottom: 2px solid var(--c); }
   .ltxt b { white-space: normal; }
   .lcat { padding-top: 10px; }
 }
+
+/* ---------- header search ---------- */
+.gsearch { position: relative; align-self: flex-end; }
+.gsearch input { width: 250px; padding-left: 32px; height: 38px; }
+.gs-icon { position: absolute; left: 10px; top: 11px; color: var(--muted); cursor: text; line-height: 0; }
+.gs-results { position: absolute; right: 0; top: calc(100% + 6px); width: 360px; max-height: 70vh; overflow: auto; z-index: 70;
+  background: var(--card); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 18px 50px rgba(0,0,0,.6); padding: 4px; }
+.gs-h { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 8px 10px 4px; }
+.gs-results button { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: none; border: 0; padding: 7px 10px;
+  border-radius: 4px; cursor: pointer; color: var(--ink); }
+.gs-results button:hover, .gs-results button:focus { background: var(--accent-soft); outline: none; }
+.gs-results button img, .gs-results button .logo-ph { width: 20px; height: 20px; }
+.gs-results button span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.gs-results small { color: var(--muted); white-space: nowrap; font-size: 11px; }
+.gs-empty { padding: 10px; margin: 0; }
+@media (max-width: 640px) {
+  .top .controls .gsearch { order: 2; margin-left: auto; }
+  .top .controls #league { margin-left: 0; }
+  .gsearch input { width: 38px; padding: 0; color: transparent; cursor: pointer; }
+  .gsearch input::placeholder { color: transparent; }
+  .gs-icon { left: 11px; }
+  .gsearch.open input { position: fixed; left: 12px; right: 12px; top: 12px; width: auto; z-index: 71; padding-left: 12px; color: var(--ink); cursor: text;
+    box-shadow: 0 10px 30px rgba(0,0,0,.6); }
+  .gsearch.open input::placeholder { color: var(--muted); }
+  .gsearch.open .gs-icon { display: none; }
+  .gs-results { position: fixed; left: 12px; right: 12px; top: 58px; width: auto; }
+}
+
+@media (min-width: 641px) {
+  .gsearch input { width: 210px; }
+  .gs-results { width: min(360px, 92vw); right: 0; left: auto; }
+}
+.top .controls .gsearch { order: 9; }
+@media (max-width: 640px) { .top .controls .gsearch { order: 2; } }

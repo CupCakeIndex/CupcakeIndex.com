@@ -71,7 +71,7 @@ async function route() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "59"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "61"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -147,6 +147,7 @@ async function init() {
     const tr = e.target.closest("tr[data-team]");
     if (tr) openTeam(tr.dataset.team);
   };
+  initSearch();
   window.addEventListener("hashchange", route);
   await route();
 }
@@ -782,6 +783,61 @@ async function renderCompare() {
   };
   tb.onclick = (e) => { const tr = e.target.closest("tr[data-team]"); if (tr) { ranked = rankTeams(DATA ? DATA.teams : cur.teams); openTeam(tr.dataset.team); } };
   draw();
+}
+
+// ------------------------------------------------------------------ header search (teams + players, both leagues)
+async function allTeams() {
+  const out = [];
+  for (const lg of Object.keys(INDEX.leagues)) {
+    const L = INDEX.leagues[lg];
+    const d = await weekData(lg, L.latest.season, L.latest.week).catch(() => null);
+    (d?.teams || []).forEach((t) => out.push({ lg, t }));
+  }
+  return out;
+}
+
+function initSearch() {
+  const q = $("#gs"), box = $("#gs-results"), wrap = $("#gsearch");
+  let timer, results = [];
+  const close = () => { box.classList.add("hidden"); wrap.classList.remove("open"); };
+  const go = async (r) => {
+    close(); q.value = ""; q.blur();
+    if (r.type === "player") { const [lg, id] = r.key.split(":"); location.hash = `#/player/${encodeURIComponent(id)}?league=${lg}`; return; }
+    const id = r.t.id || (await Live.teamId(r.lg, r.t));
+    location.hash = id ? `#/team/${encodeURIComponent(id)}?league=${r.lg}` : `#/rankings?league=${r.lg}&team=${encodeURIComponent(r.t.team)}`;
+  };
+  q.oninput = () => {
+    clearTimeout(timer);
+    const text = q.value.trim();
+    if (text.length < 2) { close(); return; }
+    timer = setTimeout(async () => {
+      const words = text.toLowerCase().split(/\s+/);
+      const teams = (await allTeams())
+        .filter(({ t }) => words.every((w) => `${t.team} ${t.conference || ""}`.toLowerCase().includes(w)))
+        .sort((a, b) => (b.t.team.toLowerCase().startsWith(words[0]) - a.t.team.toLowerCase().startsWith(words[0])) || a.t.team.localeCompare(b.t.team))
+        .slice(0, 5).map((x) => ({ type: "team", ...x }));
+      const players = (await Live.searchPlayers(text, 8)).map((p) => ({ type: "player", ...p }));
+      if (q.value.trim() !== text) return; // user kept typing
+      results = [...teams, ...players];
+      box.innerHTML = results.length ? `
+        ${teams.length ? `<div class="gs-h">Teams</div>` + teams.map((r, i) => `<button data-i="${i}">${logo(r.t)} <span>${esc(r.t.team)}</span><small>${r.lg === "nfl" ? "NFL" : "College"} · ${esc(r.t.conference || "")}</small></button>`).join("") : ""}
+        ${players.length ? `<div class="gs-h">Players</div>` + players.map((r, i) => `<button data-i="${teams.length + i}"><span>${esc(r.name)}</span><small>${esc(r.tag)}</small></button>`).join("") : ""}`
+        : `<p class="muted gs-empty">No teams or players found.</p>`;
+      box.classList.remove("hidden");
+      wrap.classList.add("open");
+    }, 180);
+  };
+  box.onclick = (e) => { const b = e.target.closest("[data-i]"); if (b) go(results[+b.dataset.i]); };
+  q.onkeydown = (e) => {
+    if (e.key === "Enter" && results.length && !box.classList.contains("hidden")) { e.preventDefault(); go(results[0]); }
+    if (e.key === "Escape") { close(); q.blur(); }
+  };
+  q.onfocus = () => wrap.classList.add("open");
+  q.onblur = () => setTimeout(() => { if (document.activeElement !== q) wrap.classList.remove("open"); }, 150);
+  document.addEventListener("pointerdown", (e) => { if (!wrap.contains(e.target)) close(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "/" && !/input|select|textarea/i.test(document.activeElement?.tagName || "")) { e.preventDefault(); q.focus(); }
+  });
 }
 
 // ------------------------------------------------------------------ release notes
