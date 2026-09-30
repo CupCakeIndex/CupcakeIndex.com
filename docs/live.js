@@ -93,6 +93,8 @@ const Live = (() => {
     const wk = params.get("week"), grp = params.get("group") || "80";
     const q = new URLSearchParams();
     if (lg === "cfb") { q.set("groups", grp === "top25" ? "80" : grp); q.set("limit", "300"); }
+    const yr = params.get("season");
+    if (yr) q.set("dates", yr); // past seasons: ESPN has scoreboards back to 1999 (NFL) / 2001 (college)
     if (wk) { const [st, w] = wk.split(":"); q.set("seasontype", st); q.set("week", w); }
     if (!refresh) loading("scores");
     let sb, ranks;
@@ -125,11 +127,13 @@ const Live = (() => {
 
     const section = (title, list) => list.length ? `<h3 class="sc-h">${title}</h3><div class="score-grid">${list.map((e) => card(e, lg, ranks, preds)).join("")}</div>` : "";
     view("scores").innerHTML = `
-      <div class="sc-bar"><select id="sc-week">${weekOpts}</select>${grpSel}<span class="muted live-note">${liveBadge(live.length)}</span></div>
+      <div class="sc-bar"><select id="sc-season">${Array.from({ length: new Date().getFullYear() - (lg === "nfl" ? 1999 : 2001) + 1 }, (_, i) => new Date().getFullYear() - i)
+        .map((y) => `<option${y === season ? " selected" : ""}>${y}</option>`).join("")}</select><select id="sc-week">${weekOpts}</select>${grpSel}<span class="muted live-note">${liveBadge(live.length)}</span></div>
       ${section("Live now", live)}${section("Upcoming", pre)}${section("Final", post)}
       ${events.length ? "" : `<div class="card muted">No games this week.</div>`}`;
     const go = (k, v) => { const p = new URLSearchParams(params); p.set(k, v); p.set("league", lg); location.hash = `#/scores?${p}`; };
     $("#sc-week").onchange = (e) => go("week", e.target.value);
+    $("#sc-season").onchange = (e) => { const p = new URLSearchParams(params); p.set("season", e.target.value); p.delete("week"); p.set("league", lg); location.hash = `#/scores?${p}`; };
     if ($("#sc-group")) $("#sc-group").onchange = (e) => go("group", e.target.value);
 
     if (live.length) poll((r) => scores(_, params, r), 30000);
@@ -652,7 +656,9 @@ const Live = (() => {
       }).join("");
     }
     const thisYear = new Date().getFullYear();
-    const years = Array.from({ length: 4 }, (_, i) => thisYear - i).filter((y) => !a.debutYear || y >= a.debutYear);
+    // every season of the career (ESPN has game logs back to 1999 NFL / 2001 college)
+    const firstYear = Math.max(lg === "nfl" ? 1999 : 2001, a.debutYear || thisYear - 25);
+    const years = Array.from({ length: thisYear - firstYear + 1 }, (_, i) => thisYear - i);
     view("player").innerHTML = `
       <div class="card player-head">
         ${img(a.headshot?.href, "headshot")}
