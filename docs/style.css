@@ -249,3 +249,5 @@ tr.tot td { font-weight: 700; border-top: 2px solid var(--line); }
 .cotw-icon { font-size: 30px; line-height: 1; }
 .cotw a[data-team] { font-weight: 800; }
 .pill.cup-badge { background: color-mix(in srgb, #e86fa6 18%, transparent); color: #e86fa6; }
+td.diff { font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .diff { display: none; } }

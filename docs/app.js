@@ -173,7 +173,7 @@ async function loadWeek(force = false) {
   try {
     DATA = await weekData(league, season, week);
   } catch (e) {
-    $("#table tbody").innerHTML = `<tr><td colspan="7" class="muted">Couldn't load this week. Try refreshing.</td></tr>`;
+    $("#table tbody").innerHTML = `<tr><td colspan="8" class="muted">Couldn't load this week. Try refreshing.</td></tr>`;
     return;
   }
   loadedKey = key;
@@ -295,6 +295,18 @@ const logo = (t, cls = "") => safeUrl(t.logo) ? `<img src="${esc(t.logo)}" alt="
 // CFB: show only teams in the AP Top 25 (at wherever the model ranks them). NFL has no poll: model top 10.
 const inTopFilter = (t) => (document.body.classList.contains("no-ap") ? t.rank <= (league === "nfl" ? 10 : 25) : !!t.ap_rank);
 
+// Points for/against from completed games (scores are stored from the team's side, e.g. "45-6")
+function pointDiff(t) {
+  if (t._pd) return t._pd;
+  let pf = 0, pa = 0;
+  for (const g of t.schedule) {
+    if (!g.result) continue;
+    const [a, b] = String(g.score).split("-").map(Number);
+    pf += a || 0; pa += b || 0;
+  }
+  return (t._pd = { pf, pa, diff: pf - pa });
+}
+
 function cotwTag(t) {
   const c = DATA.cupcake_of_week;
   if (!c || c.team !== t.team) return "";
@@ -315,8 +327,8 @@ function render() {
   let ordered = reverse ? [...ranked].reverse() : ranked;
   if (colSort) {
     const pct = (t) => (t.wins + t.losses ? t.wins / (t.wins + t.losses) : 0);
-    const cmp = colSort.key === "ap"
-      ? (a, b) => (a.ap_rank || 999) - (b.ap_rank || 999)
+    const cmp = colSort.key === "ap" ? (a, b) => (a.ap_rank || 999) - (b.ap_rank || 999)
+      : colSort.key === "diff" ? (a, b) => pointDiff(b).diff - pointDiff(a).diff
       : (a, b) => pct(b) - pct(a) || b.wins - a.wins || a.rank - b.rank;
     const flip = colSort.dir === "worst" ? -1 : 1;
     ordered = [...ranked].sort((a, b) => {
@@ -327,7 +339,7 @@ function render() {
   const rows = ordered.filter((t) => (!q || t.team.toLowerCase().includes(q)) && (!conf || t.conference === conf) && (!top || inTopFilter(t)));
   const only = soloKey();
   $("#table tbody").innerHTML = rows.map((t) => {
-    const p = prevRank[t.team], d = p ? p - t.rank : 0;
+    const p = prevRank[t.team], d = p ? p - t.rank : 0, pd = pointDiff(t);
     const mv = !p ? "" : d > 0 ? `<span class="up">▲${d}</span>` : d < 0 ? `<span class="down">▼${-d}</span>` : `<span class="muted">–</span>`;
     const chips = LG.factors.map((f) => {
       const v = t.scores[f.key];
@@ -337,6 +349,7 @@ function render() {
       <td class="num rank">${t.rank}</td><td class="mv">${mv}</td>
       <td><div class="team">${logo(t)}<div><b>${esc(t.team)}${cotwTag(t)}${apTag(t)}</b><small>${esc(t.conference || "")}</small></div></div></td>
       <td class="num">${esc(t.record)}</td>
+      <td class="num diff ${pd.diff > 0 ? "up" : pd.diff < 0 ? "down" : ""}" title="${pd.pf} scored, ${pd.pa} allowed">${pd.diff > 0 ? "+" : ""}${pd.diff}</td>
       <td class="num ap">${t.ap_rank ? esc(t.ap_rank) : '<span class="muted">–</span>'}</td>
       <td><div class="score">${t.comp.toFixed(1)}<span class="bar"><i style="width:${+t.comp || 0}%"></i></span></div></td>
       <td class="factors"><div class="chips">${chips}</div></td></tr>`;
