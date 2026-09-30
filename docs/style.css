@@ -859,6 +859,7 @@ table.moves td:last-child { white-space: normal; min-width: 240px; }
   :root:not([data-theme="dark"]) .cc-chart .cc-bench { stroke: #b9b9bd; }
   :root:not([data-theme="dark"]) .cc-chart .cc-bdot { fill: #b9b9bd; }
   :root:not([data-theme="dark"]) .cc-bench-key i { border-top-color: #b9b9bd; }
+}
 
 /* Stats by year: Line / Bar switch (only the chosen chart shows; showing it replays its animation) */
 .cc-box svg[data-mode] { display: none; }
@@ -874,4 +875,3 @@ table.moves td:last-child { white-space: normal; min-width: 240px; }
   border-left: 1px solid var(--accent); border-right: 1px solid var(--accent); }
 .cc-hint { font-size: 11px; margin: -4px 0 10px; text-align: center; }
 .cc-hint .link { font-size: 11px; }
-}
