@@ -1255,18 +1255,31 @@ const Live = (() => {
   // which also gives age, experience and last team.
   const FA_POS = { 1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K" };
   const FANTASY_INJ = { OUT: "Out", QUESTIONABLE: "Questionable", DOUBTFUL: "Doubtful", INJURY_RESERVE: "Injured Reserve", SUSPENSION: "Suspension" };
-  let faState = { pos: "", q: "" };
+  let faState = { pos: "", q: "", sort: "best" };
+  // Production: PPR fantasy points per game from the most recent season they played (this season if they were cut
+  // mid-year, else last season). Short seasons count as at least 4 games so one big game doesn't top the list.
+  function faProduction(c, y) {
+    const season = (yr) => (c.stats || []).find((st) => st.seasonId === yr && st.statSourceId === 0 && st.statSplitTypeId === 0 && st.appliedTotal > 0);
+    const st = season(y) || season(y - 1);
+    if (!st) return null;
+    const games = st.appliedAverage ? Math.round(st.appliedTotal / st.appliedAverage) : 0;
+    // compared with a typical starter at the position (PPR pts/game); kickers count half, as the easiest to replace
+    const par = FA_PAR[FA_POS[c.defaultPositionId]] || 12;
+    return { year: st.seasonId, ppg: st.appliedAverage || 0, games, score: st.appliedTotal / Math.max(games, 4) / par };
+  }
+  const FA_PAR = { QB: 17, RB: 12, WR: 12, TE: 9, K: 16 }; // a starting kicker scores ~8; counted at half
   async function faCandidates() {
-    const filter = { players: { filterProTeamIds: { value: [0] }, limit: 1000, sortPercOwned: { sortPriority: 1, sortAsc: false },
-      filterStatsForCurrentSeasonScoringPeriodId: { value: [0] }, filterRanksForScoringPeriodIds: { value: [0] } } };
     const now = new Date(), yr = now.getFullYear();
     for (const y of now.getMonth() < 2 ? [yr - 1] : [yr, yr - 1]) { // the fantasy season rolls over in the spring
+      const filter = { players: { filterProTeamIds: { value: [0] }, limit: 1000, sortPercOwned: { sortPriority: 1, sortAsc: false },
+        filterStatsForTopScoringPeriodIds: { value: 2, additionalValue: [`00${y - 1}`, `00${y}`] }, filterRanksForScoringPeriodIds: { value: [0] } } };
       const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${y}/segments/0/leaguedefaults/3?view=kona_player_info`;
       const hit = cache.get(url);
       if (hit && Date.now() - hit.t < 600000) return hit.data;
       const r = await fetch(url, { headers: { "X-Fantasy-Filter": JSON.stringify(filter) } });
       if (!r.ok) throw new Error(`ESPN ${r.status}`);
-      const list = ((await r.json()).players || []).map((x) => x.player).filter((p) => p?.active && FA_POS[p.defaultPositionId]);
+      const list = ((await r.json()).players || []).map((x) => x.player).filter((p) => p?.active && FA_POS[p.defaultPositionId])
+        .map((p) => ({ ...p, prod: faProduction(p, y) }));
       if (list.length) { cache.set(url, { t: Date.now(), data: list }); return list; }
     }
     return [];
@@ -1288,27 +1301,32 @@ const Live = (() => {
     view("freeagents").innerHTML = `<div class="card">
       <div class="sc-bar"><h2>NFL free agents</h2>
         <div class="presets" id="fa-pos">${[["", "All"], ...Object.values(FA_POS).map((p) => [p, p])].map(([v, l]) => `<button data-pos="${v}" class="${v === faState.pos ? "on" : ""}">${l}</button>`).join("")}</div>
+        <div class="presets" id="fa-sort" title="How to order the list">${[["best", "Best"], ["rostered", "Most rostered"]].map(([v, l]) => `<button data-sort="${v}" class="${v === faState.sort ? "on" : ""}">${l}</button>`).join("")}</div>
         <input id="fa-search" type="search" placeholder="Filter by name or last team…" value="${esc(faState.q)}">
         <span class="muted live-note" id="fa-status"></span></div>
-      <div class="table-wrap"><table class="box" id="fa-table"><thead><tr><th class="num">#</th><th>Player</th><th>Pos</th><th class="num">Age</th><th class="num" title="Seasons in the NFL (R = rookie)">Exp</th><th>Last team</th></tr></thead><tbody></tbody></table></div>
-      <p class="note">Unsigned players ESPN lists as free agents, most notable first. ESPN only tracks free agents at QB, RB, WR, TE and K.</p></div>`;
+      <div class="table-wrap"><table class="box" id="fa-table"><thead><tr><th class="num">#</th><th>Player</th><th>Pos</th><th class="num">Age</th><th class="num" title="Seasons in the NFL (R = rookie)">Exp</th><th>Last team</th><th class="num" title="PPR fantasy points per game in their most recent season">Pts/g</th></tr></thead><tbody></tbody></table></div>
+      <p class="note">Unsigned players ESPN lists as free agents. <b>Best</b> ranks them by production in their most recent season (PPR fantasy points per game compared with a typical starter at the same position, so a good kicker and a good receiver are judged fairly; kickers count half since they are the easiest to replace, and seasons under 4 games count as 4). <b>Most rostered</b> is how many ESPN fantasy leagues have them. ESPN only tracks free agents at QB, RB, WR, TE and K.</p></div>`;
     const draw = () => {
       if (my !== token) return;
       const q = normName(faState.q);
       const rows = cands.map((c) => done.get(c.id)).filter((r) => r && (!faState.pos || r.pos === faState.pos) && (!q || r.search.includes(q)));
+      if (faState.sort === "best") rows.sort((a, b) => (b.prod?.score ?? -1) - (a.prod?.score ?? -1)); // else ESPN's order: most rostered
       const checked = cands.filter((c) => done.has(c.id)).length;
       $("#fa-status").textContent = checked < cands.length ? `Checking ESPN rosters… ${checked}/${cands.length}` : `${rows.length} player${rows.length === 1 ? "" : "s"}`;
       $("#fa-table tbody").innerHTML = rows.map((r, i) => `<tr><td class="num muted">${i + 1}</td>
         <td><div class="team">${face(r.headshot, r.name, "hs")}<a href="${link("player", r.id)}">${esc(r.name)}</a>${r.inj}</div></td>
         <td>${esc(r.pos)}</td><td class="num">${esc(r.age ?? "")}</td><td class="num">${r.exp == null ? "" : r.exp ? esc(r.exp) : "R"}</td>
-        <td>${r.team ? `<a href="${link("team", r.team.id)}"><span class="tm">${img(teamLogo(r.team), "xs")} ${esc(r.team.abbreviation || r.team.displayName)}</span></a>` : `<span class="muted">–</span>`}</td></tr>`).join("")
-        || (checked < cands.length ? "" : `<tr><td colspan="6" class="muted">No free agents match.</td></tr>`);
+        <td>${r.team ? `<a href="${link("team", r.team.id)}"><span class="tm">${img(teamLogo(r.team), "xs")} ${esc(r.team.abbreviation || r.team.displayName)}</span></a>` : `<span class="muted">–</span>`}</td>
+        <td class="num">${r.prod ? `${r.prod.ppg.toFixed(1)} <small class="muted" title="${r.prod.games} games in ${r.prod.year}">${r.prod.games}g '${String(r.prod.year).slice(2)}</small>` : '<span class="muted">–</span>'}</td></tr>`).join("")
+        || (checked < cands.length ? "" : `<tr><td colspan="7" class="muted">No free agents match.</td></tr>`);
     };
     let pending = null;
     const soon = () => { pending ||= setTimeout(() => { pending = null; draw(); }, 250); };
     $("#fa-pos").onclick = (e) => { const b = e.target.closest("[data-pos]"); if (!b) return; faState.pos = b.dataset.pos;
       $("#fa-pos").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); draw(); };
     $("#fa-search").oninput = (e) => { faState.q = e.target.value.trim(); draw(); };
+    $("#fa-sort").onclick = (e) => { const b = e.target.closest("[data-sort]"); if (!b) return; faState.sort = b.dataset.sort;
+      $("#fa-sort").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); draw(); };
     draw();
     // check each candidate against ESPN's athlete record, a few at a time, most notable first
     let next = 0;
@@ -1320,7 +1338,7 @@ const Live = (() => {
         const team = teams.get(teamId) || null;
         done.set(c.id, a?.status?.type !== "free-agent" ? null : {
           id: c.id, name: a.displayName || c.fullName, pos: FA_POS[c.defaultPositionId], age: a.age, exp: a.experience?.years,
-          headshot: a.headshot?.href, team, inj: FANTASY_INJ[c.injuryStatus] ? injTag({ status: FANTASY_INJ[c.injuryStatus] }) : "",
+          headshot: a.headshot?.href, team, prod: c.prod, inj: FANTASY_INJ[c.injuryStatus] ? injTag({ status: FANTASY_INJ[c.injuryStatus] }) : "",
           search: normName(`${a.displayName || c.fullName} ${team?.displayName || ""} ${team?.abbreviation || ""}`),
         });
         soon();
