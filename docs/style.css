@@ -848,3 +848,16 @@ table.moves td:last-child { white-space: normal; min-width: 240px; }
 .cc-tip span { display: flex; align-items: center; gap: 6px; margin-top: 3px; font-size: 11px; }
 .cc-tip span i { width: 9px; height: 9px; border-radius: 50%; }
 @media (prefers-reduced-motion: reduce) { .cc-chart .cc-line, .cc-chart .cc-dot, .cc-tip.on { animation-duration: .01s; animation-delay: 0s !important; } }
+
+/* Stats by year: top-10 average line (muted and dashed so the players stay the focus; fades in behind them) */
+.cc-chart .cc-bench { fill: none; stroke: #4a4a50; stroke-width: 1.75; stroke-dasharray: 5 4; opacity: 0; animation: cc-fade .8s .2s ease-out forwards; }
+@keyframes cc-fade { to { opacity: 1; } }
+.cc-chart .cc-bdot { fill: #4a4a50; stroke-width: 1.5; }
+.cc-chart .cc-bdot.on { r: 5.5; fill: #8a8a8f; }
+.cc-bench-key { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; padding: 4px 8px; }
+.cc-bench-key i { width: 18px; border-top: 2px dashed #4a4a50; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .cc-chart .cc-bench { stroke: #b9b9bd; }
+  :root:not([data-theme="dark"]) .cc-chart .cc-bdot { fill: #b9b9bd; }
+  :root:not([data-theme="dark"]) .cc-bench-key i { border-top-color: #b9b9bd; }
+}

@@ -584,14 +584,44 @@ const Live = (() => {
       born: birthYear(bio), active: bio.active !== false, lvl, debut, seasons, cats };
   }
 
-  function careerCard(players, st) {
+  // Which category and stat the Stats by year card shows (from the URL, else the player's main stat)
+  function careerPick(players, st) {
     const main = players[0];
     const catNames = Object.keys(main.cats).filter((k) => main.cats[k].rows.length);
-    if (!catNames.length) return `<div class="card"><h3>Stats by year</h3><p class="muted">No season stats available.</p></div>`;
+    if (!catNames.length) return null;
     const cat = catNames.includes(st.cat) ? st.cat : catNames.includes(PRIMARY(main.pos)) ? PRIMARY(main.pos) : catNames[0];
     const C = main.cats[cat];
     const metric = C.names.includes(st.metric) ? st.metric : C.names.includes(KEY_METRIC[cat]) ? KEY_METRIC[cat] : C.names.find((n) => /yards/i.test(n)) || C.names[1] || C.names[0];
-    const align = st.align === "career" ? "career" : "season";
+    return { catNames, cat, C, metric, align: st.align === "career" ? "career" : "season" };
+  }
+
+  // Top-10 average line: for each season on the chart, the average of that season's 10 leaders in the stat
+  // (NFL leaders for pro seasons, college leaders for college seasons). Only when lined up by season.
+  const LEADER_CAT = { passing: "offense:passing", rushing: "offense:rushing", receiving: "offense:receiving", defensive: "defense",
+    defensiveInterceptions: "defense", kicking: "specialTeams:kicking", punting: "specialTeams:punting", returning: "specialTeams:returning", scoring: "scoring" };
+  async function top10Avg(players, st) {
+    const pk = careerPick(players, st);
+    if (!pk || pk.align !== "season" || !LEADER_CAT[pk.cat]) return null;
+    const levelOf = new Map(); // season -> league level, preferring the main player's row
+    [...players].reverse().forEach((p) => (p.cats[pk.cat]?.rows || []).forEach((r) => levelOf.set(r.year, r.level)));
+    const out = new Map();
+    await Promise.all([...levelOf].map(async ([year, level]) => {
+      const lg = level === "NFL" ? "nfl" : "cfb";
+      const d = await api(`${WEB(lg)}/statistics/byathlete?category=${LEADER_CAT[pk.cat]}&sort=${pk.cat}.${pk.metric}:desc&limit=10&season=${year}&seasontype=2`, 86400000).catch(() => null);
+      const same = (c) => c.name.toLowerCase() === pk.cat.toLowerCase();
+      const i = (d?.categories || []).find(same)?.names?.indexOf(pk.metric) ?? -1;
+      if (i < 0) return;
+      const vals = (d.athletes || []).map((a) => num((a.categories || []).find(same)?.totals?.[i])).filter((v) => v != null);
+      if (vals.length >= 5) out.set(year, vals.reduce((a, v) => a + v, 0) / vals.length);
+    }));
+    return out.size ? out : null;
+  }
+
+  function careerCard(players, st, bench = null) {
+    const main = players[0];
+    const pk = careerPick(players, st);
+    if (!pk) return `<div class="card"><h3>Stats by year</h3><p class="muted">No season stats available.</p></div>`;
+    const { catNames, cat, C, metric, align } = pk;
     const series = players.map((p, i) => {
       const PC = p.cats[cat], bySeason = new Map();
       for (const r of PC?.rows || []) {
@@ -607,7 +637,8 @@ const Live = (() => {
       return { p, color: CMP_COLORS[i], rows, total: official != null ? official : rows.reduce((a, r) => a + r.v, 0).toLocaleString() };
     });
     const xs = [...new Set(series.flatMap((s) => s.rows.map((r) => r.x)))].sort((a, b) => a - b);
-    const max = Math.max(1, ...series.flatMap((s) => s.rows.map((r) => r.v)));
+    const benchAt = (x) => (bench && align === "season" ? bench.get(x) : undefined);
+    const max = Math.max(1, ...series.flatMap((s) => s.rows.map((r) => r.v)), ...xs.map(benchAt).filter((v) => v != null));
     // line chart (SVG): one line per player, a dot on each season; the line breaks over seasons with no stats
     const W = 720, H = 230, padL = 46, padR = 14, top = 18, base = H - 22;
     const gw = (W - padL - padR) / Math.max(1, xs.length), px = (gi) => padL + gi * gw + gw / 2, py = (v) => base - (Math.max(0, v) / max) * (base - top);
@@ -618,7 +649,17 @@ const Live = (() => {
     const xlabels = xs.map((x, gi) => (gi % step ? "" : `<text x="${px(gi).toFixed(1)}" y="${H - 5}" class="cc-x">${align === "career" ? "Yr " + x : x}</text>`)).join("");
     // lines draw themselves in left to right; each dot pops in as the line reaches it (CSS animations)
     const nodes = [];
-    const lines = series.map((sr, si) => {
+    let benchLine = "";
+    if (xs.some((x) => benchAt(x) != null)) {
+      const pts = xs.map((x, gi) => benchAt(x) != null && { x: px(gi), y: py(benchAt(x)), gi, v: benchAt(x) });
+      let d = "";
+      pts.forEach((p, i) => { if (p) d += `${pts[i - 1] ? "L" : "M"}${p.x.toFixed(1)},${p.y.toFixed(1)}`; });
+      benchLine = `<path d="${d}" class="cc-bench"/>` + pts.filter(Boolean).map((p) => {
+        nodes.push({ x: p.x, y: p.y, si: -1, label: String(xs[p.gi]), team: "", val: fmt(p.v).toLocaleString() });
+        return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" class="cc-dot cc-bdot" data-n="${nodes.length - 1}" style="animation-delay:${(0.1 + (p.gi / Math.max(1, xs.length - 1)) * 0.9).toFixed(2)}s"></circle>`;
+      }).join("");
+    }
+    const lines = benchLine + series.map((sr, si) => {
       const pts = xs.map((x, gi) => { const r = sr.rows.find((q) => q.x === x); return r && { r, x: px(gi), y: py(r.v), gi }; });
       let d = "";
       pts.forEach((p, i) => { if (p) d += `${pts[i - 1] ? "L" : "M"}${p.x.toFixed(1)},${p.y.toFixed(1)}`; });
@@ -633,7 +674,8 @@ const Live = (() => {
     // what the hover box needs (read by initCcHover once the chart is on the page)
     ccHover = { W, H, nodes, stat: C.labels[metric], series: series.map((sr) => ({ name: sr.p.name, color: sr.color })) };
     const legend = series.map((sr, i) => `<span class="cc-chip" style="--c:${sr.color}">${face(sr.p.headshot, sr.p.name, "hs", sr.p.lg === "nfl", sr.p.born)} ${esc(sr.p.name)} <small>${esc(sr.p.pos || "")}</small>
-      ${i ? `<button class="cc-x-btn" data-rm="${esc(sr.p.lg)}:${esc(sr.p.id)}" aria-label="Remove">×</button>` : ""}</span>`).join("");
+      ${i ? `<button class="cc-x-btn" data-rm="${esc(sr.p.lg)}:${esc(sr.p.id)}" aria-label="Remove">×</button>` : ""}</span>`).join("")
+      + (benchLine ? `<span class="cc-bench-key" title="Each season's average for the top 10 players in this stat"><i></i>Top-10 avg</span>` : "");
 
     const teamCell = (r) => `<span class="tm">${img(r.team.logo, "xs")} ${esc(r.team.abbr)}${r.level === "NCAA" && main.lg === "nfl" ? ' <span class="pill lvl">NCAA</span>' : ""}</span>`;
     let table;
@@ -700,9 +742,9 @@ const Live = (() => {
       if (bd > (touch ? 60 : 28)) return hide(); // only when you're on (or right next to) a dot
       if (best === cur) return;
       cur = best;
-      const n = H.nodes[best], s = H.series[n.si], x = ox + n.x * k, y = oy + n.y * k;
+      const n = H.nodes[best], s = n.si < 0 ? { name: "Top-10 average", color: "#6b6b70" } : H.series[n.si], x = ox + n.x * k, y = oy + n.y * k;
       dots.forEach((d) => d.classList.toggle("on", +d.dataset.n === best));
-      tip.innerHTML = `<small>${esc(n.label)} · ${esc(n.team)}</small><b>${esc(n.val)} <em>${esc(H.stat)}</em></b>${H.series.length > 1 ? `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>` : ""}`;
+      tip.innerHTML = `<small>${esc(n.label)}${n.team ? ` · ${esc(n.team)}` : ""}</small><b>${esc(n.val)} <em>${esc(H.stat)}</em></b>${H.series.length > 1 || n.si < 0 ? `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>` : ""}`;
       tip.style.left = `${x}px`; tip.style.top = `${y}px`;
       tip.classList.toggle("below", y < 70);
       tip.classList.toggle("edge-l", x < 80);
@@ -816,7 +858,11 @@ const Live = (() => {
     $("#pl-season").onchange = (e) => { location.hash = link("player", id, { season: e.target.value }); };
     const careers = await careersP;
     if (my !== token) return;
-    $("#career-slot").innerHTML = careers ? careerCard(careers, { cat: params.get("cat"), metric: params.get("metric"), align: params.get("align") })
+    const cst = { cat: params.get("cat"), metric: params.get("metric"), align: params.get("align") };
+    // top-10 average line; don't hold the chart up more than a few seconds for it
+    const bench = careers ? await Promise.race([top10Avg(careers, cst).catch(() => null), new Promise((r) => setTimeout(() => r(null), 4000))]) : null;
+    if (my !== token) return;
+    $("#career-slot").innerHTML = careers ? careerCard(careers, cst, bench)
       : `<div class="card muted">Season-by-season stats aren't available for this player.</div>`;
     if (careers) {
       wireCareer(id, params);
