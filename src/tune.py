@@ -74,7 +74,7 @@ def tune(league, season, factors, inverted, default_weights):
         return None
     best = to_weights(fit_logistic(X, y)[1:], factors)
     deserving = {k: v for k, v in DESERVING.items() if k in factors}
-    if sum(deserving.values()) != 100:  # NFL has no cupcake factor
+    if sum(deserving.values()) != 100:  # a league missing one of these factors
         scale = 100 / sum(deserving.values())
         deserving = {k: round(v * scale) for k, v in deserving.items()}
     # out-of-sample check: learn from last season only, test on this season's games

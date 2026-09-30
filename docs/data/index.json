@@ -265,20 +265,27 @@
      "help": "How the team has played in its last few games."
     },
     {
+     "key": "cupcake",
+     "label": "Cupcake",
+     "help": "How much did you pad it? NFL teams can't pick cupcakes, but schedules still hand them out. Only games against bottom-third teams (3+ points worse than average) that are 6+ points worse than YOU count, and bigger mismatches count more. A bad team playing other bad teams isn't padding. Higher = more padded, and it counts against the team. Only games already played count.",
+     "invert": true
+    },
+    {
      "key": "luck",
      "label": "Bad luck",
      "help": "Higher = has had bad luck in close games (one-score results are treated as coin flips). Lower = has been winning coin flips."
     }
    ],
    "default_weights": {
-    "power": 35,
+    "power": 30,
     "resume": 15,
     "efficiency": 25,
     "sos": 10,
     "recent": 10,
+    "cupcake": 5,
     "luck": 5
    },
-   "updated": "2026-09-30T20:20+00:00",
+   "updated": "2026-09-30T22:59+00:00",
    "modes": {
     "best": {
      "power": 90,
@@ -286,17 +293,19 @@
      "efficiency": 0,
      "sos": 0,
      "recent": 10,
+     "cupcake": 0,
      "luck": 0
     },
     "deserving": {
-     "resume": 71,
-     "sos": 29
+     "resume": 60,
+     "sos": 25,
+     "cupcake": 15
     },
     "games": 287,
     "accuracy": {
      "best": 0.5958188153310104,
-     "deserving": 0.6341463414634146,
-     "old_default": 0.6167247386759582,
+     "deserving": 0.6236933797909407,
+     "old_default": 0.6236933797909407,
      "power_only": 0.6027874564459931
     },
     "out_of_sample": {
@@ -304,10 +313,10 @@
      "tested_on": 2026,
      "games": 32,
      "best": 0.5,
-     "old_default": 0.5
+     "old_default": 0.5625
     }
    }
   }
  },
- "updated": "2026-09-30T21:04+00:00"
+ "updated": "2026-09-30T22:59+00:00"
 }

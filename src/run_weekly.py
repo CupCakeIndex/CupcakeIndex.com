@@ -59,7 +59,7 @@ def run_league(league, season, cfg_league, offline):
     weeks, graded, cotw_hist = [], [], {}
     for week in (range(1, last + 1) if last else [0]):
         res = model.build_week(teams, games, d["advanced"], d["polls"], week, cfg, prior, rgames, node_prior)
-        cotw = model.cupcake_of_week(games, res["ratings"], week, cfg, teams) if league == "cfb" else None
+        cotw = model.cupcake_of_week(games, res["ratings"], week, cfg, teams)
         if cotw:
             cotw_hist.setdefault(cotw["team"], []).append(week)
         res["cupcake_of_week"] = cotw

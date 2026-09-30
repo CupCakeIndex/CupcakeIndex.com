@@ -482,7 +482,6 @@ body.drawer-open { overflow: hidden; }
 .tmeta { flex-wrap: nowrap; min-width: 0; }
 .tmeta .cupm { flex: none; width: 63px; }
 .tmeta small { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-body[data-league="nfl"] .tmeta .cupm { display: none; }
 
 /* game page: two independent columns + full-width box score */
 .game-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; margin-top: 12px; }

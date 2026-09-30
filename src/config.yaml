@@ -33,11 +33,12 @@ cfb:
 
 nfl:
   default_weights:
-    power: 35
+    power: 30        # (was 35; 5 moved to Cupcake when NFL got its own Cupcake score)
     resume: 15       # Wins compared with what the #8 team would get against the same schedule
     efficiency: 25   # Opponent-adjusted EPA/play (offense minus defense)
     sos: 10
     recent: 10
+    cupcake: 5       # Cupcake score: how much of the record came against teams far worse than you (counts AGAINST)
     luck: 5          # "Bad luck": one-score results count as coin flips
   model:
     margin_cap: 21          # Three scores. NFL blowouts are rarer; this mostly trims garbage time.
@@ -47,6 +48,12 @@ nfl:
     game_sigma: 13.5
     recent_games: 3
     benchmark_rank: 8
+    # NFL teams don't schedule cupcakes, but some schedules hand them out. Same idea as college, scaled to
+    # NFL ratings (spread ~5 points, vs ~9-15 in college):
+    cupcake_gap: 6          # An opponent is a cupcake once they're this many points worse than you...
+    cupcake_span: 8         # ...counting fully at gap + span (14+ points worse)
+    cupcake_max_opp: -3     # ...and only if they're 3+ points below an average NFL team (roughly the bottom third)
+    cotw_min_margin: 17     # Cupcake Bully of the Week needs a win by at least this much
     prior_games: 3
     prior_fade_week: 6
     one_score: 8

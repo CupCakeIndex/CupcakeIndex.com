@@ -111,7 +111,7 @@ async function route() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "77"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "78"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -278,7 +278,7 @@ async function loadWeek(force = false) {
   $("#conf").innerHTML = `<option value="">${league === "nfl" ? "All divisions" : "All conferences"}</option>` + confs.map((c) => `<option>${esc(c)}</option>`).join("");
   $("#conf").value = confs.includes(cur) ? cur : "";
   const spc = $("#sp-conf").value;
-  $("#sp-conf").innerHTML = `<option value="">All conferences</option>` + confs.map((c) => `<option>${esc(c)}</option>`).join("");
+  $("#sp-conf").innerHTML = `<option value="">${league === "nfl" ? "All divisions" : "All conferences"}</option>` + confs.map((c) => `<option>${esc(c)}</option>`).join("");
   $("#sp-conf").value = confs.includes(spc) ? spc : "";
   const hasAP = DATA.teams.some((t) => t.ap_rank);
   document.body.classList.toggle("no-ap", !hasAP);
@@ -473,9 +473,10 @@ const bestWinText = (g) => g ? `${g.opp_rank && !g.fcs ? "#" + g.opp_rank + " " 
 const untestedTag = (t) => isUntested(t)
   ? ` <span class="pill untested" title="No win over a top-${TESTED[league].quality} team yet. Best win: ${esc(bestWinText(bestWin(t)))}">Beaten Nobody</span>` : "";
 
-// Padding meter: a bar filled to the Cupcake score (50 = average FBS schedule). Empty = no cupcakes played.
+// Padding meter: a bar filled to the Cupcake score (50 = average schedule). Empty = no cupcakes played.
+// NFL week files from before the NFL got a Cupcake score have no scores.cupcake: no meter.
 function cupMeter(t) {
-  if (league !== "cfb" || t.scores.cupcake == null || !(t.wins + t.losses)) return "";
+  if (t.scores.cupcake == null || !(t.wins + t.losses)) return "";
   const cups = t.schedule.filter((g) => g.result && g.cupcake);
   const tip = cups.length
     ? `Padding ${Math.round(t.scores.cupcake)}/100. Cupcakes: ${cups.map((g) => g.opp + (g.fcs ? " (FCS)" : "")).join(", ")}`
@@ -501,7 +502,7 @@ function render() {
   if (!DATA) return;
   ranked = rankTeams(DATA.teams);
   const prevRank = PREV ? Object.fromEntries(rankTeams(PREV.teams).map((t) => [t.team, t.rank])) : {};
-  const q = $("#search").value.trim().toLowerCase(), conf = $("#conf").value, top = $("#top25").checked, prof = league === "cfb" ? $("#profile").value : "";
+  const q = $("#search").value.trim().toLowerCase(), conf = $("#conf").value, top = $("#top25").checked, prof = $("#profile").value;
   let ordered = reverse ? [...ranked].reverse() : ranked;
   if (colSort) {
     const pct = (t) => (t.wins + t.losses ? t.wins / (t.wins + t.losses) : 0);
@@ -560,7 +561,9 @@ function whyBullets(t) {
   const weak = f.filter((x) => x.v < 40).slice(-2).reverse();
   if (weak.length) out.push("Weaknesses: " + weak.map((x) => `${x.label.toLowerCase()} (${Math.round(x.v)})`).join(", ") + ".");
   const games = t.wins + t.losses, cups = t.fcs_games + t.weak_games;
-  if (league === "cfb" && cups >= 2) out.push(`Cupcake score ${Math.round(t.scores.cupcake)}: ${cups} of ${games} games were cupcakes for a team this good (${t.fcs_games} FCS, ${t.weak_games} FBS teams far below them). Those wins barely count.`);
+  if (t.scores.cupcake != null && cups >= 2) out.push(league === "nfl"
+    ? `Cupcake score ${Math.round(t.scores.cupcake)}: ${cups} of ${games} games were against bottom-third teams far below them. Those wins barely count.`
+    : `Cupcake score ${Math.round(t.scores.cupcake)}: ${cups} of ${games} games were cupcakes for a team this good (${t.fcs_games} FCS, ${t.weak_games} FBS teams far below them). Those wins barely count.`);
   if (isUntested(t)) out.push(`Beaten Nobody: no win over a top-${TESTED[league].quality} team yet. Best win: ${bestWinText(bestWin(t))}.`);
   const cw = t.cotw_weeks || [];
   if (cw.length) out.push(`Cupcake Bully of the Week ${cw.length === 1 ? "once" : cw.length + " times"} this season (week ${cw.join(", ")}).`);
@@ -598,13 +601,13 @@ function openTeam(name) {
       <div class="stat"><small>Schedule rank</small><b>#${sosRank}</b></div>
       <div class="stat"><small>One-score games</small><b>${esc(t.one_score)}</b></div>
       <div class="stat"><small>Wins vs. deserved</small><b>${t.luck_wins > 0 ? "+" : ""}${t.luck_wins.toFixed(1)}</b></div>
-      ${nfl ? `<div class="stat"><small>Main starting QB</small><b>${esc(t.usual_qb || "—")}</b></div>`
+      ${nfl ? `<div class="stat"><small>Main starting QB</small><b>${esc(t.usual_qb || "—")}</b></div>${t.scores.cupcake != null ? `<div class="stat"><small>Mismatch games</small><b>${esc(t.weak_games)}</b></div>` : ""}`
             : `<div class="stat"><small>FCS games</small><b>${esc(t.fcs_games)}</b></div><div class="stat"><small>FBS mismatches</small><b>${esc(t.weak_games)}</b></div>`}
-      ${!nfl && profileOf(t) ? `<div class="stat wide-stat"><small>Schedule profile</small><b>${profileBadge(profileOf(t))}</b><small class="muted">${PROFILES[profileOf(t)].desc} <a href="${link("schedules", null, { team: t.team })}">See it on the chart →</a></small></div>` : ""}
+      ${profileOf(t) ? `<div class="stat wide-stat"><small>Schedule profile</small><b>${profileBadge(profileOf(t))}</b><small class="muted">${PROFILES[profileOf(t)].desc} <a href="${link("schedules", null, { team: t.team })}">See it on the chart →</a></small></div>` : ""}
     </div>
     <h3>Factor scores</h3>
     ${LG.factors.map((f) => `<div class="frow" title="${esc(f.help)}"><span>${esc(f.label)}</span><span class="bar${f.invert ? " inv" : ""}"><i style="width:${+t.scores[f.key] || 0}%"></i></span><b class="num">${Math.round(t.scores[f.key])}</b></div>`).join("")}
-    <p class="note">Power rating = points better than an average ${nfl ? "NFL" : "FBS"} team on a neutral field.${nfl ? "" : " Cupcake: higher = softer schedule for a team at this level, counting only games already played."}</p>
+    <p class="note">Power rating = points better than an average ${nfl ? "NFL" : "FBS"} team on a neutral field.${t.scores.cupcake != null ? " Cupcake: higher = softer schedule for a team at this level, counting only games already played." : ""}</p>
     <h3>Schedule</h3>
     <table class="sched"><thead><tr><th>Wk</th><th>Opponent</th><th>Result</th><th class="num" title="How hard it is for a ${bench} to win this game">Difficulty</th></tr></thead><tbody>${sched}</tbody></table>
     <p class="note">Difficulty is the chance a typical ${bench} would lose this game.${nfl ? " ⚠ = a different QB than the team's usual starter." : " Beating FCS teams is close to 0%."}</p>`;
@@ -619,14 +622,14 @@ function openTeam(name) {
 
 // ------------------------------------------------------------------ schedule profile chart
 function renderSchedules() {
-  if (!DATA || league !== "cfb") {
-    $("#sp-chart").innerHTML = `<p class="muted" style="padding:16px">Schedule profiles are a college football feature. NFL teams don't schedule cupcakes.</p>`;
+  if (!DATA || !DATA.teams.some((t) => t.scores.cupcake != null)) {
+    $("#sp-chart").innerHTML = `<p class="muted" style="padding:16px">No Cupcake scores in this week's data, so there are no schedule profiles to show.</p>`;
     $("#sp-legend").innerHTML = "";
     return;
   }
   const all = composite(DATA.teams).filter((t) => profileOf(t));
   const show = $("#sp-show").value, conf = $("#sp-conf").value;
-  let teams = show === "ap" ? all.filter((t) => t.ap_rank) : show === "all" ? all : all.filter((t) => t.rank <= +show);
+  let teams = league === "nfl" ? all : show === "ap" ? all.filter((t) => t.ap_rank) : show === "all" ? all : all.filter((t) => t.rank <= +show);
   if (conf) teams = all.filter((t) => t.conference === conf);
   // arriving from a team panel: always include that team, even if the current filter would hide it
   const focus = parseHash().params.get("team");
