@@ -22,7 +22,7 @@ const BASE_PRESETS = {
 const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", recent: "FORM", cupcake: "CUP", luck: "UNLK" };
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
 const RANK_VIEWS = new Set(["rankings", "picks", "schedules"]);
-const VIEWS = new Set(["rankings", "picks", "schedules", "about", "scores", "stats", "standings", "game", "player", "team"]);
+const VIEWS = new Set(["rankings", "picks", "schedules", "about", "updates", "scores", "stats", "standings", "game", "player", "team"]);
 
 async function getJSON(url) {
   const r = await fetch(url, { cache: "no-cache" });
@@ -61,6 +61,8 @@ async function route() {
     const team = r.params.get("team");
     if (r.view === "rankings" && team) openTeam(team);
     if (r.view === "schedules") renderSchedules();
+  } else if (r.view === "updates") {
+    renderNotes();
   } else if (Live[r.view]) {
     Live[r.view](r.arg, r.params);
   }
@@ -139,6 +141,7 @@ function setLeague(l) {
   $("#profile").innerHTML = `<option value="">All schedule profiles</option>` + Object.entries(PROFILES).map(([k, p]) => `<option value="${k}">${p.icon} ${p.name}</option>`).join("");
   $("#league-tag").textContent = LEAGUE_NAME[l] || l;
   document.querySelectorAll("#nav .tab").forEach((a) => (a.href = link(a.dataset.view)));
+  $("#notes-link").href = link("updates");
   weights = loadWeights(l);
   reverse = false;
   beforeSolo = null;
@@ -524,6 +527,18 @@ function renderSchedules() {
   const counts = Object.fromEntries(Object.keys(PROFILES).map((k) => [k, teams.filter((t) => profileOf(t) === k)]));
   $("#sp-legend").innerHTML = Object.entries(PROFILES).map(([k, p]) => `<div class="sp-leg sp-${k}"><b>${p.icon} ${p.name}</b> <span class="muted">(${counts[k].length})</span><small>${p.desc}</small>
     <small>${counts[k].slice(0, 6).map((t) => `#${t.rank} ${esc(t.team)}`).join(", ")}${counts[k].length > 6 ? "…" : ""}</small></div>`).join("");
+}
+
+// ------------------------------------------------------------------ release notes
+async function renderNotes() {
+  try {
+    const notes = await getJSON("data/release_notes.json");
+    $("#notes").innerHTML = notes.map((n) => `
+      <h3>${esc(new Date(n.date + "T12:00:00").toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }))}${n.title ? ` <span class="muted">· ${esc(n.title)}</span>` : ""}</h3>
+      <ul>${n.items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>`).join("");
+  } catch {
+    $("#notes").innerHTML = `<p class="muted">Couldn't load release notes.</p>`;
+  }
 }
 
 // ------------------------------------------------------------------ picks

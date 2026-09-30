@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://a.espncdn.com">
 <meta name="theme-color" content="#0f1216">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=22">
+<link rel="stylesheet" href="style.css?v=23">
 </head>
 <body>
 <header class="top">
@@ -99,6 +99,10 @@
   <section id="view-player" class="view hidden"></section>
   <section id="view-team" class="view hidden"></section>
 
+  <section id="view-updates" class="view hidden">
+    <div class="card prose"><h2>Release notes</h2><div id="notes"><p class="muted">Loading…</p></div></div>
+  </section>
+
   <section id="view-about" class="view hidden">
     <div class="card prose">
       <h2>How it works</h2>
@@ -126,7 +130,7 @@
   </section>
 </main>
 
-<footer class="foot">Rankings data: <a href="https://collegefootballdata.com" rel="noopener">CollegeFootballData.com</a> and <a href="https://github.com/nflverse" rel="noopener">nflverse</a>. Scores and player stats: ESPN. Betting lines are shown for comparison only. This is for entertainment, not betting advice.</footer>
+<footer class="foot">Rankings data: <a href="https://collegefootballdata.com" rel="noopener">CollegeFootballData.com</a> and <a href="https://github.com/nflverse" rel="noopener">nflverse</a>. Scores and player stats: ESPN. Betting lines are shown for comparison only. This is for entertainment, not betting advice. · <a href="#/updates" id="notes-link">Release notes</a></footer>
 
 <div id="drawer" class="drawer hidden" role="dialog" aria-modal="true">
   <div class="drawer-bg" data-close></div>
@@ -136,7 +140,7 @@
   </div>
 </div>
 
-<script src="app.js?v=22"></script>
-<script src="live.js?v=22"></script>
+<script src="app.js?v=23"></script>
+<script src="live.js?v=23"></script>
 </body>
 </html>
