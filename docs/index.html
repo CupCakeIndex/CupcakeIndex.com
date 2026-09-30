@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧁</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
 <header class="top">
@@ -87,7 +87,7 @@
       <p>Every Monday morning the model downloads the weekend's results and rebuilds the rankings from scratch. Each team gets a set of scores from 0 to 100, where 50 is average. The sliders decide how much each score counts.</p>
       <ul id="factor-help"></ul>
       <h3>The cupcake problem (college)</h3>
-      <p>Every FCS opponent is rated like a team about 25 points worse than an average FBS team, and FCS games count only 25% as much in the power rating. Margins are capped at 24 points. Beating an FCS team 70-0 proves about as much as a close loss to an average FBS team. On top of that, the Cupcake score measures how much of a schedule was FCS and bottom-tier FBS opponents. A higher Cupcake score counts against a team.</p>
+      <p>Every FCS opponent is rated like a team about 25 points worse than an average FBS team, and FCS games count only 25% as much in the power rating. Margins are capped at 24 points. Beating an FCS team 70-0 proves about as much as a close loss to an average FBS team. On top of that, the Cupcake score measures how much of a schedule was FCS and bottom-tier FBS opponents. A higher Cupcake score counts against a team. It only counts games already played: a cupcake still on the schedule is added once the game is final.</p>
       <h3>NFL</h3>
       <p>NFL rankings use the same engine without the Cupcake factor. Résumé is measured against a top-8 team, efficiency is opponent-adjusted EPA per play, and margins are capped at 21 points. Each team's panel shows the starting QB for every game and flags when someone other than the usual starter played or is listed to start. The rating itself doesn't know about QB changes, so a ⚠ is a good reason to trust it less. Monday's update runs before Monday Night Football. Tuesday's update adds that game.</p>
       <h3>Early season</h3>
@@ -110,7 +110,7 @@
   </div>
 </div>
 
-<script src="app.js?v=9"></script>
-<script src="live.js?v=9"></script>
+<script src="app.js?v=10"></script>
+<script src="live.js?v=10"></script>
 </body>
 </html>

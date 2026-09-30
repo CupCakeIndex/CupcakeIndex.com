@@ -380,7 +380,7 @@ function openTeam(name) {
     </div>
     <h3>Factor scores</h3>
     ${LG.factors.map((f) => `<div class="frow" title="${esc(f.help)}"><span>${esc(f.label)}</span><span class="bar${f.invert ? " inv" : ""}"><i style="width:${+t.scores[f.key] || 0}%"></i></span><b class="num">${Math.round(t.scores[f.key])}</b></div>`).join("")}
-    <p class="note">Power rating = points better than an average ${nfl ? "NFL" : "FBS"} team on a neutral field.${nfl ? "" : " Cupcake: higher = softer schedule."}</p>
+    <p class="note">Power rating = points better than an average ${nfl ? "NFL" : "FBS"} team on a neutral field.${nfl ? "" : " Cupcake: higher = softer schedule, counting only games already played."}</p>
     <h3>Schedule</h3>
     <table class="sched"><thead><tr><th>Wk</th><th>Opponent</th><th>Result</th><th class="num" title="How hard it is for a ${bench} to win this game">Difficulty</th></tr></thead><tbody>${sched}</tbody></table>
     <p class="note">Difficulty is the chance a typical ${bench} would lose this game.${nfl ? " ⚠ = a different QB than the team's usual starter." : " Beating FCS teams is close to 0%."}</p>`;

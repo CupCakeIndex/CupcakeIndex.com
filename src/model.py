@@ -17,7 +17,7 @@ FACTORS = [
     ("efficiency", "Efficiency", "Opponent-adjusted EPA/play and success rate, garbage time removed."),
     ("sos", "Schedule", "Average rating of opponents played (FCS opponents drag this down)."),
     ("recent", "Recent form", "How the team has played in its last few games."),
-    ("cupcake", "Cupcake", "How padded the schedule is with FCS and bottom-tier FBS opponents. Higher = more cupcakes, and it counts against the team."),
+    ("cupcake", "Cupcake", "How padded the schedule is with FCS and bottom-tier FBS opponents. Higher = more cupcakes, and it counts against the team. Only games already played count; a scheduled cupcake is added once the game is final."),
     ("luck", "Bad luck", "Higher = has had bad luck: lost games they statistically won, so the record undersells them. Lower = has been winning coin flips."),
 ]
 
