@@ -199,6 +199,23 @@ const Live = (() => {
     </div>`;
 
     const blocks = [];
+    // highlights: official YouTube video (found by the weekly job) + ESPN's own clips (open on ESPN)
+    const hlAll = await getJSON(`data/${lg}/${season}/highlights.json`).catch(() => ({}));
+    if (my !== token) return;
+    const yt = hlAll[String(id)];
+    const clips = (s.videos || []).filter((v) => v.links?.web?.href).slice(0, 8);
+    if (yt?.id || clips.length) {
+      const mmss = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+      blocks.push(`<div class="card wide"><h3>Highlights</h3>
+        ${yt?.id ? `<div class="yt"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(yt.id)}" title="${esc(yt.title || "Game highlights")}"
+            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy"></iframe></div>
+          <p class="note">${esc(yt.title || "")} · ${esc(yt.channel || "YouTube")}</p>` : ""}
+        ${clips.length ? `${yt?.id ? "<h4>More clips on ESPN</h4>" : ""}<div class="clips">${clips.map((v) => `
+          <a class="clip" href="${esc(safeUrl(v.links.web.href))}" target="_blank" rel="noopener">
+            <span class="clip-thumb">${safeUrl(v.thumbnail) ? `<img src="${esc(v.thumbnail)}" alt="" loading="lazy" decoding="async">` : ""}<span class="clip-dur">${mmss(v.duration || 0)}</span><span class="clip-play">▶</span></span>
+            <span class="clip-title">${esc(v.headline)}</span></a>`).join("")}</div><p class="note">ESPN clips open on espn.com.</p>` : ""}
+      </div>`);
+    }
     // odds + model
     const pc = s.pickcenter || [];
     if (pc.length || pred) {

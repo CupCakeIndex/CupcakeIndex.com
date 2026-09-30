@@ -27,6 +27,7 @@ jobs:
       - name: Build rankings
         env:
           CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           SEASON: ${{ inputs.season }}
         run: |
           if [[ "$SEASON" =~ ^[0-9]{4}$ ]]; then python src/run_weekly.py --season "$SEASON"; else python src/run_weekly.py; fi

@@ -16,6 +16,7 @@ import fetch_data
 import model
 import nfl_data
 import tune
+import highlights
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "data"
@@ -70,6 +71,10 @@ def run_league(league, season, cfg_league, offline):
                    generated=datetime.now(timezone.utc).isoformat(timespec="minutes"))
         (out_dir / f"week_{week}.json").write_text(json.dumps(res, separators=(",", ":")), encoding="utf-8")
         weeks.append(week)
+    if not offline and weeks and weeks[-1]:
+        # CFB: only games involving ranked/top-30 teams, to stay inside the free YouTube quota
+        wanted = None if league == "nfl" else {t["team"] for t in res["teams"] if t["power_rank"] <= 30 or t["ap_rank"]}
+        highlights.update(league, season, games, weeks[-1], wanted)
     if league == "cfb" and weeks:
         comp = model.comparison(teams, d["polls"], weeks[-1], d.get("fpi"), d.get("sp"))
         (out_dir / "compare.json").write_text(json.dumps({"week": weeks[-1], "teams": comp}, separators=(",", ":")), encoding="utf-8")
