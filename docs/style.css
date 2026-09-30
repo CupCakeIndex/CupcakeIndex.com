@@ -807,3 +807,12 @@ table.depth td:first-child { width: 56px; color: var(--accent); }
 table.moves td:first-child { white-space: nowrap; width: 70px; }
 table.moves td:last-child { white-space: normal; min-width: 240px; }
 .subtabs { flex-wrap: wrap; }
+
+/* Stats by year: hover box (reuses the win-probability cursor) */
+.cc-box .wp-tip { top: 0; }
+.cc-box .wp-tip small { margin: 0 0 4px; }
+.cc-tip-row { display: grid; grid-template-columns: 10px auto auto auto; align-items: center; gap: 7px; font-size: 12px; margin-top: 3px; }
+.cc-tip-row i { width: 10px; height: 10px; border-radius: 50%; }
+.cc-tip-row b { font-size: 13px; text-align: right; }
+.cc-tip-row em { font-style: normal; color: var(--muted); font-size: 11px; }
+.cc-chart .cc-dot.on { r: 7; }

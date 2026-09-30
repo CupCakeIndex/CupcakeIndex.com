@@ -622,12 +622,16 @@ const Live = (() => {
       pts.forEach((p, i) => { if (p) d += `${pts[i - 1] ? "L" : "M"}${p.x.toFixed(1)},${p.y.toFixed(1)}`; });
       // value labels sit above a point, or below it when it's a dip (so the line doesn't run through the label)
       const dips = pts.map((p, i) => { const n = [pts[i - 1], pts[i + 1]].filter(Boolean); return !!p && n.length > 0 && n.every((q) => q.y < p.y); });
-      const dots = pts.map((p, i) => p && { ...p, dip: dips[i] }).filter(Boolean).map((p) => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="${sr.color}" class="cc-dot"><title>${esc(sr.p.name)} · ${p.r.year} ${esc(p.r.team.abbr)}: ${esc(p.r.vals[metric])} ${esc(C.labels[metric])}</title></circle>`
+      const dots = pts.map((p, i) => p && { ...p, dip: dips[i], gi: i }).filter(Boolean).map((p) => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="${sr.color}" class="cc-dot" data-gi="${p.gi}"></circle>`
         + (series.length === 1 && xs.length <= 14 ? `<text x="${p.x.toFixed(1)}" y="${(p.dip ? p.y + 18 : p.y - 10).toFixed(1)}" class="cc-val">${esc(p.r.vals[metric])}</text>` : "")).join("");
       return `<path d="${d}" stroke="${sr.color}" class="cc-line"/>${dots}`;
     }).join("");
-    const chart = `<svg viewBox="0 0 ${W} ${H}" class="cc-chart" role="img" aria-label="${esc(C.labels[metric])} by ${align === "career" ? "career year" : "season"}">
-      ${grid}${xlabels}${lines}</svg>`;
+    const chart = `<div class="wp-box cc-box" id="cc-box"><svg viewBox="0 0 ${W} ${H}" class="cc-chart" role="img" aria-label="${esc(C.labels[metric])} by ${align === "career" ? "career year" : "season"}">
+      ${grid}${xlabels}${lines}</svg>
+      <div class="wp-cursor hidden"><div class="wp-vline"></div><div class="wp-tip"></div></div></div>`;
+    // what the hover box needs (read by initCcHover once the chart is on the page)
+    ccHover = { W, H, xs: xs.map((x, gi) => ({ label: align === "career" ? "Career yr " + x : String(x), px: px(gi), y0: top, y1: base })), stat: C.labels[metric],
+      series: series.map((sr) => ({ name: sr.p.name, color: sr.color, rows: xs.map((x) => sr.rows.find((q) => q.x === x)).map((r) => r && { year: r.year, team: r.team.abbr, val: r.vals[metric] }) })) };
     const legend = series.map((sr, i) => `<span class="cc-chip" style="--c:${sr.color}">${face(sr.p.headshot, sr.p.name, "hs", sr.p.lg === "nfl", sr.p.born)} ${esc(sr.p.name)} <small>${esc(sr.p.pos || "")}</small>
       ${i ? `<button class="cc-x-btn" data-rm="${esc(sr.p.lg)}:${esc(sr.p.id)}" aria-label="Remove">×</button>` : ""}</span>`).join("");
 
@@ -679,7 +683,35 @@ const Live = (() => {
     return [...local, ...live].slice(0, limit);
   }
 
+  // Stock-chart style hover for Stats by year: snap to the nearest season, show every player's number for it.
+  let ccHover = null;
+  function initCcHover() {
+    const box = $("#cc-box"), H = ccHover;
+    if (!box || !H) return;
+    const svg = box.querySelector("svg"), cur = box.querySelector(".wp-cursor"), vline = box.querySelector(".wp-vline"), tip = box.querySelector(".wp-tip");
+    const show = (clientX) => {
+      const r = svg.getBoundingClientRect(), k = Math.min(r.width / H.W, r.height / H.H), ox = (r.width - H.W * k) / 2;
+      const sx = (clientX - r.left - ox) / k;
+      let gi = 0;
+      H.xs.forEach((x, i) => { if (Math.abs(x.px - sx) < Math.abs(H.xs[gi].px - sx)) gi = i; });
+      const x = ox + H.xs[gi].px * k;
+      cur.classList.remove("hidden");
+      vline.style.left = tip.style.left = `${x}px`;
+      vline.style.top = `${H.xs[gi].y0 * k}px`; vline.style.bottom = `${r.height - H.xs[gi].y1 * k}px`;
+      box.querySelectorAll(".cc-dot").forEach((d) => d.classList.toggle("on", +d.dataset.gi === gi));
+      tip.innerHTML = `<small>${esc(H.xs[gi].label)} · ${esc(H.stat)}</small>` + H.series.map((s) => {
+        const row = s.rows[gi];
+        return `<div class="cc-tip-row"><i style="background:${s.color}"></i><span>${esc(s.name)}</span><b>${row ? esc(row.val) : "–"}</b>${row ? `<em>${H.xs[gi].label.startsWith("Career") ? row.year + " " : ""}${esc(row.team)}</em>` : ""}</div>`;
+      }).join("");
+      tip.classList.toggle("flip", x > r.width * 0.55);
+    };
+    box.addEventListener("pointermove", (e) => show(e.clientX));
+    box.addEventListener("pointerdown", (e) => show(e.clientX));
+    box.addEventListener("pointerleave", () => { cur.classList.add("hidden"); box.querySelectorAll(".cc-dot.on").forEach((d) => d.classList.remove("on")); });
+  }
+
   function wireCareer(id, params) {
+    initCcHover();
     const go = (changes) => {
       const p = new URLSearchParams(params);
       Object.entries(changes).forEach(([k, v]) => (v == null || v === "" ? p.delete(k) : p.set(k, v)));
