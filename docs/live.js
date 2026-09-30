@@ -81,6 +81,35 @@ const Live = (() => {
   const clockNow = () => new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" });
   const liveBadge = (on) => (on ? `<span class="live-dot"></span> Live · updated ${clockNow()}` : "");
 
+  // ---------------------------------------------------------------- injury tags
+  // A compact status tag (Q, D, O, IR, PUP...) from an ESPN injury entry; the tooltip has the body part and expected return.
+  const INJ_ABBR = { questionable: "Q", doubtful: "D", out: "O", "injured reserve": "IR", "physically unable to perform": "PUP", "non-football injury": "NFI",
+    suspension: "SUSP", suspended: "SUSP", "day-to-day": "DTD", probable: "P" };
+  const notSpec = (s) => (s && !/not specified/i.test(s) ? s : "");
+  function injInfo(i) {
+    const status = i?.status || i?.type?.description || "";
+    if (!status || /^active$/i.test(status)) return null;
+    const ab = (i.type?.abbreviation && i.type.abbreviation !== "A" ? i.type.abbreviation : INJ_ABBR[status.toLowerCase()])
+      || status.split(/\W+/).filter(Boolean).map((w) => w[0]).join("").toUpperCase().slice(0, 4);
+    const d = i.details || {};
+    const part = [notSpec(d.side), d.type, notSpec(d.detail) !== d.type ? notSpec(d.detail) : ""].filter(Boolean).join(" ");
+    const back = d.returnDate ? new Date(d.returnDate.slice(0, 10) + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
+    const level = /^(Q|P|DTD)$/.test(ab) ? "q" : ab === "D" ? "d" : "o";
+    return { ab, level, status: status[0].toUpperCase() + status.slice(1), part, tip: [status[0].toUpperCase() + status.slice(1), part, back ? `est. return ${back}` : ""].filter(Boolean).join(" · ") };
+  }
+  const injTag = (i, pid = "") => {
+    const x = injInfo(i);
+    return x ? `<span class="inj-tag inj-${x.level}" title="${esc(x.tip)}"${pid ? ` data-pid="${esc(pid)}"` : ""}>${esc(x.ab)}</span>` : "";
+  };
+  // League-wide NFL injury report (big, so only used to add detail to tags that are already on screen)
+  const athleteIdOf = (a) => a?.id || (a?.links?.[0]?.href || "").match(/\/id\/(\d+)/)?.[1] || null;
+  async function injuryMap() {
+    const d = await api(`${SITE("nfl")}/injuries`, 900000);
+    const m = new Map();
+    (d.injuries || []).forEach((t) => (t.injuries || []).forEach((i) => { const id = athleteIdOf(i.athlete); if (id && !m.has(id)) m.set(id, i); }));
+    return m;
+  }
+
   function statusText(st, date) {
     const s = st?.type || {};
     if (s.state === "pre") return s.shortDetail && !/^\d/.test(s.shortDetail) ? s.shortDetail : kickoff(date);
@@ -301,10 +330,12 @@ const Live = (() => {
       const tl = (s.leaders || []).find((x) => String(x.team?.id) === String(teamId));
       return (tl?.leaders || []).find((c) => c.name === key)?.leaders?.[0] || null;
     };
+    const injOf = new Map((s.injuries || []).flatMap((t) => (t.injuries || []).map((i) => [String(i.athlete?.id), i])));
     const lside = (L, which, win) => {
       if (!L) return `<span class="lside ${which} empty">–</span>`;
       const a = L.athlete, big = L.mainStat?.value ?? L.displayValue;
-      const txt = `<span class="ltxt"><b>${esc(a.shortName || a.displayName)}</b><small>${esc(a.position?.abbreviation || "")} · ${esc(withTD(L.displayValue))}</small></span>`;
+      const tag = st === "pre" ? injTag(injOf.get(String(a.id))) : "";
+      const txt = `<span class="ltxt"><b>${esc(a.shortName || a.displayName)}${tag}</b><small>${esc(a.position?.abbreviation || "")} · ${esc(withTD(L.displayValue))}</small></span>`;
       const num = `<span class="lbig${win ? " win" : ""}">${esc(big)}</span>`;
       const pic = face(a.headshot?.href, a.displayName, "leadshot");
       return `<a class="lside ${which}" href="${link("player", a.id)}">${which === "away" ? pic + txt + num : num + txt + pic}</a>`;
@@ -353,10 +384,10 @@ const Live = (() => {
         <td><b>${esc(p.type?.abbreviation || "")}</b> ${esc(p.text)}</td><td class="num">${esc(p.awayScore)}-${esc(p.homeScore)}</td></tr>`).join("")}</tbody></table></div>`);
     }
     // injuries (mostly useful before kickoff)
-    const inj = (s.injuries || []).filter((t) => t.injuries?.length);
+    const inj = (s.injuries || []).map((t) => ({ ...t, injuries: (t.injuries || []).filter(injInfo) })).filter((t) => t.injuries.length);
     if (inj.length && st !== "post") {
       col.right.push(`<div class="card"><h3>Injuries</h3><div class="box-pair">${inj.map((t) => `<div><b>${esc(t.team?.displayName || "")}</b><ul class="inj">${t.injuries.slice(0, 15).map((i) =>
-        `<li><a href="${link("player", i.athlete?.id)}">${esc(i.athlete?.displayName)}</a> <span class="muted">${esc(i.athlete?.position?.abbreviation || "")}</span> <span class="pill over">${esc(i.status)}</span></li>`).join("")}</ul></div>`).join("")}</div></div>`);
+        `<li><a href="${link("player", i.athlete?.id)}">${esc(i.athlete?.displayName)}</a> <span class="muted">${esc(i.athlete?.position?.abbreviation || "")}</span> ${injTag(i)}${injInfo(i)?.part ? ` <small class="muted">${esc(injInfo(i).part)}</small>` : ""}</li>`).join("")}</ul></div>`).join("")}</div></div>`);
     }
     view("game").innerHTML = `<p><a href="${link("scores")}" class="boxlink">← Scores</a></p>${head}${leadersStrip}<div class="game-cols"><div class="gcol">${col.left.join("")}</div><div class="gcol">${col.right.join("")}</div></div>${col.full.join("")}`;
     if (wp.length > 2) initWp(wp, s, away, home);
@@ -726,7 +757,7 @@ const Live = (() => {
         <div>
           <h2>${esc(a.displayName)}</h2>
           <p>${a.team ? `<a href="${link("team", a.team.id)}"><span class="tm">${img(a.team.logos?.[0]?.href || a.team.logo, "xs")} ${esc(a.team.displayName)}</span></a>` : ""}
-            ${inj ? ` <span class="pill over">${esc(inj.status || inj.type?.description || "Injured")}</span>` : ""}</p>
+            ${injInfo(inj) ? ` <span class="inj-line">${injTag(inj)} ${esc(injInfo(inj).tip)}</span>` : ""}</p>
           <p class="muted">${facts.map(esc).join(" · ")}<span id="pl-exp">${exp ? " · " + esc(exp) : ""}</span></p>
         </div>
       </div>
@@ -824,7 +855,7 @@ const Live = (() => {
         <td><div class="team">${face(p.headshot?.href, p.displayName, "hs")}<a href="${link("player", p.id)}">${esc(p.displayName)}</a></div></td>
         <td>${esc(p.position?.abbreviation || "")}</td><td>${esc(p.displayHeight || "")}</td><td>${esc(p.displayWeight || "")}</td>
         <td>${esc(lg === "nfl" ? p.age ?? "" : p.experience?.abbreviation || "")}</td>
-        <td>${p.injuries?.[0] ? `<span class="pill over">${esc(p.injuries[0].status)}</span>` : ""}</td></tr>`).join("")}</tbody></table></div>`).join("");
+        <td>${injTag(p.injuries?.[0], p.id)}</td></tr>`).join("")}</tbody></table></div>`).join("");
 
     const tabLink = (t, label) => `<a class="subtab${tab === t ? " on" : ""}" href="${link("team", id, { tab: t })}">${label}</a>`;
     view("team").innerHTML = `
@@ -839,6 +870,18 @@ const Live = (() => {
       <div class="card">${tab === "roster"
         ? rosterRows || `<p class="muted">Roster not available.</p>`
         : `<div class="table-wrap"><table class="box"><thead><tr><th>Week</th><th>Opponent</th><th>Result</th></tr></thead><tbody>${games}</tbody></table></div>`}</div>`;
+    // NFL rosters only carry the status; the league injury report adds the body part and expected return
+    if (lg === "nfl" && tab === "roster" && view("team").querySelector(".inj-tag[data-pid]")) {
+      injuryMap().then((m) => {
+        if (my !== token) return;
+        view("team").querySelectorAll(".inj-tag[data-pid]").forEach((el) => {
+          const x = injInfo(m.get(el.dataset.pid));
+          if (!x) return;
+          el.title = x.tip;
+          if (x.part) el.insertAdjacentHTML("afterend", ` <small class="muted">${esc(x.part)}</small>`);
+        });
+      }).catch(() => {});
+    }
   }
 
   return { stop, teamId, scores, game, stats, player, standings, team, searchPlayers };

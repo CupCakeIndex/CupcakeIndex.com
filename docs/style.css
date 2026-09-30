@@ -777,3 +777,12 @@ img.wiki { object-position: 50% 20%; }
   .tmeta { flex-wrap: wrap; row-gap: 4px; }
   .tmeta .pill { display: inline-flex; }
 }
+
+/* injury status tags (Q / D / O / IR ...) */
+.inj-tag { display: inline-block; margin-left: 6px; padding: 0 4px; border: 1px solid currentColor; font: 700 10px/15px "JetBrains Mono", monospace;
+  letter-spacing: .04em; vertical-align: 1px; cursor: help; white-space: nowrap; }
+.inj-tag.inj-q { color: #e3b23a; }
+.inj-tag.inj-d { color: #ff8a3d; }
+.inj-tag.inj-o { color: #ff4d4d; }
+.inj-line { font-size: 12px; color: var(--muted); }
+.inj-line .inj-tag { margin-left: 0; }
