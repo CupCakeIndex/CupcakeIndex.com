@@ -561,3 +561,39 @@ body[data-league="nfl"] .tmeta .cupm { display: none; }
   .lead { flex: 0 0 72%; scroll-snap-align: start; }
 }
 @media (min-width: 520px) and (max-width: 900px) { .lead { flex-basis: 40%; } }
+
+/* ---------- head-to-head game leaders ---------- */
+.leaders-strip, .lead-row { display: none; }
+.h2h { margin-top: 12px; padding: 14px 18px; }
+.h2h-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 6px; }
+.h2h-head h3 { margin: 0; text-align: center; }
+.h2h-head span { display: flex; align-items: center; gap: 8px; font-weight: 800; }
+.h2h-head span:last-child { justify-content: flex-end; }
+.lrow { display: grid; grid-template-columns: 1fr 120px 1fr; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+.lcat { text-align: center; font-family: "Barlow Condensed", Inter, sans-serif; font-weight: 700; font-size: 14px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); line-height: 1.1; }
+.lcat small { display: block; font-size: 11px; opacity: .8; }
+.lside { display: flex; align-items: center; gap: 12px; min-width: 0; text-decoration: none !important; color: var(--ink); }
+.lside.home { justify-content: flex-end; text-align: right; }
+.lside.empty { color: var(--muted); justify-content: center; }
+.lside img.leadshot, .lside .logo-ph.leadshot { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex: none; background: var(--bg); }
+.lside.away img.leadshot { border: 2px solid var(--ac); }
+.lside.home img.leadshot { border: 2px solid var(--hc); }
+.ltxt { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.ltxt b { font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ltxt small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lbig { font-family: "Barlow Condensed", Inter, sans-serif; font-weight: 700; font-size: 34px; line-height: 1; color: var(--muted); font-variant-numeric: tabular-nums; }
+.lside.away .lbig { margin-left: auto; }
+.lside.home .lbig { margin-right: auto; }
+.lside.away .lbig.win { color: color-mix(in srgb, var(--ac) 55%, #fff); }
+.lside.home .lbig.win { color: color-mix(in srgb, var(--hc) 55%, #fff); }
+.lside:hover b { text-decoration: underline; }
+@media (max-width: 640px) {
+  .h2h { padding: 12px; }
+  .lrow { grid-template-columns: 1fr 64px 1fr; gap: 4px; }
+  .lcat { font-size: 11px; }
+  .lside { gap: 6px; }
+  .lside img.leadshot { width: 34px; height: 34px; }
+  .ltxt small { display: none; }
+  .ltxt b { font-size: 12px; }
+  .lbig { font-size: 24px; }
+}

@@ -255,28 +255,31 @@ const Live = (() => {
     // win probability
     const wp = s.winprobability || [];
     if (wp.length > 2) col.right.push(`<div class="card"><h3>Win probability</h3>${wpChart(wp, away, home, tc)}</div>`);
-    // leaders strip (rendered under the scorebug): the game's top player in each category
-    const LEAD_CATS = [["passingYards", "Passing"], ["rushingYards", "Rushing"], ["receivingYards", "Receiving"], ["totalTackles", "Tackles"], ["sacks", "Sacks"]];
+    // head-to-head leaders (ESPN style): one row per category, away leader left, home leader right
     const colorOf = (teamId) => (String(teamId) === String(home.team.id) ? tc.home : tc.away);
-    const leadCards = LEAD_CATS.map(([key, label]) => {
-      let best = null;
-      for (const tl of s.leaders || []) {
-        const cat = (tl.leaders || []).find((c) => c.name === key);
-        const L = cat?.leaders?.[0];
-        if (L && (!best || (L.value ?? 0) > (best.L.value ?? 0))) best = { L, team: tl.team };
-      }
-      if (!best) return "";
-      const { L, team } = best, a = L.athlete;
-      const big = L.mainStat ? `${esc(L.mainStat.value)}<small>${esc(L.mainStat.label)}</small>` : esc(L.displayValue);
-      return `<a class="lead" href="${link("player", a.id)}" style="--c:${colorOf(team?.id)}">
-        <span class="lead-cat">${label}</span>
-        <span class="lead-body">${img(a.headshot?.href, "leadshot")}
-          <span class="lead-txt"><span class="lead-big">${big}</span>
-            <b>${esc(a.shortName || a.displayName)}</b>
-            <small>${img(team?.logo, "xs")} ${esc(team?.abbreviation || "")} · ${esc(a.position?.abbreviation || "")}</small></span></span>
-        <span class="lead-line">${esc(L.displayValue)}</span></a>`;
+    const LEAD_CATS = [["passingYards", "Passing"], ["rushingYards", "Rushing"], ["receivingYards", "Receiving"], ["totalTackles", "Tackles"], ["sacks", "Sacks"]];
+    const leaderFor = (teamId, key) => {
+      const tl = (s.leaders || []).find((x) => String(x.team?.id) === String(teamId));
+      return (tl?.leaders || []).find((c) => c.name === key)?.leaders?.[0] || null;
+    };
+    const lside = (L, which, win) => {
+      if (!L) return `<span class="lside ${which} empty">–</span>`;
+      const a = L.athlete, big = L.mainStat?.value ?? L.displayValue;
+      const txt = `<span class="ltxt"><b>${esc(a.shortName || a.displayName)}</b><small>${esc(a.position?.abbreviation || "")} · ${esc(L.displayValue)}</small></span>`;
+      const num = `<span class="lbig${win ? " win" : ""}">${esc(big)}</span>`;
+      const pic = img(a.headshot?.href, "leadshot");
+      return `<a class="lside ${which}" href="${link("player", a.id)}">${which === "away" ? pic + txt + num : num + txt + pic}</a>`;
+    };
+    const leadRows = LEAD_CATS.map(([key, label]) => {
+      const A = leaderFor(away.team.id, key), H = leaderFor(home.team.id, key);
+      if (!A && !H) return "";
+      const av = A?.value ?? -1, hv = H?.value ?? -1;
+      const unit = (A || H).mainStat?.label || "";
+      return `<div class="lrow">${lside(A, "away", av > hv)}<span class="lcat">${label}<small>${esc(unit)}</small></span>${lside(H, "home", hv > av)}</div>`;
     }).join("");
-    const leadersStrip = leadCards ? `<div class="leaders-strip"><h3>${st === "pre" ? "Season leaders" : "Game leaders"}</h3><div class="lead-row">${leadCards}</div></div>` : "";
+    const leadersStrip = leadRows ? `<div class="card h2h" style="--ac:${tc.away};--hc:${tc.home}">
+        <div class="h2h-head"><span>${img(teamLogo(away.team), "sm")} ${esc(away.team.abbreviation)}</span><h3>${st === "pre" ? "Season leaders" : "Game leaders"}</h3><span>${esc(home.team.abbreviation)} ${img(teamLogo(home.team), "sm")}</span></div>
+        ${leadRows}</div>` : "";
     // team stats
     const bt = s.boxscore?.teams || [];
     if (bt.length === 2 && bt[0].statistics?.length) {
