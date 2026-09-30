@@ -111,7 +111,7 @@ async function route() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "73"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "74"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -188,6 +188,7 @@ async function init() {
     if (tr) openTeam(tr.dataset.team);
   };
   initSearch();
+  initSlip();
   window.addEventListener("hashchange", route);
   await route();
 }
@@ -907,6 +908,24 @@ function qbNote(g) {
   return `<small class="muted">QBs: ${one(g.away, g.away_qb)} vs. ${one(g.home, g.home_qb)}</small>`;
 }
 
+// Moneyline: our win probability vs. the books' no-vig probability (American odds -> implied %)
+const implied = (ml) => (ml < 0 ? -ml / (100 - ml) : 100 / (ml + 100));
+const american = (ml) => (ml > 0 ? "+" : "−") + Math.abs(Math.round(ml));
+function moneyline(g) {
+  const bs = (g.books || []).filter((b) => b.home_ml != null && b.away_ml != null);
+  if (!bs.length) return null;
+  // strip the books' cut: average each book's home share of (home + away) implied probability
+  const fairHome = bs.reduce((s, b) => s + implied(b.home_ml) / (implied(b.home_ml) + implied(b.away_ml)), 0) / bs.length;
+  const home = g.home_win_prob >= fairHome; // the side the model likes more than the books do
+  const key = home ? "home_ml" : "away_ml";
+  const best = bs.reduce((a, b) => (implied(b[key]) < implied(a[key]) ? b : a)); // best payout for that side
+  const model = home ? g.home_win_prob : 1 - g.home_win_prob, fair = home ? fairHome : 1 - fairHome;
+  return { team: home ? g.home : g.away, ml: best[key], book: best.book, model, fair, edge: model - fair };
+}
+const pct = (p) => Math.round(p * 100) + "%";
+const tick = (text) => `<input type="checkbox" class="pk" data-pick="${esc(text)}" aria-label="Add to copied picks">`;
+const median = (xs) => { const v = [...xs].sort((a, b) => a - b), m = v.length >> 1; return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2; };
+
 function renderPicks() {
   if (!DATA) return;
   const p = DATA.predictions || [];
@@ -920,27 +939,89 @@ function renderPicks() {
   const edgeKey = (g) => (g.edge == null ? -1 : Math.abs(g.edge));
   const rows = [...p].sort((x, y) => edgeKey(y) - edgeKey(x) || Math.abs(x.spread) - Math.abs(y.spread));
   $("#picks tbody").innerHTML = rows.length ? rows.map((g) => {
+    const open = g.actual === undefined; // only unplayed games can be ticked for copying
     const books = g.books ? g.books.map((b) => {
       // Book lines are home-side; show them from the same favorite as the median line
       const favHome = g.vegas >= 0, bookFavHome = b.spread <= 0;
       const txt = b.spread === 0 ? "PK" : (bookFavHome === favHome ? "" : esc(bookFavHome ? g.home : g.away) + " ") + "−" + Math.abs(b.spread);
-      const tip = `${b.book}${b.total ? " · O/U " + b.total : ""}${b.open != null ? ` · opened ${g.home} ${signed(b.open)}` : ""}`;
-      return `<span class="book" title="${esc(tip)}">${esc(BOOK_ABBR[b.book] || b.book)} ${txt}</span>`;
+      const ml = b.home_ml != null && b.away_ml != null ? ` · ML ${g.home} ${american(b.home_ml)} / ${g.away} ${american(b.away_ml)}` : "";
+      const tip = `${b.book}${b.total ? " · O/U " + b.total : ""}${ml}${b.open != null ? ` · opened ${g.home} ${signed(b.open)}` : ""}`;
+      return `<span class="book" data-book="${esc(b.book)}" title="${esc(tip)}">${esc(BOOK_ABBR[b.book] || b.book)} ${txt}</span>`;
     }).join("") : '<span class="muted">No line yet</span>';
+    const totals = (g.books || []).map((b) => b.total).filter((t) => t != null);
+    const ou = totals.length ? `<small class="muted">Total (O/U) ${median(totals)}</small>` : "";
     const edge = g.edge == null ? '<span class="muted">—</span>'
-      : `<b class="${Math.abs(g.edge) >= 3 ? "hot" : ""}">${esc(g.ats_pick)} ${signed(g.best_line)}</b><small class="muted">edge ${Math.abs(g.edge).toFixed(1)} · best at ${esc(BOOK_ABBR[g.best_book] || g.best_book)}</small>`;
+      : `<label class="pick">${open ? tick(`${g.ats_pick} ${signed(g.best_line)} (${g.best_book})`) : ""}<b class="${Math.abs(g.edge) >= 3 ? "hot" : ""}">${esc(g.ats_pick)} ${signed(g.best_line)}</b></label><small class="muted">edge ${Math.abs(g.edge).toFixed(1)} · best at ${esc(BOOK_ABBR[g.best_book] || g.best_book)}</small>`;
+    const m = moneyline(g);
+    const mlCell = !m ? '<span class="muted">—</span>'
+      : `<label class="pick">${open ? tick(`${m.team} ML ${american(m.ml)} (${m.book})`) : ""}<b class="${m.edge >= 0.05 ? "hot" : ""}">${esc(m.team)} ${american(m.ml)}</b></label><small class="muted">us ${pct(m.model)} · books ${pct(m.fair)} · best at ${esc(BOOK_ABBR[m.book] || m.book)}</small>`;
     let res = '<span class="muted">—</span>';
-    if (g.actual !== undefined) {
+    if (!open) {
       const mark = (ok) => ok == null ? '<span class="muted">push</span>' : `<span class="${ok ? "W" : "L"}">${ok ? "✓" : "✗"}</span>`;
-      res = `${esc(g.actual > 0 ? g.home : g.away)} by ${Math.abs(g.actual)}<small class="muted">SU ${mark(g.correct)}${g.edge != null ? " · ATS " + mark(g.ats_correct) : ""}</small>`;
+      res = `${esc(g.actual > 0 ? g.home : g.away)} by ${Math.abs(g.actual)}<small class="muted">SU ${mark(g.correct)}${g.edge != null ? " · ATS " + mark(g.ats_correct) : ""}${m && g.actual ? " · ML " + mark((g.actual > 0) === (m.team === g.home)) : ""}</small>`;
     }
     const wp = g.pick === g.home ? g.home_win_prob : 1 - g.home_win_prob;
     const matchup = `${esc(g.away)} <span class="muted">@</span> ${esc(g.home)}`;
     return `<tr><td>${g.espn_id ? `<a href="${link("game", g.espn_id)}">${matchup}</a>` : matchup}${qbNote(g)}</td>
-      <td>${lineText(g, g.spread)}<small class="muted">${esc(g.pick)} wins ${Math.round(wp * 100)}%</small></td>
-      <td>${g.vegas != null ? lineText(g, g.vegas) : '<span class="muted">—</span>'}<div class="books">${books}</div></td>
-      <td>${edge}</td><td>${res}</td></tr>`;
-  }).join("") : `<tr><td colspan="5" class="muted">No games scheduled.</td></tr>`;
+      <td data-l="Model line">${lineText(g, g.spread)}<small class="muted">${esc(g.pick)} wins ${Math.round(wp * 100)}%</small></td>
+      <td data-l="Books (median)">${g.vegas != null ? lineText(g, g.vegas) : '<span class="muted">—</span>'}${ou}<div class="books" data-game="${esc(g.espn_id || "")}">${books}</div></td>
+      <td data-l="Spread">${edge}</td><td data-l="Moneyline">${mlCell}</td><td data-l="Result"${open ? ' class="unplayed"' : ""}>${res}</td></tr>`;
+  }).join("") : `<tr><td colspan="6" class="muted">No games scheduled.</td></tr>`;
+  updateSlip();
+  if (parseHash().view === "picks") addBookLinks(rows.filter((g) => g.espn_id && g.actual === undefined));
+}
+
+// ------------------------------------------------------------------ copy picks + sportsbook links
+// Sportsbooks have no public way to import a bet slip, so ticked picks are copied as plain text.
+function updateSlip() {
+  const n = document.querySelectorAll("#picks .pk:checked").length;
+  $("#slip").classList.toggle("hidden", !n);
+  $("#slip-n").textContent = `${n} pick${n === 1 ? "" : "s"} ticked`;
+}
+async function copyPicks() {
+  const lines = [...document.querySelectorAll("#picks .pk:checked")].map((c) => c.dataset.pick);
+  const text = `The Cupcake Index · ${LEAGUE_NAME[league] || league} week ${DATA.week + 1}\n` + lines.join("\n");
+  try { await navigator.clipboard.writeText(text); }
+  catch { // older browsers / non-secure pages
+    const t = Object.assign(document.createElement("textarea"), { value: text });
+    document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove();
+  }
+  const b = $("#slip-copy");
+  b.textContent = "Copied ✓";
+  setTimeout(() => (b.textContent = "Copy picks"), 1500);
+}
+function initSlip() {
+  $("#picks").addEventListener("change", (e) => { if (e.target.classList.contains("pk")) updateSlip(); });
+  $("#slip-copy").onclick = copyPicks;
+  $("#slip-clear").onclick = () => { document.querySelectorAll("#picks .pk:checked").forEach((c) => (c.checked = false)); updateSlip(); };
+}
+
+// ESPN's odds feed includes a link to each game's page at its sportsbook partner (DraftKings today).
+// Turn that book's chip into a link; games without one just keep the plain chip.
+const bookLinks = new Map(); // espn id -> {book, url} | null
+async function addBookLinks(games) {
+  const lg = league === "nfl" ? "nfl" : "college-football";
+  await Promise.all(games.map(async (g) => {
+    const id = String(g.espn_id);
+    if (!bookLinks.has(id)) {
+      bookLinks.set(id, null);
+      try {
+        const r = await fetch(`https://sports.core.api.espn.com/v2/sports/football/leagues/${lg}/events/${id}/competitions/${id}/odds`);
+        for (const it of (r.ok ? (await r.json()).items : null) || []) {
+          const href = (it.links || []).find((l) => (l.rel || []).includes("game"))?.href;
+          const url = href && new URL(href).searchParams.get("preurl"); // the book's own event page, minus ESPN's tracking wrapper
+          if (url && url.startsWith("https://") && it.provider?.name) { bookLinks.set(id, { book: it.provider.name, url }); break; }
+        }
+      } catch {}
+    }
+    const bl = bookLinks.get(id), box = document.querySelector(`#picks .books[data-game="${id}"]`);
+    if (!bl || !box || box.querySelector("a.book")) return;
+    const chip = box.querySelector(`.book[data-book="${CSS.escape(bl.book)}"]`);
+    const a = Object.assign(document.createElement("a"), { className: "book", href: bl.url, target: "_blank", rel: "noopener",
+      title: `Open this game at ${bl.book}` });
+    a.innerHTML = (chip ? chip.innerHTML : esc(BOOK_ABBR[bl.book] || bl.book)) + " ↗";
+    chip ? chip.replaceWith(a) : box.appendChild(a);
+  }));
 }
 
 document.addEventListener("DOMContentLoaded", init);
