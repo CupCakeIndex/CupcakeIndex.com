@@ -428,6 +428,8 @@ function render() {
   }
   const rows = ordered.filter((t) => (!q || t.team.toLowerCase().includes(q)) && (!conf || t.conference === conf) && (!top || inTopFilter(t)) && (!prof || profileOf(t) === prof));
   const only = soloKey();
+  // Overrated/Underrated and Beaten Nobody compare the overall ranking; hide them while sorting by one column
+  const blended = !only && !reverse;
   $("#table tbody").innerHTML = rows.map((t) => {
     const p = prevRank[t.team], d = p ? p - t.rank : 0, pd = pointDiff(t);
     const mv = !p ? "" : d > 0 ? `<span class="up">▲${d}</span>` : d < 0 ? `<span class="down">▼${-d}</span>` : `<span class="muted">–</span>`;
@@ -437,7 +439,7 @@ function render() {
     }).join("");
     return `<tr data-team="${esc(t.team)}">
       <td class="num rank">${t.rank}</td><td class="mv">${mv}</td>
-      <td><div class="team">${logo(t)}<div><b>${esc(t.team)}${profileIcon(t)}${cotwTag(t)}${untestedTag(t)}${apTag(t)}</b><small>${esc(t.conference || "")}</small></div></div></td>
+      <td><div class="team">${logo(t)}<div><b>${t.ap_rank ? `<span class="ap-rk" title="AP Poll rank">${esc(t.ap_rank)}</span> ` : ""}${esc(t.team)}${profileIcon(t)}${cotwTag(t)}${blended ? untestedTag(t) + apTag(t) : ""}</b><small>${esc(t.conference || "")}</small></div></div></td>
       <td class="num">${esc(t.record)}</td>
       <td class="num diff ${pd.diff > 0 ? "up" : pd.diff < 0 ? "down" : ""}" title="${pd.pf} scored, ${pd.pa} allowed">${pd.diff > 0 ? "+" : ""}${pd.diff}</td>
       <td class="num ap">${t.ap_rank ? esc(t.ap_rank) : '<span class="muted">–</span>'}</td>
