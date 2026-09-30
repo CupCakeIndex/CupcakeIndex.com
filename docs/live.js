@@ -62,6 +62,21 @@ const Live = (() => {
     } catch { return null; }
   }
 
+  // A team's color, readable on a dark card: swap to the alternate color if the main one is near-black or near-white
+  function teamColor(t) {
+    const lum = (hex) => {
+      const m = /^[0-9a-f]{6}$/i.test(hex || "") ? hex : null;
+      if (!m) return null;
+      const [r, g, b] = [0, 2, 4].map((i) => parseInt(m.slice(i, i + 2), 16) / 255);
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    for (const c of [t?.color, t?.alternateColor]) {
+      const L = lum(c);
+      if (L != null && L > 0.07 && L < 0.85) return "#" + c;
+    }
+    return "#6b7280";
+  }
+
   function ourTeam(ranks, lg, espnTeam) {
     if (!ranks || !espnTeam) return null;
     return lg === "nfl" ? ranks.byName.get(espnTeam.displayName) : ranks.byId.get(String(espnTeam.id));
@@ -176,27 +191,39 @@ const Live = (() => {
     }
     if (my !== token) return;
 
-    const side = (c) => {
+    // broadcast scorebug in team colors
+    const tc = { away: teamColor(away.team), home: teamColor(home.team) };
+    const side = (c, which) => {
       const ours = ourTeam(ranks, lg, c.team);
-      const ap = c.rank;
-      return `<div class="gh-team">
-        ${img(teamLogo(c.team), "xl")}
-        <div><a href="${link("team", c.team.id)}"><b>${ap && ap <= 25 ? `<span class="ap-rk">${ap}</span> ` : ""}<span class="full">${esc(tname(c))}</span><span class="abbr">${esc(c.team.abbreviation)}</span></b></a>
-        <small class="muted">${esc(c.record?.[0]?.summary || c.record?.[0]?.displayValue || "")}${ours ? ` · Cupcake Index #${ours.rank}` : ""}</small></div>
-        <span class="gh-score${st === "post" && c.winner ? " win" : ""}">${st === "pre" ? "" : esc(c.score ?? "")}</span></div>`;
+      const ap = c.rank && c.rank <= 25 ? c.rank : null;
+      const result = st === "post" ? (c.winner ? " win" : " lose") : "";
+      const logoImg = img(teamLogo(c.team), "xl");
+      const name = `<div class="sb-name">
+          <a href="${link("team", c.team.id)}">${ap ? `<span class="sb-rank">${ap}</span>` : ""}<b>${esc(c.team.location || tname(c))}</b></a>
+          <small>${esc(c.team.name || "")}</small>
+          <em>${esc(c.record?.[0]?.summary || c.record?.[0]?.displayValue || "")}${ours ? ` · Cupcake Index #${ours.rank}` : ""}</em></div>`;
+      const score = `<span class="sb-score">${st === "pre" ? "" : esc(c.score ?? "")}</span>`;
+      return `<div class="sb-team ${which}${result}">${which === "away" ? logoImg + name + score : score + name + logoImg}</div>`;
     };
+    const venue = s.gameInfo?.venue?.fullName;
+    const tv = comp.broadcasts?.[0]?.media?.shortName || "";
+    const statusLabel = st === "post" ? (comp.status?.type?.shortDetail || "Final") : st === "in" ? statusText(comp.status, comp.date) : kickoff(comp.date);
     const lines = (c) => (c.linescores || []).map((l) => `<td>${esc(l.displayValue ?? l.value)}</td>`).join("");
     const nPer = Math.max(away.linescores?.length || 0, home.linescores?.length || 0);
-    const lineTable = nPer ? `<table class="linescore"><thead><tr><th></th>${Array.from({ length: nPer }, (_, i) => `<th>${i < 4 ? i + 1 : "OT" + (i > 4 ? i - 3 : "")}</th>`).join("")}<th>T</th></tr></thead>
-      <tbody>${[away, home].map((c) => `<tr><td>${esc(c.team.abbreviation)}</td>${lines(c)}<td><b>${esc(c.score ?? "")}</b></td></tr>`).join("")}</tbody></table>` : "";
+    const lineTable = nPer ? `<table class="linescore sb-lines"><thead><tr><th></th>${Array.from({ length: nPer }, (_, i) => `<th>${i < 4 ? i + 1 : "OT" + (i > 4 ? i - 3 : "")}</th>`).join("")}<th>T</th></tr></thead>
+      <tbody>${[[away, "away"], [home, "home"]].map(([c, w]) => `<tr><td><span class="sb-chip" style="--c:${tc[w]}"></span>${esc(c.team.abbreviation)}</td>${lines(c)}<td><b>${esc(c.score ?? "")}</b></td></tr>`).join("")}</tbody></table>` : "";
 
-    const venue = s.gameInfo?.venue?.fullName;
-    const head = `<div class="card gamehead">
-      <div class="gh-status">${st === "in" ? '<span class="live-dot"></span>' : ""}${esc(statusText(comp.status, comp.date))}${venue ? ` · ${esc(venue)}` : ""}<span class="muted live-note">${liveBadge(st === "in")}</span></div>
-      <div class="gh-teams">${side(away)}<span class="gh-at">@</span>${side(home)}</div>
-      ${lineTable}
-      ${st === "in" && s.situation?.lastPlay?.text ? `<p class="note">Last play: ${esc(s.situation.lastPlay.text)}</p>` : ""}
-    </div>`;
+    const head = `<div class="scorebug" style="--ac:${tc.away};--hc:${tc.home}">
+        ${side(away, "away")}
+        <div class="sb-mid">
+          <span class="sb-status ${st}">${st === "in" ? '<span class="live-dot"></span>' : ""}${esc(statusLabel)}</span>
+          <small>${[venue, tv].filter(Boolean).map(esc).join(" · ")}</small>
+          <span class="muted live-note">${liveBadge(st === "in")}</span>
+        </div>
+        ${side(home, "home")}
+      </div>
+      ${lineTable || st === "in" ? `<div class="card sb-under">${lineTable}
+        ${st === "in" && s.situation?.lastPlay?.text ? `<p class="note">Last play: ${esc(s.situation.lastPlay.text)}</p>` : ""}</div>` : ""}`;
 
     const col = { left: [], right: [], full: [] }; // two independent columns so short cards never leave gaps
     // highlights: official YouTube video (found by the weekly job) + ESPN's own clips (open on ESPN)
@@ -225,7 +252,7 @@ const Live = (() => {
     }
     // win probability
     const wp = s.winprobability || [];
-    if (wp.length > 2) col.right.push(`<div class="card"><h3>Win probability</h3>${wpChart(wp, away, home)}</div>`);
+    if (wp.length > 2) col.right.push(`<div class="card"><h3>Win probability</h3>${wpChart(wp, away, home, tc)}</div>`);
     // leaders
     if (s.leaders?.length && st !== "pre") {
       col.left.push(`<div class="card"><h3>Game leaders</h3><div class="leaders">${s.leaders.map((tl) => `<div><b>${esc(tl.team?.abbreviation || "")}</b>${(tl.leaders || []).map((cat) => {
@@ -271,7 +298,7 @@ const Live = (() => {
     if (st === "in") poll((r) => game(id, params, r), 20000);
   }
 
-  function wpChart(wp, away, home) {
+  function wpChart(wp, away, home, tc = {}) {
     const W = 600, H = 160, n = wp.length;
     const pts = wp.map((p, i) => `${((i / (n - 1)) * W).toFixed(1)},${((1 - p.homeWinPercentage) * H).toFixed(1)}`).join(" ");
     const last = wp[n - 1].homeWinPercentage;
@@ -280,12 +307,14 @@ const Live = (() => {
       <div class="wp-box" id="wp-box">
         <svg viewBox="0 0 ${W} ${H}" class="wp" preserveAspectRatio="none" role="img" aria-label="Win probability over the game">
           <line x1="0" y1="${H / 2}" x2="${W}" y2="${H / 2}" class="wp-mid"/>
-          <polygon points="0,${H / 2} ${pts} ${W},${H / 2}" class="wp-area"/>
+          <defs><clipPath id="wp-top"><rect x="0" y="0" width="${W}" height="${H / 2}"/></clipPath><clipPath id="wp-bot"><rect x="0" y="${H / 2}" width="${W}" height="${H / 2}"/></clipPath></defs>
+          <polygon points="0,${H / 2} ${pts} ${W},${H / 2}" class="wp-area" clip-path="url(#wp-top)" style="fill:${tc.home || "var(--accent)"}"/>
+          <polygon points="0,${H / 2} ${pts} ${W},${H / 2}" class="wp-area" clip-path="url(#wp-bot)" style="fill:${tc.away || "var(--accent)"}"/>
           <polyline points="${pts}" class="wp-line"/>
         </svg>
         <div class="wp-cursor hidden"><div class="wp-vline"></div><div class="wp-dot"></div><div class="wp-tip"></div></div>
       </div>
-      <div class="wp-labels"><span>▲ ${esc(home.team.abbreviation)}</span><span>▼ ${esc(away.team.abbreviation)}</span></div>`;
+      <div class="wp-labels"><span><i class="sb-chip" style="--c:${tc.home}"></i>▲ ${esc(home.team.abbreviation)}</span><span><i class="sb-chip" style="--c:${tc.away}"></i>▼ ${esc(away.team.abbreviation)}</span></div>`;
   }
 
   // Stock-chart style hover: a dot rides the line and a tooltip shows the win % and the play at that moment.

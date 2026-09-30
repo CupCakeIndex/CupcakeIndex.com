@@ -411,16 +411,16 @@ const bestWinText = (g) => g ? `${g.opp_rank && !g.fcs ? "#" + g.opp_rank + " " 
 const untestedTag = (t) => isUntested(t)
   ? ` <span class="pill untested" title="No win over a top-${TESTED[league].quality} team yet. Best win: ${esc(bestWinText(bestWin(t)))}">Beaten Nobody</span>` : "";
 
-// Cupcake meter: 0-5 cupcakes from the Cupcake score (50 = average FBS schedule). 0 = no cupcakes played.
-const CUP_STEPS = [20, 40, 55, 70, 85];
+// Padding meter: a bar filled to the Cupcake score (50 = average FBS schedule). Empty = no cupcakes played.
 function cupMeter(t) {
   if (league !== "cfb" || t.scores.cupcake == null || !(t.wins + t.losses)) return "";
   const cups = t.schedule.filter((g) => g.result && g.cupcake);
-  const lvl = cups.length ? CUP_STEPS.filter((x) => t.scores.cupcake >= x).length || 1 : 0;
   const tip = cups.length
-    ? `Cupcake meter ${lvl}/5 (score ${Math.round(t.scores.cupcake)}). Cupcakes: ${cups.map((g) => g.opp + (g.fcs ? " (FCS)" : "")).join(", ")}`
-    : "Cupcake meter 0/5: no cupcakes played yet";
-  return `<span class="cupm lvl${lvl}" title="${esc(tip)}" aria-label="${esc(tip)}"><em>Padding</em>${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= lvl ? "on" : ""}"></i>`).join("")}</span>`;
+    ? `Padding ${Math.round(t.scores.cupcake)}/100. Cupcakes: ${cups.map((g) => g.opp + (g.fcs ? " (FCS)" : "")).join(", ")}`
+    : "Padding 0/100: no cupcakes played yet";
+  // continuous bar: fills to the exact Padding score, colored green -> red by how far it reaches
+  const pct = cups.length ? Math.max(4, Math.round(t.scores.cupcake)) : 0;
+  return `<span class="cupm" title="${esc(tip)}" aria-label="${esc(tip)}"><em>Padding</em><span class="cupm-track"><span class="cupm-fill" style="width:${pct}%"></span></span></span>`;
 }
 
 function cotwTag(t) {
