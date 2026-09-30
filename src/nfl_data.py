@@ -125,3 +125,30 @@ def add_book_lines(d, week):
         if g["id"] in by_id and by_id[g["id"]] not in d["lines"]:
             d["lines"].append(by_id[g["id"]])
     print(f"  added {n} sportsbook lines for NFL week {week}")
+
+
+PLAYERS_URL = "https://github.com/nflverse/nflverse-data/releases/download/players/players.csv"
+
+
+def build_player_index(out_path):
+    """Every NFL player (past and present) with an ESPN id, for the player-compare search.
+
+    ESPN's own search only knows active players; this lets people find Brady, Barry Sanders, etc.
+    Rows: [name, espn_id, position, first_season, last_season], newest careers first.
+    """
+    try:
+        rows = _csv(PLAYERS_URL, "players.csv", True)
+    except requests.RequestException as e:
+        print(f"  player index: download failed ({e}); keeping the old one")
+        return
+    out = []
+    for r in rows:
+        if not r.get("espn_id") or not r.get("display_name"):
+            continue
+        first, last = r.get("rookie_season") or "", r.get("last_season") or ""
+        out.append([r["display_name"], r["espn_id"], r.get("position") or "", int(first) if first.isdigit() else None, int(last) if last.isdigit() else None])
+    out.sort(key=lambda x: -(x[4] or 0))
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(out, separators=(",", ":")), encoding="utf-8")
+    print(f"  player index: {len(out)} NFL players")
+

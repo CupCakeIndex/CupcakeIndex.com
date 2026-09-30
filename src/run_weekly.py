@@ -71,6 +71,8 @@ def run_league(league, season, cfg_league, offline):
                    generated=datetime.now(timezone.utc).isoformat(timespec="minutes"))
         (out_dir / f"week_{week}.json").write_text(json.dumps(res, separators=(",", ":")), encoding="utf-8")
         weeks.append(week)
+    if league == "nfl" and not offline:
+        nfl_data.build_player_index(OUT / "players_nfl.json")
     if not offline and weeks and weeks[-1]:
         # CFB: only games involving ranked/top-30 teams, to stay inside the free YouTube quota
         wanted = None if league == "nfl" else {t["team"] for t in res["teams"] if t["power_rank"] <= 30 or t["ap_rank"]}

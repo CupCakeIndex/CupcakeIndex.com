@@ -558,6 +558,9 @@ const Live = (() => {
     </div>`;
   }
 
+  let playerIndexP = null; // all-time NFL player list, loaded the first time someone searches
+  const playerIndex = () => (playerIndexP ||= fetch("data/players_nfl.json").then((r) => r.json()).catch(() => { playerIndexP = null; return []; }));
+
   function wireCareer(id, params) {
     const go = (changes) => {
       const p = new URLSearchParams(params);
@@ -577,12 +580,24 @@ const Live = (() => {
       const text = q.value.trim();
       if (text.length < 2) { box.classList.add("hidden"); return; }
       t = setTimeout(async () => {
-        const d = await api(`https://site.web.api.espn.com/apis/common/v3/search?query=${encodeURIComponent(text)}&limit=20&type=player`, 60000).catch(() => null);
-        const items = (d?.items || []).filter((it) => it.league === "nfl" || it.league === "college-football").slice(0, 8);
-        box.innerHTML = items.length ? items.map((it) => `<button data-add="${it.league === "nfl" ? "nfl" : "cfb"}:${esc(it.id)}">${esc(it.displayName)} <small>${it.league === "nfl" ? "NFL" : "College"}</small></button>`).join("")
+        // All-time NFL players (our index, includes retired legends) + ESPN's live search (active college players)
+        const words = text.toLowerCase().split(/\s+/).filter(Boolean);
+        const [index, d] = await Promise.all([
+          playerIndex(),
+          api(`https://site.web.api.espn.com/apis/common/v3/search?query=${encodeURIComponent(text)}&limit=20&type=player`, 60000).catch(() => null),
+        ]);
+        const local = index.filter((p) => words.every((w) => p[0].toLowerCase().includes(w)))
+          .sort((a, b) => (b[0].toLowerCase().startsWith(words[0]) - a[0].toLowerCase().startsWith(words[0])) || ((b[4] || 0) - (b[3] || 0)) - ((a[4] || 0) - (a[3] || 0)))
+          .slice(0, 8).map((p) => ({ key: `nfl:${p[1]}`, name: p[0], tag: `NFL · ${p[2]}${p[3] ? ` · ${p[3]}–${p[4] || ""}` : ""}` }));
+        const seen = new Set(local.map((x) => x.key));
+        const live = (d?.items || []).filter((it) => it.league === "nfl" || it.league === "college-football")
+          .map((it) => ({ key: `${it.league === "nfl" ? "nfl" : "cfb"}:${it.id}`, name: it.displayName, tag: it.league === "nfl" ? "NFL" : "College" }))
+          .filter((x) => !seen.has(x.key));
+        const items = [...local, ...live].slice(0, 10);
+        box.innerHTML = items.length ? items.map((it) => `<button data-add="${esc(it.key)}">${esc(it.name)} <small>${esc(it.tag)}</small></button>`).join("")
           : `<p class="muted">No football players found.</p>`;
         box.classList.remove("hidden");
-      }, 250);
+      }, 200);
     };
     box.onclick = (e) => { const a = e.target.closest("[data-add]")?.dataset.add; if (a && !vs.includes(a)) go({ vs: [...vs, a].slice(0, 3).join(",") }); };
   }
