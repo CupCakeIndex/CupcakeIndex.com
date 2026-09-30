@@ -258,6 +258,8 @@ const Live = (() => {
     // head-to-head leaders (ESPN style): one row per category, away leader left, home leader right
     const colorOf = (teamId) => (String(teamId) === String(home.team.id) ? tc.home : tc.away);
     const LEAD_CATS = [["passingYards", "Passing"], ["rushingYards", "Rushing"], ["receivingYards", "Receiving"], ["totalTackles", "Tackles"], ["sacks", "Sacks"]];
+    // ESPN drops "TD" when it's zero; always show it so a 0-TD line doesn't look incomplete
+    const withTD = (dv) => /TD/.test(dv) || !/YDS/.test(dv) ? dv : /INT/.test(dv) ? dv.replace(/, (\d+ INT)/, ", 0 TD, $1") : `${dv}, 0 TD`;
     const leaderFor = (teamId, key) => {
       const tl = (s.leaders || []).find((x) => String(x.team?.id) === String(teamId));
       return (tl?.leaders || []).find((c) => c.name === key)?.leaders?.[0] || null;
@@ -265,7 +267,7 @@ const Live = (() => {
     const lside = (L, which, win) => {
       if (!L) return `<span class="lside ${which} empty">–</span>`;
       const a = L.athlete, big = L.mainStat?.value ?? L.displayValue;
-      const txt = `<span class="ltxt"><b>${esc(a.shortName || a.displayName)}</b><small>${esc(a.position?.abbreviation || "")} · ${esc(L.displayValue)}</small></span>`;
+      const txt = `<span class="ltxt"><b>${esc(a.shortName || a.displayName)}</b><small>${esc(a.position?.abbreviation || "")} · ${esc(withTD(L.displayValue))}</small></span>`;
       const num = `<span class="lbig${win ? " win" : ""}">${esc(big)}</span>`;
       const pic = img(a.headshot?.href, "leadshot");
       return `<a class="lside ${which}" href="${link("player", a.id)}">${which === "away" ? pic + txt + num : num + txt + pic}</a>`;
@@ -456,10 +458,140 @@ const Live = (() => {
   }
 
   // ---------------------------------------------------------------- player
+  // ---------------------------------------------------------------- career stats by year (+ compare)
+  const LEAGUE_OF = { nfl: "nfl", cfb: "cfb", "college-football": "cfb" };
+  const DEF_POS = new Set(["LB", "OLB", "ILB", "MLB", "DE", "DT", "DL", "NT", "EDGE", "CB", "S", "SS", "FS", "DB", "SAF"]);
+  const PRIMARY = (pos) => pos === "QB" ? "passing" : ["RB", "FB", "HB"].includes(pos) ? "rushing" : ["WR", "TE"].includes(pos) ? "receiving"
+    : pos === "K" || pos === "PK" ? "kicking" : pos === "P" ? "punting" : DEF_POS.has(pos) ? "defensive" : null;
+  const KEY_METRIC = { passing: "passingYards", rushing: "rushingYards", receiving: "receivingYards", defensive: "totalTackles",
+    kicking: "fieldGoalsMade", punting: "puntYards", scoring: "totalPoints", returning: "kickReturnYards" };
+  const CAT_LABEL = { passing: "Passing", rushing: "Rushing", receiving: "Receiving", defensive: "Defense", defensiveInterceptions: "Interceptions",
+    kicking: "Kicking", punting: "Punting", scoring: "Scoring", returning: "Returns" };
+  const CMP_COLORS = ["var(--accent)", "#e8e8e8", "#8f96a3", "#5aa9e6"];
+  const num = (v) => { const n = parseFloat(String(v ?? "").replace(/,/g, "")); return isNaN(n) ? null : n; };
+
+  // One player's career: bio + every season, pro and college, keyed by category and stat name
+  async function career(lg, id) {
+    const bio = (await api(`${WEB(lg)}/athletes/${encodeURIComponent(id)}`, 600000)).athlete;
+    const sources = [[lg, id, lg === "nfl" ? "NFL" : "NCAA"]];
+    if (lg === "nfl" && bio.collegeAthlete?.id) sources.push(["cfb", bio.collegeAthlete.id, "NCAA"]);
+    const got = await Promise.all(sources.map(([l, pid]) => api(`${WEB(l)}/athletes/${encodeURIComponent(pid)}/stats`, 600000).catch(() => null)));
+    const cats = {};
+    got.forEach((d, i) => {
+      if (!d) return;
+      const level = sources[i][2];
+      for (const c of d.categories || []) {
+        const C = (cats[c.name] ||= { names: [], labels: {}, rows: [] });
+        c.names.forEach((n, j) => { if (!C.names.includes(n)) C.names.push(n); C.labels[n] = c.labels[j]; });
+        for (const r of c.statistics || []) {
+          const t = d.teams?.[r.teamSlug] || {};
+          C.rows.push({ year: r.season?.year, level, team: { abbr: t.abbreviation || "", logo: t.logos?.[0]?.href, color: t.color },
+            vals: Object.fromEntries(c.names.map((n, j) => [n, r.stats[j]])) });
+        }
+      }
+    });
+    Object.values(cats).forEach((C) => {
+      // ESPN sometimes repeats a season with no team attached; keep one row per season per level
+      const seen = new Map();
+      for (const r of C.rows) {
+        const k = `${r.year}|${r.level}`, prev = seen.get(k);
+        if (!prev || (!prev.team.abbr && r.team.abbr)) seen.set(k, r);
+        else if (prev.team.abbr && r.team.abbr && prev.team.abbr !== r.team.abbr) seen.set(k + "|" + r.team.abbr, r); // real mid-season move
+      }
+      C.rows = [...seen.values()].sort((a, b) => a.year - b.year || (a.level === "NCAA" ? -1 : 1));
+    });
+    return { id, lg, name: bio.displayName, short: bio.shortName || bio.displayName, pos: bio.position?.abbreviation, headshot: bio.headshot?.href, cats };
+  }
+
+  function careerCard(players, st) {
+    const main = players[0];
+    const catNames = Object.keys(main.cats).filter((k) => main.cats[k].rows.length);
+    if (!catNames.length) return `<div class="card"><h3>Stats by year</h3><p class="muted">No season stats available.</p></div>`;
+    const cat = catNames.includes(st.cat) ? st.cat : catNames.includes(PRIMARY(main.pos)) ? PRIMARY(main.pos) : catNames[0];
+    const C = main.cats[cat];
+    const metric = C.names.includes(st.metric) ? st.metric : C.names.includes(KEY_METRIC[cat]) ? KEY_METRIC[cat] : C.names.find((n) => /yards/i.test(n)) || C.names[1] || C.names[0];
+    const align = st.align === "career" ? "career" : "season";
+    const series = players.map((p, i) => {
+      const rows = (p.cats[cat]?.rows || []).filter((r) => num(r.vals[metric]) != null);
+      return { p, color: CMP_COLORS[i], rows: rows.map((r, k) => ({ ...r, x: align === "career" ? k + 1 : r.year, v: num(r.vals[metric]) })) };
+    });
+    const xs = [...new Set(series.flatMap((s) => s.rows.map((r) => r.x)))].sort((a, b) => a - b);
+    const max = Math.max(1, ...series.flatMap((s) => s.rows.map((r) => r.v)));
+    // grouped bar chart (SVG)
+    const W = 720, H = 220, pad = 28, gw = (W - pad) / Math.max(1, xs.length), bw = Math.min(34, (gw - 10) / series.length);
+    const bars = xs.map((x, gi) => series.map((sr, si) => {
+      const r = sr.rows.find((q) => q.x === x);
+      if (!r) return "";
+      const h = (r.v / max) * (H - 40), bx = pad + gi * gw + (gw - bw * series.length) / 2 + si * bw, by = H - 20 - h;
+      return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${(bw - 2).toFixed(1)}" height="${h.toFixed(1)}" fill="${sr.color}" rx="2"><title>${esc(sr.p.name)} · ${r.year} ${esc(r.team.abbr)}: ${esc(r.vals[metric])} ${esc(C.labels[metric])}</title></rect>`
+        + (series.length === 1 ? `<text x="${(bx + (bw - 2) / 2).toFixed(1)}" y="${(by - 5).toFixed(1)}" class="cc-val">${esc(r.vals[metric])}</text>` : "");
+    }).join("") + `<text x="${(pad + gi * gw + gw / 2).toFixed(1)}" y="${H - 4}" class="cc-x">${align === "career" ? "Yr " + x : x}</text>`).join("");
+    const chart = `<svg viewBox="0 0 ${W} ${H}" class="cc-chart" role="img" aria-label="${esc(C.labels[metric])} by ${align === "career" ? "career year" : "season"}">
+      <line x1="${pad}" y1="${H - 20}" x2="${W}" y2="${H - 20}" class="cc-axis"/>${bars}</svg>`;
+    const legend = series.map((sr, i) => `<span class="cc-chip" style="--c:${sr.color}">${img(sr.p.headshot, "hs")} ${esc(sr.p.name)} <small>${esc(sr.p.pos || "")}</small>
+      ${i ? `<button class="cc-x-btn" data-rm="${esc(sr.p.lg)}:${esc(sr.p.id)}" aria-label="Remove">×</button>` : ""}</span>`).join("");
+
+    const teamCell = (r) => `<span class="tm">${img(r.team.logo, "xs")} ${esc(r.team.abbr)}${r.level === "NCAA" && main.lg === "nfl" ? ' <span class="pill lvl">NCAA</span>' : ""}</span>`;
+    let table;
+    if (players.length === 1) {
+      const cols = C.names.filter((n) => C.rows.some((r) => r.vals[n] != null));
+      table = `<table class="box career"><thead><tr><th>Year</th><th>Team</th>${cols.map((n) => `<th class="num${n === metric ? " on" : ""}" title="${esc(n)}">${esc(C.labels[n])}</th>`).join("")}</tr></thead><tbody>
+        ${C.rows.map((r) => `<tr><td>${r.year}</td><td>${teamCell(r)}</td>${cols.map((n) => `<td class="num${n === metric ? " on" : ""}">${esc(r.vals[n] ?? "–")}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    } else {
+      table = `<table class="box career"><thead><tr><th>${align === "career" ? "Career yr" : "Season"}</th>${series.map((sr) => `<th colspan="2" class="cc-h" style="--c:${sr.color}">${esc(sr.p.short)}</th>`).join("")}</tr></thead><tbody>
+        ${xs.map((x) => `<tr><td>${align === "career" ? "Yr " + x : x}</td>${series.map((sr) => { const r = sr.rows.find((q) => q.x === x);
+          return r ? `<td>${align === "career" ? `<small class="muted">${r.year}</small> ` : ""}${teamCell(r)}</td><td class="num on">${esc(r.vals[metric])}</td>` : `<td class="muted">–</td><td></td>`; }).join("")}</tr>`).join("")}
+        <tr class="tot"><td>Total</td>${series.map((sr) => `<td></td><td class="num">${sr.rows.reduce((a, r) => a + r.v, 0).toLocaleString()}</td>`).join("")}</tr></tbody></table>`;
+    }
+    return `<div class="card career-card">
+      <div class="sc-bar"><h3>Stats by year</h3>
+        <div class="seg" id="cc-cats">${catNames.map((k) => `<button data-cat="${esc(k)}" class="${k === cat ? "active" : ""}">${esc(CAT_LABEL[k] || k)}</button>`).join("")}</div></div>
+      <div class="cc-controls">
+        <label>Chart <select id="cc-metric">${C.names.map((n) => `<option value="${esc(n)}"${n === metric ? " selected" : ""}>${esc(C.labels[n])}</option>`).join("")}</select></label>
+        <label>Line up by <select id="cc-align"><option value="season"${align === "season" ? " selected" : ""}>Season</option><option value="career"${align === "career" ? " selected" : ""}>Career year</option></select></label>
+        <div class="cc-search"><input id="cc-q" type="search" placeholder="Compare with another player…" autocomplete="off"${players.length >= 4 ? " disabled" : ""}><div id="cc-results" class="cc-results hidden"></div></div>
+      </div>
+      <div class="cc-legend">${legend}</div>
+      ${chart}
+      <div class="table-wrap">${table}</div>
+    </div>`;
+  }
+
+  function wireCareer(id, params) {
+    const go = (changes) => {
+      const p = new URLSearchParams(params);
+      Object.entries(changes).forEach(([k, v]) => (v == null || v === "" ? p.delete(k) : p.set(k, v)));
+      p.delete("league");
+      location.hash = link("player", id, Object.fromEntries(p));
+    };
+    const vs = (params.get("vs") || "").split(",").filter(Boolean);
+    $("#cc-cats").onclick = (e) => { const c = e.target.dataset.cat; if (c) go({ cat: c, metric: null }); };
+    $("#cc-metric").onchange = (e) => go({ metric: e.target.value });
+    $("#cc-align").onchange = (e) => go({ align: e.target.value });
+    document.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = () => go({ vs: vs.filter((v) => v !== b.dataset.rm).join(",") })));
+    const q = $("#cc-q"), box = $("#cc-results");
+    let t;
+    q.oninput = () => {
+      clearTimeout(t);
+      const text = q.value.trim();
+      if (text.length < 2) { box.classList.add("hidden"); return; }
+      t = setTimeout(async () => {
+        const d = await api(`https://site.web.api.espn.com/apis/common/v3/search?query=${encodeURIComponent(text)}&limit=20&type=player`, 60000).catch(() => null);
+        const items = (d?.items || []).filter((it) => it.league === "nfl" || it.league === "college-football").slice(0, 8);
+        box.innerHTML = items.length ? items.map((it) => `<button data-add="${it.league === "nfl" ? "nfl" : "cfb"}:${esc(it.id)}">${esc(it.displayName)} <small>${it.league === "nfl" ? "NFL" : "College"}</small></button>`).join("")
+          : `<p class="muted">No football players found.</p>`;
+        box.classList.remove("hidden");
+      }, 250);
+    };
+    box.onclick = (e) => { const a = e.target.closest("[data-add]")?.dataset.add; if (a && !vs.includes(a)) go({ vs: [...vs, a].slice(0, 3).join(",") }); };
+  }
+
   async function player(id, params) {
     const lg = league, my = token;
     loading("player");
     const season = params.get("season");
+    const vs = (params.get("vs") || "").split(",").filter(Boolean).slice(0, 3);
+    const careersP = Promise.all([career(lg, id), ...vs.map((v) => { const [l, pid] = v.split(":"); return career(LEAGUE_OF[l] || "nfl", pid); })]).catch(() => null);
     let bio, gl;
     try {
       [bio, gl] = await Promise.all([
@@ -511,10 +643,17 @@ const Live = (() => {
         </div>
       </div>
       ${summary ? `<div class="stats wide">${summary}</div>` : ""}
+      <div id="career-slot"><div class="card muted">Loading stats by year…</div></div>
       <div class="card"><div class="sc-bar"><h3>Game log</h3>
         <select id="pl-season">${years.map((y) => `<option${String(y) === (season || String(gl?.requestedSeason?.year || thisYear)) ? " selected" : ""}>${y}</option>`).join("")}</select></div>
         ${log || `<p class="muted">No games logged for this season.</p>`}</div>`;
     $("#pl-season").onchange = (e) => { location.hash = link("player", id, { season: e.target.value }); };
+    const careers = await careersP;
+    if (my !== token) return;
+    $("#career-slot").innerHTML = careers ? careerCard(careers, { cat: params.get("cat"), metric: params.get("metric"), align: params.get("align") })
+      : `<div class="card muted">Season-by-season stats aren't available for this player.</div>`;
+    if (careers) wireCareer(id, params);
+    if (vs.length) $("#career-slot").scrollIntoView({ block: "start" });
   }
 
   // ---------------------------------------------------------------- standings
