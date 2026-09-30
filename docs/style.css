@@ -245,7 +245,7 @@ tr.tot td { font-weight: 700; border-top: 2px solid var(--line); }
   img.headshot { width: 84px; height: 62px; }
 }
 
-/* Cupcake of the Week */
+/* Cupcake Bully of the Week */
 .cotw { display: flex; gap: 12px; align-items: center; background: var(--card); border: 1px solid var(--line); border-left: 5px solid #e86fa6; border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; box-shadow: var(--shadow); }
 .cotw-icon { font-size: 30px; line-height: 1; }
 .cotw a[data-team] { font-weight: 800; }
@@ -679,6 +679,8 @@ body:not(.show-breakdown) th.factors-col, body:not(.show-breakdown) td.factors {
 
 /* ---------- stats by year + compare ---------- */
 .career-card .sc-bar { justify-content: space-between; }
+/* stat-category tabs (Passing, Defense, Interceptions...) wrap onto a second row instead of running off narrow screens */
+.seg { flex-wrap: wrap; max-width: 100%; }
 .cc-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 4px 0 10px; font-size: 12px; color: var(--muted); }
 .cc-controls label { display: flex; align-items: center; gap: 6px; }
 .cc-search { position: relative; flex: 1; min-width: 220px; }

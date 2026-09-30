@@ -111,7 +111,7 @@ async function route() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "63"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "64"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -299,7 +299,7 @@ function renderCotw() {
   const [us, them] = String(c.score_line).split("-");
   const oppTag = c.fcs ? `<span class="prof-badge prof-walk">FCS</span>` : `<span class="muted">#${esc(c.opp_rank)}</span>`;
   $("#cotw").innerHTML = `
-    <div class="cotw-tag"><span>Cupcake</span><span>of the Week</span><small>Week ${esc(c.week)}</small></div>
+    <div class="cotw-tag"><span>Cupcake</span><span>Bully of the Week</span><small>Week ${esc(c.week)}</small></div>
     <div class="cotw-main">
       ${safeUrl(team.logo) ? `<img src="${esc(thumb(team.logo, 46))}" alt="" width="46" height="46" class="cotw-logo">` : ""}
       <div>
@@ -487,7 +487,7 @@ function cupMeter(t) {
 function cotwTag(t) {
   const c = DATA.cupcake_of_week;
   if (!c || c.team !== t.team) return "";
-  return ` <span class="pill cup-badge" title="Cupcake of the Week: ${esc(c.score_line)} over ${esc(c.opp)}">COTW</span>`;
+  return ` <span class="pill cup-badge" title="Cupcake Bully of the Week: ${esc(c.score_line)} over ${esc(c.opp)}">BULLY</span>`;
 }
 
 function apTag(t) {
@@ -561,7 +561,7 @@ function whyBullets(t) {
   if (league === "cfb" && cups >= 2) out.push(`Cupcake score ${Math.round(t.scores.cupcake)}: ${cups} of ${games} games were cupcakes for a team this good (${t.fcs_games} FCS, ${t.weak_games} FBS teams far below them). Those wins barely count.`);
   if (isUntested(t)) out.push(`Beaten Nobody: no win over a top-${TESTED[league].quality} team yet. Best win: ${bestWinText(bestWin(t))}.`);
   const cw = t.cotw_weeks || [];
-  if (cw.length) out.push(`Cupcake of the Week ${cw.length === 1 ? "once" : cw.length + " times"} this season (week ${cw.join(", ")}).`);
+  if (cw.length) out.push(`Cupcake Bully of the Week ${cw.length === 1 ? "once" : cw.length + " times"} this season (week ${cw.join(", ")}).`);
   if (t.luck_wins >= 1) out.push(`Lucky: about ${t.luck_wins.toFixed(1)} more wins than their play deserved (${t.one_score} in one-score games).`);
   if (t.luck_wins <= -1) out.push(`Unlucky: about ${(-t.luck_wins).toFixed(1)} fewer wins than their play deserved (${t.one_score} in one-score games).`);
   if (t.ap_rank && t.rank - t.ap_rank >= 10) out.push(`AP has them #${t.ap_rank}; the numbers say #${t.rank}.`);
