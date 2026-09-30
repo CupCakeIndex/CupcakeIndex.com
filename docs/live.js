@@ -43,6 +43,39 @@ const Live = (() => {
     const crop = cls === "leadshot" || cls === "hs"; // round headshots: square crop centered on the face
     return `<img src="${esc(thumb(src, w, h, crop))}" alt="" loading="lazy" decoding="async" width="${w}" height="${h}" class="${cls}">`;
   };
+  // A player's picture, or their initials when ESPN has no headshot (common for retired players).
+  // wiki: also look for a Wikipedia photo (NFL players only; born = birth year, to rule out namesakes).
+  const initials = (n) => { const w = (n || "").replace(/\s+(jr|sr|ii|iii|iv|v)\.?$/i, "").split(/\s+/).filter(Boolean); return ((w[0]?.[0] || "") + (w.length > 1 ? w[w.length - 1][0] : "")).toUpperCase(); };
+  const face = (src, name, cls, wiki = false, born = "") => safeUrl(src) ? img(src, cls)
+    : `<span class="logo-ph ph-face ${cls}"${wiki ? ` data-wiki="${esc(name)}" data-born="${esc(born)}"` : ""} role="img" aria-label="${esc(name)}">${esc(initials(name))}</span>`;
+  const wikiPics = new Map();
+  function wikiPhoto(name, born) {
+    if (!wikiPics.has(name)) wikiPics.set(name, (async () => {
+      for (const title of [`${name} (American football)`, name]) {
+        try {
+          const r = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title.replace(/ /g, "_"))}`);
+          if (!r.ok) continue;
+          const d = await r.json(), desc = d.description || "";
+          // must be an American football article, and the same person (birth year) when both sides know it
+          if (d.type !== "standard" || !/american football|gridiron|\bNFL\b/i.test(desc)) continue;
+          const b = desc.match(/born (\d{4})/)?.[1];
+          if (born && b && b !== String(born)) continue;
+          return safeUrl(d.thumbnail?.source) || null;
+        } catch { /* try the next title */ }
+      }
+      return null;
+    })());
+    return wikiPics.get(name);
+  }
+  // Swap initials placeholders for Wikipedia photos where one is found
+  function fillFaces(root) {
+    root.querySelectorAll(".ph-face[data-wiki]").forEach((el) => {
+      const cls = [...el.classList].find((c) => SIZES[c]);
+      wikiPhoto(el.dataset.wiki, el.dataset.born).then((u) => {
+        if (u && el.isConnected) el.outerHTML = img(u, cls).replace('class="', `title="Photo: Wikipedia" class="wiki `);
+      });
+    });
+  }
   const teamLogo = (t) => t?.logo || t?.logos?.[0]?.href || "";
   const kickoff = (d) => new Date(d).toLocaleString(undefined, { weekday: "short", month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" });
   const clockNow = () => new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" });
@@ -273,7 +306,7 @@ const Live = (() => {
       const a = L.athlete, big = L.mainStat?.value ?? L.displayValue;
       const txt = `<span class="ltxt"><b>${esc(a.shortName || a.displayName)}</b><small>${esc(a.position?.abbreviation || "")} · ${esc(withTD(L.displayValue))}</small></span>`;
       const num = `<span class="lbig${win ? " win" : ""}">${esc(big)}</span>`;
-      const pic = img(a.headshot?.href, "leadshot");
+      const pic = face(a.headshot?.href, a.displayName, "leadshot");
       return `<a class="lside ${which}" href="${link("player", a.id)}">${which === "away" ? pic + txt + num : num + txt + pic}</a>`;
     };
     const leadRows = LEAD_CATS.map(([key, label]) => {
@@ -433,7 +466,7 @@ const Live = (() => {
     const rows = athletes.map((a, i) => {
       const A = a.athlete, vals = (a.categories.find((c) => c.name === cat.show) || {}).totals || [];
       return `<tr data-name="${esc(A.displayName.toLowerCase())} ${esc((A.teamShortName || "").toLowerCase())}"><td class="num muted">${i + 1}</td>
-        <td><div class="team">${img(A.headshot?.href, "hs")}<div><a href="${link("player", A.id)}"><b>${esc(A.displayName)}</b></a><small class="muted">${esc(A.position?.abbreviation || "")}</small></div></div></td>
+        <td><div class="team">${face(A.headshot?.href, A.displayName, "hs")}<div><a href="${link("player", A.id)}"><b>${esc(A.displayName)}</b></a><small class="muted">${esc(A.position?.abbreviation || "")}</small></div></div></td>
         <td><span class="tm">${img(A.teamLogos?.[0]?.href, "xs")} ${esc(A.teamShortName || "")}</span></td>
         ${vals.map((v, j) => `<td class="num${`${prefix}.${def.names[j]}` === sort ? " on" : ""}">${esc(v)}</td>`).join("")}</tr>`;
     }).join("");
@@ -473,6 +506,7 @@ const Live = (() => {
     kicking: "Kicking", punting: "Punting", scoring: "Scoring", returning: "Returns" };
   const CMP_COLORS = ["var(--accent)", "#e8e8e8", "#8f96a3", "#5aa9e6"];
   const num = (v) => { const n = parseFloat(String(v ?? "").replace(/,/g, "")); return isNaN(n) ? null : n; };
+  const birthYear = (bio) => (bio.displayDOB || bio.dateOfBirth || "").match(/(\d{4})/)?.[1] || "";
 
   // One player's career: bio + every season, pro and college, keyed by category and stat name
   async function career(lg, id) {
@@ -485,10 +519,16 @@ const Live = (() => {
       if (!d) return;
       const level = sources[i][2];
       for (const c of d.categories || []) {
-        const C = (cats[c.name] ||= { names: [], labels: {}, rows: [] });
+        const C = (cats[c.name] ||= { names: [], labels: {}, rows: [], seasonTotals: {} });
         c.names.forEach((n, j) => { if (!C.names.includes(n)) C.names.push(n); C.labels[n] = c.labels[j]; });
+        // ESPN's official career totals for the player's own league (every season on record, not just what we show)
+        if (i === 0 && c.totals?.length) C.career = Object.fromEntries(c.names.map((n, j) => [n, c.totals[j]]));
         for (const r of c.statistics || []) {
-          if (/totals|all-?stars?/i.test(r.teamSlug || "")) continue; // skip summary rows and all-star exhibitions
+          if (/all-?stars?/i.test(r.teamSlug || "")) continue; // skip all-star exhibitions
+          if (/totals/i.test(r.teamSlug || "")) { // season total for a year split across teams
+            C.seasonTotals[`${r.season?.year}|${level}`] = Object.fromEntries(c.names.map((n, j) => [n, r.stats[j]]));
+            continue;
+          }
           const t = d.teams?.[r.teamSlug] || {};
           C.rows.push({ year: r.season?.year, level, team: { abbr: t.abbreviation || "", logo: t.logos?.[0]?.href, color: t.color },
             vals: Object.fromEntries(c.names.map((n, j) => [n, r.stats[j]])) });
@@ -505,7 +545,12 @@ const Live = (() => {
       }
       C.rows = [...seen.values()].sort((a, b) => a.year - b.year || (a.level === "NCAA" ? -1 : 1));
     });
-    return { id, lg, name: bio.displayName, short: bio.shortName || bio.displayName, pos: bio.position?.abbreviation, headshot: bio.headshot?.href, cats };
+    // seasons on record in the player's own league (pro for NFL players), from ESPN's career stats, not our game logs
+    const lvl = lg === "nfl" ? "NFL" : "NCAA";
+    const seasons = [...new Set(Object.values(cats).flatMap((C) => C.rows.filter((r) => r.level === lvl).map((r) => r.year)))].sort((a, b) => a - b);
+    const debut = Math.min(...[bio.debutYear, seasons[0]].filter(Boolean)) || null;
+    return { id, lg, name: bio.displayName, short: bio.shortName || bio.displayName, pos: bio.position?.abbreviation, headshot: bio.headshot?.href,
+      born: birthYear(bio), active: bio.active !== false, lvl, debut, seasons, cats };
   }
 
   function careerCard(players, st) {
@@ -517,8 +562,18 @@ const Live = (() => {
     const metric = C.names.includes(st.metric) ? st.metric : C.names.includes(KEY_METRIC[cat]) ? KEY_METRIC[cat] : C.names.find((n) => /yards/i.test(n)) || C.names[1] || C.names[0];
     const align = st.align === "career" ? "career" : "season";
     const series = players.map((p, i) => {
-      const rows = (p.cats[cat]?.rows || []).filter((r) => num(r.vals[metric]) != null);
-      return { p, color: CMP_COLORS[i], rows: rows.map((r, k) => ({ ...r, x: align === "career" ? k + 1 : r.year, v: num(r.vals[metric]) })) };
+      const PC = p.cats[cat], bySeason = new Map();
+      for (const r of PC?.rows || []) {
+        if (align === "career" && r.level !== p.lvl) continue; // career years count from the real pro (or college) debut
+        // one bar per season: a year split across teams uses ESPN's season total
+        const k = `${r.year}|${r.level}`, prev = bySeason.get(k);
+        bySeason.set(k, prev ? { ...r, team: { ...r.team, abbr: `${prev.team.abbr}/${r.team.abbr}` }, vals: PC.seasonTotals[k] || r.vals } : r);
+      }
+      const rows = [...bySeason.values()].filter((r) => num(r.vals[metric]) != null)
+        .map((r, _, all) => ({ ...r, x: align === "career" ? r.year - (p.debut || all[0].year) + 1 : r.year, v: num(r.vals[metric]) }));
+      // career total: ESPN's official figure for the player's league when it has one (right for averages too)
+      const official = PC?.career?.[metric];
+      return { p, color: CMP_COLORS[i], rows, total: official != null ? official : rows.reduce((a, r) => a + r.v, 0).toLocaleString() };
     });
     const xs = [...new Set(series.flatMap((s) => s.rows.map((r) => r.x)))].sort((a, b) => a - b);
     const max = Math.max(1, ...series.flatMap((s) => s.rows.map((r) => r.v)));
@@ -533,7 +588,7 @@ const Live = (() => {
     }).join("") + `<text x="${(pad + gi * gw + gw / 2).toFixed(1)}" y="${H - 4}" class="cc-x">${align === "career" ? "Yr " + x : x}</text>`).join("");
     const chart = `<svg viewBox="0 0 ${W} ${H}" class="cc-chart" role="img" aria-label="${esc(C.labels[metric])} by ${align === "career" ? "career year" : "season"}">
       <line x1="${pad}" y1="${H - 20}" x2="${W}" y2="${H - 20}" class="cc-axis"/>${bars}</svg>`;
-    const legend = series.map((sr, i) => `<span class="cc-chip" style="--c:${sr.color}">${img(sr.p.headshot, "hs")} ${esc(sr.p.name)} <small>${esc(sr.p.pos || "")}</small>
+    const legend = series.map((sr, i) => `<span class="cc-chip" style="--c:${sr.color}">${face(sr.p.headshot, sr.p.name, "hs", sr.p.lg === "nfl", sr.p.born)} ${esc(sr.p.name)} <small>${esc(sr.p.pos || "")}</small>
       ${i ? `<button class="cc-x-btn" data-rm="${esc(sr.p.lg)}:${esc(sr.p.id)}" aria-label="Remove">×</button>` : ""}</span>`).join("");
 
     const teamCell = (r) => `<span class="tm">${img(r.team.logo, "xs")} ${esc(r.team.abbr)}${r.level === "NCAA" && main.lg === "nfl" ? ' <span class="pill lvl">NCAA</span>' : ""}</span>`;
@@ -541,12 +596,13 @@ const Live = (() => {
     if (players.length === 1) {
       const cols = C.names.filter((n) => C.rows.some((r) => r.vals[n] != null));
       table = `<table class="box career"><thead><tr><th>Year</th><th>Team</th>${cols.map((n) => `<th class="num${n === metric ? " on" : ""}" title="${esc(n)}">${esc(C.labels[n])}</th>`).join("")}</tr></thead><tbody>
-        ${C.rows.map((r) => `<tr><td>${r.year}</td><td>${teamCell(r)}</td>${cols.map((n) => `<td class="num${n === metric ? " on" : ""}">${esc(r.vals[n] ?? "–")}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+        ${C.rows.map((r) => `<tr><td>${r.year}</td><td>${teamCell(r)}</td>${cols.map((n) => `<td class="num${n === metric ? " on" : ""}">${esc(r.vals[n] ?? "–")}</td>`).join("")}</tr>`).join("")}
+        ${C.career ? `<tr class="tot"><td>Career</td><td class="muted">${main.lvl === "NFL" ? "NFL" : "College"}</td>${cols.map((n) => `<td class="num${n === metric ? " on" : ""}">${esc(C.career[n] ?? "")}</td>`).join("")}</tr>` : ""}</tbody></table>`;
     } else {
       table = `<table class="box career"><thead><tr><th>${align === "career" ? "Career yr" : "Season"}</th>${series.map((sr) => `<th colspan="2" class="cc-h" style="--c:${sr.color}">${esc(sr.p.short)}</th>`).join("")}</tr></thead><tbody>
         ${xs.map((x) => `<tr><td>${align === "career" ? "Yr " + x : x}</td>${series.map((sr) => { const r = sr.rows.find((q) => q.x === x);
           return r ? `<td>${align === "career" ? `<small class="muted">${r.year}</small> ` : ""}${teamCell(r)}</td><td class="num on">${esc(r.vals[metric])}</td>` : `<td class="muted">–</td><td></td>`; }).join("")}</tr>`).join("")}
-        <tr class="tot"><td>Total</td>${series.map((sr) => `<td></td><td class="num">${sr.rows.reduce((a, r) => a + r.v, 0).toLocaleString()}</td>`).join("")}</tr></tbody></table>`;
+        <tr class="tot"><td>Career</td>${series.map((sr) => `<td class="muted">${sr.p.lvl === "NFL" ? "NFL" : "College"}</td><td class="num">${esc(sr.total)}</td>`).join("")}</tr></tbody></table>`;
     }
     return `<div class="card career-card">
       <div class="sc-bar"><h3>Stats by year</h3>
@@ -629,7 +685,7 @@ const Live = (() => {
     const facts = [
       a.position?.displayName, a.displayJersey,
       [a.displayHeight, a.displayWeight].filter(Boolean).join(", "),
-      a.age ? `Age ${a.age}` : "", a.displayExperience || a.experience?.displayValue, a.displayDraft,
+      a.age ? `Age ${a.age}` : "", a.displayDraft,
       a.college?.name || a.collegeTeam?.displayName ? `College: ${a.college?.name || a.collegeTeam?.displayName}` : "",
       a.displayBirthPlace ? `From ${a.displayBirthPlace}` : "",
     ].filter(Boolean);
@@ -655,31 +711,43 @@ const Live = (() => {
           <tbody>${rows}${tot ? `<tr class="tot"><td colspan="3">Totals</td>${tot.map((v) => `<td class="num">${esc(v)}</td>`).join("")}</tr>` : ""}</tbody></table></div>`;
       }).join("");
     }
-    const thisYear = new Date().getFullYear();
-    // every season of the career (ESPN has game logs back to 1999 NFL / 2001 college)
-    const firstYear = Math.max(lg === "nfl" ? 1999 : 2001, a.debutYear || thisYear - 25);
-    const years = Array.from({ length: thisYear - firstYear + 1 }, (_, i) => thisYear - i);
+    const thisYear = new Date().getFullYear(), born = birthYear(a);
+    // every season of the career: ESPN lists them on the game log (e.g. 1985-2004 for Jerry Rice)
+    const seasonF = (gl?.filters || []).find((f) => f.name === "season");
+    const firstYear = a.debutYear || thisYear - 25;
+    const noLogs = !seasonF?.options?.length && a.active === false; // retired and ESPN has no game logs at all (pre-1990s careers)
+    const years = seasonF?.options?.length ? seasonF.options.map((o) => +o.value) : noLogs ? [] : Array.from({ length: thisYear - firstYear + 1 }, (_, i) => thisYear - i);
+    const shown = +(season || seasonF?.value || gl?.requestedSeason?.year || thisYear);
+    // years in the league: active players get ESPN's current count; retired ones get filled in from their career record below
+    const exp = a.active !== false ? a.displayExperience || a.experience?.displayValue || "" : "";
     view("player").innerHTML = `
       <div class="card player-head">
-        ${img(a.headshot?.href, "headshot")}
+        ${face(a.headshot?.href, a.displayName, "headshot", lg === "nfl", born)}
         <div>
           <h2>${esc(a.displayName)}</h2>
           <p>${a.team ? `<a href="${link("team", a.team.id)}"><span class="tm">${img(a.team.logos?.[0]?.href || a.team.logo, "xs")} ${esc(a.team.displayName)}</span></a>` : ""}
             ${inj ? ` <span class="pill over">${esc(inj.status || inj.type?.description || "Injured")}</span>` : ""}</p>
-          <p class="muted">${facts.map(esc).join(" · ")}</p>
+          <p class="muted">${facts.map(esc).join(" · ")}<span id="pl-exp">${exp ? " · " + esc(exp) : ""}</span></p>
         </div>
       </div>
       ${summary ? `<div class="stats wide">${summary}</div>` : ""}
       <div id="career-slot"><div class="card muted">Loading stats by year…</div></div>
       <div class="card"><div class="sc-bar"><h3>Game log</h3>
-        <select id="pl-season">${years.map((y) => `<option${String(y) === (season || String(gl?.requestedSeason?.year || thisYear)) ? " selected" : ""}>${y}</option>`).join("")}</select></div>
-        ${log || `<p class="muted">No games logged for this season.</p>`}</div>`;
+        <select id="pl-season"${noLogs ? ` class="hidden"` : ""}>${years.map((y) => `<option${y === shown ? " selected" : ""}>${y}</option>`).join("")}</select></div>
+        ${log || (noLogs ? `<p class="muted">ESPN doesn't have game-by-game logs for this player's career. Season totals, where ESPN has them, are in Stats by year above.</p>` : shown < 2000 ? `<p class="muted">ESPN doesn't have game-by-game logs for ${shown} (older seasons are spotty before the late 1990s). Season totals are in Stats by year above.</p>`
+          : `<p class="muted">No games logged for this season.</p>`)}</div>`;
+    fillFaces(view("player"));
     $("#pl-season").onchange = (e) => { location.hash = link("player", id, { season: e.target.value }); };
     const careers = await careersP;
     if (my !== token) return;
     $("#career-slot").innerHTML = careers ? careerCard(careers, { cat: params.get("cat"), metric: params.get("metric"), align: params.get("align") })
       : `<div class="card muted">Season-by-season stats aren't available for this player.</div>`;
-    if (careers) wireCareer(id, params);
+    if (careers) {
+      wireCareer(id, params);
+      fillFaces($("#career-slot"));
+      const me = careers[0], n = me.seasons.length;
+      if (!exp && n) $("#pl-exp").textContent = ` · ${n} ${me.lvl === "NFL" ? "NFL" : "college"} season${n > 1 ? "s" : ""} (${me.seasons[0]}${n > 1 ? "–" + me.seasons[n - 1] : ""})`;
+    }
     if (vs.length) $("#career-slot").scrollIntoView({ block: "start" });
   }
 
@@ -753,7 +821,7 @@ const Live = (() => {
       <h4>${esc({ offense: "Offense", defense: "Defense", specialTeam: "Special teams", injuredReserveOrOut: "Injured reserve / out", suspended: "Suspended", practiceSquad: "Practice squad" }[g.position] || g.position)}</h4>
       <div class="table-wrap"><table class="box"><thead><tr><th class="num">#</th><th>Player</th><th>Pos</th><th>Ht</th><th>Wt</th><th>${lg === "nfl" ? "Age" : "Class"}</th><th>Status</th></tr></thead><tbody>
       ${g.items.map((p) => `<tr><td class="num muted">${esc(p.jersey || "")}</td>
-        <td><div class="team">${img(p.headshot?.href, "hs")}<a href="${link("player", p.id)}">${esc(p.displayName)}</a></div></td>
+        <td><div class="team">${face(p.headshot?.href, p.displayName, "hs")}<a href="${link("player", p.id)}">${esc(p.displayName)}</a></div></td>
         <td>${esc(p.position?.abbreviation || "")}</td><td>${esc(p.displayHeight || "")}</td><td>${esc(p.displayWeight || "")}</td>
         <td>${esc(lg === "nfl" ? p.age ?? "" : p.experience?.abbreviation || "")}</td>
         <td>${p.injuries?.[0] ? `<span class="pill over">${esc(p.injuries[0].status)}</span>` : ""}</td></tr>`).join("")}</tbody></table></div>`).join("");
