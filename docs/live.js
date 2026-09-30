@@ -35,11 +35,13 @@ const Live = (() => {
   const view = (name) => $("#view-" + name);
   const loading = (name) => { view(name).innerHTML = `<div class="card muted">Loading…</div>`; };
   const fail = (name, e) => { view(name).innerHTML = `<div class="card">Couldn't load this from ESPN (${esc(e.message)}). Try again in a minute.</div>`; };
-  const SIZES = { xs: [18, 18], sm: [22, 22], lg: [28, 28], xl: [56, 56], hs: [30, 22], headshot: [120, 88] }; // CSS display sizes
+  const SIZES = { xs: [18, 18], sm: [22, 22], lg: [28, 28], xl: [56, 56], hs: [30, 30], leadshot: [52, 52], headshot: [120, 88] }; // CSS display sizes
+  let boxTab = "off"; // remembered across live refreshes
   const img = (src, cls = "lg") => {
     if (!safeUrl(src)) return `<span class="logo-ph ${cls}"></span>`;
     const [w, h] = SIZES[cls] || [40, 40];
-    return `<img src="${esc(thumb(src, w, h))}" alt="" loading="lazy" decoding="async" width="${w}" height="${h}" class="${cls}">`;
+    const crop = cls === "leadshot" || cls === "hs"; // round headshots: square crop centered on the face
+    return `<img src="${esc(thumb(src, w, h, crop))}" alt="" loading="lazy" decoding="async" width="${w}" height="${h}" class="${cls}">`;
   };
   const teamLogo = (t) => t?.logo || t?.logos?.[0]?.href || "";
   const kickoff = (d) => new Date(d).toLocaleString(undefined, { weekday: "short", month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -253,13 +255,28 @@ const Live = (() => {
     // win probability
     const wp = s.winprobability || [];
     if (wp.length > 2) col.right.push(`<div class="card"><h3>Win probability</h3>${wpChart(wp, away, home, tc)}</div>`);
-    // leaders
-    if (s.leaders?.length && st !== "pre") {
-      col.left.push(`<div class="card"><h3>Game leaders</h3><div class="leaders">${s.leaders.map((tl) => `<div><b>${esc(tl.team?.abbreviation || "")}</b>${(tl.leaders || []).map((cat) => {
-        const L = cat.leaders?.[0];
-        return L ? `<div class="leader"><small class="muted">${esc(cat.displayName)}</small> <a href="${link("player", L.athlete.id)}">${esc(L.athlete.displayName)}</a> <span class="muted">${esc(L.displayValue)}</span></div>` : "";
-      }).join("")}</div>`).join("")}</div></div>`);
-    }
+    // leaders strip (rendered under the scorebug): the game's top player in each category
+    const LEAD_CATS = [["passingYards", "Passing"], ["rushingYards", "Rushing"], ["receivingYards", "Receiving"], ["totalTackles", "Tackles"], ["sacks", "Sacks"]];
+    const colorOf = (teamId) => (String(teamId) === String(home.team.id) ? tc.home : tc.away);
+    const leadCards = LEAD_CATS.map(([key, label]) => {
+      let best = null;
+      for (const tl of s.leaders || []) {
+        const cat = (tl.leaders || []).find((c) => c.name === key);
+        const L = cat?.leaders?.[0];
+        if (L && (!best || (L.value ?? 0) > (best.L.value ?? 0))) best = { L, team: tl.team };
+      }
+      if (!best) return "";
+      const { L, team } = best, a = L.athlete;
+      const big = L.mainStat ? `${esc(L.mainStat.value)}<small>${esc(L.mainStat.label)}</small>` : esc(L.displayValue);
+      return `<a class="lead" href="${link("player", a.id)}" style="--c:${colorOf(team?.id)}">
+        <span class="lead-cat">${label}</span>
+        <span class="lead-body">${img(a.headshot?.href, "leadshot")}
+          <span class="lead-txt"><span class="lead-big">${big}</span>
+            <b>${esc(a.shortName || a.displayName)}</b>
+            <small>${img(team?.logo, "xs")} ${esc(team?.abbreviation || "")} · ${esc(a.position?.abbreviation || "")}</small></span></span>
+        <span class="lead-line">${esc(L.displayValue)}</span></a>`;
+    }).join("");
+    const leadersStrip = leadCards ? `<div class="leaders-strip"><h3>${st === "pre" ? "Season leaders" : "Game leaders"}</h3><div class="lead-row">${leadCards}</div></div>` : "";
     // team stats
     const bt = s.boxscore?.teams || [];
     if (bt.length === 2 && bt[0].statistics?.length) {
@@ -268,17 +285,23 @@ const Live = (() => {
       col.right.push(`<div class="card"><h3>Team stats</h3><table class="teamstats"><thead><tr><th></th><th class="num">${esc(away.team.abbreviation)}</th><th class="num">${esc(home.team.abbreviation)}</th></tr></thead><tbody>
         ${A.statistics.map((x, i) => `<tr><td>${esc(x.label)}</td><td class="num">${esc(x.displayValue)}</td><td class="num">${esc(H.statistics[i]?.displayValue ?? "")}</td></tr>`).join("")}</tbody></table></div>`);
     }
-    // player box score
+    // player box score, split into Offense / Defense / Special Teams tabs
     const bp = s.boxscore?.players || [];
     if (bp.length) {
-      const cats = [...new Set(bp.flatMap((t) => t.statistics.map((x) => x.name)))];
-      col.full.push(`<div class="card"><h3>Box score</h3>${cats.map((cn) => `<h4>${esc(CAT_NAME[cn] || cn)}</h4><div class="box-pair">${bp.map((t) => {
+      const GROUPS = { off: ["passing", "rushing", "receiving", "fumbles"], def: ["defensive", "interceptions"], st: ["kicking", "punting", "kickReturns", "puntReturns"] };
+      const all = [...new Set(bp.flatMap((t) => t.statistics.map((x) => x.name)))];
+      const section = (cn) => `<h4>${esc(CAT_NAME[cn] || cn)}</h4><div class="box-pair">${bp.map((t) => {
         const cat = t.statistics.find((x) => x.name === cn);
         if (!cat || !cat.athletes?.length) return `<div></div>`;
-        return `<div class="table-wrap"><table class="box"><thead><tr><th>${esc(t.team.abbreviation)}</th>${cat.labels.map((l) => `<th class="num">${esc(l)}</th>`).join("")}</tr></thead><tbody>
+        return `<div class="table-wrap"><table class="box"><thead><tr><th><span class="sb-chip" style="--c:${colorOf(t.team.id)}"></span>${esc(t.team.abbreviation)}</th>${cat.labels.map((l) => `<th class="num">${esc(l)}</th>`).join("")}</tr></thead><tbody>
           ${cat.athletes.map((a) => `<tr><td><a href="${link("player", a.athlete.id)}">${esc(a.athlete.displayName)}</a></td>${a.stats.map((v) => `<td class="num">${esc(v)}</td>`).join("")}</tr>`).join("")}
           ${cat.totals?.length ? `<tr class="tot"><td>Team</td>${cat.totals.map((v) => `<td class="num">${esc(v)}</td>`).join("")}</tr>` : ""}</tbody></table></div>`;
-      }).join("")}</div>`).join("")}</div>`);
+      }).join("")}</div>`;
+      const tabs = [["off", "Offense"], ["def", "Defense"], ["st", "Special Teams"]].filter(([k]) => GROUPS[k].some((c) => all.includes(c)));
+      if (!tabs.some(([k]) => k === boxTab)) boxTab = tabs[0]?.[0] || "off";
+      col.full.push(`<div class="card" id="boxscore"><div class="box-head"><h3>Box score</h3>
+        <div class="seg box-tabs">${tabs.map(([k, l]) => `<button data-bt="${k}" class="${k === boxTab ? "active" : ""}">${l}</button>`).join("")}</div></div>
+        ${tabs.map(([k]) => `<div class="box-sec${k === boxTab ? "" : " hidden"}" data-sec="${k}">${GROUPS[k].filter((c) => all.includes(c)).map(section).join("")}</div>`).join("")}</div>`);
     }
     // scoring plays
     const sp = s.scoringPlays || [];
@@ -293,8 +316,16 @@ const Live = (() => {
       col.right.push(`<div class="card"><h3>Injuries</h3><div class="box-pair">${inj.map((t) => `<div><b>${esc(t.team?.displayName || "")}</b><ul class="inj">${t.injuries.slice(0, 15).map((i) =>
         `<li><a href="${link("player", i.athlete?.id)}">${esc(i.athlete?.displayName)}</a> <span class="muted">${esc(i.athlete?.position?.abbreviation || "")}</span> <span class="pill over">${esc(i.status)}</span></li>`).join("")}</ul></div>`).join("")}</div></div>`);
     }
-    view("game").innerHTML = `<p><a href="${link("scores")}" class="boxlink">← Scores</a></p>${head}<div class="game-cols"><div class="gcol">${col.left.join("")}</div><div class="gcol">${col.right.join("")}</div></div>${col.full.join("")}`;
+    view("game").innerHTML = `<p><a href="${link("scores")}" class="boxlink">← Scores</a></p>${head}${leadersStrip}<div class="game-cols"><div class="gcol">${col.left.join("")}</div><div class="gcol">${col.right.join("")}</div></div>${col.full.join("")}`;
     if (wp.length > 2) initWp(wp, s, away, home);
+    const bx = $("#boxscore .box-tabs");
+    if (bx) bx.onclick = (e) => {
+      const k = e.target.dataset.bt;
+      if (!k) return;
+      boxTab = k;
+      bx.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b.dataset.bt === k));
+      document.querySelectorAll("#boxscore .box-sec").forEach((sec) => sec.classList.toggle("hidden", sec.dataset.sec !== k));
+    };
     if (st === "in") poll((r) => game(id, params, r), 20000);
   }
 

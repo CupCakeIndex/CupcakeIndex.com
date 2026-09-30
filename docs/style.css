@@ -536,3 +536,28 @@ body[data-league="nfl"] .tmeta .cupm { display: none; }
 .cupm-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px;
   background: linear-gradient(90deg, #2fa866, #8fbf3a 30%, #d9b32b 55%, #e0782b 78%, #e0443a); background-size: 63px 100%; }
 .tmeta .cupm { width: 63px; align-items: center; }
+
+/* ---------- leaders strip + box score tabs ---------- */
+.leaders-strip { margin-top: 12px; }
+.leaders-strip h3 { margin: 0 0 8px; }
+.lead-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.lead { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--line);
+  border-top: 3px solid var(--c); text-decoration: none !important; color: var(--ink); min-width: 0; box-shadow: var(--shadow); }
+.lead:hover { border-color: var(--c); }
+.lead-cat { font-family: "Barlow Condensed", Inter, sans-serif; font-weight: 700; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.lead-body { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.lead img.leadshot, .lead .logo-ph.leadshot { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; object-position: top; background: color-mix(in srgb, var(--c) 25%, var(--bg)); flex: none; border: 2px solid var(--c); }
+.lead-txt { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.lead-big { font-family: "Barlow Condensed", Inter, sans-serif; font-weight: 700; font-size: 28px; line-height: 1; }
+.lead-big small { font-size: 13px; margin-left: 3px; color: var(--muted); letter-spacing: .06em; }
+.lead-txt b { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px; }
+.lead-txt small { font-size: 11.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.lead-line { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.box-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.box-head h3 { margin: 0; }
+.box-tabs button { padding: 6px 14px; }
+@media (max-width: 900px) {
+  .lead-row { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 4px; }
+  .lead { flex: 0 0 72%; scroll-snap-align: start; }
+}
+@media (min-width: 520px) and (max-width: 900px) { .lead { flex-basis: 40%; } }

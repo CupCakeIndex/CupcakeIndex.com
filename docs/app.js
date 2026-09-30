@@ -352,11 +352,11 @@ const heat = (v) => `background:hsla(${Math.round(v * 1.3)},65%,45%,.18)`;
 const safeUrl = (u) => (/^https:\/\//.test(u || "") ? u : "");
 // Serve images at display size (x2 for sharp phone screens) through ESPN's resizer.
 // Full-size logos are ~12KB and headshots ~230KB; thumbnails are ~1-7KB.
-function thumb(url, w, h = w) {
+function thumb(url, w, h = w, crop = false) {
   if (!safeUrl(url)) return "";
   const cfbd = url.match(/^https:\/\/cdn\.collegefootballdata\.com\/logos\/\d+\/(\d+)\.png$/); // CFBD logo ids are ESPN ids
   const path = cfbd ? `/i/teamlogos/ncaa/500/${cfbd[1]}.png` : (url.match(/^https:\/\/a\.espncdn\.com(\/i\/[^?]+)$/) || [])[1];
-  return path ? `https://a.espncdn.com/combiner/i?img=${encodeURIComponent(path)}&w=${w * 2}&h=${h * 2}` : url;
+  return path ? `https://a.espncdn.com/combiner/i?img=${encodeURIComponent(path)}&w=${w * 2}&h=${h * 2}${crop ? "&scale=crop" : ""}` : url;
 }
 const logo = (t, cls = "") => safeUrl(t.logo)
   ? `<img src="${esc(thumb(t.logo, 28))}" alt="" loading="lazy" decoding="async" width="26" height="26" class="${cls}">` : `<span class="logo-ph ${cls}"></span>`;
