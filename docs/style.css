@@ -597,3 +597,82 @@ body[data-league="nfl"] .tmeta .cupm { display: none; }
   .ltxt b { font-size: 12px; }
   .lbig { font-size: 24px; }
 }
+
+/* =================== REDESIGN: Data Terminal Mono =================== */
+:root:root:root { --bg:#0a0a0b; --card:#111113; --ink:#ececec; --muted:#8a8a8f; --line:#26262a; --accent:#ff6b2c; --accent-soft:#1c130e; --good:#e8e8e8; --bad:#ff6b2c; --bar:#ececec; --bar-bg:#26262a; --shadow:none; }
+@media (prefers-color-scheme: light) {
+  :root:root:root:not([data-theme="dark"]) { --bg:#f4f4f2; --card:#ffffff; --ink:#141414; --muted:#6b6b70; --line:#e2e2de; --accent:#e8551b; --accent-soft:#fbeee6;
+    --good:#141414; --bad:#e8551b; --bar:#141414; --bar-bg:#e8e8e4; }
+}
+
+
+body, button, select, input { font-family: "JetBrains Mono", ui-monospace, monospace !important; font-size: 13px; }
+h1 { font-size: 26px; letter-spacing: -.02em; }
+h1::before { content: "> "; color: var(--accent); }
+.tag { background: transparent; color: var(--accent); border: 1px solid var(--accent); border-radius: 0; }
+.tab { text-transform: uppercase; font-size: 12px; letter-spacing: .06em; }
+.card, .table-wrap, .cotw, .seg, select, input[type=search], .presets button { border-radius: 0 !important; }
+#table td, #table th { border: 1px solid var(--line); }
+#table td { padding: 8px 10px; }
+.rank { font-size: 16px !important; color: var(--accent); }
+.team img { filter: grayscale(.2); }
+.seg button.active, .presets button.on { background: var(--accent) !important; color: #000 !important; }
+.prof-badge, .pill { border-radius: 0 !important; box-shadow: none !important; background: transparent !important; text-shadow: none !important; font-family: "JetBrains Mono" !important; }
+.cotw-tag { background: var(--accent) !important; color: #000 !important; clip-path: none; text-shadow: none; }
+.cupm-fill { background: var(--accent) !important; }
+
+/* single-column rankings; weights move to a floating panel */
+#view-rankings { grid-template-columns: minmax(0, 1fr) !important; }
+.weights-fab { position: fixed; right: 18px; bottom: 18px; z-index: 60; display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 14px;
+  background: var(--accent); color: #000; border: 0; border-radius: 4px; cursor: pointer; box-shadow: 0 8px 24px rgba(0,0,0,.45);
+  font: 700 12px/1 "JetBrains Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
+.weights-fab #wf-preset { background: rgba(0,0,0,.16); padding: 4px 7px; border-radius: 3px; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.weights-fab.open { background: var(--ink); color: var(--bg); }
+.weights { position: fixed !important; right: 18px; bottom: 68px; z-index: 61; width: 360px; max-height: min(72vh, 640px); overflow: auto;
+  background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 16px !important; box-shadow: 0 18px 50px rgba(0,0,0,.6); display: block; }
+.weights[hidden] { display: none !important; }
+.weights .weights-head { display: flex; align-items: center; gap: 12px; }
+.weights .weights-head h2 { margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: .08em; }
+.weights .weights-head > span { margin-left: auto; }
+.close-x { background: none; border: 0; color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer; padding: 0 2px; }
+.weights .presets { margin: 12px 0 !important; }
+.weights #sliders { display: block !important; }
+.weights .slider p { display: none; }
+.weights .slider-top span[title] { cursor: help; text-decoration: underline dotted var(--line); text-underline-offset: 3px; }
+.weights #clear { display: inline !important; }
+.weights-toggle { display: none !important; }
+/* factor columns only with Breakdown on */
+body:not(.show-breakdown) th.factors-col, body:not(.show-breakdown) td.factors { display: none !important; }
+.breakdown-btn { padding: 6px 12px; }
+.breakdown-btn.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+@media (max-width: 640px) {
+  .weights { left: 0; right: 0; bottom: 0; width: auto; max-height: 78vh; border-radius: 12px 12px 0 0; }
+  .weights-fab { right: 12px; bottom: 12px; }
+  .breakdown-btn { display: none; }
+  #table { font-size: 12px; }
+  #table td, #table th { padding: 7px 3px; }
+  #table .rank { font-size: 15px !important; }
+  #table .mv { width: 22px; }
+  .team img { width: 20px !important; height: 20px !important; }
+  .team .tname { font-size: 13px; }
+  .tmeta .cupm, .tmeta .cupm-track { width: 44px; }
+}
+
+/* phones: league switcher on the right, within thumb reach */
+@media (max-width: 640px) {
+  .top .controls { width: 100%; display: flex; align-items: flex-end; gap: 8px; }
+  .top .controls #league { order: 3; margin-left: auto; }
+  .top .controls .rank-ctl select { padding: 6px 8px; }
+}
+
+.weights { top: auto !important; }
+.rankby-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); margin: 0 0 12px; }
+.rankby-row select { display: block !important; flex: 1; max-width: 210px; }
+#rankby { display: block; }
+@media (max-width: 640px) {
+  #table th.ap, #table td.ap { display: none; }
+  .filters #profile { display: none; }
+  .filters input[type=search] { flex: 1 1 100%; }
+  .filters #conf { flex: 1; }
+  .filters { gap: 6px; }
+}
