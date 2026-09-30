@@ -182,7 +182,9 @@ const sameWeights = (a, b) => LG.factors.every((f) => (a[f.key] || 0) === ((b ||
 
 function loadWeights(l) {
   const lgInfo = INDEX.leagues[l];
-  const saved = store.get("weights_" + l);
+  let saved = store.get("weights_" + l);
+  // a saved blend with only one factor on is a leftover column sort (older bug), not a real blend
+  if (saved && Object.values(saved).filter((v) => v > 0).length <= 1) saved = null;
   return Object.fromEntries(lgInfo.factors.map((f) => [f.key, (saved && f.key in saved ? saved : lgInfo.default_weights)[f.key] ?? 0]));
 }
 
@@ -267,10 +269,11 @@ function buildSliders() {
   showWeights();
 }
 
-function setWeights(w, rev = false) {
+// save=false for temporary views (column-header sorts) so they never overwrite the user's saved blend
+function setWeights(w, rev = false, save = true) {
   reverse = rev;
   weights = Object.fromEntries(LG.factors.map((f) => [f.key, (w || {})[f.key] ?? 0]));
-  store.set("weights_" + league, weights);
+  if (save) store.set("weights_" + league, weights);
   LG.factors.forEach((f) => ($("#w-" + f.key).value = weights[f.key]));
   showWeights();
   if (DATA) render();
@@ -281,7 +284,7 @@ const factor = (key) => LG.factors.find((f) => f.key === key);
 // "hi" = the column's displayed value high to low (for Cupcake: most cupcakes = #1)
 function applySolo(key, dir) {
   soloDir = dir;
-  setWeights({ [key]: 100 }, dir === "lo");
+  setWeights({ [key]: 100 }, dir === "lo", false);
 }
 
 // Header clicks cycle: high to low -> low to high -> back to the previous blend
@@ -293,7 +296,7 @@ function solo(key) {
 }
 
 function restoreBlend() {
-  setWeights(beforeSolo || LG.default_weights);
+  setWeights(beforeSolo || loadWeights(league), false, false);
   beforeSolo = null;
 }
 
@@ -340,7 +343,7 @@ async function modelRanks(lg) {
   if (!info) return null;
   const d = await weekData(lg, info.latest.season, info.latest.week).catch(() => null);
   if (!d) return null;
-  const list = composite(d.teams, loadWeights(lg), info.factors);
+  const list = composite(d.teams, info.default_weights, info.factors); // "our #" everywhere = the Default ranking
   return { byName: new Map(list.map((t) => [t.team, t])), byId: new Map(list.filter((t) => t.id).map((t) => [String(t.id), t])), data: d };
 }
 
@@ -676,7 +679,7 @@ async function renderCompare() {
     tb.innerHTML = `<tr><td colspan="8" class="muted">Comparison data isn't available yet.</td></tr>`;
     return;
   }
-  const ours = composite(cur.teams);
+  const ours = composite(cur.teams, LG.default_weights); // always the Default ranking, never a temporary sort
   const UNRANKED = 30; // polls stop at 25
   const rows = ours.map((t) => {
     const c = cmp.teams[t.team] || {};
