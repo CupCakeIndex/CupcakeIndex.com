@@ -698,6 +698,11 @@ body:not(.show-breakdown) th.factors-col, body:not(.show-breakdown) td.factors {
 .cc-chart .cc-axis { stroke: var(--line); }
 .cc-chart .cc-x { fill: var(--muted); font-size: 11px; text-anchor: middle; }
 .cc-chart .cc-val { fill: var(--ink); font-size: 10.5px; text-anchor: middle; font-weight: 700; }
+.cc-chart .cc-grid { stroke: var(--line); stroke-dasharray: 2 4; }
+.cc-chart .cc-y { fill: var(--muted); font-size: 10px; text-anchor: end; }
+.cc-chart .cc-line { fill: none; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.cc-chart .cc-dot { stroke: var(--card); stroke-width: 2; }
+.cc-chart .cc-dot:hover { r: 6.5; }
 table.career th.on, table.career td.on { color: var(--accent); }
 table.career th.cc-h { text-align: left; border-bottom: 2px solid var(--c); }
 .pill.lvl { font-size: 9px; padding: 1px 4px; color: var(--muted); }
@@ -786,3 +791,12 @@ img.wiki { object-position: 50% 20%; }
 .inj-tag.inj-o { color: #ff4d4d; }
 .inj-line { font-size: 12px; color: var(--muted); }
 .inj-line .inj-tag { margin-left: 0; }
+
+/* NFL-only nav tabs (free agents) */
+body[data-league="cfb"] .nfl-only { display: none !important; }
+#fa-search { min-width: 220px; }
+#fa-table td:last-child, #fa-table th:last-child { padding-left: 18px; }
+
+/* retired NFL players: red tag next to the name on their page */
+.retired-tag { display: inline-block; vertical-align: middle; margin-left: 10px; padding: 3px 7px 2px; border: 1px solid #ff4545; color: #ff4545;
+  background: color-mix(in srgb, #ff4545 12%, transparent); font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; line-height: 1; }

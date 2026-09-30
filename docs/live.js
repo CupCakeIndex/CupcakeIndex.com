@@ -608,17 +608,26 @@ const Live = (() => {
     });
     const xs = [...new Set(series.flatMap((s) => s.rows.map((r) => r.x)))].sort((a, b) => a - b);
     const max = Math.max(1, ...series.flatMap((s) => s.rows.map((r) => r.v)));
-    // grouped bar chart (SVG)
-    const W = 720, H = 220, pad = 28, gw = (W - pad) / Math.max(1, xs.length), bw = Math.min(34, (gw - 10) / series.length);
-    const bars = xs.map((x, gi) => series.map((sr, si) => {
-      const r = sr.rows.find((q) => q.x === x);
-      if (!r) return "";
-      const h = (r.v / max) * (H - 40), bx = pad + gi * gw + (gw - bw * series.length) / 2 + si * bw, by = H - 20 - h;
-      return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${(bw - 2).toFixed(1)}" height="${h.toFixed(1)}" fill="${sr.color}" rx="2"><title>${esc(sr.p.name)} · ${r.year} ${esc(r.team.abbr)}: ${esc(r.vals[metric])} ${esc(C.labels[metric])}</title></rect>`
-        + (series.length === 1 ? `<text x="${(bx + (bw - 2) / 2).toFixed(1)}" y="${(by - 5).toFixed(1)}" class="cc-val">${esc(r.vals[metric])}</text>` : "");
-    }).join("") + `<text x="${(pad + gi * gw + gw / 2).toFixed(1)}" y="${H - 4}" class="cc-x">${align === "career" ? "Yr " + x : x}</text>`).join("");
+    // line chart (SVG): one line per player, a dot on each season; the line breaks over seasons with no stats
+    const W = 720, H = 230, padL = 46, padR = 14, top = 18, base = H - 22;
+    const gw = (W - padL - padR) / Math.max(1, xs.length), px = (gi) => padL + gi * gw + gw / 2, py = (v) => base - (Math.max(0, v) / max) * (base - top);
+    const step = Math.ceil(xs.length / 12); // thin out year labels on long careers
+    const fmt = (v) => (v >= 1000 ? Math.round(v).toLocaleString() : +v.toFixed(v < 10 ? 1 : 0));
+    const grid = [0, 0.25, 0.5, 0.75, 1].map((f) => `<line x1="${padL}" y1="${py(max * f).toFixed(1)}" x2="${W - padR}" y2="${py(max * f).toFixed(1)}" class="${f ? "cc-grid" : "cc-axis"}"/>`
+      + `<text x="${padL - 6}" y="${(py(max * f) + 3.5).toFixed(1)}" class="cc-y">${fmt(max * f)}</text>`).join("");
+    const xlabels = xs.map((x, gi) => (gi % step ? "" : `<text x="${px(gi).toFixed(1)}" y="${H - 5}" class="cc-x">${align === "career" ? "Yr " + x : x}</text>`)).join("");
+    const lines = series.map((sr) => {
+      const pts = xs.map((x, gi) => { const r = sr.rows.find((q) => q.x === x); return r && { r, x: px(gi), y: py(r.v) }; });
+      let d = "";
+      pts.forEach((p, i) => { if (p) d += `${pts[i - 1] ? "L" : "M"}${p.x.toFixed(1)},${p.y.toFixed(1)}`; });
+      // value labels sit above a point, or below it when it's a dip (so the line doesn't run through the label)
+      const dips = pts.map((p, i) => { const n = [pts[i - 1], pts[i + 1]].filter(Boolean); return !!p && n.length > 0 && n.every((q) => q.y < p.y); });
+      const dots = pts.map((p, i) => p && { ...p, dip: dips[i] }).filter(Boolean).map((p) => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="${sr.color}" class="cc-dot"><title>${esc(sr.p.name)} · ${p.r.year} ${esc(p.r.team.abbr)}: ${esc(p.r.vals[metric])} ${esc(C.labels[metric])}</title></circle>`
+        + (series.length === 1 && xs.length <= 14 ? `<text x="${p.x.toFixed(1)}" y="${(p.dip ? p.y + 18 : p.y - 10).toFixed(1)}" class="cc-val">${esc(p.r.vals[metric])}</text>` : "")).join("");
+      return `<path d="${d}" stroke="${sr.color}" class="cc-line"/>${dots}`;
+    }).join("");
     const chart = `<svg viewBox="0 0 ${W} ${H}" class="cc-chart" role="img" aria-label="${esc(C.labels[metric])} by ${align === "career" ? "career year" : "season"}">
-      <line x1="${pad}" y1="${H - 20}" x2="${W}" y2="${H - 20}" class="cc-axis"/>${bars}</svg>`;
+      ${grid}${xlabels}${lines}</svg>`;
     const legend = series.map((sr, i) => `<span class="cc-chip" style="--c:${sr.color}">${face(sr.p.headshot, sr.p.name, "hs", sr.p.lg === "nfl", sr.p.born)} ${esc(sr.p.name)} <small>${esc(sr.p.pos || "")}</small>
       ${i ? `<button class="cc-x-btn" data-rm="${esc(sr.p.lg)}:${esc(sr.p.id)}" aria-label="Remove">×</button>` : ""}</span>`).join("");
 
@@ -755,7 +764,7 @@ const Live = (() => {
       <div class="card player-head">
         ${face(a.headshot?.href, a.displayName, "headshot", lg === "nfl", born)}
         <div>
-          <h2>${esc(a.displayName)}</h2>
+          <h2>${esc(a.displayName)}${lg === "nfl" && a.active === false ? ` <span class="retired-tag">Retired</span>` : ""}</h2>
           <p>${a.team ? `<a href="${link("team", a.team.id)}"><span class="tm">${img(a.team.logos?.[0]?.href || a.team.logo, "xs")} ${esc(a.team.displayName)}</span></a>` : ""}
             ${injInfo(inj) ? ` <span class="inj-line">${injTag(inj)} ${esc(injInfo(inj).tip)}</span>` : ""}</p>
           <p class="muted">${facts.map(esc).join(" · ")}<span id="pl-exp">${exp ? " · " + esc(exp) : ""}</span></p>
@@ -815,6 +824,88 @@ const Live = (() => {
             ${nfl ? "" : `<td class="num">${ours ? `<span class="chip" style="${heat(100 - ours.scores.cupcake)}">${Math.round(ours.scores.cupcake)}</span>` : "–"}</td>`}</tr>`;
         }).join("")}</tbody></table></div></div>`;
     }).join("") || `<div class="card muted">No standings available.</div>`;
+  }
+
+
+  // ---------------------------------------------------------------- NFL free agents
+  // ESPN's fantasy feed lists active players with no NFL team (fantasy positions only: QB, RB, WR, TE, K), most notable first.
+  // It counts practice-squad players as free agents too, so each one is checked against ESPN's core athlete record,
+  // which also gives age, experience and last team.
+  const FA_POS = { 1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K" };
+  const FANTASY_INJ = { OUT: "Out", QUESTIONABLE: "Questionable", DOUBTFUL: "Doubtful", INJURY_RESERVE: "Injured Reserve", SUSPENSION: "Suspension" };
+  let faState = { pos: "", q: "" };
+  async function faCandidates() {
+    const filter = { players: { filterProTeamIds: { value: [0] }, limit: 1000, sortPercOwned: { sortPriority: 1, sortAsc: false },
+      filterStatsForCurrentSeasonScoringPeriodId: { value: [0] }, filterRanksForScoringPeriodIds: { value: [0] } } };
+    const now = new Date(), yr = now.getFullYear();
+    for (const y of now.getMonth() < 2 ? [yr - 1] : [yr, yr - 1]) { // the fantasy season rolls over in the spring
+      const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${y}/segments/0/leaguedefaults/3?view=kona_player_info`;
+      const hit = cache.get(url);
+      if (hit && Date.now() - hit.t < 600000) return hit.data;
+      const r = await fetch(url, { headers: { "X-Fantasy-Filter": JSON.stringify(filter) } });
+      if (!r.ok) throw new Error(`ESPN ${r.status}`);
+      const list = ((await r.json()).players || []).map((x) => x.player).filter((p) => p?.active && FA_POS[p.defaultPositionId]);
+      if (list.length) { cache.set(url, { t: Date.now(), data: list }); return list; }
+    }
+    return [];
+  }
+
+  async function freeagents(_, params) {
+    const my = token;
+    if (league !== "nfl") {
+      view("freeagents").innerHTML = `<div class="card">Free agents are NFL only. <a href="#/freeagents?league=nfl">See NFL free agents →</a></div>`;
+      return;
+    }
+    loading("freeagents");
+    let cands, teams;
+    try {
+      [cands, teams] = await Promise.all([faCandidates(), api(`${STAND("nfl")}/standings?level=3`, 86400000).then((d) => new Map(groupsOf(d).flatMap((g) => g.entries).map((e) => [String(e.team.id), e.team]))).catch(() => new Map())]);
+    } catch (e) { return fail("freeagents", e); }
+    if (my !== token) return;
+    const done = new Map(); // id -> confirmed free agent row, or null if they're actually on a practice squad / retired
+    view("freeagents").innerHTML = `<div class="card">
+      <div class="sc-bar"><h2>NFL free agents</h2>
+        <div class="presets" id="fa-pos">${[["", "All"], ...Object.values(FA_POS).map((p) => [p, p])].map(([v, l]) => `<button data-pos="${v}" class="${v === faState.pos ? "on" : ""}">${l}</button>`).join("")}</div>
+        <input id="fa-search" type="search" placeholder="Filter by name or last team…" value="${esc(faState.q)}">
+        <span class="muted live-note" id="fa-status"></span></div>
+      <div class="table-wrap"><table class="box" id="fa-table"><thead><tr><th class="num">#</th><th>Player</th><th>Pos</th><th class="num">Age</th><th class="num" title="Seasons in the NFL (R = rookie)">Exp</th><th>Last team</th></tr></thead><tbody></tbody></table></div>
+      <p class="note">Unsigned players ESPN lists as free agents, most notable first. ESPN only tracks free agents at QB, RB, WR, TE and K.</p></div>`;
+    const draw = () => {
+      if (my !== token) return;
+      const q = normName(faState.q);
+      const rows = cands.map((c) => done.get(c.id)).filter((r) => r && (!faState.pos || r.pos === faState.pos) && (!q || r.search.includes(q)));
+      const checked = cands.filter((c) => done.has(c.id)).length;
+      $("#fa-status").textContent = checked < cands.length ? `Checking ESPN rosters… ${checked}/${cands.length}` : `${rows.length} player${rows.length === 1 ? "" : "s"}`;
+      $("#fa-table tbody").innerHTML = rows.map((r, i) => `<tr><td class="num muted">${i + 1}</td>
+        <td><div class="team">${face(r.headshot, r.name, "hs")}<a href="${link("player", r.id)}">${esc(r.name)}</a>${r.inj}</div></td>
+        <td>${esc(r.pos)}</td><td class="num">${esc(r.age ?? "")}</td><td class="num">${r.exp == null ? "" : r.exp ? esc(r.exp) : "R"}</td>
+        <td>${r.team ? `<a href="${link("team", r.team.id)}"><span class="tm">${img(teamLogo(r.team), "xs")} ${esc(r.team.abbreviation || r.team.displayName)}</span></a>` : `<span class="muted">–</span>`}</td></tr>`).join("")
+        || (checked < cands.length ? "" : `<tr><td colspan="6" class="muted">No free agents match.</td></tr>`);
+    };
+    let pending = null;
+    const soon = () => { pending ||= setTimeout(() => { pending = null; draw(); }, 250); };
+    $("#fa-pos").onclick = (e) => { const b = e.target.closest("[data-pos]"); if (!b) return; faState.pos = b.dataset.pos;
+      $("#fa-pos").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); draw(); };
+    $("#fa-search").oninput = (e) => { faState.q = e.target.value.trim(); draw(); };
+    draw();
+    // check each candidate against ESPN's athlete record, a few at a time, most notable first
+    let next = 0;
+    const worker = async () => {
+      while (next < cands.length && my === token) {
+        const c = cands[next++];
+        const a = await api(`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/athletes/${c.id}`, 3600000).catch(() => null);
+        const teamId = (a?.team?.$ref || "").match(/teams\/(\d+)/)?.[1];
+        const team = teams.get(teamId) || null;
+        done.set(c.id, a?.status?.type !== "free-agent" ? null : {
+          id: c.id, name: a.displayName || c.fullName, pos: FA_POS[c.defaultPositionId], age: a.age, exp: a.experience?.years,
+          headshot: a.headshot?.href, team, inj: FANTASY_INJ[c.injuryStatus] ? injTag({ status: FANTASY_INJ[c.injuryStatus] }) : "",
+          search: normName(`${a.displayName || c.fullName} ${team?.displayName || ""} ${team?.abbreviation || ""}`),
+        });
+        soon();
+      }
+    };
+    await Promise.all(Array.from({ length: 10 }, worker));
+    if (my === token) draw();
   }
 
   // ---------------------------------------------------------------- team
@@ -884,5 +975,5 @@ const Live = (() => {
     }
   }
 
-  return { stop, teamId, scores, game, stats, player, standings, team, searchPlayers };
+  return { stop, teamId, scores, game, stats, player, standings, team, freeagents, searchPlayers };
 })();

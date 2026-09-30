@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://a.espncdn.com">
 <meta name="theme-color" content="#0f1216">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=68">
+<link rel="stylesheet" href="style.css?v=70">
 </head>
 <body>
 <header class="top">
@@ -39,6 +39,7 @@
   <a class="tab" data-view="scores" href="#/scores">Scores</a>
   <a class="tab" data-view="stats" href="#/stats">Stats</a>
   <a class="tab" data-view="standings" href="#/standings">Standings</a>
+  <a class="tab nfl-only" data-view="freeagents" href="#/freeagents">Free Agents</a>
   <a class="tab" data-view="picks" href="#/picks">Picks</a>
   <a class="tab" data-view="about" href="#/about">How it works</a>
 </nav>
@@ -122,6 +123,7 @@
   <section id="view-game" class="view hidden"></section>
   <section id="view-player" class="view hidden"></section>
   <section id="view-team" class="view hidden"></section>
+  <section id="view-freeagents" class="view hidden"></section>
 
   <section id="view-updates" class="view hidden">
     <div class="card prose"><h2>Release notes</h2><div id="notes"><p class="muted">Loading…</p></div></div>
@@ -164,7 +166,7 @@
   </div>
 </div>
 
-<script src="app.js?v=68"></script>
-<script src="live.js?v=68"></script>
+<script src="app.js?v=70"></script>
+<script src="live.js?v=70"></script>
 </body>
 </html>

@@ -22,7 +22,7 @@ const BASE_PRESETS = {
 const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", recent: "FORM", cupcake: "CUP", luck: "UNLK" };
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
 const RANK_VIEWS = new Set(["rankings", "picks", "schedules"]);
-const VIEWS = new Set(["rankings", "picks", "schedules", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team"]);
+const VIEWS = new Set(["rankings", "picks", "schedules", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents"]);
 
 // ------------------------------------------------------------------ forgiving name search
 // Lowercase, strip accents/punctuation ("D.J." -> "dj", "Smith-Njigba" -> "smith njigba"), drop jr/sr/ii/iii.
@@ -111,7 +111,7 @@ async function route() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "68"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "70"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -140,7 +140,7 @@ async function init() {
     if (!l || l === league) return;
     const { view } = parseHash();
     // game/player/team pages belong to one league; fall back to that league's scores
-    const next = ["game", "player", "team"].includes(view) ? "scores" : view;
+    const next = ["game", "player", "team", "freeagents"].includes(view) ? "scores" : view;
     location.hash = `#/${next}?league=${l}`;
   };
   $("#updated").textContent = "Rankings updated " + new Date(INDEX.updated).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + ".";
