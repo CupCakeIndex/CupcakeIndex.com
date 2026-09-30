@@ -959,6 +959,7 @@ const Live = (() => {
   const CONF_ORDER = ["8", "5", "4", "1", "9", "151", "12", "15", "17", "37", "18"]; // Power 4 first
   async function standings(_, params) {
     const lg = league, my = token;
+    if (params.get("show") === "playoff") return playoff(lg, my);
     loading("standings");
     let d, ranks;
     try {
@@ -993,7 +994,7 @@ const Live = (() => {
           ${nfl ? "" : `<td class="num">${ours ? `<span class="chip" style="${heat(100 - ours.scores.cupcake)}">${Math.round(ours.scores.cupcake)}</span>` : "–"}</td>`}</tr>`;
       }).join("")}</tbody></table></div></div>`;
     const bySeed = (g) => [...g.entries].sort((a, b) => (statNum(a, "playoffseed") || 99) - (statNum(b, "playoffseed") || 99));
-    view("standings").innerHTML = `<div class="sc-bar"><div class="presets" id="st-conf">${chips.map(([v, l, t]) =>
+    view("standings").innerHTML = `${stSub(false)}<div class="sc-bar"><div class="presets" id="st-conf">${chips.map(([v, l, t]) =>
         `<button data-conf="${esc(v)}" title="${esc(t)}" class="${v === pick ? "on" : ""}">${esc(l)}</button>`).join("")}</div></div>
       ${shown.flatMap((c) => c.groups.map((g) => table(c.groups.length > 1 || nfl ? g.name : c.name, bySeed(g)))).join("") || `<div class="card muted">No standings available.</div>`}
       ${nfl && shown.length ? `<p class="note">Seed = playoff seed if the season ended today; seeds 1–7 make the playoffs.</p>` : ""}`;
@@ -1003,6 +1004,167 @@ const Live = (() => {
     };
   }
 
+
+  // ---------------------------------------------------------------- playoff picture (a sub-view of Standings)
+  // CFB: a 12-team CFP field projected from our rankings. NFL: ESPN's seeds if the season ended today.
+  // Past the first round, each game goes to our model's favorite (ratings + home field, same math as src/model.py).
+  const stSub = (on) => `<div class="subtabs st-sub"><a class="subtab${on ? "" : " on"}" href="${link("standings")}">Standings</a>`
+    + `<a class="subtab${on ? " on" : ""}" href="${link("standings", null, { show: "playoff" })}">Playoff picture</a></div>`;
+  const GAME = { cfb: { hfa: 2.5, scale: 1.2, sigma: 15 }, nfl: { hfa: 1.5, scale: 1, sigma: 13.5 } }; // mirrors src/config.yaml
+  // Normal CDF (Abramowitz-Stegun erf approximation), for win probabilities
+  function phi(z) {
+    const x = Math.abs(z) / Math.SQRT2, t = 1 / (1 + 0.3275911 * x);
+    const erf = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+    return z >= 0 ? (1 + erf) / 2 : (1 - erf) / 2;
+  }
+  // One bracket game: a/b = team slots (null = TBD), home = a hosts, kids = the games that feed it.
+  // The favorite moves on as a projected slot; p = its win chance in this game.
+  function bGame(lg, a, b, col, label, home, kids = []) {
+    const g = { a, b, col, label, home, kids, win: null, p: null, spread: null };
+    if (a?.rating != null && b?.rating != null) {
+      const m = GAME[lg], spread = (a.rating - b.rating + (home ? m.hfa : 0)) * m.scale, pa = phi(spread / m.sigma);
+      Object.assign(g, { spread, p: Math.max(pa, 1 - pa), win: { ...(pa >= 0.5 ? a : b), proj: true } });
+    }
+    return g;
+  }
+  const bySeed = (x, y) => (x && y && y.seed < x.seed ? [y, x] : [x, y]); // better seed first (hosts)
+
+  // CFP (2026 rules): the 4 power-conference champions + the best Group of 6 champion get in, Notre Dame if top 12,
+  // then at-large by rank. Straight seeding: the top 4 get byes; first-round games at the higher seed, then neutral bowls.
+  function cfpBracket(ranks) {
+    const list = [...ranks.byName.values()], P4 = ["SEC", "Big Ten", "Big 12", "ACC"];
+    const champ = new Map(); // conference -> its highest-ranked team = our projected champion
+    list.forEach((t) => { if (t.conference && !/independent/i.test(t.conference) && !champ.has(t.conference)) champ.set(t.conference, t); });
+    const auto = P4.map((c) => champ.get(c)).filter(Boolean);
+    const g6 = [...champ].filter(([c]) => !P4.includes(c)).map(([, t]) => t).sort((a, b) => a.rank - b.rank)[0];
+    if (g6) auto.push(g6);
+    const field = new Set(auto), nd = list.find((t) => t.team === "Notre Dame");
+    if (nd && nd.rank <= 12) field.add(nd);
+    for (const t of list) { if (field.size >= 12) break; field.add(t); }
+    const s = [...field].sort((a, b) => a.rank - b.rank).map((t, i) => ({ name: t.team, short: t.team, logo: t.logo, id: t.id, seed: i + 1,
+      rank: t.rank, record: t.record, rating: t.rating, conf: t.conference, auto: auto.includes(t) }));
+    const seed = (n) => s[n - 1] || null;
+    const fr = [[8, 9], [5, 12], [7, 10], [6, 11]].map(([h, a]) => bGame("cfb", seed(h), seed(a), 0, "First round", true));
+    const qf = [1, 4, 2, 3].map((h, i) => bGame("cfb", seed(h), fr[i].win, 1, "Quarterfinal", false, [fr[i]]));
+    const sf = [0, 2].map((i) => bGame("cfb", qf[i].win, qf[i + 1].win, 2, "Semifinal", false, [qf[i], qf[i + 1]]));
+    const root = bGame("cfb", sf[0].win, sf[1].win, 3, "National championship", false, sf);
+    place(root, { i: 0 });
+    return { field: s, root, cols: ["First round", "Quarterfinals", "Semifinals", "Title game"] };
+  }
+
+  // One NFL conference: 2v7, 3v6, 4v5 (1 has a bye), then the Divisional round reseeds (1 hosts the lowest seed left).
+  function nflSide(slots, cols, conf) {
+    const s = new Map(slots.map((x) => [x.seed, x])), at = (n) => s.get(n) || null;
+    const wc = [[2, 7], [3, 6], [4, 5]].map(([h, a]) => bGame("nfl", at(h), at(a), cols[0], `${conf} Wild Card`, true));
+    const low = wc.every((g) => g.win) ? wc.reduce((x, g) => (g.win.seed > x.win.seed ? g : x)) : wc[0];
+    const rest = wc.filter((g) => g !== low);
+    const d1 = bGame("nfl", at(1), low.win, cols[1], `${conf} Divisional`, true, [low]);
+    const d2 = bGame("nfl", ...bySeed(rest[0].win, rest[1].win), cols[1], `${conf} Divisional`, true, rest);
+    const top = bGame("nfl", ...bySeed(d1.win, d2.win), cols[2], `${conf} Championship`, true, [d1, d2]);
+    place(top, { i: 0 });
+    return top;
+  }
+
+  // Layout: first-round games stack top to bottom; every later game sits level with the games feeding it.
+  const BH = 56, VGAP = 16, HEAD = 24;
+  function place(g, n) {
+    if (!g.kids.length) { g.y = n.i++ * (BH + VGAP); return; }
+    g.kids.forEach((k) => place(k, n));
+    g.y = g.kids.reduce((s, k) => s + k.y, 0) / g.kids.length;
+  }
+  // Boxes over an SVG of thin connector lines; the projected champion's path is orange.
+  function bracketHtml(root, cols, bw, gap) {
+    const all = [];
+    (function walk(g) { all.push(g); g.kids.forEach(walk); })(root);
+    const X = (c) => c * (bw + gap), W = X(cols.length - 1) + bw, H = HEAD + Math.max(...all.map((g) => g.y)) + BH + 2;
+    const champ = root.win?.name;
+    const paths = all.flatMap((g) => g.kids.map((k) => {
+      const right = k.col < g.col, x1 = X(k.col) + (right ? bw : 0), x2 = X(g.col) + (right ? 0 : bw), mx = (x1 + x2) / 2;
+      const y1 = HEAD + k.y + BH / 2, y2 = HEAD + g.y + BH / 2;
+      return `<path class="${champ && k.win?.name === champ ? "hot" : ""}" d="M${x1} ${y1}H${mx}V${y2}H${x2}"/>`;
+    })).join("");
+    const row = (s, g) => {
+      if (!s) return `<div class="br-t"><span class="br-sd"></span><span class="br-n">TBD</span></div>`;
+      const won = g.win?.name === s.name;
+      return `<div class="br-t${won ? " win" : ""}${won && s.name === champ ? " hot" : ""}"><span class="br-sd">${s.seed}</span>${img(s.logo, "xs")}
+        <span class="br-n" title="${esc(s.name)}">${esc(s.short)}</span><span class="br-p">${won ? Math.round(g.p * 100) + "%" : ""}</span></div>`;
+    };
+    return `<div class="br-scroll"><div class="br" style="width:${W}px;height:${H}px">
+      <svg width="${W}" height="${H}" aria-hidden="true">${paths}</svg>
+      ${cols.map((c, i) => `<div class="br-h" style="left:${X(i)}px;width:${bw}px">${esc(c)}</div>`).join("")}
+      ${all.map((g, i) => `<div class="br-m${g.a?.proj || g.b?.proj ? " proj" : ""}${g === root ? " final" : ""}" data-i="${i}" tabindex="0"
+        style="left:${X(g.col)}px;top:${HEAD + g.y}px;width:${bw}px">${row(g.a, g)}${row(g.b, g)}</div>`).join("")}
+      <div class="cc-tip"></div></div></div>`;
+  }
+  // Hover (or tap) a game for both teams and the model's line
+  function wireBracket(root) {
+    const el = $("#view-standings .br");
+    if (!el) return;
+    const all = [];
+    (function walk(g) { all.push(g); g.kids.forEach(walk); })(root);
+    const tip = el.querySelector(".cc-tip");
+    const who = (s) => (s ? `<span>#${s.seed} ${esc(s.name)}${s.rank ? ` · our #${s.rank}` : ""}${s.record ? ` · ${esc(s.record)}` : ""}${s.proj ? " · projected" : ""}</span>` : `<span>TBD</span>`);
+    const show = (b) => {
+      const g = all[+b.dataset.i];
+      const where = g.home && g.a ? `at ${esc(g.a.short)}` : "neutral site";
+      showTip(el, tip, b.offsetLeft + b.offsetWidth / 2, b.offsetTop - 2, `<small>${esc(g.label)} · ${where}</small>`
+        + (g.win ? `<b>${esc(g.win.short)} <em>${Math.round(g.p * 100)}% · by ${Math.abs(g.spread).toFixed(1)}</em></b>` : `<b>TBD</b>`) + who(g.a) + who(g.b));
+    };
+    el.onpointerover = (e) => { const b = e.target.closest(".br-m"); if (b && e.pointerType === "mouse") show(b); };
+    el.onpointerleave = () => tip.classList.remove("on");
+    el.onclick = (e) => { const b = e.target.closest(".br-m"); if (b) show(b); else tip.classList.remove("on"); };
+    el.onfocusin = (e) => { const b = e.target.closest(".br-m"); if (b) show(b); };
+  }
+
+  async function playoff(lg, my) {
+    loading("standings");
+    const nfl = lg === "nfl";
+    let d, ranks;
+    try {
+      [d, ranks] = await Promise.all([nfl ? api(`${STAND(lg)}/standings?level=3`, 300000) : null, modelRanks(lg)]);
+    } catch (e) { return fail("standings", e); }
+    if (my !== token) return;
+    const out = (html) => { view("standings").innerHTML = stSub(true) + `<p class="muted br-cav">Current picture — changes weekly.</p>` + html; };
+    if (!ranks) return out(`<div class="card muted">Couldn't load our rankings. Try refreshing.</div>`);
+    const pick = (g) => (g.win ? `<p class="br-pick">Model's pick to win it all: <b class="tm">${img(g.win.logo, "xs")} ${esc(g.win.name)}</b>
+      <span class="muted">(${Math.round(g.p * 100)}% in the ${nfl ? "Super Bowl" : "title game"})</span></p>` : "");
+    const key = `<p class="note">Dashed boxes are projections: each game goes to our model's favorite (win % beside it). Orange line = the projected champion's path. Hover or tap a game for details.</p>`;
+
+    if (!nfl) {
+      const { field, root, cols } = cfpBracket(ranks);
+      const table = `<div class="card"><h3>The field</h3><div class="table-wrap"><table class="standings"><thead><tr>
+        <th class="num">Seed</th><th>Team</th><th class="num" title="Cupcake Index rank">Our #</th><th class="num">REC</th><th>Bid</th></tr></thead><tbody>
+        ${field.map((s) => `<tr><td class="num">${s.seed}</td>
+          <td><a href="${link("team", s.id)}"><span class="tm">${img(s.logo, "xs")} <span class="tn">${esc(s.name)}</span></span></a></td>
+          <td class="num"><a class="our-rk" href="${link("rankings", null, { team: s.name })}">#${s.rank}</a></td><td class="num">${esc(s.record)}</td>
+          <td>${s.auto ? `<span class="tag">champ</span> <span class="muted">${esc(s.conf)}</span>` : `<span class="muted">at-large</span>`}${s.seed <= 4 ? ` <span class="muted">· bye</span>` : ""}</td></tr>`).join("")}
+        </tbody></table></div></div>`;
+      out(`<div class="card"><h3>CFP projection</h3>${pick(root)}${bracketHtml(root, cols, 196, 36)}${key}</div>${table}
+        <p class="note">Projection using the 2026 12-team format and our rankings: the four power-conference champions and the top Group of 6 champion
+        get automatic bids (Notre Dame too if it's in our top 12), then seven at-large teams. Seeds are straight by rank, so seeds 1–4 get byes.
+        Projected conference champion = that conference's highest-ranked team in our rankings. First-round games at the higher seed, later rounds on neutral sites.</p>`);
+      return wireBracket(root);
+    }
+
+    const side = (abbr, cols) => {
+      const c = (d.children || []).find((x) => x.abbreviation === abbr);
+      const slots = (c ? groupsOf(c).flatMap((g) => g.entries) : []).map((e) => {
+        const seed = statNum(e, "playoffseed"), o = ourTeam(ranks, "nfl", e.team);
+        return seed >= 1 && seed <= 7 ? { name: e.team.displayName, short: e.team.shortDisplayName || e.team.displayName, logo: teamLogo(e.team), id: e.team.id,
+          seed, rank: o?.rank, record: stat(e, "total"), rating: o?.rating } : null;
+      }).filter(Boolean);
+      return slots.length === 7 ? nflSide(slots, cols, abbr) : null;
+    };
+    const afc = side("AFC", [0, 1, 2]), nfc = side("NFC", [6, 5, 4]);
+    if (!afc || !nfc) return out(`<div class="card muted">ESPN hasn't posted playoff seeds yet.</div>`);
+    const root = bGame("nfl", afc.win, nfc.win, 3, "Super Bowl", false, [afc, nfc]);
+    root.y = (afc.y + nfc.y) / 2;
+    const cols = ["AFC Wild Card", "AFC Divisional", "AFC Championship", "Super Bowl", "NFC Championship", "NFC Divisional", "NFC Wild Card"];
+    out(`<div class="card"><h3>Super Bowl bracket</h3>${pick(root)}${bracketHtml(root, cols, 150, 22)}${key}</div>
+      <p class="note">Seeds are ESPN's playoff seeds if the season ended today (the same as the Seed column in Standings); each #1 seed gets a bye.
+      The Divisional round reseeds, so the 1 seed hosts the lowest seed left. Higher seed hosts; the Super Bowl is neutral.</p>`);
+    wireBracket(root);
+  }
 
   // ---------------------------------------------------------------- NFL free agents
   // ESPN's fantasy feed lists active players with no NFL team (fantasy positions only: QB, RB, WR, TE, K), most notable first.

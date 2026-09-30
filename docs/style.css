@@ -953,3 +953,28 @@ main .sp-more .card { margin: 0; }
   .sb-axis span:first-child, .sb-axis span:last-child { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .sp-dot, .sb-bar { animation-duration: .01s !important; animation-delay: 0s !important; } }
+
+/* Standings > Playoff picture: bracket boxes over an SVG of thin connector lines; orange = projected champion's path */
+.st-sub { margin: 0 0 12px; }
+.br-cav { margin: -4px 0 10px; font-size: 12px; }
+.br-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 12px; }
+.br-scroll { overflow-x: auto; overscroll-behavior-x: contain; max-width: 100%; padding-bottom: 6px; }
+.br { position: relative; margin: 4px 0; }
+.br svg { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.br path { fill: none; stroke: var(--muted); stroke-opacity: .45; stroke-width: 1; }
+.br path.hot { stroke: var(--accent); stroke-opacity: 1; stroke-width: 1.5; }
+.br-h { position: absolute; top: 0; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.br-m { position: absolute; height: 56px; background: var(--card); border: 1px solid var(--line); display: flex; flex-direction: column; justify-content: center; cursor: pointer; transition: border-color .15s; }
+.br-m.proj { border-style: dashed; border-color: var(--muted); }
+.br-m.final { border: 1px solid var(--accent); }
+.br-m:hover, .br-m:focus-visible { border-color: var(--accent); outline: none; }
+.br-t { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 6px; font-size: 12px; color: var(--muted); }
+.br-t + .br-t { border-top: 1px solid var(--line); }
+.br-t.win { color: var(--ink); font-weight: 700; }
+.br-t.hot .br-n { color: var(--accent); }
+.br-m.proj .br-t.win { font-weight: 600; }
+.br-sd { width: 16px; flex: none; text-align: right; font-size: 10px; color: var(--muted); font-weight: 400; }
+.br-n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.br-p { flex: none; font-size: 10px; color: var(--accent); }
+.br-t img, .br-t .logo-ph { flex: none; }
+.br > .cc-tip { z-index: 3; }
