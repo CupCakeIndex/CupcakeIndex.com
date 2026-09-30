@@ -771,3 +771,9 @@ img.wiki { object-position: 50% 20%; }
 #table tbody tr.bully td { border-top-color: color-mix(in srgb, var(--accent) 45%, var(--line)); border-bottom-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
 #table tbody tr.bully .tname { color: var(--accent); }
 .tmeta .pill.cup-badge { background: var(--accent) !important; color: #000 !important; border-color: var(--accent) !important; }
+
+/* phones: show every team tag, wrapping onto a second line when needed */
+@media (max-width: 640px) {
+  .tmeta { flex-wrap: wrap; row-gap: 4px; }
+  .tmeta .pill { display: inline-flex; }
+}
