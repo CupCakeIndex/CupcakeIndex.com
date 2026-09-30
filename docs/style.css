@@ -989,3 +989,15 @@ main .sp-more .card { margin: 0; }
 .br-p { flex: none; font-size: 10px; color: var(--accent); }
 .br-t img, .br-t .logo-ph { flex: none; }
 .br > .cc-tip { z-index: 3; }
+/* Playoff picture > My picks: each team row is a tap target; the grey % is the model's favorite, orange = your champion */
+.br-mode { margin: 0 0 10px; }
+.br-tools { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.br-tools button { border: 1px solid var(--line); background: var(--bg); min-height: 36px; padding: 6px 12px; cursor: pointer; font-size: 12px; font-weight: 700; }
+.br-tools button:hover { border-color: var(--accent); }
+.br-champ { color: var(--accent); }
+.br.mine .br-m { height: 78px; cursor: default; }
+.br.mine .br-t { height: 38px; }
+.br.mine .br-t.pk { cursor: pointer; color: var(--ink); }
+.br.mine .br-m:has(.win) .br-t.pk:not(.win) { color: var(--muted); }
+.br.mine .br-t.pk:hover, .br.mine .br-t.pk:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+.br.mine .br-p { color: var(--muted); }

@@ -959,7 +959,7 @@ const Live = (() => {
   const CONF_ORDER = ["8", "5", "4", "1", "9", "151", "12", "15", "17", "37", "18"]; // Power 4 first
   async function standings(_, params) {
     const lg = league, my = token;
-    if (params.get("show") === "playoff") return playoff(lg, my);
+    if (params.get("show") === "playoff") return playoff(lg, my, params);
     loading("standings");
     let d, ranks;
     try {
@@ -1017,6 +1017,8 @@ const Live = (() => {
     const erf = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
     return z >= 0 ? (1 + erf) / 2 : (1 - erf) / 2;
   }
+  // My-picks state while a bracket is being built: ids[k] = team id picked in game k (games numbered in build order)
+  let PK = null;
   // One bracket game: a/b = team slots (null = TBD), home = a hosts, kids = the games that feed it.
   // The favorite moves on as a projected slot; p = its win chance in this game.
   function bGame(lg, a, b, col, label, home, kids = []) {
@@ -1024,6 +1026,13 @@ const Live = (() => {
     if (a?.rating != null && b?.rating != null) {
       const m = GAME[lg], spread = (a.rating - b.rating + (home ? m.hfa : 0)) * m.scale, pa = phi(spread / m.sigma);
       Object.assign(g, { spread, p: Math.max(pa, 1 - pa), win: { ...(pa >= 0.5 ? a : b), proj: true } });
+    }
+    if (PK) { // "My picks": the viewer's pick moves on instead (kept only if that team is actually in this game)
+      g.key = PK.n++; g.fav = g.win;
+      const id = PK.fill ? (g.fav ? String(g.fav.id) : "") : PK.ids[g.key];
+      const w = id && [a, b].find((s) => s && String(s.id) === id);
+      g.win = w ? { ...w, proj: false } : null;
+      PK.ids[g.key] = w ? id : "";
     }
     return g;
   }
@@ -1056,24 +1065,27 @@ const Live = (() => {
   function nflSide(slots, cols, conf) {
     const s = new Map(slots.map((x) => [x.seed, x])), at = (n) => s.get(n) || null;
     const wc = [[2, 7], [3, 6], [4, 5]].map(([h, a]) => bGame("nfl", at(h), at(a), cols[0], `${conf} Wild Card`, true));
-    const low = wc.every((g) => g.win) ? wc.reduce((x, g) => (g.win.seed > x.win.seed ? g : x)) : wc[0];
+    const full = wc.every((g) => g.win); // can't reseed until all three Wild Card winners are known
+    const low = full ? wc.reduce((x, g) => (g.win.seed > x.win.seed ? g : x)) : wc[0];
     const rest = wc.filter((g) => g !== low);
-    const d1 = bGame("nfl", at(1), low.win, cols[1], `${conf} Divisional`, true, [low]);
-    const d2 = bGame("nfl", ...bySeed(rest[0].win, rest[1].win), cols[1], `${conf} Divisional`, true, rest);
+    const d1 = bGame("nfl", at(1), full ? low.win : null, cols[1], `${conf} Divisional`, true, [low]);
+    const d2 = bGame("nfl", ...(full ? bySeed(rest[0].win, rest[1].win) : [null, null]), cols[1], `${conf} Divisional`, true, rest);
     const top = bGame("nfl", ...bySeed(d1.win, d2.win), cols[2], `${conf} Championship`, true, [d1, d2]);
     place(top, { i: 0 });
     return top;
   }
 
   // Layout: first-round games stack top to bottom; every later game sits level with the games feeding it.
-  const BH = 56, VGAP = 16, HEAD = 24;
+  const VGAP = 16, HEAD = 24;
+  let BH = 56; // game box height; taller in My picks so each team is a comfortable tap target
   function place(g, n) {
     if (!g.kids.length) { g.y = n.i++ * (BH + VGAP); return; }
     g.kids.forEach((k) => place(k, n));
     g.y = g.kids.reduce((s, k) => s + k.y, 0) / g.kids.length;
   }
   // Boxes over an SVG of thin connector lines; the projected champion's path is orange.
-  function bracketHtml(root, cols, bw, gap) {
+  // mine = My picks: the viewer's picks are solid, the model's favorite keeps a small grey win % as a hint.
+  function bracketHtml(root, cols, bw, gap, mine = false) {
     const all = [];
     (function walk(g) { all.push(g); g.kids.forEach(walk); })(root);
     const X = (c) => c * (bw + gap), W = X(cols.length - 1) + bw, H = HEAD + Math.max(...all.map((g) => g.y)) + BH + 2;
@@ -1085,11 +1097,12 @@ const Live = (() => {
     })).join("");
     const row = (s, g) => {
       if (!s) return `<div class="br-t"><span class="br-sd"></span><span class="br-n">TBD</span></div>`;
-      const won = g.win?.name === s.name;
-      return `<div class="br-t${won ? " win" : ""}${won && s.name === champ ? " hot" : ""}"><span class="br-sd">${s.seed}</span>${img(s.logo, "xs")}
-        <span class="br-n" title="${esc(s.name)}">${esc(s.short)}</span><span class="br-p">${won ? Math.round(g.p * 100) + "%" : ""}</span></div>`;
+      const won = g.win?.name === s.name, fav = mine ? g.fav?.name === s.name : won, open = mine && g.a && g.b;
+      return `<div class="br-t${won ? " win" : ""}${won && s.name === champ ? " hot" : ""}${open ? " pk" : ""}"${open ? ` data-id="${esc(s.id)}" role="button" tabindex="0" aria-pressed="${won}"` : ""}>
+        <span class="br-sd">${s.seed}</span>${img(s.logo, "xs")}<span class="br-n" title="${esc(s.name)}">${esc(s.short)}</span>
+        <span class="br-p"${mine ? ` title="Model's win chance"` : ""}>${fav && g.p ? Math.round(g.p * 100) + "%" : ""}</span></div>`;
     };
-    return `<div class="br-scroll"><div class="br" style="width:${W}px;height:${H}px">
+    return `<div class="br-scroll"><div class="br${mine ? " mine" : ""}" style="width:${W}px;height:${H}px">
       <svg width="${W}" height="${H}" aria-hidden="true">${paths}</svg>
       ${cols.map((c, i) => `<div class="br-h" style="left:${X(i)}px;width:${bw}px">${esc(c)}</div>`).join("")}
       ${all.map((g, i) => `<div class="br-m${g.a?.proj || g.b?.proj ? " proj" : ""}${g === root ? " final" : ""}" data-i="${i}" tabindex="0"
@@ -1097,7 +1110,8 @@ const Live = (() => {
       <div class="cc-tip"></div></div></div>`;
   }
   // Hover (or tap) a game for both teams and the model's line
-  function wireBracket(root) {
+  // In My picks, tapping a team picks it (onPick(game, teamId)); hovering still shows the details.
+  function wireBracket(root, onPick) {
     const el = $("#view-standings .br");
     if (!el) return;
     const all = [];
@@ -1105,47 +1119,52 @@ const Live = (() => {
     const tip = el.querySelector(".cc-tip");
     const who = (s) => (s ? `<span>#${s.seed} ${esc(s.name)}${s.rank ? ` · our #${s.rank}` : ""}${s.record ? ` · ${esc(s.record)}` : ""}${s.proj ? " · projected" : ""}</span>` : `<span>TBD</span>`);
     const show = (b) => {
-      const g = all[+b.dataset.i];
+      const g = all[+b.dataset.i], f = onPick ? g.fav : g.win; // the model's favorite
       const where = g.home && g.a ? `at ${esc(g.a.short)}` : "neutral site";
       showTip(el, tip, b.offsetLeft + b.offsetWidth / 2, b.offsetTop - 2, `<small>${esc(g.label)} · ${where}</small>`
-        + (g.win ? `<b>${esc(g.win.short)} <em>${Math.round(g.p * 100)}% · by ${Math.abs(g.spread).toFixed(1)}</em></b>` : `<b>TBD</b>`) + who(g.a) + who(g.b));
+        + (f ? `<b>${onPick ? "Model: " : ""}${esc(f.short)} <em>${Math.round(g.p * 100)}% · by ${Math.abs(g.spread).toFixed(1)}</em></b>` : `<b>TBD</b>`) + who(g.a) + who(g.b));
     };
     el.onpointerover = (e) => { const b = e.target.closest(".br-m"); if (b && e.pointerType === "mouse") show(b); };
     el.onpointerleave = () => tip.classList.remove("on");
-    el.onclick = (e) => { const b = e.target.closest(".br-m"); if (b) show(b); else tip.classList.remove("on"); };
+    const pickAt = (t) => onPick(all[+t.closest(".br-m").dataset.i], t.dataset.id);
+    el.onclick = (e) => {
+      const t = onPick && e.target.closest(".br-t.pk");
+      if (t) return pickAt(t);
+      const b = e.target.closest(".br-m"); if (b) show(b); else tip.classList.remove("on");
+    };
+    el.onkeydown = (e) => { const t = onPick && e.target.closest(".br-t.pk"); if (t && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); pickAt(t); } };
     el.onfocusin = (e) => { const b = e.target.closest(".br-m"); if (b) show(b); };
   }
 
-  async function playoff(lg, my) {
+  // My picks travel in the URL as each game's winner (ESPN team id in base 36), games in build order, e.g. &picks=1j.8..2t
+  const encPicks = (ids) => ids.map((id) => (id ? (+id).toString(36) : "")).join(".").replace(/\.+$/, "");
+  const decPicks = (str) => (/^[0-9a-z.]{1,300}$/.test(str || "") ? str.split(".").map((x) => (x ? String(parseInt(x, 36)) : "")) : []);
+
+  async function playoff(lg, my, params) {
     loading("standings");
-    const nfl = lg === "nfl";
+    const nfl = lg === "nfl", mine = params.get("mode") === "mine" || params.has("picks");
     let d, ranks;
     try {
       [d, ranks] = await Promise.all([nfl ? api(`${STAND(lg)}/standings?level=3`, 300000) : null, modelRanks(lg)]);
     } catch (e) { return fail("standings", e); }
     if (my !== token) return;
-    const out = (html) => { view("standings").innerHTML = stSub(true) + `<p class="muted br-cav">Current picture — changes weekly.</p>` + html; };
+    const modes = `<div class="presets br-mode" id="br-mode">${[["", "Model's picks"], ["mine", "My picks"]].map(([m, l]) =>
+      `<button data-mode="${m}" class="${!m === !mine ? "on" : ""}">${l}</button>`).join("")}</div>`;
+    const out = (html) => {
+      view("standings").innerHTML = stSub(true) + `<p class="muted br-cav">Current picture — changes weekly.</p>` + modes + html;
+      $("#br-mode").onclick = (e) => {
+        const m = e.target.dataset?.mode;
+        if (m != null) location.hash = link("standings", null, m ? { show: "playoff", mode: m } : { show: "playoff" });
+      };
+    };
     if (!ranks) return out(`<div class="card muted">Couldn't load our rankings. Try refreshing.</div>`);
     const pick = (g) => (g.win ? `<p class="br-pick">Model's pick to win it all: <b class="tm">${img(g.win.logo, "xs")} ${esc(g.win.name)}</b>
       <span class="muted">(${Math.round(g.p * 100)}% in the ${nfl ? "Super Bowl" : "title game"})</span></p>` : "");
     const key = `<p class="note">Dashed boxes are projections: each game goes to our model's favorite (win % beside it). Orange line = the projected champion's path. Hover or tap a game for details.</p>`;
+    const keyMine = `<p class="note">Tap a team to send it through; later rounds fill in from your picks${nfl ? " (the Divisional round reseeds from your Wild Card winners)" : ""}.
+      Changing a pick clears later picks that depended on it. Grey % = our model's win chance for its favorite. Orange line = your champion's path.</p>`;
 
-    if (!nfl) {
-      const { field, root, cols } = cfpBracket(ranks);
-      const table = `<div class="card"><h3>The field</h3><div class="table-wrap"><table class="standings"><thead><tr>
-        <th class="num">Seed</th><th>Team</th><th class="num" title="Cupcake Index rank">Our #</th><th class="num">REC</th><th>Bid</th></tr></thead><tbody>
-        ${field.map((s) => `<tr><td class="num">${s.seed}</td>
-          <td><a href="${link("team", s.id)}"><span class="tm">${img(s.logo, "xs")} <span class="tn">${esc(s.name)}</span></span></a></td>
-          <td class="num"><a class="our-rk" href="${link("rankings", null, { team: s.name })}">#${s.rank}</a></td><td class="num">${esc(s.record)}</td>
-          <td>${s.auto ? `<span class="tag">champ</span> <span class="muted">${esc(s.conf)}</span>` : `<span class="muted">at-large</span>`}${s.seed <= 4 ? ` <span class="muted">· bye</span>` : ""}</td></tr>`).join("")}
-        </tbody></table></div></div>`;
-      out(`<div class="card"><h3>CFP projection</h3>${pick(root)}${bracketHtml(root, cols, 196, 36)}${key}</div>${table}
-        <p class="note">Projection using the 2026 12-team format and our rankings: the four power-conference champions and the top Group of 6 champion
-        get automatic bids (Notre Dame too if it's in our top 12), then seven at-large teams. Seeds are straight by rank, so seeds 1–4 get byes.
-        Projected conference champion = that conference's highest-ranked team in our rankings. First-round games at the higher seed, later rounds on neutral sites.</p>`);
-      return wireBracket(root);
-    }
-
+    // Both leagues build the whole bracket in one go (rebuilt after every pick in My picks).
     const side = (abbr, cols) => {
       const c = (d.children || []).find((x) => x.abbreviation === abbr);
       const slots = (c ? groupsOf(c).flatMap((g) => g.entries) : []).map((e) => {
@@ -1155,15 +1174,79 @@ const Live = (() => {
       }).filter(Boolean);
       return slots.length === 7 ? nflSide(slots, cols, abbr) : null;
     };
-    const afc = side("AFC", [0, 1, 2]), nfc = side("NFC", [6, 5, 4]);
-    if (!afc || !nfc) return out(`<div class="card muted">ESPN hasn't posted playoff seeds yet.</div>`);
-    const root = bGame("nfl", afc.win, nfc.win, 3, "Super Bowl", false, [afc, nfc]);
-    root.y = (afc.y + nfc.y) / 2;
-    const cols = ["AFC Wild Card", "AFC Divisional", "AFC Championship", "Super Bowl", "NFC Championship", "NFC Divisional", "NFC Wild Card"];
-    out(`<div class="card"><h3>Super Bowl bracket</h3>${pick(root)}${bracketHtml(root, cols, 150, 22)}${key}</div>
-      <p class="note">Seeds are ESPN's playoff seeds if the season ended today (the same as the Seed column in Standings); each #1 seed gets a bye.
-      The Divisional round reseeds, so the 1 seed hosts the lowest seed left. Higher seed hosts; the Super Bowl is neutral.</p>`);
-    wireBracket(root);
+    const build = () => {
+      if (!nfl) return cfpBracket(ranks);
+      const afc = side("AFC", [0, 1, 2]), nfc = side("NFC", [6, 5, 4]);
+      if (!afc || !nfc) return null;
+      const root = bGame("nfl", afc.win, nfc.win, 3, "Super Bowl", false, [afc, nfc]);
+      root.y = (afc.y + nfc.y) / 2;
+      return { root, cols: ["AFC Wild Card", "AFC Divisional", "AFC Championship", "Super Bowl", "NFC Championship", "NFC Divisional", "NFC Wild Card"] };
+    };
+    const [title, bw, gap] = nfl ? ["Super Bowl bracket", 150, 22] : ["CFP projection", 196, 36];
+    BH = mine ? 78 : 56;
+    const b0 = build();
+    if (!b0) return out(`<div class="card muted">ESPN hasn't posted playoff seeds yet.</div>`);
+    const table = nfl ? "" : `<div class="card"><h3>The field</h3><div class="table-wrap"><table class="standings"><thead><tr>
+        <th class="num">Seed</th><th>Team</th><th class="num" title="Cupcake Index rank">Our #</th><th class="num">REC</th><th>Bid</th></tr></thead><tbody>
+        ${b0.field.map((s) => `<tr><td class="num">${s.seed}</td>
+          <td><a href="${link("team", s.id)}"><span class="tm">${img(s.logo, "xs")} <span class="tn">${esc(s.name)}</span></span></a></td>
+          <td class="num"><a class="our-rk" href="${link("rankings", null, { team: s.name })}">#${s.rank}</a></td><td class="num">${esc(s.record)}</td>
+          <td>${s.auto ? `<span class="tag">champ</span> <span class="muted">${esc(s.conf)}</span>` : `<span class="muted">at-large</span>`}${s.seed <= 4 ? ` <span class="muted">· bye</span>` : ""}</td></tr>`).join("")}
+        </tbody></table></div></div>`;
+    const notes = nfl ? `<p class="note">Seeds are ESPN's playoff seeds if the season ended today (the same as the Seed column in Standings); each #1 seed gets a bye.
+      The Divisional round reseeds, so the 1 seed hosts the lowest seed left. Higher seed hosts; the Super Bowl is neutral.</p>`
+      : `<p class="note">Projection using the 2026 12-team format and our rankings: the four power-conference champions and the top Group of 6 champion
+        get automatic bids (Notre Dame too if it's in our top 12), then seven at-large teams. Seeds are straight by rank, so seeds 1–4 get byes.
+        Projected conference champion = that conference's highest-ranked team in our rankings. First-round games at the higher seed, later rounds on neutral sites.</p>`;
+
+    if (!mine) {
+      out(`<div class="card"><h3>${title}</h3>${pick(b0.root)}${bracketHtml(b0.root, b0.cols, bw, gap)}${key}</div>${table}${notes}`);
+      return wireBracket(b0.root);
+    }
+
+    // My picks: a shared link's picks win, else this browser's saved picks. Picks for teams no longer in that game are dropped.
+    const saveKey = `bracket-${lg}-${INDEX.leagues[lg].latest.season}`;
+    const ids = decPicks(params.has("picks") ? params.get("picks") : store.get(saveKey));
+    out(`<div class="card" id="br-card"></div>${table}${notes}`);
+    const card = $("#br-card");
+    // Remember the picks (this browser only) and keep them in the URL, so the address bar is always a shareable link
+    const save = () => {
+      const enc = encPicks(ids);
+      store.set(saveKey, enc);
+      history.replaceState(null, "", link("standings", null, { show: "playoff", mode: "mine", ...(enc ? { picks: enc } : {}) }));
+    };
+    const draw = (fill = false) => {
+      PK = { ids, n: 0, fill };
+      let b;
+      try { b = build(); } finally { PK = null; }
+      const all = [];
+      (function walk(g) { all.push(g); g.kids.forEach(walk); })(b.root);
+      const left = all.filter((g) => !g.win).length, c = b.root.win, sx = card.querySelector(".br-scroll")?.scrollLeft || 0;
+      card.innerHTML = `<h3>${title}: my picks</h3>
+        <p class="br-pick">Your champion: ${c ? `<b class="tm br-champ">${img(c.logo, "xs")} ${esc(c.name)}</b>`
+          : `<b>TBD</b> <span class="muted">(${left} game${left === 1 ? "" : "s"} left to pick)</span>`}</p>
+        <div class="br-tools"><button data-act="fill">Fill with model's picks</button><button data-act="reset">Reset</button><button data-act="copy">Copy link</button></div>
+        ${bracketHtml(b.root, b.cols, bw, gap, true)}${keyMine}`;
+      card.querySelector(".br-scroll").scrollLeft = sx;
+      wireBracket(b.root, (g, id) => { ids[g.key] = id; draw(); save(); });
+    };
+    card.onclick = async (e) => {
+      const act = e.target.closest("button[data-act]")?.dataset.act;
+      if (act === "fill") { draw(true); save(); }
+      if (act === "reset") { ids.length = 0; draw(); save(); }
+      if (act === "copy") {
+        const url = location.href;
+        try { await navigator.clipboard.writeText(url); }
+        catch { // older browsers / non-secure pages
+          const t = Object.assign(document.createElement("textarea"), { value: url });
+          document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove();
+        }
+        const btn = card.querySelector('[data-act="copy"]');
+        btn.textContent = "Copied ✓";
+        setTimeout(() => (btn.textContent = "Copy link"), 1500);
+      }
+    };
+    draw();
   }
 
   // ---------------------------------------------------------------- NFL free agents
