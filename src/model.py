@@ -17,7 +17,7 @@ FACTORS = [
     ("efficiency", "Efficiency", "Opponent-adjusted EPA/play and success rate, garbage time removed."),
     ("sos", "Schedule", "Average rating of opponents played (FCS opponents drag this down)."),
     ("recent", "Recent form", "How the team has played in its last few games."),
-    ("cupcake", "Cupcake", "How padded the schedule is with FCS and bottom-tier FBS opponents. Higher = more cupcakes, and it counts against the team. Only games already played count; a scheduled cupcake is added once the game is final."),
+    ("cupcake", "Cupcake", "How padded the schedule is, relative to the team's own level: FCS opponents, plus below-average teams 14+ points worse than you (bigger mismatches count more). Bad teams playing other bad teams isn't padding. Higher = softer, and it counts against the team. Only games already played count."),
     ("luck", "Bad luck", "Higher = has had bad luck: lost games they statistically won, so the record undersells them. Lower = has been winning coin flips."),
 ]
 
@@ -28,6 +28,21 @@ NFL_HELP = {
     "sos": "Average rating of opponents played.",
     "luck": "Higher = has had bad luck in close games (one-score results are treated as coin flips). Lower = has been winning coin flips.",
 }
+
+
+def cupcake_weight(team_r, opp_r, is_fcs, cfg):
+    """How much of a cupcake an opponent is FOR THIS TEAM (0-1).
+
+    Relative, not absolute: a below-average opponent counts once they're `cupcake_gap` points worse
+    than you on a neutral field, reaching 1.0 at gap + span. Bad teams playing other bad teams isn't padding.
+    FCS opponents always count at least 0.5.
+    """
+    if "cupcake_gap" not in cfg:
+        return 0.0
+    w = 0.0
+    if opp_r < cfg.get("cupcake_max_opp", 0.0):
+        w = min(1.0, max(0.0, (team_r - opp_r - cfg["cupcake_gap"]) / cfg["cupcake_span"]))
+    return max(w, 0.5) if is_fcs else w
 
 
 def phi(x):
@@ -222,7 +237,7 @@ def build_week(fbs, games, advanced, polls, week, cfg, prior):
     for t in teams:
         sched, perfs = [], []
         wins = losses = fcs_n = weak_n = os_w = os_l = 0
-        xw = sor = 0.0
+        xw = sor = cup_sum = 0.0
         opp_ratings = []
         for x in sorted((x for x in games if t in (x["home"], x["away"])), key=lambda x: (x["week"], x["start"] or "")):
             home = x["home"] == t
@@ -231,8 +246,9 @@ def build_week(fbs, games, advanced, polls, week, cfg, prior):
             loc_pts = 0 if x["neutral"] else (cfg["home_field"] if home else -cfg["home_field"])
             ro = R[onode]
             row = {"week": x["week"], "opp": opp, "fcs": onode == FCS, "loc": loc, "espn_id": x["espn"],
-                   "opp_rank": rank.get(onode), "opp_rating": round(ro, 1),
-                   "cupcake": onode == FCS or rank[onode] > cfg["cupcake_rank"]}
+                   "opp_rank": rank.get(onode), "opp_rating": round(ro, 1)}
+            cw = cupcake_weight(R[t], ro, onode == FCS, cfg)
+            row["cupcake"] = cw > 0
             qb = x["hqb"] if home else x["aqb"]
             if qb:
                 row["qb"] = qb
@@ -255,8 +271,9 @@ def build_week(fbs, games, advanced, polls, week, cfg, prior):
                     os_l += not won
                 if onode == FCS:
                     fcs_n += 1
-                elif rank[onode] > cfg["cupcake_rank"]:
+                elif cw > 0:
                     weak_n += 1
+                cup_sum += cw
                 opp_ratings.append(ro)
                 perfs.append(perf)
                 row.update(score=f"{us}-{them}", result="W" if won else "L", perf=round(perf, 1),
@@ -272,7 +289,7 @@ def build_week(fbs, games, advanced, polls, week, cfg, prior):
                                 + 0.3 * sr.get(t, 0) / (np.std(list(sr.values())) or 1)) if ppa else R[t]
         raw["sos"][t] = float(np.mean(opp_ratings)) if opp_ratings else 0.0
         raw["recent"][t] = float(np.mean(perfs[-cfg["recent_games"]:])) if perfs else R[t]
-        raw["cupcake"][t] = (fcs_n + 0.5 * weak_n) / n if n else 0.0
+        raw["cupcake"][t] = cup_sum / n if n else 0.0
         raw["luck"][t] = -(wins - xw)
         qbs = [r["qb"] for r in sched if r.get("qb") and "result" in r]
         nxt = next((r for r in sched if r.get("upcoming")), None)
@@ -317,7 +334,7 @@ def lines_by_game(raw_lines):
 def cupcake_of_week(games, ratings, week, cfg):
     """The team that beat up the most on the biggest cupcake this week.
 
-    Eligible: a win by 21+ (cotw_min_margin) over an FCS team or an FBS team ranked worse than cupcake_rank.
+    Eligible: a win by 21+ (cotw_min_margin) over an opponent that is a cupcake for the winner (see cupcake_weight).
     Score = margin of victory + how far below an average FBS team the opponent is.
     """
     fbs = [t for t in ratings if t != FCS]
@@ -329,7 +346,7 @@ def cupcake_of_week(games, ratings, week, cfg):
         for home in (True, False):
             t, o = (x["hnode"], x["anode"]) if home else (x["anode"], x["hnode"])
             us, them = (x["hp"], x["ap"]) if home else (x["ap"], x["hp"])
-            if t == FCS or us - them < cfg.get("cotw_min_margin", 21) or not (o == FCS or rank[o] > cfg["cupcake_rank"]):
+            if t == FCS or us - them < cfg.get("cotw_min_margin", 21) or not cupcake_weight(ratings[t], ratings[o], o == FCS, cfg):
                 continue
             score = (us - them) - ratings[o]
             if best is None or score > best["score"]:

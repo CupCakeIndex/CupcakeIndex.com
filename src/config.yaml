@@ -18,7 +18,9 @@ cfb:
     fcs_game_weight: 0.25   # FCS games count 25% as much as FBS games in the power rating
     game_sigma: 15          # Std. dev. of a game result in points (used for win probabilities)
     recent_games: 3         # Games used for "recent form"
-    cupcake_rank: 100       # FBS opponents ranked worse than this count as cupcakes
+    cupcake_gap: 14         # An opponent is a cupcake once they're this many points worse than you...
+    cupcake_span: 21        # ...counting fully at gap + span (35+ points worse)
+    cupcake_max_opp: 0      # ...and only if they're below an average FBS team (rating < 0). FCS always counts.
     cotw_min_margin: 21     # Cupcake of the Week needs a win by at least this much
     benchmark_rank: 25      # Résumé = wins compared with what the #25 team would get
     prior_games: 3          # Preseason expectation counts like this many games in week 1...
@@ -42,7 +44,6 @@ nfl:
     fcs_game_weight: 1
     game_sigma: 13.5
     recent_games: 3
-    cupcake_rank: 99
     benchmark_rank: 8
     prior_games: 3
     prior_fade_week: 6
