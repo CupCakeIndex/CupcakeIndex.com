@@ -484,6 +484,7 @@ const Live = (() => {
         const C = (cats[c.name] ||= { names: [], labels: {}, rows: [] });
         c.names.forEach((n, j) => { if (!C.names.includes(n)) C.names.push(n); C.labels[n] = c.labels[j]; });
         for (const r of c.statistics || []) {
+          if (/totals|all-?stars?/i.test(r.teamSlug || "")) continue; // skip summary rows and all-star exhibitions
           const t = d.teams?.[r.teamSlug] || {};
           C.rows.push({ year: r.season?.year, level, team: { abbr: t.abbreviation || "", logo: t.logos?.[0]?.href, color: t.color },
             vals: Object.fromEntries(c.names.map((n, j) => [n, r.stats[j]])) });
