@@ -57,6 +57,7 @@ async function route() {
   document.querySelectorAll("#nav .tab").forEach((a) => a.classList.toggle("active", a.dataset.view === r.view));
   document.querySelectorAll(".rank-ctl").forEach((el) => el.classList.toggle("hidden", !RANK_VIEWS.has(r.view)));
   $("#drawer").classList.add("hidden");
+  document.body.classList.remove("drawer-open");
   window.scrollTo(0, 0);
   if (RANK_VIEWS.has(r.view)) {
     await loadWeek();
@@ -120,7 +121,7 @@ async function init() {
   $("#week").onchange = () => loadWeek(true);
   ["#search", "#conf", "#top25", "#profile"].forEach((s) => $(s).addEventListener("input", render));
   ["#sp-show", "#sp-conf"].forEach((s) => $(s).addEventListener("input", renderSchedules));
-  const closeDrawer = () => { $("#drawer").classList.add("hidden"); history.replaceState(null, "", link("rankings")); };
+  const closeDrawer = () => { $("#drawer").classList.add("hidden"); document.body.classList.remove("drawer-open"); history.replaceState(null, "", link("rankings")); };
   $("#drawer").onclick = (e) => { if ("close" in e.target.dataset) closeDrawer(); };
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#drawer").classList.contains("hidden")) closeDrawer(); });
   $("#table tbody").onclick = (e) => {
@@ -466,6 +467,7 @@ function openTeam(name) {
     <table class="sched"><thead><tr><th>Wk</th><th>Opponent</th><th>Result</th><th class="num" title="How hard it is for a ${bench} to win this game">Difficulty</th></tr></thead><tbody>${sched}</tbody></table>
     <p class="note">Difficulty is the chance a typical ${bench} would lose this game.${nfl ? " ⚠ = a different QB than the team's usual starter." : " Beating FCS teams is close to 0%."}</p>`;
   $("#drawer").classList.remove("hidden");
+  document.body.classList.add("drawer-open"); // stop the page behind from scrolling on phones
   history.replaceState(null, "", link("rankings", null, { team: name }));
   Live.teamId(league, t).then((id) => {
     const a = $("#team-page-link");

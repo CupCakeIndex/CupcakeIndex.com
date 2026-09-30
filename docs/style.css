@@ -317,3 +317,14 @@ body[data-league="nfl"] .cfb-only { display: none !important; }
   .sp-dot img, .sp-dot span { width: 20px; height: 20px; line-height: 20px; }
   .sp-ql { font-size: 11px; }
 }
+
+/* ---------- phone usability ---------- */
+body.drawer-open { overflow: hidden; }
+.drawer-panel { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.close { width: 44px; height: 44px; font-size: 30px; line-height: 1; }
+@media (max-width: 900px) {
+  /* iPhone Safari zooms into any field under 16px when tapped; keep them at 16px */
+  input, select, textarea { font-size: 16px; }
+  .seg button, .presets button, .subtab, .tab { min-height: 36px; }
+  .sp-dot { padding: 4px; }
+}

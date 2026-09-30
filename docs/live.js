@@ -524,7 +524,7 @@ const Live = (() => {
       <div class="subtabs">${tabLink("schedule", "Schedule")}${tabLink("roster", "Roster")}</div>
       <div class="card">${tab === "roster"
         ? rosterRows || `<p class="muted">Roster not available.</p>`
-        : `<table class="box"><thead><tr><th>Week</th><th>Opponent</th><th>Result</th></tr></thead><tbody>${games}</tbody></table>`}</div>`;
+        : `<div class="table-wrap"><table class="box"><thead><tr><th>Week</th><th>Opponent</th><th>Result</th></tr></thead><tbody>${games}</tbody></table></div>`}</div>`;
   }
 
   return { stop, teamId, scores, game, stats, player, standings, team };
