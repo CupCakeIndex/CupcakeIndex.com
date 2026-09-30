@@ -15,7 +15,7 @@ FACTORS = [
     ("power", "Power", "Opponent-adjusted scoring margin, capped so blowouts of bad teams don't count extra."),
     ("resume", "Résumé", "Strength of record: how many more wins than an average top-25 team would have with this schedule."),
     ("efficiency", "Efficiency", "Opponent-adjusted EPA/play and success rate, garbage time removed."),
-    ("sos", "Schedule", "How hard was your road? The average strength of every opponent you played, no matter how good you are. Higher = tougher schedule."),
+    ("sos", "Schedule", "How hard was your road? The average strength of the FBS teams you played, no matter how good you are. FCS games are left out here (they count in Cupcake). Higher = tougher schedule."),
     ("recent", "Recent form", "How the team has played in its last few games."),
     ("cupcake", "Cupcake", "How much did you pad it? Only the games far below YOUR level count: FCS opponents, plus below-average teams 14+ points worse than you (bigger mismatches count more). A bad team playing other bad teams isn't padding. Higher = more padded, and it counts against the team. Only games already played count."),
     ("luck", "Bad luck", "Higher = has had bad luck: lost games they statistically won, so the record undersells them. Lower = has been winning coin flips."),
@@ -326,7 +326,8 @@ def build_week(fbs, games, advanced, polls, week, cfg, prior, rgames=None, node_
                 elif cw > 0:
                     weak_n += 1
                 cup_sum += cw
-                opp_ratings.append(ro)
+                if not is_low(onode):  # Schedule = FBS opponents only; FCS games are the Cupcake score's job
+                    opp_ratings.append(ro)
                 perfs.append(perf)
                 row.update(score=f"{us}-{them}", result="W" if won else "L", perf=round(perf, 1),
                            difficulty=round(1 - p25, 2))

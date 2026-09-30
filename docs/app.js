@@ -71,7 +71,7 @@ async function route() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "56"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "57"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });

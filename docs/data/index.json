@@ -98,7 +98,7 @@
     {
      "key": "sos",
      "label": "Schedule",
-     "help": "How hard was your road? The average strength of every opponent you played, no matter how good you are. Higher = tougher schedule."
+     "help": "How hard was your road? The average strength of the FBS teams you played, no matter how good you are. FCS games are left out here (they count in Cupcake). Higher = tougher schedule."
     },
     {
      "key": "recent",
@@ -126,7 +126,7 @@
     "cupcake": 5,
     "luck": 5
    },
-   "updated": "2026-09-30T20:19+00:00",
+   "updated": "2026-09-30T21:04+00:00",
    "modes": {
     "best": {
      "power": 55,
@@ -145,8 +145,8 @@
     "games": 878,
     "accuracy": {
      "best": 0.7209567198177677,
-     "deserving": 0.6446469248291572,
-     "old_default": 0.7209567198177677,
+     "deserving": 0.6355353075170843,
+     "old_default": 0.7175398633257403,
      "power_only": 0.7309007981755986
     },
     "out_of_sample": {
@@ -154,7 +154,7 @@
      "tested_on": 2026,
      "games": 164,
      "best": 0.7560975609756098,
-     "old_default": 0.7439024390243902
+     "old_default": 0.7317073170731707
     }
    }
   },
@@ -309,5 +309,5 @@
    }
   }
  },
- "updated": "2026-09-30T20:20+00:00"
+ "updated": "2026-09-30T21:04+00:00"
 }
