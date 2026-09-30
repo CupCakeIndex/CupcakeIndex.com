@@ -616,22 +616,22 @@ const Live = (() => {
     const grid = [0, 0.25, 0.5, 0.75, 1].map((f) => `<line x1="${padL}" y1="${py(max * f).toFixed(1)}" x2="${W - padR}" y2="${py(max * f).toFixed(1)}" class="${f ? "cc-grid" : "cc-axis"}"/>`
       + `<text x="${padL - 6}" y="${(py(max * f) + 3.5).toFixed(1)}" class="cc-y">${fmt(max * f)}</text>`).join("");
     const xlabels = xs.map((x, gi) => (gi % step ? "" : `<text x="${px(gi).toFixed(1)}" y="${H - 5}" class="cc-x">${align === "career" ? "Yr " + x : x}</text>`)).join("");
-    const lines = series.map((sr) => {
-      const pts = xs.map((x, gi) => { const r = sr.rows.find((q) => q.x === x); return r && { r, x: px(gi), y: py(r.v) }; });
+    // lines draw themselves in left to right; each dot pops in as the line reaches it (CSS animations)
+    const nodes = [];
+    const lines = series.map((sr, si) => {
+      const pts = xs.map((x, gi) => { const r = sr.rows.find((q) => q.x === x); return r && { r, x: px(gi), y: py(r.v), gi }; });
       let d = "";
       pts.forEach((p, i) => { if (p) d += `${pts[i - 1] ? "L" : "M"}${p.x.toFixed(1)},${p.y.toFixed(1)}`; });
-      // value labels sit above a point, or below it when it's a dip (so the line doesn't run through the label)
-      const dips = pts.map((p, i) => { const n = [pts[i - 1], pts[i + 1]].filter(Boolean); return !!p && n.length > 0 && n.every((q) => q.y < p.y); });
-      const dots = pts.map((p, i) => p && { ...p, dip: dips[i], gi: i }).filter(Boolean).map((p) => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="${sr.color}" class="cc-dot" data-gi="${p.gi}"></circle>`
-        + (series.length === 1 && xs.length <= 14 ? `<text x="${p.x.toFixed(1)}" y="${(p.dip ? p.y + 18 : p.y - 10).toFixed(1)}" class="cc-val">${esc(p.r.vals[metric])}</text>` : "")).join("");
-      return `<path d="${d}" stroke="${sr.color}" class="cc-line"/>${dots}`;
+      const dots = pts.filter(Boolean).map((p) => {
+        nodes.push({ x: p.x, y: p.y, si, label: align === "career" ? `Career yr ${xs[p.gi]} · ${p.r.year}` : String(p.r.year), team: p.r.team.abbr, val: p.r.vals[metric] });
+        return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="${sr.color}" class="cc-dot" data-n="${nodes.length - 1}" style="animation-delay:${(0.1 + si * 0.15 + (p.gi / Math.max(1, xs.length - 1)) * 0.9).toFixed(2)}s"></circle>`;
+      }).join("");
+      return `<path d="${d}" stroke="${sr.color}" class="cc-line" pathLength="1" style="animation-delay:${si * 0.15}s"/>${dots}`;
     }).join("");
-    const chart = `<div class="wp-box cc-box" id="cc-box"><svg viewBox="0 0 ${W} ${H}" class="cc-chart" role="img" aria-label="${esc(C.labels[metric])} by ${align === "career" ? "career year" : "season"}">
-      ${grid}${xlabels}${lines}</svg>
-      <div class="wp-cursor hidden"><div class="wp-vline"></div><div class="wp-tip"></div></div></div>`;
+    const chart = `<div class="cc-box" id="cc-box"><svg viewBox="0 0 ${W} ${H}" class="cc-chart" role="img" aria-label="${esc(C.labels[metric])} by ${align === "career" ? "career year" : "season"}">
+      ${grid}${xlabels}${lines}</svg><div class="cc-tip"></div></div>`;
     // what the hover box needs (read by initCcHover once the chart is on the page)
-    ccHover = { W, H, xs: xs.map((x, gi) => ({ label: align === "career" ? "Career yr " + x : String(x), px: px(gi), y0: top, y1: base })), stat: C.labels[metric],
-      series: series.map((sr) => ({ name: sr.p.name, color: sr.color, rows: xs.map((x) => sr.rows.find((q) => q.x === x)).map((r) => r && { year: r.year, team: r.team.abbr, val: r.vals[metric] }) })) };
+    ccHover = { W, H, nodes, stat: C.labels[metric], series: series.map((sr) => ({ name: sr.p.name, color: sr.color })) };
     const legend = series.map((sr, i) => `<span class="cc-chip" style="--c:${sr.color}">${face(sr.p.headshot, sr.p.name, "hs", sr.p.lg === "nfl", sr.p.born)} ${esc(sr.p.name)} <small>${esc(sr.p.pos || "")}</small>
       ${i ? `<button class="cc-x-btn" data-rm="${esc(sr.p.lg)}:${esc(sr.p.id)}" aria-label="Remove">×</button>` : ""}</span>`).join("");
 
@@ -683,31 +683,35 @@ const Live = (() => {
     return [...local, ...live].slice(0, limit);
   }
 
-  // Stock-chart style hover for Stats by year: snap to the nearest season, show every player's number for it.
+  // Stats by year hover: the dot nearest the pointer lights up and a box beside it shows that season's number.
   let ccHover = null;
   function initCcHover() {
     const box = $("#cc-box"), H = ccHover;
-    if (!box || !H) return;
-    const svg = box.querySelector("svg"), cur = box.querySelector(".wp-cursor"), vline = box.querySelector(".wp-vline"), tip = box.querySelector(".wp-tip");
-    const show = (clientX) => {
-      const r = svg.getBoundingClientRect(), k = Math.min(r.width / H.W, r.height / H.H), ox = (r.width - H.W * k) / 2;
-      const sx = (clientX - r.left - ox) / k;
-      let gi = 0;
-      H.xs.forEach((x, i) => { if (Math.abs(x.px - sx) < Math.abs(H.xs[gi].px - sx)) gi = i; });
-      const x = ox + H.xs[gi].px * k;
-      cur.classList.remove("hidden");
-      vline.style.left = tip.style.left = `${x}px`;
-      vline.style.top = `${H.xs[gi].y0 * k}px`; vline.style.bottom = `${r.height - H.xs[gi].y1 * k}px`;
-      box.querySelectorAll(".cc-dot").forEach((d) => d.classList.toggle("on", +d.dataset.gi === gi));
-      tip.innerHTML = `<small>${esc(H.xs[gi].label)} · ${esc(H.stat)}</small>` + H.series.map((s) => {
-        const row = s.rows[gi];
-        return `<div class="cc-tip-row"><i style="background:${s.color}"></i><span>${esc(s.name)}</span><b>${row ? esc(row.val) : "–"}</b>${row ? `<em>${H.xs[gi].label.startsWith("Career") ? row.year + " " : ""}${esc(row.team)}</em>` : ""}</div>`;
-      }).join("");
-      tip.classList.toggle("flip", x > r.width * 0.55);
+    if (!box || !H || !H.nodes.length) return;
+    const svg = box.querySelector("svg"), tip = box.querySelector(".cc-tip"), dots = box.querySelectorAll(".cc-dot");
+    let cur = -1;
+    const hide = () => { cur = -1; tip.classList.remove("on"); dots.forEach((d) => d.classList.remove("on")); };
+    const show = (e, touch) => {
+      const r = svg.getBoundingClientRect(), k = Math.min(r.width / H.W, r.height / H.H);
+      const ox = (r.width - H.W * k) / 2, oy = (r.height - H.H * k) / 2;
+      const mx = e.clientX - r.left, my = e.clientY - r.top;
+      let best = -1, bd = Infinity;
+      H.nodes.forEach((n, i) => { const dd = Math.hypot(ox + n.x * k - mx, oy + n.y * k - my); if (dd < bd) { bd = dd; best = i; } });
+      if (bd > (touch ? 60 : 28)) return hide(); // only when you're on (or right next to) a dot
+      if (best === cur) return;
+      cur = best;
+      const n = H.nodes[best], s = H.series[n.si], x = ox + n.x * k, y = oy + n.y * k;
+      dots.forEach((d) => d.classList.toggle("on", +d.dataset.n === best));
+      tip.innerHTML = `<small>${esc(n.label)} · ${esc(n.team)}</small><b>${esc(n.val)} <em>${esc(H.stat)}</em></b>${H.series.length > 1 ? `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>` : ""}`;
+      tip.style.left = `${x}px`; tip.style.top = `${y}px`;
+      tip.classList.toggle("below", y < 70);
+      tip.classList.toggle("edge-l", x < 80);
+      tip.classList.toggle("edge-r", x > r.width - 80);
+      tip.classList.remove("on"); void tip.offsetWidth; tip.classList.add("on"); // replay the pop-in for each new dot
     };
-    box.addEventListener("pointermove", (e) => show(e.clientX));
-    box.addEventListener("pointerdown", (e) => show(e.clientX));
-    box.addEventListener("pointerleave", () => { cur.classList.add("hidden"); box.querySelectorAll(".cc-dot.on").forEach((d) => d.classList.remove("on")); });
+    box.addEventListener("pointermove", (e) => show(e, e.pointerType === "touch"));
+    box.addEventListener("pointerdown", (e) => show(e, e.pointerType === "touch"));
+    box.addEventListener("pointerleave", hide);
   }
 
   function wireCareer(id, params) {

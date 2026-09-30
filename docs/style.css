@@ -702,7 +702,6 @@ body:not(.show-breakdown) th.factors-col, body:not(.show-breakdown) td.factors {
 .cc-chart .cc-y { fill: var(--muted); font-size: 10px; text-anchor: end; }
 .cc-chart .cc-line { fill: none; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
 .cc-chart .cc-dot { stroke: var(--card); stroke-width: 2; }
-.cc-chart .cc-dot:hover { r: 6.5; }
 table.career th.on, table.career td.on { color: var(--accent); }
 table.career th.cc-h { text-align: left; border-bottom: 2px solid var(--c); }
 .pill.lvl { font-size: 9px; padding: 1px 4px; color: var(--muted); }
@@ -808,11 +807,25 @@ table.moves td:first-child { white-space: nowrap; width: 70px; }
 table.moves td:last-child { white-space: normal; min-width: 240px; }
 .subtabs { flex-wrap: wrap; }
 
-/* Stats by year: hover box (reuses the win-probability cursor) */
-.cc-box .wp-tip { top: 0; }
-.cc-box .wp-tip small { margin: 0 0 4px; }
-.cc-tip-row { display: grid; grid-template-columns: 10px auto auto auto; align-items: center; gap: 7px; font-size: 12px; margin-top: 3px; }
-.cc-tip-row i { width: 10px; height: 10px; border-radius: 50%; }
-.cc-tip-row b { font-size: 13px; text-align: right; }
-.cc-tip-row em { font-style: normal; color: var(--muted); font-size: 11px; }
-.cc-chart .cc-dot.on { r: 7; }
+/* Stats by year: animated line chart + hover box */
+.cc-box { position: relative; }
+.cc-chart .cc-line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: cc-draw 1s linear forwards; }
+.cc-chart .cc-dot { transform-box: fill-box; transform-origin: center; transform: scale(0); animation: cc-pop .35s cubic-bezier(.3,1.6,.5,1) forwards; transition: r .15s ease; cursor: pointer; }
+.cc-chart .cc-dot.on { r: 7.5; }
+@keyframes cc-draw { to { stroke-dashoffset: 0; } }
+@keyframes cc-pop { to { transform: scale(1); } }
+.cc-tip { position: absolute; left: 0; top: 0; pointer-events: none; opacity: 0; z-index: 2; width: max-content; max-width: 220px;
+  transform: translate(-50%, calc(-100% - 14px)); background: var(--card); border: 1px solid var(--accent); padding: 6px 10px; box-shadow: 0 6px 20px rgba(0,0,0,.45); font-size: 12px; }
+.cc-tip.below { transform: translate(-50%, 14px); }
+.cc-tip.edge-l { transform: translate(-12px, calc(-100% - 14px)); }
+.cc-tip.edge-r { transform: translate(calc(-100% + 12px), calc(-100% - 14px)); }
+.cc-tip.below.edge-l { transform: translate(-12px, 14px); }
+.cc-tip.below.edge-r { transform: translate(calc(-100% + 12px), 14px); }
+.cc-tip.on { animation: cc-tip-in .18s ease-out forwards; }
+@keyframes cc-tip-in { from { opacity: 0; margin-top: 6px; } to { opacity: 1; margin-top: 0; } }
+.cc-tip small { display: block; color: var(--muted); font-size: 11px; }
+.cc-tip b { display: block; font-size: 16px; margin-top: 2px; }
+.cc-tip b em { font-style: normal; font-size: 11px; color: var(--muted); font-weight: 400; }
+.cc-tip span { display: flex; align-items: center; gap: 6px; margin-top: 3px; font-size: 11px; }
+.cc-tip span i { width: 9px; height: 9px; border-radius: 50%; }
+@media (prefers-reduced-motion: reduce) { .cc-chart .cc-line, .cc-chart .cc-dot, .cc-tip.on { animation-duration: .01s; animation-delay: 0s !important; } }
