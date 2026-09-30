@@ -15,10 +15,7 @@ let soloDir = "hi";    // "hi" = selected column high to low, "lo" = low to high
 let reverse = false;   // true = list shown bottom-up by blended score
 let colSort = null;    // {key: "record" | "ap", dir: "best" | "worst"}: overrides row order, keeps model ranks
 
-const PRESETS = {
-  "Default": null,
-  "Who'd you beat": { resume: 60, sos: 25, cupcake: 15 },
-  "Who'd win": { power: 45, efficiency: 40, recent: 15 },
+const BASE_PRESETS = {
   "Hot right now": { power: 15, resume: 10, efficiency: 15, sos: 5, recent: 55 },
   "Equal": { power: 15, resume: 15, efficiency: 15, sos: 15, recent: 15, cupcake: 15, luck: 10 },
 };
@@ -93,7 +90,7 @@ async function init() {
 
   $("#presets").onclick = (e) => {
     const p = e.target.dataset.preset;
-    if (p) setWeights(PRESETS[p] || LG.default_weights);
+    if (p) setWeights(presets()[p] || LG.default_weights);
   };
   $("#reset").onclick = () => setWeights(LG.default_weights);
   // Phones: sliders start collapsed so the rankings table is on the first screen
@@ -150,12 +147,33 @@ function setLeague(l) {
   $("#season").innerHTML = seasons.map((s) => `<option>${esc(s)}</option>`).join("");
   $("#season").value = LG.latest.season;
   fillWeeks();
-  $("#presets").innerHTML = Object.keys(PRESETS).map((p) => `<button data-preset="${esc(p)}">${esc(p)}</button>`).join("");
+  const tips = presetTips();
+  $("#presets").innerHTML = Object.keys(presets()).map((p) => `<button data-preset="${esc(p)}" title="${esc(tips[p] || "")}">${esc(p)}</button>`).join("");
   $("#factor-help").innerHTML = LG.factors.map((f) => `<li><b>${esc(f.label)}:</b> ${esc(f.help)}</li>`).join("");
   $("#rankby").innerHTML = `<option value="">Blend (sliders)</option>` + LG.factors.map((f) =>
     `<option value="${esc(f.key)}:hi">${esc(f.label)}: high to low</option><option value="${esc(f.key)}:lo">${esc(f.label)}: low to high</option>`).join("");
   buildSliders();
 }
+
+// Presets. "Best teams" = weights re-learned each week from which blend best predicts the next week's
+// winners; "Most deserving" = what a team has earned (record quality, schedule, padding).
+function presets() {
+  const m = LG.modes;
+  return { ...(m ? { "Best teams": m.best, "Most deserving": m.deserving } : {}), "Default": LG.default_weights, ...BASE_PRESETS };
+}
+
+function presetTips() {
+  const m = LG.modes;
+  if (!m) return {};
+  const pct = (x) => (x == null ? "?" : (100 * x).toFixed(1) + "%");
+  return {
+    "Best teams": `Who would win. Weights learned from ${m.games} games; the higher-ranked team won ${pct(m.accuracy.best)} of the following week's games.`,
+    "Most deserving": "Who has earned it: strength of record, schedule difficulty and cupcake padding. Ignores margin of victory and luck.",
+    "Default": "The site's standard blend.",
+  };
+}
+
+const sameWeights = (a, b) => LG.factors.every((f) => (a[f.key] || 0) === ((b || {})[f.key] || 0));
 
 function loadWeights(l) {
   const lgInfo = INDEX.leagues[l];
@@ -276,6 +294,8 @@ function showWeights() {
     $("#v-" + f.key).textContent = total ? Math.round((100 * (weights[f.key] || 0)) / total) + "%" : "0%";
   });
   $("#rankby").value = only ? `${only}:${soloDir}` : "";
+  const P = presets();
+  document.querySelectorAll("#presets button").forEach((b) => b.classList.toggle("on", sameWeights(weights, P[b.dataset.preset])));
   $("#weights-note").textContent = !total ? "All weights are 0. Showing teams ordered by Power rating. Move a slider or click a column header."
     : only ? `Sorted by ${factor(only).label} only, ${soloDir === "hi" ? "high to low. Click the header again for low to high." : "low to high. Click the header again to go back to your blend."}` : "";
 }

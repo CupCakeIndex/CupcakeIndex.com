@@ -25,8 +25,8 @@ cfb:
     cupcake_max_opp: 0      # ...and only if they're below an average FBS team (rating < 0). FCS always counts.
     cotw_min_margin: 21     # Cupcake of the Week needs a win by at least this much
     benchmark_rank: 25      # Résumé = wins compared with what the #25 team would get
-    prior_games: 3          # Preseason expectation counts like this many games in week 1...
-    prior_fade_week: 7      # ...and fades to zero by this week
+    prior_games: 5          # Preseason expectation counts like this many games in week 1...
+    prior_fade_week: 9      # ...and fades to zero by this week (backtested on 2025-26: best of 8 settings, though all were close)
     one_score: 8            # Margin that counts as a "one-score game"
     spread_scale: 1.2       # Stretch predicted spreads (the margin cap compresses them). Fit on 2025 results.
     done_share: 0.9         # Share of a week's games that must be final before it's published

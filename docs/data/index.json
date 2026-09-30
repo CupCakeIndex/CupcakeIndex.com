@@ -23,23 +23,23 @@
      ],
      "accuracy": {
       "games": 792,
-      "correct": 590,
-      "mae": 12.6,
+      "correct": 593,
+      "mae": 12.5,
       "vegas_su": {
        "games": 792,
        "correct": 601
       },
       "model_su_lined": {
        "games": 792,
-       "correct": 590
+       "correct": 593
       },
       "ats": {
-       "games": 772,
-       "correct": 407
+       "games": 769,
+       "correct": 409
       },
       "ats_strong": {
-       "games": 470,
-       "correct": 252
+       "games": 440,
+       "correct": 234
       },
       "vegas_mae": 11.9
      }
@@ -53,7 +53,7 @@
      ],
      "accuracy": {
       "games": 232,
-      "correct": 191,
+      "correct": 192,
       "mae": 12.5,
       "vegas_su": {
        "games": 232,
@@ -61,15 +61,15 @@
       },
       "model_su_lined": {
        "games": 232,
-       "correct": 191
+       "correct": 192
       },
       "ats": {
        "games": 227,
-       "correct": 114
+       "correct": 117
       },
       "ats_strong": {
-       "games": 153,
-       "correct": 75
+       "games": 151,
+       "correct": 76
       },
       "vegas_mae": 10.8
      }
@@ -126,7 +126,37 @@
     "cupcake": 5,
     "luck": 5
    },
-   "updated": "2026-09-30T18:15+00:00"
+   "updated": "2026-09-30T19:22+00:00",
+   "modes": {
+    "best": {
+     "power": 55,
+     "resume": 0,
+     "efficiency": 30,
+     "sos": 0,
+     "recent": 5,
+     "cupcake": 10,
+     "luck": 0
+    },
+    "deserving": {
+     "resume": 60,
+     "sos": 25,
+     "cupcake": 15
+    },
+    "games": 878,
+    "accuracy": {
+     "best": 0.7209567198177677,
+     "deserving": 0.6446469248291572,
+     "old_default": 0.7209567198177677,
+     "power_only": 0.7309007981755986
+    },
+    "out_of_sample": {
+     "trained_on": 2025,
+     "tested_on": 2026,
+     "games": 164,
+     "best": 0.7560975609756098,
+     "old_default": 0.7439024390243902
+    }
+   }
   },
   "nfl": {
    "seasons": {
@@ -248,8 +278,36 @@
     "recent": 10,
     "luck": 5
    },
-   "updated": "2026-09-30T17:35+00:00"
+   "updated": "2026-09-30T19:25+00:00",
+   "modes": {
+    "best": {
+     "power": 90,
+     "resume": 0,
+     "efficiency": 0,
+     "sos": 0,
+     "recent": 10,
+     "luck": 0
+    },
+    "deserving": {
+     "resume": 71,
+     "sos": 29
+    },
+    "games": 287,
+    "accuracy": {
+     "best": 0.5958188153310104,
+     "deserving": 0.6341463414634146,
+     "old_default": 0.6167247386759582,
+     "power_only": 0.6027874564459931
+    },
+    "out_of_sample": {
+     "trained_on": 2025,
+     "tested_on": 2026,
+     "games": 32,
+     "best": 0.5,
+     "old_default": 0.5
+    }
+   }
   }
  },
- "updated": "2026-09-30T18:15+00:00"
+ "updated": "2026-09-30T19:25+00:00"
 }
