@@ -35,7 +35,12 @@ const Live = (() => {
   const view = (name) => $("#view-" + name);
   const loading = (name) => { view(name).innerHTML = `<div class="card muted">Loading…</div>`; };
   const fail = (name, e) => { view(name).innerHTML = `<div class="card">Couldn't load this from ESPN (${esc(e.message)}). Try again in a minute.</div>`; };
-  const img = (src, cls = "lg") => safeUrl(src) ? `<img src="${esc(src)}" alt="" loading="lazy" class="${cls}">` : `<span class="logo-ph ${cls}"></span>`;
+  const SIZES = { xs: [18, 18], sm: [22, 22], lg: [28, 28], xl: [56, 56], hs: [30, 22], headshot: [120, 88] }; // CSS display sizes
+  const img = (src, cls = "lg") => {
+    if (!safeUrl(src)) return `<span class="logo-ph ${cls}"></span>`;
+    const [w, h] = SIZES[cls] || [40, 40];
+    return `<img src="${esc(thumb(src, w, h))}" alt="" loading="lazy" decoding="async" width="${w}" height="${h}" class="${cls}">`;
+  };
   const teamLogo = (t) => t?.logo || t?.logos?.[0]?.href || "";
   const kickoff = (d) => new Date(d).toLocaleString(undefined, { weekday: "short", month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" });
   const clockNow = () => new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" });
@@ -176,7 +181,7 @@ const Live = (() => {
       const ap = c.rank;
       return `<div class="gh-team">
         ${img(teamLogo(c.team), "xl")}
-        <div><a href="${link("team", c.team.id)}"><b>${ap && ap <= 25 ? `<span class="ap-rk">${ap}</span> ` : ""}${esc(tname(c))}</b></a>
+        <div><a href="${link("team", c.team.id)}"><b>${ap && ap <= 25 ? `<span class="ap-rk">${ap}</span> ` : ""}<span class="full">${esc(tname(c))}</span><span class="abbr">${esc(c.team.abbreviation)}</span></b></a>
         <small class="muted">${esc(c.record?.[0]?.summary || c.record?.[0]?.displayValue || "")}${ours ? ` · Cupcake Index #${ours.rank}` : ""}</small></div>
         <span class="gh-score${st === "post" && c.winner ? " win" : ""}">${st === "pre" ? "" : esc(c.score ?? "")}</span></div>`;
     };
@@ -245,6 +250,7 @@ const Live = (() => {
         `<li><a href="${link("player", i.athlete?.id)}">${esc(i.athlete?.displayName)}</a> <span class="muted">${esc(i.athlete?.position?.abbreviation || "")}</span> <span class="pill over">${esc(i.status)}</span></li>`).join("")}</ul></div>`).join("")}</div></div>`);
     }
     view("game").innerHTML = `<p><a href="${link("scores")}" class="boxlink">← Scores</a></p>${head}<div class="game-grid">${blocks.join("")}</div>`;
+    if (wp.length > 2) initWp(wp, s, away, home);
     if (st === "in") poll((r) => game(id, params, r), 20000);
   }
 
@@ -253,12 +259,48 @@ const Live = (() => {
     const pts = wp.map((p, i) => `${((i / (n - 1)) * W).toFixed(1)},${((1 - p.homeWinPercentage) * H).toFixed(1)}`).join(" ");
     const last = wp[n - 1].homeWinPercentage;
     const lead = last >= 0.5 ? home : away, pct = Math.round((last >= 0.5 ? last : 1 - last) * 100);
-    return `<p class="note">${esc(lead.team.displayName)} ${pct}%</p>
-      <svg viewBox="0 0 ${W} ${H}" class="wp" preserveAspectRatio="none" role="img" aria-label="Win probability over the game">
-        <line x1="0" y1="${H / 2}" x2="${W}" y2="${H / 2}" class="wp-mid"/>
-        <polyline points="${pts}" class="wp-line"/>
-      </svg>
-      <div class="wp-labels"><span>Higher = ${esc(home.team.abbreviation)} more likely</span><span>Lower = ${esc(away.team.abbreviation)} more likely</span></div>`;
+    return `<p class="note">${esc(lead.team.displayName)} ${pct}% <span class="muted">· hover or drag across the chart</span></p>
+      <div class="wp-box" id="wp-box">
+        <svg viewBox="0 0 ${W} ${H}" class="wp" preserveAspectRatio="none" role="img" aria-label="Win probability over the game">
+          <line x1="0" y1="${H / 2}" x2="${W}" y2="${H / 2}" class="wp-mid"/>
+          <polygon points="0,${H / 2} ${pts} ${W},${H / 2}" class="wp-area"/>
+          <polyline points="${pts}" class="wp-line"/>
+        </svg>
+        <div class="wp-cursor hidden"><div class="wp-vline"></div><div class="wp-dot"></div><div class="wp-tip"></div></div>
+      </div>
+      <div class="wp-labels"><span>▲ ${esc(home.team.abbreviation)}</span><span>▼ ${esc(away.team.abbreviation)}</span></div>`;
+  }
+
+  // Stock-chart style hover: a dot rides the line and a tooltip shows the win % and the play at that moment.
+  function initWp(wp, s, away, home) {
+    const box = $("#wp-box");
+    if (!box) return;
+    const plays = new Map();
+    const drives = [...(s.drives?.previous || []), ...(s.drives?.current ? [s.drives.current] : [])];
+    drives.forEach((d) => (d.plays || []).forEach((p) => plays.set(String(p.id), p)));
+    const cur = box.querySelector(".wp-cursor"), dot = box.querySelector(".wp-dot"), vline = box.querySelector(".wp-vline"), tip = box.querySelector(".wp-tip");
+    const A = away.team.abbreviation, Hm = home.team.abbreviation;
+    const show = (clientX) => {
+      const r = box.getBoundingClientRect();
+      const f = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+      const i = Math.round(f * (wp.length - 1)), p = wp[i];
+      const x = (i / (wp.length - 1)) * r.width, y = (1 - p.homeWinPercentage) * r.height;
+      const hp = p.homeWinPercentage, homeLeads = hp >= 0.5;
+      const pct = (Math.max(hp, 1 - hp) * 100).toFixed(1);
+      const play = plays.get(String(p.playId));
+      cur.classList.remove("hidden");
+      vline.style.left = dot.style.left = `${x}px`;
+      dot.style.top = `${y}px`;
+      dot.classList.toggle("away", !homeLeads);
+      tip.innerHTML = `<b>${esc(homeLeads ? Hm : A)} ${pct}%</b>` + (play
+        ? `<small>Q${esc(play.period?.number)} ${esc(play.clock?.displayValue || "")} · ${esc(A)} ${esc(play.awayScore)}-${esc(play.homeScore)} ${esc(Hm)}</small>
+           <small class="wp-play">${esc((play.text || "").slice(0, 120))}</small>` : "");
+      tip.style.left = `${x}px`;
+      tip.classList.toggle("flip", x > r.width * 0.55);
+    };
+    box.addEventListener("pointermove", (e) => show(e.clientX));
+    box.addEventListener("pointerdown", (e) => show(e.clientX));
+    box.addEventListener("pointerleave", () => cur.classList.add("hidden"));
   }
 
   // ---------------------------------------------------------------- stats leaders

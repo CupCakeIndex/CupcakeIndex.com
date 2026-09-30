@@ -7,8 +7,11 @@
 <meta name="description" content="College football and NFL power rankings that call out padded schedules, plus live scores, box scores, player stats and standings.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧁</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://site.web.api.espn.com" crossorigin>
+<link rel="preconnect" href="https://a.espncdn.com">
+<meta name="theme-color" content="#0f1216">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=12">
+<link rel="stylesheet" href="style.css?v=16">
 </head>
 <body>
 <header class="top">
@@ -34,10 +37,11 @@
 
 <main>
   <section id="view-rankings" class="view">
-    <aside class="weights card">
+    <aside class="weights card collapsed" id="weights">
       <div class="weights-head">
         <h2>Weights</h2>
         <span><button id="clear" class="link">Clear all</button> · <button id="reset" class="link">Reset</button></span>
+        <button id="weights-toggle" class="btn weights-toggle" aria-expanded="false">Adjust ▾</button>
       </div>
       <div class="presets" id="presets"></div>
       <div id="sliders"></div>
@@ -112,7 +116,7 @@
   </div>
 </div>
 
-<script src="app.js?v=12"></script>
-<script src="live.js?v=12"></script>
+<script src="app.js?v=16"></script>
+<script src="live.js?v=16"></script>
 </body>
 </html>

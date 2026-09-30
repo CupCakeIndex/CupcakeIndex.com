@@ -94,6 +94,12 @@ async function init() {
     if (p) setWeights(PRESETS[p] || LG.default_weights);
   };
   $("#reset").onclick = () => setWeights(LG.default_weights);
+  // Phones: sliders start collapsed so the rankings table is on the first screen
+  $("#weights-toggle").onclick = () => {
+    const open = $("#weights").classList.toggle("collapsed") === false;
+    $("#weights-toggle").setAttribute("aria-expanded", open);
+    $("#weights-toggle").textContent = open ? "Done ▴" : "Adjust ▾";
+  };
   $("#clear").onclick = () => setWeights({});
   document.querySelector("th.factors-col").onclick = (e) => { const k = e.target.dataset.only; if (k) { colSort = null; solo(k); } };
   document.querySelector("#table thead").addEventListener("click", (e) => {
@@ -231,11 +237,10 @@ function setWeights(w, rev = false) {
 
 const factor = (key) => LG.factors.find((f) => f.key === key);
 
-// "hi" = the column's displayed value high to low. Inverted factors (Cupcake) are blended as 100 - score,
-// so showing them high to low means listing the blend bottom-up.
+// "hi" = the column's displayed value high to low (for Cupcake: most cupcakes = #1)
 function applySolo(key, dir) {
   soloDir = dir;
-  setWeights({ [key]: 100 }, factor(key).invert ? dir === "hi" : dir === "lo");
+  setWeights({ [key]: 100 }, dir === "lo");
 }
 
 // Header clicks cycle: high to low -> low to high -> back to the previous blend
@@ -278,6 +283,14 @@ function composite(teams, w = weights, factors = LG.factors) {
     .map((t, i) => ({ ...t, rank: i + 1 }));
 }
 
+// Ranking shown in the table. Sorting by an inverted factor alone (Cupcake) numbers teams by that
+// factor itself, so #1 = the softest schedule; everything else uses the blended ranking.
+function rankTeams(teams) {
+  const list = composite(teams), only = soloKey();
+  if (!only || !factor(only)?.invert) return list;
+  return [...list].sort((a, b) => b.scores[only] - a.scores[only] || b.rating - a.rating).map((t, i) => ({ ...t, rank: i + 1 }));
+}
+
 // Model rank lookup for another view (scores/standings), using that league's saved weights.
 async function modelRanks(lg) {
   const info = INDEX.leagues[lg];
@@ -291,7 +304,16 @@ async function modelRanks(lg) {
 // ------------------------------------------------------------------ rankings table
 const heat = (v) => `background:hsla(${Math.round(v * 1.3)},65%,45%,.18)`;
 const safeUrl = (u) => (/^https:\/\//.test(u || "") ? u : "");
-const logo = (t, cls = "") => safeUrl(t.logo) ? `<img src="${esc(t.logo)}" alt="" loading="lazy" class="${cls}">` : `<span class="logo-ph ${cls}"></span>`;
+// Serve images at display size (x2 for sharp phone screens) through ESPN's resizer.
+// Full-size logos are ~12KB and headshots ~230KB; thumbnails are ~1-7KB.
+function thumb(url, w, h = w) {
+  if (!safeUrl(url)) return "";
+  const cfbd = url.match(/^https:\/\/cdn\.collegefootballdata\.com\/logos\/\d+\/(\d+)\.png$/); // CFBD logo ids are ESPN ids
+  const path = cfbd ? `/i/teamlogos/ncaa/500/${cfbd[1]}.png` : (url.match(/^https:\/\/a\.espncdn\.com(\/i\/[^?]+)$/) || [])[1];
+  return path ? `https://a.espncdn.com/combiner/i?img=${encodeURIComponent(path)}&w=${w * 2}&h=${h * 2}` : url;
+}
+const logo = (t, cls = "") => safeUrl(t.logo)
+  ? `<img src="${esc(thumb(t.logo, 28))}" alt="" loading="lazy" decoding="async" width="26" height="26" class="${cls}">` : `<span class="logo-ph ${cls}"></span>`;
 // CFB: show only teams in the AP Top 25 (at wherever the model ranks them). NFL has no poll: model top 10.
 const inTopFilter = (t) => (document.body.classList.contains("no-ap") ? t.rank <= (league === "nfl" ? 10 : 25) : !!t.ap_rank);
 
@@ -321,8 +343,8 @@ function apTag(t) {
 
 function render() {
   if (!DATA) return;
-  ranked = composite(DATA.teams);
-  const prevRank = PREV ? Object.fromEntries(composite(PREV.teams).map((t) => [t.team, t.rank])) : {};
+  ranked = rankTeams(DATA.teams);
+  const prevRank = PREV ? Object.fromEntries(rankTeams(PREV.teams).map((t) => [t.team, t.rank])) : {};
   const q = $("#search").value.trim().toLowerCase(), conf = $("#conf").value, top = $("#top25").checked;
   let ordered = reverse ? [...ranked].reverse() : ranked;
   if (colSort) {
