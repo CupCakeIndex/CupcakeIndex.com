@@ -2273,7 +2273,7 @@ const Live = (() => {
     }
   }
 
-  // helpers shared with pickem.js: ESPN fetch + cache, logos, our-rank lookup, game status, polling tied to the current view
-  const kit = { SITE, api, img, teamLogo, ourTeam, statusText, poll, teamColor, token: () => token };
+  // helpers shared with pickem.js and fantasy.js: ESPN fetch + cache, logos, our-rank lookup, game status, injury tags, polling tied to the current view
+  const kit = { SITE, api, img, teamLogo, ourTeam, statusText, injTag, poll, teamColor, token: () => token };
   return { stop, teamId, scores, game, stats, player, standings, team, freeagents, searchPlayers, fillBugs, kit };
 })();
