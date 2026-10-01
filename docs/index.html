@@ -43,6 +43,7 @@
   <a class="tab" data-view="standings" href="#/standings">Standings</a>
   <a class="tab nfl-only" data-view="freeagents" href="#/freeagents">Free Agents</a>
   <a class="tab" data-view="picks" href="#/picks">Pick'em</a>
+  <a class="tab" data-view="games" href="#/games">Games</a>
   <a class="tab" data-view="about" href="#/about">How it works</a>
 </nav>
 
@@ -64,7 +65,6 @@
     </aside>
 
     <div class="board">
-      <a class="daily-cta" href="#/daily"><span class="dg-gt">&gt;</span> <b>daily_player</b> <span class="dc-txt">guess today's NFL player</span> <span class="dc-st" id="daily-st">play ▸</span></a>
       <div id="cotw" class="cotw hidden"></div>
       <div class="filters">
         <input id="search" type="search" placeholder="Search team…" aria-label="Search team">
@@ -72,6 +72,7 @@
         <select id="profile" aria-label="Schedule profile"></select>
         <label class="chk" id="top25-label"><input type="checkbox" id="top25"> AP Poll top 25 only</label>
         <button id="breakdown" class="btn breakdown-btn" aria-pressed="false" title="Show every factor score as a column">Breakdown</button>
+        <a class="daily-mini" href="#/daily" title="Daily player: guess today's NFL player (more in Games)"><span class="dg-gt">&gt;</span> daily_player <span id="daily-st">play ▸</span></a>
       </div>
       <div class="table-wrap">
         <table id="table">
@@ -128,6 +129,7 @@
   <section id="view-team" class="view hidden"></section>
   <section id="view-freeagents" class="view hidden"></section>
   <section id="view-daily" class="view hidden"></section>
+  <section id="view-games" class="view hidden"></section>
 
   <section id="view-updates" class="view hidden">
     <div class="card prose"><h2>Release notes</h2><div id="notes"><p class="muted">Loading…</p></div></div>

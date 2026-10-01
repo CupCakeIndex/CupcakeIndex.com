@@ -22,7 +22,9 @@ const BASE_PRESETS = {
 const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", recent: "FORM", cupcake: "CUP", luck: "UNLK" };
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
 const RANK_VIEWS = new Set(["rankings", "schedules"]);
-const VIEWS = new Set(["rankings", "picks", "schedules", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily"]);
+const VIEWS = new Set(["rankings", "picks", "schedules", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily", "games"]);
+// Sub-pages that light up a parent tab in the nav (the Daily player game lives under Games)
+const NAV_PARENT = { daily: "games" };
 
 // ------------------------------------------------------------------ forgiving name search
 // Lowercase, strip accents/punctuation ("D.J." -> "dj", "Smith-Njigba" -> "smith njigba"), drop jr/sr/ii/iii.
@@ -101,7 +103,8 @@ async function route() {
   if (lg !== league || !LG) setLeague(lg);
   Live.stop();
   document.querySelectorAll(".view").forEach((s) => s.classList.toggle("hidden", s.id !== "view-" + r.view));
-  document.querySelectorAll("#nav .tab").forEach((a) => a.classList.toggle("active", a.dataset.view === r.view));
+  const navView = NAV_PARENT[r.view] || r.view;
+  document.querySelectorAll("#nav .tab").forEach((a) => a.classList.toggle("active", a.dataset.view === navView));
   document.querySelectorAll(".rank-ctl").forEach((el) => el.classList.toggle("hidden", !RANK_VIEWS.has(r.view)));
   $("#drawer").classList.add("hidden");
   document.body.classList.remove("drawer-open");
@@ -116,6 +119,8 @@ async function route() {
     renderNotes();
   } else if (r.view === "daily") {
     Daily.render();
+  } else if (r.view === "games") {
+    renderGames();
   } else if (r.view === "picks") {
     Pickem.render(r.params);
   } else if (r.view === "compare") {
@@ -123,6 +128,24 @@ async function route() {
   } else if (Live[r.view]) {
     Live[r.view](r.arg, r.params);
   }
+}
+
+// ------------------------------------------------------------------ games hub
+// One card per game. To add a game: give it a view (its own section + route) and add a card here.
+function renderGames() {
+  const games = [
+    { href: "#/daily", name: "daily_player", title: "Daily player", desc: "Guess today's mystery NFL player in 8 tries. Each guess shows how close you are on team, division, position, age, college and number. A new player every day at midnight.", status: Daily.status() },
+  ];
+  $("#view-games").innerHTML = `<div class="card">
+    <h2>Games</h2>
+    <p class="note">Quick games for football fans. Your progress and streaks are saved in this browser.</p>
+    <div class="games-grid">${games.map((g) => `<a class="game-tile" href="${g.href}">
+      <span class="gt-name"><span class="dg-gt">&gt;</span> ${esc(g.name)}</span>
+      <b>${esc(g.title)}</b>
+      <span class="gt-desc">${esc(g.desc)}</span>
+      <span class="gt-st">${esc(g.status)}</span></a>`).join("")}
+      <div class="game-tile soon"><span class="gt-name"><span class="dg-gt">&gt;</span> more_games<span class="gs-us">_</span></span><span class="gt-desc">More games are on the way.</span></div>
+    </div></div>`;
 }
 
 // ------------------------------------------------------------------ init

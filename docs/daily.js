@@ -113,7 +113,7 @@ const Daily = (() => {
 
   function draw() {
     const v = document.getElementById("view-daily");
-    v.innerHTML = `<div class="card dg">
+    v.innerHTML = `<a class="back-link" href="#/games">‹ all games</a><div class="card dg">
       <h2>Daily player <span class="muted dg-num">#${today + 1}</span></h2>
       <p class="note">Guess today's mystery NFL player in ${MAX} tries. It's a well-known QB, RB, WR or TE. Each guess shows how close you are:
         <span class="dg-key g">green</span> = match, <span class="dg-key y">yellow</span> = close (same division or conference, WR/TE, within 2 years or numbers), ↑ ↓ = the answer is higher or lower.</p>
