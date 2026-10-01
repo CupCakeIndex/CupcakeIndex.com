@@ -35,7 +35,7 @@ const Live = (() => {
   const view = (name) => $("#view-" + name);
   const loading = (name) => { view(name).innerHTML = `<div class="card muted">Loading…</div>`; };
   const fail = (name, e) => { view(name).innerHTML = `<div class="card">Couldn't load this from ESPN (${esc(e.message)}). Try again in a minute.</div>`; };
-  const SIZES = { xs: [18, 18], sm: [22, 22], lg: [28, 28], xl: [56, 56], hs: [30, 30], leadshot: [52, 52], headshot: [120, 88] }; // CSS display sizes
+  const SIZES = { xs: [18, 18], sm: [22, 22], lg: [28, 28], xl: [56, 56], hs: [30, 30], leadshot: [52, 52], headshot: [132, 96] }; // CSS display sizes
   let boxTab = "off"; // remembered across live refreshes
   const img = (src, cls = "lg") => {
     if (!safeUrl(src)) return `<span class="logo-ph ${cls}"></span>`;
@@ -97,10 +97,31 @@ const Live = (() => {
     const level = /^(Q|P|DTD)$/.test(ab) ? "q" : ab === "D" ? "d" : "o";
     return { ab, level, status: status[0].toUpperCase() + status.slice(1), part, tip: [status[0].toUpperCase() + status.slice(1), part, back ? `est. return ${back}` : ""].filter(Boolean).join(" · ") };
   }
-  const injTag = (i, pid = "") => {
-    const x = injInfo(i);
-    return x ? `<span class="inj-tag inj-${x.level}" title="${esc(x.tip)}"${pid ? ` data-pid="${esc(pid)}"` : ""}>${esc(x.ab)}</span>` : "";
+  // tid (team id) makes the tag a link to that player's row on the team's roster (#/team/ID?tab=roster&hl=PLAYER)
+  const injTag = (i, pid = "", tid = "") => {
+    const x = injInfo(i), go = pid && tid;
+    return x ? `<span class="inj-tag inj-${x.level}${go ? " go" : ""}" title="${esc(x.tip)}${go ? " · click for the latest" : ""}"${pid ? ` data-pid="${esc(pid)}"` : ""}${go ? ` data-tid="${esc(tid)}" role="link" tabindex="0"` : ""}>${esc(x.ab)}</span>` : "";
   };
+  // Tags often sit inside a player link, so they navigate from one shared handler instead of nesting another <a>
+  const injGo = (e) => {
+    const t = e.target.closest?.(".inj-tag[data-tid]");
+    if (!t || (e.type === "keydown" && e.key !== "Enter")) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const h = link("team", t.dataset.tid, { tab: "roster", hl: t.dataset.pid });
+    if (location.hash === h) highlightRow(t.dataset.pid); else location.hash = h;
+  };
+  document.addEventListener("click", injGo);
+  document.addEventListener("keydown", injGo);
+  // Scroll to a roster row and pulse it (the same ring as the Schedules chart's focused team)
+  function highlightRow(pid) {
+    const tr = view("team").querySelector(`tr[data-pid="${CSS.escape(String(pid))}"]`);
+    if (!tr) return;
+    view("team").querySelectorAll("tr.hl-row").forEach((r) => r.classList.remove("hl-row"));
+    void tr.offsetWidth; // restart the animation on a repeat click
+    tr.classList.add("hl-row");
+    tr.scrollIntoView({ block: "center" });
+  }
   // League-wide NFL injury report (big, so only used to add detail to tags that are already on screen)
   const athleteIdOf = (a) => a?.id || (a?.links?.[0]?.href || "").match(/\/id\/(\d+)/)?.[1] || null;
   async function injuryMap() {
@@ -334,7 +355,7 @@ const Live = (() => {
     const lside = (L, which, win) => {
       if (!L) return `<span class="lside ${which} empty">–</span>`;
       const a = L.athlete, big = L.mainStat?.value ?? L.displayValue;
-      const tag = st === "pre" ? injTag(injOf.get(String(a.id))) : "";
+      const tag = st === "pre" ? injTag(injOf.get(String(a.id)), a.id, (which === "home" ? home : away).team.id) : "";
       const txt = `<span class="ltxt"><b>${esc(a.shortName || a.displayName)}${tag}</b><small>${esc(a.position?.abbreviation || "")} · ${esc(withTD(L.displayValue))}</small></span>`;
       const num = `<span class="lbig${win ? " win" : ""}">${esc(big)}</span>`;
       const pic = face(a.headshot?.href, a.displayName, "leadshot");
@@ -387,7 +408,7 @@ const Live = (() => {
     const inj = (s.injuries || []).map((t) => ({ ...t, injuries: (t.injuries || []).filter(injInfo) })).filter((t) => t.injuries.length);
     if (inj.length && st !== "post") {
       col.right.push(`<div class="card"><h3>Injuries</h3><div class="box-pair">${inj.map((t) => `<div><b>${esc(t.team?.displayName || "")}</b><ul class="inj">${t.injuries.slice(0, 15).map((i) =>
-        `<li><a href="${link("player", i.athlete?.id)}">${esc(i.athlete?.displayName)}</a> <span class="muted">${esc(i.athlete?.position?.abbreviation || "")}</span> ${injTag(i)}${injInfo(i)?.part ? ` <small class="muted">${esc(injInfo(i).part)}</small>` : ""}</li>`).join("")}</ul></div>`).join("")}</div></div>`);
+        `<li><a href="${link("player", i.athlete?.id)}">${esc(i.athlete?.displayName)}</a> <span class="muted">${esc(i.athlete?.position?.abbreviation || "")}</span> ${injTag(i, i.athlete?.id, t.team?.id)}${injInfo(i)?.part ? ` <small class="muted">${esc(injInfo(i).part)}</small>` : ""}</li>`).join("")}</ul></div>`).join("")}</div></div>`);
     }
     view("game").innerHTML = `<p><a href="${link("scores")}" class="boxlink">← Scores</a></p>${head}${leadersStrip}<div class="game-cols"><div class="gcol">${col.left.join("")}</div><div class="gcol">${col.right.join("")}</div></div>${col.full.join("")}`;
     if (wp.length > 2) initWp(wp, s, away, home);
@@ -1016,6 +1037,7 @@ const Live = (() => {
       }).join("");
     }
     const thisYear = new Date().getFullYear(), born = birthYear(a);
+    const hsLabel = [a.jersey ? "#" + a.jersey : "", a.position?.abbreviation || ""].filter(Boolean).join(" ");
     // every season of the career: ESPN lists them on the game log (e.g. 1985-2004 for Jerry Rice)
     const seasonF = (gl?.filters || []).find((f) => f.name === "season");
     const firstYear = a.debutYear || thisYear - 25;
@@ -1026,11 +1048,13 @@ const Live = (() => {
     const exp = a.active !== false ? a.displayExperience || a.experience?.displayValue || "" : "";
     view("player").innerHTML = `
       <div class="card player-head">
-        ${face(a.headshot?.href, a.displayName, "headshot", lg === "nfl", born)}
+        <div class="hs-frame" style="--tc:${teamColor(a.team)}">
+          ${face(a.headshot?.href, a.displayName, "headshot", lg === "nfl", born)}
+          ${hsLabel ? `<span class="hs-tag">${esc(hsLabel)}</span>` : ""}</div>
         <div>
           <h2>${esc(a.displayName)}${lg === "nfl" && a.active === false ? ` <span class="retired-tag">Retired</span>` : ""}</h2>
           <p>${a.team ? `<a href="${link("team", a.team.id)}"><span class="tm">${img(a.team.logos?.[0]?.href || a.team.logo, "xs")} ${esc(a.team.displayName)}</span></a>` : ""}
-            ${injInfo(inj) ? ` <span class="inj-line">${injTag(inj)} ${esc(injInfo(inj).tip)}</span>` : ""}</p>
+            ${injInfo(inj) ? ` <span class="inj-line">${injTag(inj, a.id, a.team?.id)} ${esc(injInfo(inj).tip)}</span>` : ""}</p>
           <p class="muted">${facts.map(esc).join(" · ")}<span id="pl-exp">${exp ? " · " + esc(exp) : ""}</span></p>
         </div>
       </div>
@@ -1051,7 +1075,7 @@ const Live = (() => {
     $("#career-slot").innerHTML = careers ? careerCard(careers, cst, bench)
       : `<div class="card muted">Season-by-season stats aren't available for this player.</div>`;
     if (careers) {
-      wireCareer(id, params);
+      if ($("#cc-view")) wireCareer(id, params); // not there when the player has no season stats
       fillFaces($("#career-slot"));
       const me = careers[0], n = me.seasons.length;
       if (!exp && n) $("#pl-exp").textContent = ` · ${n} ${me.lvl === "NFL" ? "NFL" : "college"} season${n > 1 ? "s" : ""} (${me.seasons[0]}${n > 1 ? "–" + me.seasons[n - 1] : ""})`;
@@ -1610,11 +1634,11 @@ const Live = (() => {
     const rosterRows = (ros?.athletes || []).filter((g) => g.items?.length).map((g) => `
       <h4>${esc({ offense: "Offense", defense: "Defense", specialTeam: "Special teams", injuredReserveOrOut: "Injured reserve / out", suspended: "Suspended", practiceSquad: "Practice squad" }[g.position] || g.position)}</h4>
       <div class="table-wrap"><table class="box"><thead><tr><th class="num">#</th><th>Player</th><th>Pos</th><th>Ht</th><th>Wt</th><th>${lg === "nfl" ? "Age" : "Class"}</th><th>Status</th></tr></thead><tbody>
-      ${g.items.map((p) => `<tr><td class="num muted">${esc(p.jersey || "")}</td>
+      ${g.items.map((p) => `<tr data-pid="${esc(p.id)}"><td class="num muted">${esc(p.jersey || "")}</td>
         <td><div class="team">${face(p.headshot?.href, p.displayName, "hs")}<a href="${link("player", p.id)}">${esc(p.displayName)}</a></div></td>
         <td>${esc(p.position?.abbreviation || "")}</td><td>${esc(p.displayHeight || "")}</td><td>${esc(p.displayWeight || "")}</td>
         <td>${esc(lg === "nfl" ? p.age ?? "" : p.experience?.abbreviation || "")}</td>
-        <td>${injTag(p.injuries?.[0], p.id)}</td></tr>`).join("")}</tbody></table></div>`).join("");
+        <td>${injTag(p.injuries?.[0], p.id, T.id)}</td></tr>`).join("")}</tbody></table></div>`).join("");
 
     // depth chart: offense, defense, special teams; each position shows starter, then backups (with injury tags from the roster)
     const injById = new Map((ros?.athletes || []).flatMap((g) => g.items || []).map((p) => [String(p.id), p.injuries?.[0]]));
@@ -1629,7 +1653,7 @@ const Live = (() => {
         ${keys.map((k) => { const P = f.positions[k], list = (P.athletes || []).slice(0, deep);
           return `<tr><td title="${esc(P.position?.displayName || "")}"><b>${esc(P.position?.abbreviation || k.toUpperCase())}</b></td>${Array.from({ length: deep }, (_, i) => {
             const a = list[i];
-            return a ? `<td><a href="${link("player", a.id)}">${esc(a.shortName || a.displayName)}</a>${injTag(injById.get(String(a.id)))}</td>` : `<td></td>`;
+            return a ? `<td><a href="${link("player", a.id)}">${esc(a.shortName || a.displayName)}</a>${injTag(injById.get(String(a.id)), a.id, T.id)}</td>` : `<td></td>`;
           }).join("")}</tr>`; }).join("")}</tbody></table></div>`];
     }).sort((a, b) => a[0] - b[0]).map((x) => x[1]).join("");
     // recent roster moves for this team, from ESPN's league-wide transactions feed
@@ -1652,16 +1676,28 @@ const Live = (() => {
             <p class="note">Signings, releases and injured-reserve moves since ${esc(new Date(extra.transactions[extra.transactions.length - 1].date).toLocaleDateString(undefined, { month: "long", day: "numeric" }))}.</p>`
             : `<p class="muted">No recent transactions.</p>`)
         : `<div class="table-wrap"><table class="box"><thead><tr><th>Week</th><th>Opponent</th><th>Result</th></tr></thead><tbody>${games}</tbody></table></div>`}</div>`;
-    // NFL rosters only carry the status; the league injury report adds the body part and expected return
+    // arrived from an injury tag: pulse that player's row and show their latest update under it
+    const hl = tab === "roster" ? params.get("hl") : null;
+    const hlRow = hl && view("team").querySelector(`tr[data-pid="${CSS.escape(hl)}"]`);
+    const rosterInj = hlRow && (ros?.athletes || []).flatMap((g) => g.items || []).find((p) => String(p.id) === hl)?.injuries?.[0];
+    const note = (i) => {
+      if (!hlRow || !injInfo(i)) return;
+      hlRow.nextElementSibling?.classList.contains("inj-note") && hlRow.nextElementSibling.remove();
+      const when = i.date ? new Date(i.date).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
+      hlRow.insertAdjacentHTML("afterend", `<tr class="inj-note"><td></td><td colspan="${hlRow.cells.length - 1}"><b>${esc(injInfo(i).tip)}</b>${when ? ` <span class="muted">· updated ${esc(when)}</span>` : ""}${i.shortComment && i.shortComment.toLowerCase() !== injInfo(i).status.toLowerCase() ? `<br>${esc(i.shortComment)}` : ""}</td></tr>`);
+    };
+    if (hlRow) { note(rosterInj); highlightRow(hl); }
+    // NFL rosters only carry the status; the league injury report adds the body part, expected return and latest news
     if (lg === "nfl" && tab === "roster" && view("team").querySelector(".inj-tag[data-pid]")) {
       injuryMap().then((m) => {
         if (my !== token) return;
         view("team").querySelectorAll(".inj-tag[data-pid]").forEach((el) => {
           const x = injInfo(m.get(el.dataset.pid));
           if (!x) return;
-          el.title = x.tip;
+          el.title = x.tip + " · click for the latest";
           if (x.part) el.insertAdjacentHTML("afterend", ` <small class="muted">${esc(x.part)}</small>`);
         });
+        if (hlRow && m.get(hl)) note({ ...m.get(hl), date: m.get(hl).date || rosterInj?.date });
       }).catch(() => {});
     }
   }
