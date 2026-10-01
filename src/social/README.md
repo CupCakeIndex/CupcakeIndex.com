@@ -91,3 +91,19 @@ back, set a repo **variable** `X_INCLUDE_LINK` = `true` (same place as step 4 be
   (regenerate it and update `X_ACCESS_TOKEN` and `X_ACCESS_SECRET`).
 - Posting uses the X API v2 (`/2/media/upload` then `/2/tweets`). The old v1.1 upload that many
   tutorials show was shut off in 2025.
+
+## Obscure stat / hot take (whenever you want)
+
+`obscure.py` makes a one-off post: a weird-but-true stat, or a "hot take" built to start an
+argument (e.g. "AP #9 is 4-0 and its best win is over #71. Contender, or a résumé made of cupcakes?").
+There are 34 of them, using NFL players, college players and teams, and each card shows the leader's
+headshot (or team logo) with the next four. No links, no betting content, always 280 characters or fewer.
+
+To post one: GitHub > **Actions** > **Obscure stat post** > **Run workflow**. Choose:
+- **random** (any), **random-hot** (hot takes only), **random-obscure** (fun facts only), or a specific stat.
+- **Theme**: the card's look, one of the site's themes (Mono, Green terminal, Amber, Broadcast, Editorial, Midnight Glass, Varsity). Random by default.
+- **Post to X**: leave ticked to post. Untick it to only make the picture (download it from the run's **Artifacts**).
+
+Try them on your computer: `python src/social/obscure.py --all --out branding/samples/obscure`
+(`--list` prints every stat name, `--theme varsity` forces a look). The extra fonts in `fonts/`
+(Inter, Barlow Condensed, Source Serif 4, Oswald) are free Google Fonts under the same OFL license.
