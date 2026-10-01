@@ -1035,7 +1035,7 @@ main .sp-more .card { margin: 0; }
 .fr-how { margin: 0 0 10px; font-size: 13px; }
 .fr-low { color: #ef5a50; }
 .fr-high { color: #36b56f; }
-.fr-cell { white-space: nowrap; }
+.fr-cell, .pj-opp { white-space: nowrap; }
 /* player page headshot: framed card, team-color glow behind the cutout, terminal corner ticks, jersey/position label */
 .hs-frame { position: relative; flex: none; width: 132px; height: 96px; border-radius: 10px; overflow: hidden; isolation: isolate;
   border: 1px solid color-mix(in srgb, var(--tc, var(--accent)) 50%, var(--line));
