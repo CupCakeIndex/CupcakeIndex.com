@@ -2247,8 +2247,10 @@ const Live = (() => {
             : `<p class="muted">No recent transactions.</p>`)
         : games ? `<div class="mb-list cols">${games}</div>${ourGames.size ? `<p class="note">Tap a game for the box score or preview. Diff (difficulty) is the chance a typical ${nfl ? "top-8 NFL" : "top-25"} team would lose that game; win chances are from the Cupcake Index model.</p>` : ""}`
         : `<p class="muted">No games scheduled.</p>`}</div>`;
+    // latest headlines mentioning this team (news.js), under the schedule
+    if (tab === "schedule") News.forTeam(lg, T.id).then((h) => { if (h && my === token) view("team").insertAdjacentHTML("beforeend", h); });
     // arrived from an injury tag: pulse that player's row and show their latest update under it
-    const hl = tab === "roster" ? params.get("hl") : null;
+    const hl =tab === "roster" ? params.get("hl") : null;
     const hlRow = hl && view("team").querySelector(`tr[data-pid="${CSS.escape(hl)}"]`);
     const rosterInj = hlRow && (ros?.athletes || []).flatMap((g) => g.items || []).find((p) => String(p.id) === hl)?.injuries?.[0];
     const note = (i) => {

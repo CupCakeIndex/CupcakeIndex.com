@@ -1,0 +1,39 @@
+name: Hourly news
+
+# Collects football headlines from public RSS feeds into docs/data/news.json for the News tab.
+# Browsers can't read those feeds directly (CORS), so we fetch them here and commit the result.
+
+on:
+  schedule:
+    - cron: "17 * * * *"      # every hour (at :17, off the busy top of the hour)
+  workflow_dispatch:          # "Run workflow" button on GitHub
+
+permissions:
+  contents: write
+
+concurrency:
+  group: news
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Fetch headlines
+        run: python src/news.py
+      - name: Publish
+        run: |
+          git config user.name "rankings-bot"
+          git config user.email "rankings-bot@users.noreply.github.com"
+          git add docs/data/news.json
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "News update $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase
+          git push

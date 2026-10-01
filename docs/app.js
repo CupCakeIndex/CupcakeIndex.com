@@ -22,7 +22,7 @@ const BASE_PRESETS = {
 const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", recent: "FORM", cupcake: "CUP", luck: "UNLK" };
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
 const RANK_VIEWS = new Set(["rankings", "schedules"]);
-const VIEWS = new Set(["rankings", "picks", "schedules", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily", "fantasy"]);
+const VIEWS = new Set(["rankings", "picks", "schedules", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily", "fantasy", "news"]);
 
 // ------------------------------------------------------------------ forgiving name search
 // Lowercase, strip accents/punctuation ("D.J." -> "dj", "Smith-Njigba" -> "smith njigba"), drop jr/sr/ii/iii.
@@ -122,13 +122,15 @@ async function route() {
     Fantasy.render(r.params);
   } else if (r.view === "compare") {
     renderCompare();
+  } else if (r.view === "news") {
+    News.render(r.params);
   } else if (Live[r.view]) {
     Live[r.view](r.arg, r.params);
   }
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "101"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "102"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
