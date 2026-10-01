@@ -1,28 +1,33 @@
-"""On-demand "obscure stat" posts for the X account.
+"""Stat posts for the X account: plain-English stats and "hot takes" about schedules and records.
 
-Picks one weird-but-true stat (randomly, or the one you name), renders a card with the leader's
-headshot or team logo plus the next four, and writes the tweet text. No links, no betting content,
-always 280 characters or fewer. Posting is done by post_to_x.py, same as the daily posts.
+Each post is one stat anyone can follow (rushing yards, interceptions, who a team has actually beaten),
+a card with the leader's photo or logo and a top-5 bar chart, and tweet text. Hot takes end with a
+question to get replies. No links, no betting content, always 280 characters or fewer.
+Posting is done by post_to_x.py, same as the daily posts.
 
-    python src/social/obscure.py                     # random stat -> out/social/obscure.png/.txt/.json
-    python src/social/obscure.py --stat qb_rush      # a specific one
-    python src/social/obscure.py --list              # every stat key
+    python src/social/obscure.py                     # next stat in the rotation -> out/social/
+    python src/social/obscure.py --stat random       # any stat (also random-hot, random-stat)
+    python src/social/obscure.py --stat nfl_qb_rush  # a specific one (--list prints them all)
     python src/social/obscure.py --all --out DIR     # render every stat (previews)
 
-Run it from GitHub: Actions > "Obscure stat post" > Run workflow (see README.md).
+Runs twice a day from GitHub (.github/workflows/obscure.yml), and on demand with Run workflow.
 """
 import argparse
+import datetime as dt
+import io
 import json
 import os
 import random
 import sys
-import urllib.request
+
+import requests
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from PIL import ImageFont
-
 import render as R
-from render import DATA, ROOT, PAD, TOP, W, canvas, chip, fit, hex_rgb, latest, load, ranked, short, team_logo, tweet
+from render import DATA, ROOT, hex_rgb, latest, load, ranked, short, tweet
+
+W, H = 1600, 900
 
 # ------------------------------------------------------------------ looks: the site's themes (Settings > Theme)
 # Colors copied from docs/style.css (dark versions). head = font for big text, body = everything else
@@ -36,39 +41,57 @@ THEMES = {
     "glass":     {"bg": "#000000", "panel": "#121215", "ink": "#f5f5f7", "muted": "#98989f", "line": "#232327", "accent": "#ff9f0a", "head": "Inter.ttf", "body": "Inter.ttf"},
     "varsity":   {"bg": "#0b1628", "panel": "#0f1e36", "ink": "#eef1f6", "muted": "#8d9bb3", "line": "#1f3253", "accent": "#d6a84a", "head": "Oswald.ttf", "body": "Inter.ttf"},
 }
-_mono_font = R.font
 WEIGHT = {"Regular": 400, "Bold": 700, "ExtraBold": 800}
+_fonts = {}
 
 
-def _font_file(name, size, weight):
-    f = ImageFont.truetype(os.path.join(R.HERE, "fonts", name), size)
-    try:  # variable fonts (Inter, Source Serif, Oswald): pick the weight, leave other axes at default
-        f.set_variation_by_axes([min(max(WEIGHT[weight], a["minimum"]), a["maximum"]) if a["name"] == b"Weight" else a["default"]
-                                 for a in f.get_variation_axes()])
-    except Exception:
-        pass  # static font (Barlow Condensed Bold)
-    return f
+def font_for(theme, size, weight="Regular"):
+    """The theme's font: head font for ExtraBold (titles, big numbers), body font for the rest."""
+    t = THEMES[theme]
+    name = (t["head"] if weight == "ExtraBold" else t["body"]) if t["head"] else None
+    key = (name, size, weight)
+    if key not in _fonts:
+        if not name:
+            _fonts[key] = R.font(size, weight)
+        else:
+            f = ImageFont.truetype(os.path.join(R.HERE, "fonts", name), size)
+            try:  # variable fonts: set the weight axis, leave the others at default
+                f.set_variation_by_axes([min(max(WEIGHT[weight], a["minimum"]), a["maximum"]) if a["name"] == b"Weight" else a["default"]
+                                         for a in f.get_variation_axes()])
+            except Exception:
+                pass  # static font (Barlow Condensed Bold)
+            _fonts[key] = f
+    return _fonts[key]
 
 
-def use_theme(name):
-    """Point render.py's colors and font() at one theme (canvas() and card() read them at draw time)."""
-    t = THEMES[name]
-    R.BG, R.PANEL, R.INK, R.MUTED, R.LINE, R.ACCENT = (hex_rgb(t[k]) for k in ("bg", "panel", "ink", "muted", "line", "accent"))
-    R.DOT = tuple(round(b + (i - b) * 0.09) for b, i in zip(R.BG, R.INK))  # faint dot grid
-    R.font = (lambda size, weight="Regular": _font_file(t["head"] if weight == "ExtraBold" else t["body"], size, weight)) if t["head"] else _mono_font
-
+# ------------------------------------------------------------------ data
 ESPN_FF = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/{y}/segments/0/leaguedefaults/3?view=kona_player_info"
 POS = {1: "QB", 2: "RB", 3: "WR", 4: "TE"}
 # ESPN fantasy stat ids (season totals, real games)
-PA, CMP, PY, PTD, INT, RA, RY, RTD, REC, RECY, RECTD, TGT = "0", "1", "3", "4", "20", "23", "24", "25", "53", "42", "43", "58"
-
-
-def _json(url, headers=None):
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 cupcakeindex-social", **(headers or {})})
-    return json.loads(urllib.request.urlopen(req, timeout=30).read())
-
-
+PA, CMP, PY, PTD, INT, RA, RY, RTD, REC, RECY, RECTD = "0", "1", "3", "4", "20", "23", "24", "25", "53", "42", "43"
+IMG_CACHE = os.path.join(ROOT, "data", "raw", "social_img")
+_session = requests.Session()
+_session.headers["User-Agent"] = "Mozilla/5.0 cupcakeindex-social"
 _cache = {}
+
+
+def image(url):
+    """A picture from ESPN's CDN (headshot or logo), cached on disk; None if it can't be fetched."""
+    if not url or os.environ.get("SOCIAL_NO_LOGOS"):
+        return None
+    path = os.path.join(IMG_CACHE, "".join(c if c.isalnum() else "_" for c in url)[-120:])
+    try:
+        if os.path.exists(path):
+            return Image.open(path).convert("RGBA")
+        r = _session.get(url, timeout=30)
+        if r.status_code != 200:
+            return None
+        os.makedirs(IMG_CACHE, exist_ok=True)
+        with open(path, "wb") as f:
+            f.write(r.content)
+        return Image.open(io.BytesIO(r.content)).convert("RGBA")
+    except Exception:
+        return None
 
 
 def nfl_players():
@@ -76,12 +99,12 @@ def nfl_players():
     if "nfl" not in _cache:
         y = load(os.path.join(DATA, "index.json"))["leagues"]["nfl"]["latest"]["season"]
         teams = {str(t["team"]["id"]): t["team"] for t in
-                 _json("https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams")["sports"][0]["leagues"][0]["teams"]}
+                 _session.get("https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams", timeout=30).json()["sports"][0]["leagues"][0]["teams"]}
         filt = {"players": {"filterSlotIds": {"value": [0, 2, 4, 6]}, "limit": 700, "sortPercOwned": {"sortPriority": 1, "sortAsc": False},
                             "filterStatsForSourceIds": {"value": [0]}, "filterStatsForSplitTypeIds": {"value": [0]},
                             "filterStatsForScoringPeriodIds": {"value": [0]}}}
         out = []
-        for x in _json(ESPN_FF.format(y=y), {"X-Fantasy-Filter": json.dumps(filt)}).get("players", []):
+        for x in _session.get(ESPN_FF.format(y=y), headers={"X-Fantasy-Filter": json.dumps(filt)}, timeout=30).json().get("players", []):
             p = x["player"]
             st = next((s for s in p.get("stats", []) if s.get("seasonId") == y and s.get("statSourceId") == 0 and s.get("statSplitTypeId") == 0), None)
             t = teams.get(str(p.get("proTeamId")))
@@ -109,6 +132,18 @@ def cfb_players():
     return _cache["cfb"]
 
 
+def teams(league):
+    """The latest rankings file's teams (site order), each with name/record/logo/color, plus a name lookup."""
+    key = "teams-" + league
+    if key not in _cache:
+        cur, _, _ = latest(league)
+        ts = ranked(cur)
+        for t in ts:
+            t["name"] = t["team"]
+        _cache[key] = (ts, {t["team"]: t for t in ts}, cur["week"])
+    return _cache[key]
+
+
 g = lambda p, k: p["s"].get(k, 0) if "s" in p else p["so"].get(k, 0)
 
 
@@ -118,9 +153,33 @@ def leaders(rows, value, keep=lambda p: True, low=False, n=5):
     return sorted(rows, key=lambda r: r[1] if low else -r[1])[:n]
 
 
+def rec(w, l):
+    return f"{w}-{l}"
+
+
+def opp_record(t, by_name, which):
+    """Combined record of a team's opponents: which = 'beaten' (teams it beat), 'left' (still to play) or 'played'.
+    FCS opponents aren't in our file: returned as a count instead."""
+    rows = [s for s in t["schedule"] if (which == "beaten" and s.get("result") == "W") or (which == "left" and s.get("upcoming"))
+            or (which == "played" and s.get("result"))]
+    w = l = fcs = 0
+    for s in rows:
+        o = by_name.get(s["opp"])
+        if o:
+            w, l = w + o["wins"], l + o["losses"]
+        else:
+            fcs += 1
+    return w, l, fcs, len(rows)
+
+
+def pct(w, l):
+    return w / (w + l) if w + l else None
+
+
 # ------------------------------------------------------------------ the stats
 # Each returns a fact dict or None (not enough data yet):
-#   league, title (short, on the card), sub (one line of context), unit, rows [(subject, value)], fmt, text (tweet)
+#   league, kind (player|team), title, sub (one plain line), unit, rows [(subject, sort value, shown text)],
+#   text (tweet), question (hot takes: shown on the card too)
 STATS = {}
 
 
@@ -131,390 +190,629 @@ def stat(key):
     return wrap
 
 
-def n0(v):
-    return f"{v:,.0f}"
-
-
-def n1(v):
-    return f"{v:.1f}"
-
-
-def pct(v):
-    return f"{v:.0%}"
-
-
-def player_fact(league, rows, title, sub, unit, fmt, says):
+def fact(league, kind, rows, title, sub, unit, text, question=None, hot=False):
     if len(rows) < 3:
         return None
-    (p, v) = rows[0]
-    nxt = ", ".join(f"{q['name']} {fmt(w)}" for q, w in rows[1:3])
-    text = f"Obscure stat: {says(p, fmt(v))}. Next up: {nxt}."
-    return {"league": league, "title": title, "sub": sub, "unit": unit, "rows": rows, "fmt": fmt, "text": text, "kind": "player"}
+    return {"league": league, "kind": kind, "rows": rows, "title": title, "sub": sub, "unit": unit,
+            "text": ("Hot take: " if hot else "") + text + (f" {question}" if question else ""), "question": question, "hot": hot}
 
 
-# NFL players --------------------------------------------------------
-@stat("nfl_yards_per_catch")
+def nxt(rows, n=2):
+    return ", ".join(f"{(p.get('name') or p['team'])} {s}" for p, _, s in rows[1:1 + n])
+
+
+def player_rows(r, fmt):
+    return [(p, v, fmt(v)) for p, v in r]
+
+
+n0 = lambda v: f"{v:,.0f}"
+n1 = lambda v: f"{v:.1f}"
+
+
+# --- schedules and records (the Cupcake Index's whole thing) ---------------------------
+@stat("hot_cfb_paper_unbeaten")
 def _():
-    r = leaders(nfl_players(), lambda p: g(p, RECY) / g(p, REC) if g(p, REC) else None, lambda p: g(p, REC) >= 10)
-    return player_fact("nfl", r, "Yards per catch", "NFL leaders, minimum 10 catches", "yds per catch", n1,
-                       lambda p, v: f"{p['name']} ({p['team']}) is averaging {v} yards every time he catches the ball")
-
-
-@stat("nfl_qb_rush")
-def _():
-    r = leaders(nfl_players(), lambda p: g(p, RY), lambda p: p["pos"] == "QB")
-    return player_fact("nfl", r, "QB rushing yards", "Quarterbacks, by rushing yards this season", "rush yds", n0,
-                       lambda p, v: f"{p['name']} ({p['team']}) leads all NFL quarterbacks with {v} rushing yards")
-
-
-@stat("nfl_rb_receiving")
-def _():
-    r = leaders(nfl_players(), lambda p: g(p, RECY), lambda p: p["pos"] == "RB")
-    return player_fact("nfl", r, "RB receiving yards", "Running backs, by receiving yards this season", "rec yds", n0,
-                       lambda p, v: f"{p['name']} ({p['team']}) has {v} receiving yards, the most of any NFL running back")
-
-
-@stat("nfl_catch_rate")
-def _():
-    r = leaders(nfl_players(), lambda p: g(p, REC) / g(p, TGT) if g(p, TGT) else None, lambda p: g(p, TGT) >= 20)
-    return player_fact("nfl", r, "Sure hands", "Catch rate (catches per target), minimum 20 targets", "catch rate", pct,
-                       lambda p, v: f"{p['name']} ({p['team']}) has caught {v} of the passes thrown his way")
-
-
-@stat("nfl_yards_per_carry")
-def _():
-    r = leaders(nfl_players(), lambda p: g(p, RY) / g(p, RA) if g(p, RA) else None, lambda p: g(p, RA) >= 30)
-    return player_fact("nfl", r, "Yards per carry", "NFL leaders, minimum 30 carries", "yds per carry", n1,
-                       lambda p, v: f"{p['name']} ({p['team']}) is averaging {v} yards per carry")
-
-
-@stat("nfl_td_rate")
-def _():
-    r = leaders(nfl_players(), lambda p: g(p, PTD) / g(p, PA) if g(p, PA) else None, lambda p: g(p, PA) >= 60)
-    return player_fact("nfl", r, "Touchdown rate", "Share of pass attempts that went for a TD, minimum 60 throws", "of throws are TDs",
-                       lambda v: f"{v:.1%}", lambda p, v: f"{v} of {p['name']}'s throws have been touchdowns ({p['team']})")
-
-
-@stat("nfl_int_thrown")
-def _():
-    r = leaders(nfl_players(), lambda p: g(p, INT), lambda p: p["pos"] == "QB")
-    return player_fact("nfl", r, "Gift wrapped", "Most interceptions thrown this season", "INTs thrown", n0,
-                       lambda p, v: f"{p['name']} ({p['team']}) has thrown {v} interceptions, the most in the NFL")
-
-
-@stat("nfl_td_per_touch")
-def _():
-    touches = lambda p: g(p, RA) + g(p, REC)
-    r = leaders(nfl_players(), lambda p: touches(p) / (g(p, RTD) + g(p, RECTD)) if g(p, RTD) + g(p, RECTD) else None,
-                lambda p: p["pos"] != "QB" and touches(p) >= 15, low=True)
-    return player_fact("nfl", r, "Touches per TD", "Fewest touches per touchdown, minimum 15 touches (non-QBs)", "touches per TD", n1,
-                       lambda p, v: f"{p['name']} ({p['team']}) scores once every {v} touches")
-
-
-@stat("nfl_te_touchdowns")
-def _():
-    r = leaders(nfl_players(), lambda p: g(p, RECTD), lambda p: p["pos"] == "TE")
-    return player_fact("nfl", r, "Tight end TDs", "Tight ends, by receiving touchdowns", "rec TDs", n0,
-                       lambda p, v: f"{p['name']} ({p['team']}) leads all tight ends with {v} receiving touchdowns")
-
-
-@stat("nfl_completion_pct")
-def _():
-    r = leaders(nfl_players(), lambda p: g(p, CMP) / g(p, PA) if g(p, PA) else None, lambda p: g(p, PA) >= 60)
-    return player_fact("nfl", r, "Completion %", "NFL leaders, minimum 60 throws", "completion %", lambda v: f"{v:.1%}",
-                       lambda p, v: f"{p['name']} ({p['team']}) is completing {v} of his passes")
-
-
-@stat("nfl_targets_no_td")
-def _():
-    r = leaders(nfl_players(), lambda p: g(p, TGT), lambda p: p["pos"] != "QB" and not g(p, RECTD) and not g(p, RTD))
-    return player_fact("nfl", r, "Still waiting", "Most targets without a single touchdown", "targets, 0 TDs", n0,
-                       lambda p, v: f"{p['name']} ({p['team']}) has been targeted {v} times and still has no touchdown")
-
-
-@stat("nfl_yards_per_target")
-def _():
-    r = leaders(nfl_players(), lambda p: g(p, RECY) / g(p, TGT) if g(p, TGT) else None, lambda p: g(p, TGT) >= 20)
-    return player_fact("nfl", r, "Yards per target", "Receiving yards every time he's thrown to, minimum 20 targets", "yds per target", n1,
-                       lambda p, v: f"Throw it to {p['name']} ({p['team']}) and you get {v} yards on average")
-
-
-# College players ------------------------------------------------------
-@stat("cfb_qb_rush")
-def _():
-    r = leaders(cfb_players(), lambda p: g(p, "ry"), lambda p: p["pos"] == "QB")
-    return player_fact("cfb", r, "QB rushing yards", "FBS quarterbacks, by rushing yards this season", "rush yds", n0,
-                       lambda p, v: f"{p['name']} ({p['team']}) has {v} rushing yards, the most of any FBS quarterback")
-
-
-@stat("cfb_yards_per_catch")
-def _():
-    r = leaders(cfb_players(), lambda p: g(p, "recy") / g(p, "rec") if g(p, "rec") else None, lambda p: g(p, "rec") >= 12)
-    return player_fact("cfb", r, "Yards per catch", "FBS leaders, minimum 12 catches", "yds per catch", n1,
-                       lambda p, v: f"{p['name']} ({p['team']}) is averaging {v} yards per catch")
-
-
-@stat("cfb_rb_receiving")
-def _():
-    r = leaders(cfb_players(), lambda p: g(p, "recy"), lambda p: p["pos"] == "RB")
-    return player_fact("cfb", r, "RB receiving yards", "FBS running backs, by receiving yards", "rec yds", n0,
-                       lambda p, v: f"{p['name']} ({p['team']}) has {v} receiving yards, the most of any FBS running back")
-
-
-@stat("cfb_pass_td_pace")
-def _():
-    r = leaders(cfb_players(), lambda p: p["ptd"], lambda p: p["pos"] == "QB")
-    return player_fact("cfb", r, "Passing TD pace", "Season pace: TDs so far plus our projection for every game left", "pass TD pace", n0,
-                       lambda p, v: f"{p['name']} ({p['team']}) is on pace for {v} touchdown passes this season")
-
-
-@stat("cfb_td_per_catch")
-def _():
-    r = leaders(cfb_players(), lambda p: g(p, "rectd") / g(p, "rec") if g(p, "rec") else None, lambda p: g(p, "rec") >= 10)
-    return player_fact("cfb", r, "TD every few catches", "Share of catches that went for a TD, minimum 10 catches", "of catches are TDs", pct,
-                       lambda p, v: f"{v} of {p['name']}'s catches have been touchdowns ({p['team']})")
-
-
-@stat("cfb_wr_rushing")
-def _():
-    r = leaders(cfb_players(), lambda p: g(p, "ry"), lambda p: p["pos"] in ("WR", "TE"))
-    return player_fact("cfb", r, "Receivers who run", "FBS wide receivers and tight ends, by rushing yards", "rush yds", n0,
-                       lambda p, v: f"{p['name']} ({p['team']}) has {v} rushing yards, the most of any FBS receiver")
-
-
-# Teams ------------------------------------------------------------------
-def team_fact(league, rows, title, sub, unit, fmt, says):
+    ts, by, wk = teams("cfb")
+    rows = []
+    for t in ts:
+        if t["losses"] or t["wins"] < 3 or not (t["power_rank"] <= 25 or t.get("ap_rank")):
+            continue
+        w, l, fcs, n = opp_record(t, by, "beaten")
+        rows.append((t, pct(w, l) if w + l else 0, f"{rec(w, l)}" + (f" +{fcs} FCS" if fcs else "")))
+    rows.sort(key=lambda r: r[1])
     if len(rows) < 3:
         return None
-    (t, v) = rows[0]
-    nxt = ", ".join(f"{short(q['team'], league)} {fmt(w)}" for q, w in rows[1:3])
-    return {"league": league, "title": title, "sub": sub, "unit": unit, "rows": rows, "fmt": fmt, "kind": "team",
-            "text": f"Obscure stat: {says(t, fmt(v))}. Next up: {nxt}."}
-
-
-def upcoming(t):
-    return [s for s in t["schedule"] if s.get("upcoming") and s.get("opp_rating") is not None]
-
-
-def played(t):
-    return [s for s in t["schedule"] if s.get("result")]
-
-
-def margin(s):
-    try:
-        a, b = (int(x) for x in s["score"].split("-"))
-        return a - b if s["result"] == "W" else -abs(a - b) if s["result"] == "L" else 0
-    except Exception:
-        return None
-
-
-@stat("cfb_luckiest")
-def _():
-    cur, _, _ = latest("cfb")
-    r = leaders(ranked(cur), lambda t: t.get("luck_wins"), lambda t: t["wins"] + t["losses"] >= 3)
-    return team_fact("cfb", r, "Living right", "Wins above what their play deserved (close games, turnovers)", "lucky wins", lambda v: f"+{v:.1f}",
-                     lambda t, v: f"{t['team']} ({t['record']}) has {v.lstrip('+')} more wins than their play has earned, the luckiest in FBS")
-
-
-@stat("nfl_unluckiest")
-def _():
-    cur, _, _ = latest("nfl")
-    r = leaders(ranked(cur), lambda t: t.get("luck_wins"), lambda t: t["wins"] + t["losses"] >= 2, low=True)
-    return team_fact("nfl", r, "Snakebit", "Fewer wins than their play deserves (close losses, bad bounces)", "wins lost to luck", n1,
-                     lambda t, v: f"The {t['team']} ({t['record']}) are {v.lstrip('-')} wins below what their play deserves, the unluckiest in the NFL")
-
-
-@stat("cfb_ap_overrated")
-def _():
-    cur, _, _ = latest("cfb")
-    r = leaders(ranked(cur), lambda t: t["power_rank"] - t["ap_rank"] if t.get("ap_rank") else None)
-    return team_fact("cfb", r, "The AP loves them", "AP Top 25 teams we rank furthest below their poll spot", "spots below AP", n0,
-                     lambda t, v: f"{t['team']} is #{t['ap_rank']} in the AP poll but #{t['power_rank']} in ours, {v} spots apart")
-
-
-@stat("cfb_hardest_left")
-def _():
-    cur, _, _ = latest("cfb")
-    avg = lambda t: sum(s["opp_rating"] for s in upcoming(t)) / len(upcoming(t)) if upcoming(t) else None
-    r = leaders(ranked(cur)[:25], avg)
-    return team_fact("cfb", r, "Gauntlet ahead", "Our top 25, by average strength of the opponents left", "avg opponent rating", lambda v: f"{v:+.1f}",
-                     lambda t, v: f"Of our top 25, #{t['power_rank']} {t['team']} has the toughest road left ({len(upcoming(t))} games to go)")
-
-
-@stat("nfl_easiest_left")
-def _():
-    cur, _, _ = latest("nfl")
-    avg = lambda t: sum(s["opp_rating"] for s in upcoming(t)) / len(upcoming(t)) if upcoming(t) else None
-    r = leaders(ranked(cur), avg, low=True)
-    return team_fact("nfl", r, "Cupcakes ahead", "NFL teams by average strength of the opponents left", "avg opponent rating", lambda v: f"{v:+.1f}",
-                     lambda t, v: f"The {t['team']} have the softest schedule left in the NFL ({len(upcoming(t))} games to go)")
-
-
-@stat("nfl_one_score")
-def _():
-    cur, _, _ = latest("nfl")
-    n = lambda t: sum(int(x) for x in t.get("one_score", "0-0").split("-"))
-    r = leaders(ranked(cur), lambda t: n(t) or None)
-    return team_fact("nfl", r, "Heart attack club", "Most games decided by 8 points or fewer", "one-score games", n0,
-                     lambda t, v: f"The {t['team']} have played {v} one-score games already ({t['one_score']} in them)")
-
-
-@stat("cfb_biggest_win")
-def _():
-    cur, _, _ = latest("cfb")
-    best = lambda t: max((m for s in played(t) if not s.get("fcs") and (m := margin(s)) is not None), default=None)
-    r = leaders(ranked(cur), best)
-    return team_fact("cfb", r, "Biggest beatdown", "Largest win over an FBS opponent this season", "point margin", lambda v: f"+{v:.0f}",
-                     lambda t, v: f"{t['team']}'s {v} win is the biggest by any FBS team over an FBS opponent this year")
-
-
-@stat("nfl_toughest_so_far")
-def _():
-    cur, _, _ = latest("nfl")
-    r = leaders(ranked(cur), lambda t: t["scores"].get("sos"))
-    return team_fact("nfl", r, "Survived the gauntlet", "Toughest schedule so far (our schedule score, 0-100)", "schedule score", n0,
-                     lambda t, v: f"The {t['team']} ({t['record']}) have played the NFL's toughest schedule so far")
-
-
-# Hot takes -------------------------------------------------------------
-# Same data, but each one makes a debatable point and ends with a question to get people replying.
-# Rule: arguments about teams and players on the field only. No betting angles, nothing personal.
-def hot(league, rows, title, sub, unit, fmt, says, kind="team"):
-    if len(rows) < 3:
-        return None
-    t, v = rows[0]
-    return {"league": league, "title": title, "sub": sub, "unit": unit, "rows": rows, "fmt": fmt, "kind": kind,
-            "kicker": "Hot take", "text": "Hot take: " + says(t, fmt(v))}
-
-
-def best_win(t):
-    wins = [s for s in played(t) if s["result"] == "W" and s.get("opp_rank") and not s.get("fcs")]
-    return min(wins, key=lambda s: s["opp_rank"]) if wins else None
+    t, _, s = rows[0]
+    cups = sum(1 for x in t["schedule"] if x.get("result") and (x.get("cupcake") or x.get("fcs")))
+    return fact("cfb", "team", rows[:5], "Perfect on paper", "Unbeaten ranked teams, by the combined record of the teams they've beaten",
+                "combined record of teams they've beaten",
+                f"{(f'AP #' + str(t['ap_rank']) + ' ') if t.get('ap_rank') else ''}{t['team']} is {t['record']}. The teams it has beaten are a combined {s}"
+                + (f", and {cups} of the wins came against cupcakes" if cups else "") + ".",
+                "Does a perfect record mean anything without a real test?", hot=True)
 
 
 @stat("hot_cfb_beaten_nobody")
 def _():
-    cur, _, _ = latest("cfb")
-    r = leaders(ranked(cur), lambda t: best_win(t)["opp_rank"] if best_win(t) else 200, lambda t: t.get("ap_rank"))
+    ts, by, wk = teams("cfb")
+    rows = []
+    for t in ts:
+        if not t.get("ap_rank") or not t["wins"]:
+            continue
+        w, l, fcs, n = opp_record(t, by, "beaten")
+        rows.append((t, pct(w, l) if w + l else 0, rec(w, l) + (f" +{fcs} FCS" if fcs else "")))
+    rows.sort(key=lambda r: r[1])
+    if len(rows) < 3:
+        return None
+    t, _, s = rows[0]
+    return fact("cfb", "team", rows[:5], "Who have they beaten?", "AP Top 25 teams, by the combined record of the teams they've beaten",
+                "combined record of teams they've beaten",
+                f"AP #{t['ap_rank']} {t['team']} is {t['record']}. The teams it has beaten are a combined {s}.",
+                "Contender, or a résumé made of cupcakes?", hot=True)
 
-    def says(t, v):
-        b = best_win(t)
-        win = f"its best win is over #{b['opp_rank']} {b['opp']} in our rankings" if b else "it hasn't beaten a single FBS team"
-        return f"AP #{t['ap_rank']} {t['team']} is {t['record']}, and {win}. Contender, or a résumé made of cupcakes?"
-    return hot("cfb", r, "Beaten nobody?", "AP-ranked teams whose best win is the weakest (our rank of that opponent)", "our rank of best win",
-               lambda v: f"#{v:.0f}" if v < 200 else "none", says)
+
+@stat("hot_nfl_paper_record")
+def _():
+    ts, by, wk = teams("nfl")
+    rows = []
+    for t in ts:
+        if t["wins"] <= t["losses"]:
+            continue
+        w, l, _, n = opp_record(t, by, "beaten")
+        rows.append((t, pct(w, l) or 0, rec(w, l)))
+    rows.sort(key=lambda r: r[1])
+    if len(rows) < 3:
+        return None
+    t, _, s = rows[0]
+    return fact("nfl", "team", rows[:5], "Built on cupcakes?", "Winning NFL teams, by the combined record of the teams they've beaten",
+                "combined record of teams they've beaten",
+                f"The {t['team']} are {t['record']}. The teams they've beaten are a combined {s}.",
+                "Real contender, or a soft schedule?", hot=True)
+
+
+def schedule_left(league, top, hardest):
+    ts, by, wk = teams(league)
+    rows = []
+    for t in ts[:top]:
+        w, l, fcs, n = opp_record(t, by, "left")
+        if n >= 3 and w + l:
+            rows.append((t, pct(w, l), rec(w, l) + (f" +{fcs} FCS" if fcs else "")))
+    rows.sort(key=lambda r: -r[1] if hardest else r[1])
+    return rows[:5]
+
+
+@stat("cfb_toughest_left")
+def _():
+    r = schedule_left("cfb", 25, True)
+    if len(r) < 3:
+        return None
+    t, _, s = r[0]
+    return fact("cfb", "team", r, "The gauntlet ahead", "Our top 25, by the combined record of the opponents still on their schedule",
+                "combined record of opponents left",
+                f"No team in our top 25 has a tougher road left than #{t['power_rank']} {t['team']}: its remaining opponents are a combined {s}.",
+                "Who survives it?")
+
+
+@stat("cfb_easiest_left")
+def _():
+    r = schedule_left("cfb", 25, False)
+    if len(r) < 3:
+        return None
+    t, _, s = r[0]
+    return fact("cfb", "team", r, "Cruise control", "Our top 25, by the combined record of the opponents still on their schedule (easiest first)",
+                "combined record of opponents left",
+                f"#{t['power_rank']} {t['team']} has the easiest road left in our top 25: its remaining opponents are a combined {s}.",
+                "Should an easy path to the playoff count against them?", hot=True)
+
+
+@stat("nfl_toughest_left")
+def _():
+    r = schedule_left("nfl", 32, True)
+    if len(r) < 3:
+        return None
+    t, _, s = r[0]
+    return fact("nfl", "team", r, "Brutal road ahead", "NFL teams, by the combined record of the opponents still on their schedule",
+                "combined record of opponents left",
+                f"The {t['team']} ({t['record']}) have the NFL's toughest schedule left: their remaining opponents are a combined {s}.")
+
+
+@stat("nfl_easiest_left")
+def _():
+    r = schedule_left("nfl", 32, False)
+    if len(r) < 3:
+        return None
+    t, _, s = r[0]
+    return fact("nfl", "team", r, "Cupcakes ahead", "NFL teams, by the combined record of the opponents still on their schedule (easiest first)",
+                "combined record of opponents left",
+                f"The {t['team']} ({t['record']}) have the NFL's easiest schedule left: their remaining opponents are a combined {s}.",
+                "Playoff lock, or will they still find a way?", hot=True)
+
+
+@stat("hot_cfb_ap_overrated")
+def _():
+    ts, by, wk = teams("cfb")
+    r = sorted(((t, t["power_rank"] - t["ap_rank"], f"AP #{t['ap_rank']} · us #{t['power_rank']}") for t in ts if t.get("ap_rank")),
+               key=lambda x: -x[1])[:5]
+    if len(r) < 3:
+        return None
+    t = r[0][0]
+    return fact("cfb", "team", r, "The AP loves them. We don't.", "AP Top 25 teams we rank furthest below their poll spot",
+                "spots lower in our rankings",
+                f"{t['team']} ({t['record']}) is #{t['ap_rank']} in the AP poll. We have them #{t['power_rank']}.",
+                "Who's wrong, us or the voters?", hot=True)
 
 
 @stat("hot_cfb_ap_snub")
 def _():
-    cur, _, _ = latest("cfb")
-    r = leaders(ranked(cur)[:25], lambda t: (t["ap_rank"] or 40) - t["power_rank"])
-    return hot("cfb", r, "The AP is sleeping", "Our top 25, by how far the AP poll has them below our spot", "spots higher than AP", n0,
-               lambda t, v: f"We have {t['team']} ({t['record']}) at #{t['power_rank']}. The AP has them "
-                            + (f"at #{t['ap_rank']}." if t.get("ap_rank") else "unranked.") + " Who's wrong, us or the voters?")
-
-
-@stat("hot_cfb_paper_unbeaten")
-def _():
-    cur, _, _ = latest("cfb")
-    cups = lambda t: sum(1 for s in played(t) if s.get("cupcake") or s.get("fcs"))
-    r = leaders(ranked(cur), lambda t: t["scores"]["cupcake"], lambda t: t["losses"] == 0 and t["wins"] >= 3)
-    return hot("cfb", r, "Paper perfect?", "Unbeaten teams, by Cupcake score (0-100, higher = more padding)", "cupcake score", n0,
-               lambda t, v: f"{t['team']} is {t['record']}, but {cups(t)} of those wins came against cupcakes, the most padded "
-                            "unbeaten in FBS. Does a perfect record mean anything without a real test?")
+    ts, by, wk = teams("cfb")
+    r = sorted(((t, (t.get("ap_rank") or 40) - t["power_rank"], f"us #{t['power_rank']} · AP " + (f"#{t['ap_rank']}" if t.get("ap_rank") else "unranked"))
+                for t in ts[:25]), key=lambda x: -x[1])[:5]
+    if len(r) < 3:
+        return None
+    t = r[0][0]
+    return fact("cfb", "team", r, "The voters are sleeping", "Our top 25, by how far the AP poll has them below our spot",
+                "spots higher in our rankings",
+                f"We have {t['team']} ({t['record']}) at #{t['power_rank']}. The AP has them "
+                + (f"at #{t['ap_rank']}." if t.get("ap_rank") else "unranked."),
+                "Who's wrong, us or the voters?", hot=True)
 
 
 @stat("hot_nfl_record_lies")
 def _():
-    cur, _, _ = latest("nfl")
-    teams = ranked(cur)
-    by_rec = {t["team"]: i + 1 for i, t in enumerate(sorted(teams, key=lambda t: (-(t["wins"] - t["losses"]), t["power_rank"])))}
-    r = leaders(teams, lambda t: t["power_rank"] - by_rec[t["team"]], lambda t: t["wins"] > t["losses"])
-    return hot("nfl", r, "Record or reality?", "Winning teams our model ranks furthest below their record", "spots below record", n0,
-               lambda t, v: f"The {t['team']} are {t['record']}, but by how they actually play we have them #{t['power_rank']}. "
-                            "Is the record lying, or is our model?")
+    ts, by, wk = teams("nfl")
+    order = {t["team"]: i + 1 for i, t in enumerate(sorted(ts, key=lambda t: (-(t["wins"] - t["losses"]), t["power_rank"])))}
+    r = sorted(((t, t["power_rank"] - order[t["team"]], f"{t['record']} · us #{t['power_rank']}") for t in ts if t["wins"] > t["losses"]),
+               key=lambda x: -x[1])[:5]
+    if len(r) < 3:
+        return None
+    t = r[0][0]
+    return fact("nfl", "team", r, "Don't trust the record", "Winning teams our rankings put furthest below their record",
+                "spots below their record",
+                f"The {t['team']} are {t['record']}, but by how they actually play we rank them #{t['power_rank']}.",
+                "Is the record lying, or are we?", hot=True)
 
 
 @stat("hot_nfl_better_than_record")
 def _():
-    cur, _, _ = latest("nfl")
-    r = leaders(ranked(cur), lambda t: -t["power_rank"], lambda t: t["losses"] >= t["wins"] and t["wins"] + t["losses"] >= 2)
-    return hot("nfl", r, "Better than the record", "Teams at .500 or worse, by our power ranking", "our rank",
-               lambda v: f"#{-v:.0f}", lambda t, v: f"The {t['team']} are {t['record']}, yet they're {v} in our rankings by how they "
-                                                    "actually play. Sleeping giant, or a bad team with good stats?")
+    ts, by, wk = teams("nfl")
+    r = [(t, -t["power_rank"], f"{t['record']} · us #{t['power_rank']}") for t in ts if t["losses"] >= t["wins"] and t["wins"] + t["losses"] >= 2][:5]
+    if len(r) < 3:
+        return None
+    t = r[0][0]
+    return fact("nfl", "team", r, "Better than the record", "Teams at .500 or worse, by our power ranking", "in our rankings",
+                f"The {t['team']} are {t['record']}, yet by how they actually play we rank them #{t['power_rank']}.",
+                "Sleeping giant, or a bad team with good stats?", hot=True)
 
 
-@stat("hot_nfl_lucky_record")
+@stat("hot_nfl_close_calls")
 def _():
-    cur, _, _ = latest("nfl")
-    r = leaders(ranked(cur), lambda t: t.get("luck_wins"), lambda t: t["wins"] > t["losses"])
-    return hot("nfl", r, "Living on luck", "Winning teams, by wins above what their play deserves", "lucky wins", lambda v: f"+{v:.1f}",
-               lambda t, v: f"The {t['team']} are {t['record']}, but by our math {v.lstrip('+')} of those wins came from close-game luck. "
-                            "Clutch, or living on borrowed time?")
+    ts, by, wk = teams("nfl")
+    rows = []
+    for t in ts:
+        ow, ol = (int(x) for x in t.get("one_score", "0-0").split("-"))
+        if t["wins"] > t["losses"] and ow:
+            rows.append((t, ow / t["wins"] + ow * 0.01, ("both wins" if ow == t["wins"] == 2 else f"all {ow} wins" if ow == t["wins"] else f"{ow} of {t['wins']} wins")))
+    rows.sort(key=lambda r: -r[1])
+    if len(rows) < 3:
+        return None
+    t, _, s = rows[0]
+    return fact("nfl", "team", rows[:5], "Living on the edge", "Winning teams, by how many of their wins came by 8 points or fewer",
+                "wins by one score", f"The {t['team']} are {t['record']}, and {s} came by one score.", "Clutch, or lucky?", hot=True)
+
+
+@stat("nfl_one_score_games")
+def _():
+    ts, by, wk = teams("nfl")
+    rows = []
+    for t in ts:
+        ow, ol = (int(x) for x in t.get("one_score", "0-0").split("-"))
+        if ow + ol:
+            rows.append((t, ow + ol + 0.01 * ow, f"{ow + ol} ({ow}-{ol})"))
+    rows.sort(key=lambda r: -r[1])
+    if len(rows) < 3:
+        return None
+    t, _, s = rows[0]
+    return fact("nfl", "team", rows[:5], "Heart attack football", "Most games decided by 8 points or fewer (record in them)",
+                "one-score games", f"The {t['team']} have played {s.split(' ')[0]} one-score games already and are {s.split(' ')[1].strip('()')} in them.")
+
+
+@stat("cfb_biggest_blowout")
+def _():
+    ts, by, wk = teams("cfb")
+
+    def best(t):
+        out = None
+        for s in t["schedule"]:
+            if s.get("result") == "W" and not s.get("fcs"):
+                a, b = (int(x) for x in s["score"].split("-"))
+                if out is None or a - b > out[0]:
+                    out = (a - b, s)
+        return out
+    rows = [(t, b[0], f"+{b[0]} vs {b[1]['opp']}") for t in ts if (b := best(t))]
+    rows.sort(key=lambda r: -r[1])
+    if len(rows) < 3:
+        return None
+    t, m, s = rows[0]
+    game = best(t)[1]
+    return fact("cfb", "team", rows[:5], "Biggest beatdown", "Largest win over an FBS opponent this season", "point margin",
+                f"{t['team']} beat {game['opp']} {game['score']}, the biggest win by any FBS team over an FBS opponent this year.")
+
+
+# --- betting hot takes (Terry OK'd these for X: books' lines vs our model, clearly "for fun") -----
+# predictions in the rankings file: spread / vegas = expected HOME margin (+ = home favored), from us / the books.
+def upcoming_lines(league):
+    cur, _, _ = latest(league)
+    ts, by, wk = teams(league)
+    return [p for p in cur.get("predictions", []) if "actual" not in p and p.get("vegas") is not None
+            and p["home"] in by and p["away"] in by], by
+
+
+def side_line(p, home):
+    """The books' point spread for one side, written the usual way (-7 = favored by 7)."""
+    return -p["vegas"] if home else p["vegas"]
+
+
+def fav_text(team_name, margin, league):
+    return f"{short(team_name, league)} by {abs(margin):.1f}" if abs(margin) >= 0.5 else "a coin flip"
+
+
+def vs_vegas(league):
+    games, by = upcoming_lines(league)
+    rows = []
+    for p in sorted(games, key=lambda p: -abs(p["spread"] - p["vegas"])):
+        home = p["spread"] > p["vegas"]  # we like the home side more than the books do
+        pick = p["home"] if home else p["away"]
+        ln = side_line(p, home)
+        ours = -p["spread"] if home else p["spread"]
+        rows.append((by[pick], abs(p["spread"] - p["vegas"]), f"{ln:+g} · us {ours:+.1f}", p))
+    if len(rows) < 3:
+        return None
+    t, _, s, p = rows[0]
+    s = f"{short(t['team'], league)} {side_line(p, t['team'] == p['home']):+g}"
+    books_fav = p["home"] if p["vegas"] > 0 else p["away"]
+    ours = fav_text(p["home"] if p["spread"] > 0 else p["away"], p["spread"], league)
+    when = f"Week {p['week']}"
+    return fact(league, "team", [r[:3] for r in rows[:5]], "We'd take the points" if side_line(p, t["team"] == p["home"]) > 0 else "Lay the points",
+                f"{when}: the games where our model and the books disagree most (for fun, not betting advice)", "books' line · our model's line",
+                f"{when}: we like {s}. The books have {short(books_fav, league)} by {abs(p['vegas']):g}; our model has it {ours}.",
+                "Who's taking the other side? (For fun, not betting advice.)", hot=True) | {"big": s, "big_unit": "the books' line (our model's line in the chart)"}
+
+
+def upset_alert(league):
+    games, by = upcoming_lines(league)
+    rows = []
+    for p in games:
+        if abs(p["vegas"]) < 1:
+            continue
+        dog_home = p["vegas"] < 0
+        dog = p["home"] if dog_home else p["away"]
+        ch = p["home_win_prob"] if dog_home else 1 - p["home_win_prob"]
+        rows.append((by[dog], ch, f"+{abs(p['vegas']):g} · {R.chance(ch)}", p))
+    rows.sort(key=lambda r: -r[1])
+    if len(rows) < 3 or rows[0][1] < 0.4:
+        return None
+    t, ch, s, p = rows[0]
+    fav = p["away"] if t["team"] == p["home"] else p["home"]
+    return fact(league, "team", [r[:3] for r in rows[:5]], "Upset alert", f"Week {p['week']}: books' underdogs our model likes most (line · our win chance)",
+                "underdog · our win chance",
+                f"The books have {short(t['team'], league)} as a {abs(p['vegas']):g}-point underdog against "
+                f"{short(fav, league)}. Our model gives them a {R.chance(ch)} chance to win.",
+                "Who's riding with the underdog? (For fun, not betting advice.)", hot=True) | {
+        "big": R.chance(ch), "big_unit": f"our win chance as a {abs(p['vegas']):g}-point underdog"}
+
+
+@stat("hot_nfl_vs_vegas")
+def _():
+    return vs_vegas("nfl")
+
+
+@stat("hot_cfb_vs_vegas")
+def _():
+    return vs_vegas("cfb")
+
+
+@stat("hot_nfl_upset_alert")
+def _():
+    return upset_alert("nfl")
+
+
+@stat("hot_cfb_upset_alert")
+def _():
+    return upset_alert("cfb")
+
+
+# --- players: traditional stats only ---------------------------------------------------
+@stat("nfl_qb_rush")
+def _():
+    r = player_rows(leaders(nfl_players(), lambda p: g(p, RY), lambda p: p["pos"] == "QB"), n0)
+    if len(r) < 3:
+        return None
+    p, v, s = r[0]
+    return fact("nfl", "player", r, "Quarterbacks who run", "Most rushing yards by an NFL quarterback this season", "rushing yards",
+                f"{p['name']} ({p['team']}) has {s} rushing yards, the most of any NFL quarterback. Next: {nxt(r)}.")
+
+
+@stat("nfl_rb_receiving")
+def _():
+    r = player_rows(leaders(nfl_players(), lambda p: g(p, RECY), lambda p: p["pos"] == "RB"), n0)
+    if len(r) < 3:
+        return None
+    p, v, s = r[0]
+    return fact("nfl", "player", r, "Running backs who catch", "Most receiving yards by an NFL running back this season", "receiving yards",
+                f"{p['name']} ({p['team']}) has {s} receiving yards, the most of any NFL running back. Next: {nxt(r)}.")
+
+
+@stat("nfl_interceptions")
+def _():
+    r = player_rows(leaders(nfl_players(), lambda p: g(p, INT), lambda p: p["pos"] == "QB"), n0)
+    if len(r) < 3:
+        return None
+    p, v, s = r[0]
+    return fact("nfl", "player", r, "Gift wrapped", "Most interceptions thrown this season", "interceptions",
+                f"{p['name']} ({p['team']}) has thrown {s} interceptions, the most in the NFL. Next: {nxt(r)}.")
+
+
+@stat("nfl_catches_no_td")
+def _():
+    r = player_rows(leaders(nfl_players(), lambda p: g(p, REC), lambda p: p["pos"] != "QB" and not g(p, RECTD) and not g(p, RTD)), n0)
+    if len(r) < 3:
+        return None
+    p, v, s = r[0]
+    return fact("nfl", "player", r, "Still looking for six", "Most catches without a single touchdown this season", "catches, 0 TDs",
+                f"{p['name']} ({p['team']}) has {s} catches and still no touchdown. Next: {nxt(r)}.")
+
+
+@stat("nfl_yards_per_carry")
+def _():
+    r = player_rows(leaders(nfl_players(), lambda p: g(p, RY) / g(p, RA) if g(p, RA) else None, lambda p: g(p, RA) >= 30), n1)
+    if len(r) < 3:
+        return None
+    p, v, s = r[0]
+    return fact("nfl", "player", r, "Yards per carry", "NFL leaders, minimum 30 carries", "yards per carry",
+                f"{p['name']} ({p['team']}) is averaging {s} yards a carry, best in the NFL (30+ carries). Next: {nxt(r)}.")
+
+
+@stat("nfl_yards_per_catch")
+def _():
+    r = player_rows(leaders(nfl_players(), lambda p: g(p, RECY) / g(p, REC) if g(p, REC) else None, lambda p: g(p, REC) >= 10), n1)
+    if len(r) < 3:
+        return None
+    p, v, s = r[0]
+    return fact("nfl", "player", r, "Big-play machine", "Yards per catch, minimum 10 catches", "yards per catch",
+                f"{p['name']} ({p['team']}) is averaging {s} yards every time he catches the ball. Next: {nxt(r)}.")
+
+
+@stat("nfl_completion_pct")
+def _():
+    r = player_rows(leaders(nfl_players(), lambda p: g(p, CMP) / g(p, PA) if g(p, PA) else None, lambda p: g(p, PA) >= 60),
+                    lambda v: f"{v:.1%}")
+    if len(r) < 3:
+        return None
+    p, v, s = r[0]
+    return fact("nfl", "player", r, "Most accurate", "Completion percentage, minimum 60 throws", "completion %",
+                f"{p['name']} ({p['team']}) is completing {s} of his passes, best in the NFL. Next: {nxt(r)}.")
+
+
+@stat("nfl_te_touchdowns")
+def _():
+    r = player_rows(leaders(nfl_players(), lambda p: g(p, RECTD), lambda p: p["pos"] == "TE"), n0)
+    if len(r) < 3:
+        return None
+    p, v, s = r[0]
+    return fact("nfl", "player", r, "Tight end touchdowns", "Most receiving touchdowns by a tight end", "touchdowns",
+                f"{p['name']} ({p['team']}) leads all tight ends with {s} receiving touchdowns. Next: {nxt(r)}.")
 
 
 @stat("hot_nfl_empty_yards")
 def _():
-    r = leaders(nfl_players(), lambda p: g(p, PY) / g(p, PTD) if g(p, PTD) else g(p, PY), lambda p: g(p, PA) >= 80)
-    return hot("nfl", r, "Empty yards?", "Passing yards per touchdown pass, minimum 80 throws", "yds per TD pass", n0,
-               lambda p, v: f"{p['name']} ({p['team']}) has {g(p, PY):,.0f} passing yards but just {g(p, PTD):.0f} TD pass{'' if g(p, PTD) == 1 else 'es'}, "
-                            f"one every {v} yards. Stat-sheet QB, or bad luck in the red zone?", kind="player")
+    r = leaders(nfl_players(), lambda p: g(p, PY) / max(1, g(p, PTD)), lambda p: g(p, PA) >= 80)
+    r = [(p, v, f"{g(p, PY):,.0f} yds, {g(p, PTD):.0f} TD") for p, v in r]
+    if len(r) < 3:
+        return None
+    p, v, s = r[0]
+    td = g(p, PTD)
+    return fact("nfl", "player", r, "Empty yards?", "Fewest touchdown passes for the yards, minimum 80 throws", "passing yards per TD pass",
+                f"{p['name']} ({p['team']}) has {g(p, PY):,.0f} passing yards and only {td:.0f} touchdown pass{'' if td == 1 else 'es'}.",
+                "Stat-sheet QB, or bad luck in the red zone?", hot=True)
 
 
-@stat("hot_nfl_volume_merchant")
+@stat("cfb_qb_rush")
 def _():
-    r = leaders(nfl_players(), lambda p: g(p, RECY) / g(p, TGT) if g(p, TGT) else None, lambda p: g(p, TGT) >= 25, low=True)
-    return hot("nfl", r, "Volume or value?", "Fewest yards per target, minimum 25 targets", "yds per target", n1,
-               lambda p, v: f"{p['name']} ({p['team']}) has been thrown to {g(p, TGT):.0f} times and averages {v} yards a target, "
-                            "the least of anyone with 25+. Is he getting open, or just getting fed?", kind="player")
+    r = player_rows(leaders(cfb_players(), lambda p: g(p, "ry"), lambda p: p["pos"] == "QB"), n0)
+    if len(r) < 3:
+        return None
+    p, v, s = r[0]
+    return fact("cfb", "player", r, "Quarterbacks who run", "Most rushing yards by an FBS quarterback this season", "rushing yards",
+                f"{p['name']} ({p['team']}) has {s} rushing yards, the most of any FBS quarterback. Next: {nxt(r)}.")
+
+
+@stat("cfb_rb_receiving")
+def _():
+    r = player_rows(leaders(cfb_players(), lambda p: g(p, "recy"), lambda p: p["pos"] == "RB"), n0)
+    if len(r) < 3:
+        return None
+    p, v, s = r[0]
+    return fact("cfb", "player", r, "Running backs who catch", "Most receiving yards by an FBS running back this season", "receiving yards",
+                f"{p['name']} ({p['team']}) has {s} receiving yards, the most of any FBS running back. Next: {nxt(r)}.")
+
+
+@stat("cfb_pass_td_pace")
+def _():
+    r = player_rows(leaders(cfb_players(), lambda p: p["ptd"], lambda p: p["pos"] == "QB"), n0)
+    if len(r) < 3:
+        return None
+    p, v, s = r[0]
+    return fact("cfb", "player", r, "On pace for history?", "Touchdown passes so far, plus our projection for every game left", "TD pass pace",
+                f"{p['name']} ({p['team']}) is on pace for {s} touchdown passes this season. Next: {nxt(r)}.")
+
+
+@stat("cfb_yards_per_catch")
+def _():
+    r = player_rows(leaders(cfb_players(), lambda p: g(p, "recy") / g(p, "rec") if g(p, "rec") else None, lambda p: g(p, "rec") >= 12), n1)
+    if len(r) < 3:
+        return None
+    p, v, s = r[0]
+    return fact("cfb", "player", r, "Big-play machine", "Yards per catch, minimum 12 catches", "yards per catch",
+                f"{p['name']} ({p['team']}) is averaging {s} yards every time he catches the ball. Next: {nxt(r)}.")
 
 
 # ------------------------------------------------------------------ card
-def card(f):
-    font = R.font  # the theme's (set by use_theme)
-    img, d = canvas(f["league"], f.get("kicker", "Obscure stat"), f["title"], f["sub"])
-    (lead, v), rest = f["rows"][0], f["rows"][1:]
-    # left: big picture panel, outlined in the team color
-    px, py, ps = PAD, TOP + 10, 400
-    col = hex_rgb(lead.get("color", ""))
-    d.rectangle((px, py, px + ps, py + ps), fill=R.PANEL, outline=col + (255,), width=3)
-    pic = team_logo(lead.get("pic") or lead.get("logo"), ps - 40)
-    if pic is None and lead.get("logo"):
-        pic = team_logo(lead.get("logo"), ps - 80)
+def wrap(d, text, f, max_w, lines=2):
+    out, cur = [], ""
+    for w in text.split():
+        t = (cur + " " + w).strip()
+        if d.textlength(t, font=f) <= max_w or not cur:
+            cur = t
+        else:
+            out.append(cur)
+            cur = w
+    out.append(cur)
+    if len(out) > lines:
+        out = out[:lines]
+        out[-1] = R.fit(d, out[-1] + " …", f, max_w)
+    return out
+
+
+def mix(a, b, t):
+    return tuple(round(x + (y - x) * t) for x, y in zip(a, b))
+
+
+def card(f, theme):
+    T = {k: hex_rgb(v) for k, v in THEMES[theme].items() if isinstance(v, str) and v.startswith("#")}
+    F = lambda size, weight="Regular": font_for(theme, size, weight)
+    (lead, _, big), rest = f["rows"][0], f["rows"][1:]
+    team_col = hex_rgb(lead.get("color") or "", (90, 90, 96))
+    img = Image.new("RGBA", (W, H), T["bg"] + (255,))
+    d = ImageDraw.Draw(img)
+    for gx in range(12, W, 28):  # faint dot grid
+        for gy in range(12, H, 28):
+            d.point((gx, gy), fill=mix(T["bg"], T["ink"], 0.12))
+
+    # left: team-color panel with a slanted edge, big faded logo, the photo cut out on top (no frame)
+    PW, slant = 690, 120
+    grad = Image.new("RGBA", (PW, H))
+    gd = ImageDraw.Draw(grad)
+    for y in range(H):
+        gd.line((0, y, PW, y), fill=mix(mix(team_col, (0, 0, 0), 0.25), mix(team_col, T["bg"], 0.8), y / H) + (255,))
+    mask = Image.new("L", (PW, H), 0)
+    ImageDraw.Draw(mask).polygon([(0, 0), (PW, 0), (PW - slant, H), (0, H)], fill=255)
+    img.paste(grad, (0, 0), mask)
+    logo = image(lead.get("logo"))
+    pic = image(lead.get("pic")) if f["kind"] == "player" else None
+    if logo:
+        wm = logo.copy()
+        wm.thumbnail((520, 520), Image.LANCZOS)
+        if pic:  # watermark behind the player
+            a = wm.getchannel("A").point(lambda v: v * 0.22)
+            wm.putalpha(a)
+            img.alpha_composite(wm, ((PW - slant // 2 - wm.width) // 2, 70))
+        else:  # team stat: the logo IS the picture, with a soft shadow
+            big_logo = logo.copy()
+            big_logo.thumbnail((440, 440), Image.LANCZOS)
+            sh = Image.new("RGBA", big_logo.size, (0, 0, 0, 0))
+            sh.putalpha(big_logo.getchannel("A").point(lambda v: v * 0.55))
+            sh = sh.filter(ImageFilter.GaussianBlur(14))
+            x, y = (PW - slant // 2 - big_logo.width) // 2, (H - big_logo.height) // 2 + 20
+            img.alpha_composite(sh, (x + 10, y + 16))
+            img.alpha_composite(big_logo, (x, y))
     if pic:
-        img.alpha_composite(pic, (px + (ps - pic.width) // 2, py + ps - 6 - pic.height if lead.get("pic") else py + (ps - pic.height) // 2))
-    else:
-        chip(img, d, lead, px + 100, py + 100, ps - 200)
-    # right: name, the number, then the next four
-    x0 = px + ps + 56
+        scale = 640 / pic.height
+        pic = pic.resize((round(pic.width * scale), 640), Image.LANCZOS)
+        layer = Image.new("RGBA", (PW, H), (0, 0, 0, 0))  # clip the photo to the slanted panel
+        layer.alpha_composite(pic, (max(0, (PW - slant // 2 - pic.width) // 2), H - pic.height))
+        layer.putalpha(ImageChops.multiply(layer.getchannel("A"), mask))
+        img.alpha_composite(layer, (0, 0))
+    elif not logo:
+        d.rounded_rectangle((180, 260, 460, 540), 24, fill=team_col)
+
+    d.line([(PW, 0), (PW - slant, H)], fill=T["accent"], width=8)
+    # brand, top left over the panel
+    bf = F(26, "Bold")
+    d.text((48, 40), ">", font=bf, fill=T["accent"])
+    d.text((76, 40), "CUPCAKE", font=bf, fill=(255, 255, 255))
+    d.text((76 + d.textlength("CUPCAKE", font=bf), 40), "_INDEX", font=bf, fill=T["accent"])
+    d.text((48, 76), "cupcakeindex.com", font=F(18), fill=(225, 225, 225))
+
+    # right column
+    x0, xr = PW + 40, W - 64
+    tag_f = F(20, "Bold")
+    x = x0
+    for label, solid in ((f["league"].upper(), False), ("HOT TAKE" if f["hot"] else "BY THE NUMBERS", True)):
+        tw = d.textlength(label, font=tag_f)
+        if solid:
+            d.rectangle((x, 44, x + tw + 28, 80), fill=T["accent"])
+            d.text((x + 14, 49), label, font=tag_f, fill=T["bg"])
+        else:
+            d.rectangle((x, 44, x + tw + 28, 80), outline=T["accent"], width=2)
+            d.text((x + 14, 49), label, font=tag_f, fill=T["accent"])
+        x += tw + 40
+    y = 104
+    for line in wrap(d, f["title"], F(62, "ExtraBold"), xr - x0, 2):
+        d.text((x0, y), line, font=F(62, "ExtraBold"), fill=T["ink"])
+        y = max(y + 72, d.textbbox((x0, y), line, font=F(62, "ExtraBold"))[3] + 10)  # tall fonts (Oswald) need room
+    for line in wrap(d, f["sub"], F(22), xr - x0, 2):
+        d.text((x0, y + 4), line, font=F(22), fill=T["muted"])
+        y += 30
+    y += 26
     name = lead.get("name") or lead["team"]
-    d.text((x0, py), fit(d, name, font(48, "ExtraBold"), W - PAD - x0), font=font(48, "ExtraBold"), fill=R.INK)
-    meta = f"{lead.get('pos', '')} · {lead['team']}" if f["kind"] == "player" else f"#{lead.get('power_rank', '?')} in our rankings · {lead.get('record', '')}"
-    d.text((x0, py + 64), meta, font=font(24), fill=R.MUTED)
-    d.text((x0, py + 104), f["fmt"](v), font=font(120, "ExtraBold"), fill=R.ACCENT)
-    low = max(py + 236, d.textbbox((x0, py + 104), f["fmt"](v), font=font(120, "ExtraBold"))[3] + 14)  # tall fonts (Oswald) need room
-    d.text((x0, low), f["unit"].upper(), font=font(22, "Bold"), fill=R.MUTED)
-    y = max(py + 300, low + 50)
-    d.line((x0, y, W - PAD, y), fill=R.LINE)
-    for i, (p, w) in enumerate(rest[:4]):
-        cy = y + 22 + i * 36
+    meta = f"{lead.get('pos', '')} · {lead['team']}" if f["kind"] == "player" else \
+        (f"{lead['record']} · #{lead['power_rank']} in our rankings" + (f" · AP #{lead['ap_rank']}" if lead.get("ap_rank") else ""))
+    d.text((x0, y), R.fit(d, name, F(40, "ExtraBold"), xr - x0), font=F(40, "ExtraBold"), fill=T["ink"])
+    ny = d.textbbox((x0, y), R.fit(d, name, F(40, "ExtraBold"), xr - x0), font=F(40, "ExtraBold"))[3]
+    d.text((x0, max(y + 50, ny + 8)), meta, font=F(20), fill=T["muted"])
+    y = max(y + 86, ny + 44)
+    unit = f["unit"].upper()
+    if " +" in big and big.endswith("FCS"):  # "2-7 +2 FCS": big number 2-7, FCS games in the label
+        big, extra = big.split(" +", 1)
+        unit += f" (PLUS {extra})"
+    big = f.get("big") or big  # some stats show a different headline number than their bar label
+    unit = f.get("big_unit", "").upper() or unit
+    bigf = F(104 if len(big) <= 9 else 76, "ExtraBold")
+    d.text((x0, y), big, font=bigf, fill=T["accent"])
+    by = d.textbbox((x0, y), big, font=bigf)
+    d.text((x0, by[3] + 10), unit, font=F(18, "Bold"), fill=T["muted"])
+    y = by[3] + 48
+
+    # top 5 as bars (leader in the accent color)
+    rows = f["rows"][:5]
+    vals = [abs(v) for _, v, _ in rows]
+    vmax = max(vals) or 1
+    row_h = min(38, (H - (190 if f.get("question") else 110) - y) // max(1, len(rows)))
+    lab_w, val_w = 300, 210
+    for i, (p, v, s) in enumerate(rows):
+        cy = y + i * row_h + row_h // 2
         who = p.get("name") or short(p["team"], f["league"])
-        tag = p["team"] if f["kind"] == "player" else ""
-        d.text((x0, cy), f"{i + 2}.", font=font(22, "Bold"), fill=R.MUTED, anchor="lm")
-        d.text((x0 + 44, cy), fit(d, who + (f"  {tag}" if tag else ""), font(22, "Bold"), W - PAD - x0 - 220), font=font(22, "Bold"), fill=R.INK, anchor="lm")
-        d.text((W - PAD, cy), f["fmt"](w), font=font(22, "Bold"), fill=R.INK, anchor="rm")
+        if f["kind"] == "player":
+            who += f"  {p['team']}"
+        col = T["accent"] if i == 0 else mix(T["muted"], T["bg"], 0.35)
+        d.text((x0, cy), R.fit(d, who, F(19, "Bold"), lab_w - 10), font=F(19, "Bold"), fill=T["ink"] if i == 0 else T["muted"], anchor="lm")
+        bx0, bx1 = x0 + lab_w, xr - val_w
+        frac = abs(v) / vmax
+        d.rectangle((bx0, cy - 9, bx1, cy + 9), fill=mix(T["bg"], T["ink"], 0.08))
+        d.rectangle((bx0, cy - 9, bx0 + max(6, int((bx1 - bx0) * min(1, frac))), cy + 9), fill=col)
+        d.text((xr, cy), R.fit(d, s, F(19, "Bold"), val_w - 14), font=F(19, "Bold"), fill=T["ink"] if i == 0 else T["muted"], anchor="rm")
+
+    # hot takes: the question, as a callout at the bottom
+    if f.get("question"):
+        qf = F(26, "Bold")
+        lines = wrap(d, f["question"], qf, xr - x0 - 36, 2)
+        top = H - 56 - 36 * len(lines)
+        d.rectangle((x0, top - 6, x0 + 8, H - 50), fill=T["accent"])
+        for i, line in enumerate(lines):
+            d.text((x0 + 26, top + i * 36), line, font=qf, fill=T["ink"])
+    else:
+        d.text((xr, H - 60), "> " + R.MOTTO.lower(), font=F(18), fill=T["muted"], anchor="rm")
     return img
 
 
+# ------------------------------------------------------------------ driver
 def make(key, out, theme=None):
     f = STATS[key]()
     if not f:
         return None
+    theme = theme or random.choice(list(THEMES))
     os.makedirs(out, exist_ok=True)
     png = os.path.join(out, f"obscure-{key}.png")
-    theme = theme or random.choice(list(THEMES))
-    use_theme(theme)
-    card(f).convert("RGB").save(png, optimize=True)
+    card(f, theme).convert("RGB").save(png, optimize=True)
     text = tweet(f["text"], "", with_link=False)  # never a link (Terry's rule)
     meta = {"day": "obscure", "stat": key, "theme": theme, "image": png, "text": text, "skip": False, "reason": ""}
     with open(os.path.join(out, f"obscure-{key}.json"), "w", encoding="utf-8") as fh:
@@ -522,9 +820,19 @@ def make(key, out, theme=None):
     return meta
 
 
+def rotation(now=None):
+    """Scheduled runs (twice a day): walk a fixed shuffled order of every stat, one per run, so nothing
+    repeats for ~2 weeks (X rejects exact duplicate posts). Afternoon run = even slot, evening = odd."""
+    now = now or dt.datetime.now(dt.timezone.utc)
+    order = sorted(STATS)
+    random.Random(now.year).shuffle(order)
+    slot = now.timetuple().tm_yday * 2 + (now.hour >= 20)
+    return [order[(slot + i) % len(order)] for i in range(len(order))]  # next one first, the rest as fallbacks
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--stat", default="random", help="stat key, or random / random-hot / random-obscure")
+    ap.add_argument("--stat", default="rotate", help="stat key, or rotate (default) / random / random-hot / random-stat")
     ap.add_argument("--theme", choices=["random", *THEMES], default="random", help="card look (site themes)")
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--all", action="store_true", help="render every stat")
@@ -534,15 +842,23 @@ def main():
         print("\n".join(STATS))
         return
     pools = {"random": list(STATS), "random-hot": [k for k in STATS if k.startswith("hot_")],
-             "random-obscure": [k for k in STATS if not k.startswith("hot_")]}
-    if a.stat not in STATS and a.stat not in pools:
+             "random-stat": [k for k in STATS if not k.startswith("hot_")],
+             "random-obscure": [k for k in STATS if not k.startswith("hot_")]}  # old name for random-stat
+    if a.stat not in STATS and a.stat not in pools and a.stat != "rotate":
         sys.exit(f"Unknown stat '{a.stat}'. Run with --list to see them.")
-    keys = list(STATS) if a.all else random.sample(pools[a.stat], len(pools[a.stat])) if a.stat in pools else [a.stat]
+    if a.all:
+        keys = list(STATS)
+    elif a.stat == "rotate":
+        keys = rotation()
+    elif a.stat in pools:
+        keys = random.sample(pools[a.stat], len(pools[a.stat]))
+    else:
+        keys = [a.stat]
     m = None
     for key in keys:
         try:
             m = make(key, a.out, None if a.theme == "random" else a.theme)
-        except Exception as e:  # one broken data source shouldn't stop a random pick
+        except Exception as e:  # one broken data source shouldn't stop the post
             print(f"[{key}] failed: {e!r}")
             m = None
         if m:

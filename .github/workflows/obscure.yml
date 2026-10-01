@@ -1,56 +1,56 @@
 name: Obscure stat post
 
-# On demand only: Actions tab > "Obscure stat post" > Run workflow.
-# Picks a weird stat or a hot take (or the one you choose), renders the card with the player's
-# headshot / team logo, and posts it to X. No link in the post, 280 characters max.
+# Stat / hot-take posts for X. Runs twice a day on its own (1 PM and 7 PM Eastern, Aug-Jan), walking through
+# every stat in a fixed order so nothing repeats for about two weeks. You can also run it any time:
+# Actions tab > "Obscure stat post" > Run workflow, and pick a stat, a look, or untick "Post to X" to just make the picture.
+# No link in the post, 280 characters max. Betting hot takes say "for fun, not betting advice".
 # Posting follows the same switch as the daily posts: repo variable X_POSTING_ENABLED must be "true".
-# Untick "Post to X" to only make the picture (download it from the run's Artifacts).
 
 on:
+  schedule:
+    - cron: "0 17 * 8-12,1 *"   # 1 PM Eastern (noon in winter)
+    - cron: "0 23 * 8-12,1 *"   # 7 PM Eastern (6 PM in winter)
   workflow_dispatch:
     inputs:
       stat:
-        description: "Which stat (random = any of them)"
+        description: "Which stat (random = any; random-hot = hot takes only)"
         type: choice
         default: random
         options:
           - random
           - random-hot
-          - random-obscure
-          - hot_cfb_beaten_nobody
-          - hot_cfb_ap_snub
+          - random-stat
           - hot_cfb_paper_unbeaten
+          - hot_cfb_beaten_nobody
+          - hot_nfl_paper_record
+          - hot_cfb_ap_overrated
+          - hot_cfb_ap_snub
           - hot_nfl_record_lies
           - hot_nfl_better_than_record
-          - hot_nfl_lucky_record
+          - hot_nfl_close_calls
           - hot_nfl_empty_yards
-          - hot_nfl_volume_merchant
-          - nfl_yards_per_catch
+          - hot_nfl_vs_vegas
+          - hot_cfb_vs_vegas
+          - hot_nfl_upset_alert
+          - hot_cfb_upset_alert
+          - cfb_toughest_left
+          - cfb_easiest_left
+          - nfl_toughest_left
+          - nfl_easiest_left
+          - nfl_one_score_games
+          - cfb_biggest_blowout
           - nfl_qb_rush
           - nfl_rb_receiving
-          - nfl_catch_rate
+          - nfl_interceptions
+          - nfl_catches_no_td
           - nfl_yards_per_carry
-          - nfl_td_rate
-          - nfl_int_thrown
-          - nfl_td_per_touch
-          - nfl_te_touchdowns
+          - nfl_yards_per_catch
           - nfl_completion_pct
-          - nfl_targets_no_td
-          - nfl_yards_per_target
+          - nfl_te_touchdowns
           - cfb_qb_rush
-          - cfb_yards_per_catch
           - cfb_rb_receiving
           - cfb_pass_td_pace
-          - cfb_td_per_catch
-          - cfb_wr_rushing
-          - cfb_luckiest
-          - nfl_unluckiest
-          - cfb_ap_overrated
-          - cfb_hardest_left
-          - nfl_easiest_left
-          - nfl_one_score
-          - cfb_biggest_win
-          - nfl_toughest_so_far
+          - cfb_yards_per_catch
       theme:
         description: "Card look (a site theme; random = surprise me)"
         type: choice
@@ -78,14 +78,18 @@ jobs:
           python-version: "3.12"
       - run: pip install -r src/social/requirements.txt
       - name: Render the stat card
-        run: python src/social/obscure.py --stat "${{ inputs.stat }}" --theme "${{ inputs.theme }}"
+        env:
+          STAT: ${{ inputs.stat || 'rotate' }}
+          THEME: ${{ inputs.theme || 'random' }}
+        run: python src/social/obscure.py --stat "$STAT" --theme "$THEME"
       - uses: actions/upload-artifact@v4
         with:
           name: obscure-stat
           path: out/social/
           retention-days: 14
       - name: Post to X
-        if: inputs.post && vars.X_POSTING_ENABLED == 'true'   # post_to_x.py double-checks this and the secrets
+        # scheduled runs always post; manual runs post unless "Post to X" is unticked
+        if: (github.event_name == 'schedule' || inputs.post) && vars.X_POSTING_ENABLED == 'true'
         env:
           X_POSTING_ENABLED: ${{ vars.X_POSTING_ENABLED }}
           X_API_KEY: ${{ secrets.X_API_KEY }}
