@@ -571,7 +571,8 @@ const Live = (() => {
   };
   FR_KEYS.TE = FR_KEYS.WR;
   const FR_MIN_GAMES = 2, FR_MIN_PTS = 8, FR_CUT = 25; // games played, projected PPR pts/game (a real role), % off to be listed
-  let frState = { pos: "", over: false };
+  let frState = { pos: "", over: false, injured: false };
+  const FR_HURT = new Set(["OUT", "INJURY_RESERVE", "DOUBTFUL"]); // hidden unless "Include injured" is on
 
   async function frPlayers() {
     const now = new Date(), y = now.getMonth() < 8 ? now.getFullYear() - 1 : now.getFullYear(); // before September: last season
@@ -608,7 +609,8 @@ const Live = (() => {
         }
         return { label, act, exp, used, bad: worse ? act > exp : act < exp };
       });
-      if (wsum) list.push({ id: p.id, name: p.fullName, pos, team: p.proTeamId, n, cells, score: Math.round((100 * score) / wsum) });
+      if (wsum) list.push({ id: p.id, name: p.fullName, pos, team: p.proTeamId, n, cells, score: Math.round((100 * score) / wsum),
+        hurt: FR_HURT.has(p.injuryStatus), injStatus: p.injuryStatus });
     }
     cache.set(url, { t: Date.now(), data: { y, list } });
     return { y, list };
@@ -630,18 +632,23 @@ const Live = (() => {
     view("stats").innerHTML = stSubStats("frauds") + `<div class="card">
       <div class="sc-bar"><h2>${frState.over ? "Over-achievers" : "Frauds"} <small class="muted">${data.y}</small></h2>
         <div class="presets" id="fr-pos">${[["", "All"], ...Object.values(FR_POS).map((p) => [p, p])].map(([v, l]) => `<button data-pos="${v}" class="${v === frState.pos ? "on" : ""}">${l}</button>`).join("")}</div>
-        <div class="presets"><button id="fr-over" class="${frState.over ? "on" : ""}" title="Flip the list: players beating their projections">Show over-achievers</button></div></div>
+        <div class="presets"><button id="fr-over" class="${frState.over ? "on" : ""}" title="Flip the list: players beating their projections">Show over-achievers</button>
+          <button id="fr-inj" class="${frState.injured ? "on" : ""}" title="Players currently listed Out, IR or Doubtful are hidden unless this is on">Include injured</button></div></div>
       <p class="fr-how">Each week ESPN sets a projection for every player. <b>Fraud score</b> = how far below those projections they've played, on average, in the stats that matter for their position.</p>
       <div class="table-wrap"><table class="box" id="fr-table"><thead><tr><th class="num">#</th><th>Player</th><th>Team</th><th>Pos</th><th class="num" title="Games played">G</th>
         <th class="num" title="Weighted % below (or above) their weekly projections">${frState.over ? "Above" : "Fraud score"}</th><th colspan="4">Per game: actual / projected</th></tr></thead><tbody></tbody></table></div>
+      <p class="muted fr-inj-note" id="fr-inj-note"></p>
       <p class="note">Players with a real role (projected for ${FR_MIN_PTS}+ PPR fantasy points a game) and ${FR_MIN_GAMES}+ games. Stats per position: QB pass yards (40%), pass TDs (30%), interceptions (15%, more is worse), rush yards (15%); RB rush yards (50%), receiving yards (30%), TDs (20%); WR/TE catches (30%), receiving yards (50%), TDs (20%). Everything is per game, so games a player missed (injury, bye, benched) simply don't count against him. Each stat counts at most 100% off and stats a player is barely projected for are skipped. Listed at ${FR_CUT}%+ off. <span class="fr-low">Red</span> = below projection. Projections: ESPN fantasy.</p></div>`;
     const draw = () => {
-      const fit = data.list.filter((r) => (!frState.pos || r.pos === frState.pos) && (frState.over ? -r.score : r.score) >= FR_CUT);
+      const pass = data.list.filter((r) => (!frState.pos || r.pos === frState.pos) && (frState.over ? -r.score : r.score) >= FR_CUT);
+      const fit = frState.injured ? pass : pass.filter((r) => !r.hurt);
+      const hidden = pass.length - fit.length;
+      $("#fr-inj-note").textContent = hidden ? `${hidden} injured player${hidden > 1 ? "s" : ""} hidden (Out, IR or Doubtful).` : "";
       const rows = fit.sort((a, b) => (frState.over ? a.score - b.score : b.score - a.score));
       $("#fr-table tbody").innerHTML = rows.map((r, i) => {
         const t = teams.get(String(r.team));
         return `<tr><td class="num muted">${i + 1}</td>
-          <td><div class="team">${face(`https://a.espncdn.com/i/headshots/nfl/players/full/${r.id}.png`, r.name, "hs")}<a href="${link("player", r.id)}">${esc(r.name)}</a></div></td>
+          <td><div class="team">${face(`https://a.espncdn.com/i/headshots/nfl/players/full/${r.id}.png`, r.name, "hs")}<a href="${link("player", r.id)}">${esc(r.name)}</a>${r.hurt && FANTASY_INJ[r.injStatus] ? " " + injTag({ status: FANTASY_INJ[r.injStatus] }, r.id, r.team) : ""}</div></td>
           <td>${t ? `<a href="${link("team", t.id)}"><span class="tm">${img(teamLogo(t), "xs")} ${esc(t.abbreviation)}</span></a>` : ""}</td>
           <td>${esc(r.pos)}</td><td class="num">${r.n}</td><td class="num"><b class="${r.score > 0 ? "fr-low" : "fr-high"}">${Math.abs(r.score)}%</b></td>
           ${r.cells.map((c) => `<td class="fr-cell${c.used ? "" : " muted"}"><small class="muted">${esc(c.label)}</small> <span class="${c.used && c.bad ? "fr-low" : ""}">${fmt(c.act, c.label)}</span><small class="muted"> / ${fmt(c.exp, c.label)}</small></td>`).join("")}
@@ -651,6 +658,7 @@ const Live = (() => {
     $("#fr-pos").onclick = (e) => { const b = e.target.closest("[data-pos]"); if (!b) return; frState.pos = b.dataset.pos;
       $("#fr-pos").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); draw(); };
     $("#fr-over").onclick = () => { frState.over = !frState.over; frauds(params); };
+    $("#fr-inj").onclick = (e) => { frState.injured = !frState.injured; e.currentTarget.classList.toggle("on", frState.injured); draw(); };
     draw();
   }
 
