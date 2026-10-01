@@ -22,11 +22,11 @@ FACTORS = [
 ]
 
 NFL_HELP = {
-    "power": "Opponent-adjusted scoring margin, capped at 21 so garbage-time scores don't count extra.",
+    "power": "Team strength in points from our NFL model: opponent-adjusted scoring margin (capped at 17) blended with EPA per play, with last season carried over and recent weeks counting a bit more.",
     "resume": "Strength of record: how many more wins than a top-8 team would have with this schedule.",
     "efficiency": "Opponent-adjusted EPA per play (offense minus defense).",
     "sos": "How hard was your road? The average strength of every opponent played. Higher = tougher schedule.",
-    "cupcake": "How much did you pad it? NFL teams can't pick cupcakes, but schedules still hand them out. Only games against below-average teams that are worse than YOU count, and the bigger the mismatch the more it counts (full credit at 14+ points worse). A bad team playing other bad teams isn't padding. Higher = more padded, and it counts against the team. Only games already played count.",
+    "cupcake": "How much did you pad it? NFL teams can't pick cupcakes, but schedules still hand them out. Only real mismatches count: the opponent has to be clearly bad (about the bottom quarter of the league) and 5+ points worse than YOU, with full credit at 10+ points worse. A bad team playing other bad teams isn't padding. Higher = more padded, and it counts against the team. Only games already played count.",
     "luck": "Higher = has had bad luck in close games (one-score results are treated as coin flips). Lower = has been winning coin flips.",
 }
 
@@ -273,11 +273,12 @@ def to_scores(raw):
     return {t: round(float(np.clip(50 + 50 / 3 * (v - mu) / sd, 0, 100)), 1) for t, v in raw.items()}
 
 
-def build_week(fbs, games, advanced, polls, week, cfg, prior, rgames=None, node_prior=None):
+def build_week(fbs, games, advanced, polls, week, cfg, prior, rgames=None, node_prior=None, ratings=None):
+    """ratings: precomputed team ratings (the NFL uses its own model, src/nfl_model.py); None = fit them here."""
     teams = sorted(fbs)
     played = [x for x in (rgames if rgames is not None else games) if x["done"] and x["week"] <= week]
     k = prior_strength(week, cfg)
-    R = power_ratings(teams, played, cfg, prior, k, node_prior)
+    R = dict(ratings) if ratings else power_ratings(teams, played, cfg, prior, k, node_prior)
     is_low = lambda n: n not in fbs  # FCS or lower division
     rank = {t: i + 1 for i, t in enumerate(sorted(teams, key=lambda t: -R[t]))}
     ppa, sr = efficiency_ratings(teams, advanced, fbs, week, cfg)
@@ -402,11 +403,16 @@ def cupcake_of_week(games, ratings, week, cfg, fbs):
         for home in (True, False):
             t, o = (x["hnode"], x["anode"]) if home else (x["anode"], x["hnode"])
             us, them = (x["hp"], x["ap"]) if home else (x["ap"], x["hp"])
-            if t not in fbs or us - them < cfg.get("cotw_min_margin", 21) or not cupcake_weight(ratings[t], ratings.get(o, cfg["fcs_rating"]), o not in fbs, cfg):
+            ro = ratings.get(o, cfg["fcs_rating"])
+            if t not in fbs or us - them < cfg.get("cotw_min_margin", 21):
                 continue
-            if ratings[t] - ratings.get(o, cfg["fcs_rating"]) < cfg.get("cotw_min_gap", 0):
+            # college: the loser must be a cupcake for the winner. NFL (cotw_any_weaker): any clearly weaker team
+            if not cfg.get("cotw_any_weaker") and not cupcake_weight(ratings[t], ro, o not in fbs, cfg):
                 continue
-            score = (us - them) - ratings.get(o, cfg["fcs_rating"])
+            if ratings[t] - ro < cfg.get("cotw_min_gap", 0):
+                continue
+            score = (min(us - them, 35) + cfg["cotw_gap_weight"] * (ratings[t] - ro) if cfg.get("cotw_gap_weight")
+                     else (us - them) - ro)
             if best is None or score > best["score"]:
                 best = {"week": week, "team": t, "opp": x["away"] if home else x["home"], "fcs": o not in fbs,
                         "opp_rank": rank.get(o), "score_line": f"{us}-{them}", "margin": us - them,
@@ -424,7 +430,7 @@ def comparison(fbs, polls, week, fpi, sp):
     return {t: {"ap": ap.get(t), "coaches": coaches.get(t), "fpi": f.get(t), "sp": s.get(t)} for t in fbs}
 
 
-def predictions(games, ratings, week, cfg, lines=None):
+def predictions(games, ratings, week, cfg, lines=None, adjust=None):
     """Model picks for week+1 games vs. the sportsbooks, graded if they've been played.
 
     `spread` / `vegas` are expected home margins (positive = home favored).
@@ -436,6 +442,8 @@ def predictions(games, ratings, week, cfg, lines=None):
             continue
         rh, ra = ratings.get(x["hnode"], cfg["fcs_rating"]), ratings.get(x["anode"], cfg["fcs_rating"])
         spread = (rh - ra + (0 if x["neutral"] else cfg["home_field"])) * cfg.get("spread_scale", 1.0)
+        if adjust:  # e.g. NFL backup quarterbacks
+            spread += adjust(x)
         p = {"week": x["week"], "home": x["home"], "away": x["away"], "espn_id": x["espn"], "spread": round(spread, 1),
              "home_win_prob": round(phi(spread / cfg["game_sigma"]), 3),
              "pick": x["home"] if spread >= 0 else x["away"]}

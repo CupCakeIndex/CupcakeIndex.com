@@ -15,6 +15,7 @@ import yaml
 import fetch_data
 import model
 import nfl_data
+import nfl_model
 import tune
 import highlights
 import daily_game
@@ -56,18 +57,28 @@ def run_league(league, season, cfg_league, offline):
     lines = model.lines_by_game(d.get("lines", []))
     print(f"  {len(teams)} teams, {sum(x['done'] for x in games)} completed games, through week {last}")
 
+    # NFL: its own rating model (src/nfl_model.py): last season carries over all year, efficiency + margin, QB changes
+    nfl_R, adjust = {}, None
+    if league == "nfl":
+        nfl_data.ensure_team_stats(range(season - 4, season + 1), refresh_last=not offline)
+        byweek, ngames = nfl_model.season_ratings(season)
+        name_of = {t["abbr"]: t["school"] for t in d["teams"]}
+        nfl_R = {w: {name_of.get(a, a): r for a, r in R.items()} for w, R in byweek.items()}
+        by_id = {x["id"]: x for x in ngames}
+        adjust = lambda x: nfl_model.qb_adjust(ngames, by_id[x["id"]]) if x["id"] in by_id else 0.0
+
     out_dir = OUT / league / str(season)
     out_dir.mkdir(parents=True, exist_ok=True)
     weeks, graded, cotw_hist = [], [], {}
     for week in (range(1, last + 1) if last else [0]):
-        res = model.build_week(teams, games, d["advanced"], d["polls"], week, cfg, prior, rgames, node_prior)
+        res = model.build_week(teams, games, d["advanced"], d["polls"], week, cfg, prior, rgames, node_prior, ratings=nfl_R.get(week))
         cotw = model.cupcake_of_week(games, res["ratings"], week, cfg, teams)
         if cotw:
             cotw_hist.setdefault(cotw["team"], []).append(week)
         res["cupcake_of_week"] = cotw
         for t in res["teams"]:
             t["cotw_weeks"] = list(cotw_hist.get(t["team"], []))
-        picks = model.predictions(games, res.pop("ratings"), week, cfg, lines)
+        picks = model.predictions(games, res.pop("ratings"), week, cfg, lines, adjust)
         graded += [p for p in picks if "actual" in p]
         res.update(season=season, league=league, predictions=picks,
                    generated=datetime.now(timezone.utc).isoformat(timespec="minutes"))

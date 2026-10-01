@@ -41,21 +41,27 @@ nfl:
     cupcake: 5       # Cupcake score: how much of the record came against teams far worse than you (counts AGAINST)
     luck: 5          # "Bad luck": one-score results count as coin flips
   model:
-    margin_cap: 21          # Three scores. NFL blowouts are rarer; this mostly trims garbage time.
-    home_field: 1.5         # Modern NFL home-field edge is small
+    # NFL ratings come from src/nfl_model.py (its own model: last season carries over all year, scoring margin
+    # blended with EPA/play, recent weeks count more, backup QBs marked down). Tuned on 2020-2025; see that file.
+    margin_cap: 17          # Matches nfl_model.py: results past ~2.5 scores are mostly garbage time
+    home_field: 1.0         # Modern NFL home-field edge is small (backtest picked 1.0)
     fcs_rating: 0           # (not used in the NFL)
     fcs_game_weight: 1
-    game_sigma: 13.5
+    game_sigma: 13.0
     recent_games: 3
     benchmark_rank: 8
-    # NFL teams don't schedule cupcakes, but some schedules hand them out. Same idea as college, scaled to
-    # NFL ratings (spread ~5 points, vs ~9-15 in college):
-    # Continuous, not a cutoff: with only 17 games a hard threshold left most teams tied at zero.
-    cupcake_gap: 0          # Any below-average opponent worse than you counts a little...
-    cupcake_span: 14        # ...scaling up to full credit at 14+ points worse
-    cupcake_max_opp: 0      # ...and only if they're below an average NFL team
-    cotw_min_margin: 17     # Cupcake Bully of the Week needs a win by at least this much...
-    cotw_min_gap: 7         # ...over a team at least this many points worse than the winner (a real mismatch)
+    # Cupcake: only a real mismatch counts. The opponent has to be clearly bad (rating -2.5 or worse, about the
+    # bottom quarter of the league) AND you have to be 5+ points better, with full credit at 10+ points better.
+    # (The old rule counted any below-average team that was worse than you, which flagged teams like the Lions.)
+    cupcake_gap: 5
+    cupcake_span: 5
+    cupcake_max_opp: -2.5
+    # Bully of the Week: the most lopsided win over a weaker team. Score = winning margin (capped at 35)
+    # + 2 x how many points better the winner is rated. Needs a 14+ point win.
+    cotw_min_margin: 14
+    cotw_min_gap: 0.5
+    cotw_any_weaker: true
+    cotw_gap_weight: 2
     prior_games: 3
     prior_fade_week: 6
     one_score: 8

@@ -183,7 +183,7 @@
      ],
      "accuracy": {
       "games": 255,
-      "correct": 160,
+      "correct": 161,
       "mae": 10.6,
       "vegas_su": {
        "games": 255,
@@ -191,15 +191,15 @@
       },
       "model_su_lined": {
        "games": 255,
-       "correct": 160
+       "correct": 161
       },
       "ats": {
        "games": 251,
-       "correct": 125
+       "correct": 114
       },
       "ats_strong": {
-       "games": 95,
-       "correct": 43
+       "games": 85,
+       "correct": 31
       },
       "vegas_mae": 10.0
      }
@@ -212,23 +212,23 @@
      ],
      "accuracy": {
       "games": 32,
-      "correct": 17,
-      "mae": 10.9,
+      "correct": 16,
+      "mae": 10.8,
       "vegas_su": {
        "games": 32,
        "correct": 20
       },
       "model_su_lined": {
        "games": 32,
-       "correct": 17
-      },
-      "ats": {
-       "games": 30,
        "correct": 16
       },
+      "ats": {
+       "games": 29,
+       "correct": 13
+      },
       "ats_strong": {
-       "games": 15,
-       "correct": 7
+       "games": 9,
+       "correct": 3
       },
       "vegas_mae": 10.0
      }
@@ -242,7 +242,7 @@
     {
      "key": "power",
      "label": "Power",
-     "help": "Opponent-adjusted scoring margin, capped at 21 so garbage-time scores don't count extra."
+     "help": "Team strength in points from our NFL model: opponent-adjusted scoring margin (capped at 17) blended with EPA per play, with last season carried over and recent weeks counting a bit more."
     },
     {
      "key": "resume",
@@ -267,7 +267,7 @@
     {
      "key": "cupcake",
      "label": "Cupcake",
-     "help": "How much did you pad it? NFL teams can't pick cupcakes, but schedules still hand them out. Only games against below-average teams that are worse than YOU count, and the bigger the mismatch the more it counts (full credit at 14+ points worse). A bad team playing other bad teams isn't padding. Higher = more padded, and it counts against the team. Only games already played count.",
+     "help": "How much did you pad it? NFL teams can't pick cupcakes, but schedules still hand them out. Only real mismatches count: the opponent has to be clearly bad (about the bottom quarter of the league) and 5+ points worse than YOU, with full credit at 10+ points worse. A bad team playing other bad teams isn't padding. Higher = more padded, and it counts against the team. Only games already played count.",
      "invert": true
     },
     {
@@ -285,14 +285,14 @@
     "cupcake": 5,
     "luck": 5
    },
-   "updated": "2026-09-30T23:39+00:00",
+   "updated": "2026-10-01T23:29+00:00",
    "modes": {
     "best": {
-     "power": 75,
+     "power": 60,
      "resume": 0,
      "efficiency": 0,
      "sos": 0,
-     "recent": 10,
+     "recent": 25,
      "cupcake": 15,
      "luck": 0
     },
@@ -303,10 +303,10 @@
     },
     "games": 287,
     "accuracy": {
-     "best": 0.6062717770034843,
-     "deserving": 0.6236933797909407,
-     "old_default": 0.6236933797909407,
-     "power_only": 0.6027874564459931
+     "best": 0.6306620209059234,
+     "deserving": 0.6097560975609756,
+     "old_default": 0.6167247386759582,
+     "power_only": 0.6363636363636364
     },
     "out_of_sample": {
      "trained_on": 2025,
@@ -318,5 +318,5 @@
    }
   }
  },
- "updated": "2026-09-30T23:39+00:00"
+ "updated": "2026-10-01T23:29+00:00"
 }

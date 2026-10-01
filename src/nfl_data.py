@@ -75,6 +75,15 @@ def fetch_season(season, refresh=False, with_extras=True):
     return d
 
 
+def ensure_team_stats(seasons, refresh_last=False):
+    """Make sure nflverse team stats are cached for these seasons (the NFL model's prior uses past seasons)."""
+    for s in seasons:
+        try:
+            _csv(STATS_URL.format(season=s), f"stats_team_week_{s}.csv", refresh_last and s == max(seasons))
+        except requests.HTTPError:
+            print(f"  warning: no NFL team stats for {s}")
+
+
 def _advanced(season, name, refresh):
     """Per-game offensive EPA/play for each team; defense = the opponent's offense in that game."""
     try:
