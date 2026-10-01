@@ -34,17 +34,33 @@
   </div>
 </header>
 
+<!-- Nav: the main tabs, then a More menu for everything else. Phones show fewer main tabs; the rest move into More (.nav-wide / .nav-narrow). -->
 <nav class="tabs" id="nav">
-  <a class="tab" data-view="rankings" href="#/rankings">Rankings</a>
-  <a class="tab" data-view="schedules" href="#/schedules">Schedules</a>
-  <a class="tab cfb-only" data-view="compare" href="#/compare">Compare</a>
-  <a class="tab" data-view="scores" href="#/scores">Scores</a>
-  <a class="tab" data-view="stats" href="#/stats">Stats</a>
-  <a class="tab" data-view="standings" href="#/standings">Standings</a>
-  <a class="tab nfl-only" data-view="freeagents" href="#/freeagents">Free Agents</a>
-  <a class="tab" data-view="picks" href="#/picks">Pick'em</a>
-  <a class="tab" data-view="games" href="#/games">Games</a>
-  <a class="tab" data-view="about" href="#/about">How it works</a>
+  <div class="nav-main">
+    <a class="tab" data-view="rankings" href="#/rankings">Rankings</a>
+    <a class="tab" data-view="scores" href="#/scores">Scores</a>
+    <a class="tab" data-view="stats" href="#/stats">Stats</a>
+    <a class="tab nav-wide" data-view="standings" href="#/standings">Standings</a>
+    <a class="tab" data-view="picks" href="#/picks">Pick'em</a>
+    <a class="tab nav-wide" data-view="games" href="#/games">Games</a>
+  </div>
+  <div class="nav-more">
+    <button type="button" class="tab more-btn" id="more-btn" aria-expanded="false" aria-controls="more-menu"><span id="more-label">More</span> <span class="more-car" aria-hidden="true">▾</span></button>
+    <div class="more-menu" id="more-menu" hidden>
+      <div class="mm-group nav-narrow"><span class="mm-h">// main</span>
+        <a class="mm-item" data-view="standings" href="#/standings">Standings</a>
+        <a class="mm-item" data-view="games" href="#/games">Games</a></div>
+      <div class="mm-group"><span class="mm-h">// tools</span>
+        <a class="mm-item" data-view="schedules" href="#/schedules">Schedules</a>
+        <a class="mm-item cfb-only" data-view="compare" href="#/compare">Compare</a>
+        <a class="mm-item nfl-only" data-view="freeagents" href="#/freeagents">Free agents</a>
+        <a class="mm-item" data-view="fantasy" href="#/fantasy">Fantasy</a></div>
+      <div class="mm-group"><span class="mm-h">// read</span>
+        <a class="mm-item" data-view="news" href="#/news">News</a>
+        <a class="mm-item" data-view="about" href="#/about">How it works</a>
+        <a class="mm-item" data-view="updates" href="#/updates">Release notes</a></div>
+    </div>
+  </div>
 </nav>
 
 <main>

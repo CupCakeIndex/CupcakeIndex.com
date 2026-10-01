@@ -103,8 +103,7 @@ async function route() {
   if (lg !== league || !LG) setLeague(lg);
   Live.stop();
   document.querySelectorAll(".view").forEach((s) => s.classList.toggle("hidden", s.id !== "view-" + r.view));
-  const navView = NAV_PARENT[r.view] || r.view;
-  document.querySelectorAll("#nav .tab").forEach((a) => a.classList.toggle("active", a.dataset.view === navView));
+  setNavActive(NAV_PARENT[r.view] || r.view);
   document.querySelectorAll(".rank-ctl").forEach((el) => el.classList.toggle("hidden", !RANK_VIEWS.has(r.view)));
   $("#drawer").classList.add("hidden");
   document.body.classList.remove("drawer-open");
@@ -128,6 +127,30 @@ async function route() {
   } else if (Live[r.view]) {
     Live[r.view](r.arg, r.params);
   }
+}
+
+// ------------------------------------------------------------------ nav
+// Highlight the current page. A page inside the More menu lights up the More button and (wider screens) puts its name on it.
+// Note: unknown routes (#/fantasy, #/news until those pages exist) fall back to rankings.
+const phoneNav = window.matchMedia("(max-width: 640px)");
+function setNavActive(view) {
+  document.querySelectorAll("#nav [data-view]").forEach((a) => a.classList.toggle("active", a.dataset.view === view));
+  const inMenu = [...document.querySelectorAll("#more-menu .mm-item.active")]
+    .find((a) => phoneNav.matches || !a.closest(".nav-narrow"));
+  $("#more-btn").classList.toggle("active", !!inMenu);
+  $("#more-label").textContent = inMenu && !phoneNav.matches ? inMenu.textContent : "More"; // phones: no room for long names
+  setMoreOpen(false);
+}
+function setMoreOpen(open) {
+  $("#more-menu").hidden = !open;
+  $("#more-btn").setAttribute("aria-expanded", open);
+}
+function initNav() {
+  $("#more-btn").onclick = () => setMoreOpen($("#more-menu").hidden);
+  $("#more-menu").onclick = (e) => { if (e.target.closest("a")) setMoreOpen(false); };
+  document.addEventListener("pointerdown", (e) => { if (!e.target.closest(".nav-more")) setMoreOpen(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") setMoreOpen(false); });
+  phoneNav.addEventListener("change", () => setNavActive(NAV_PARENT[parseHash().view] || parseHash().view));
 }
 
 // ------------------------------------------------------------------ games hub
@@ -228,6 +251,7 @@ async function init() {
     if (tr) openTeam(tr.dataset.team);
   };
   initSearch();
+  initNav();
   window.addEventListener("hashchange", route);
   await route();
 }
@@ -241,7 +265,7 @@ function setLeague(l) {
   document.body.dataset.league = l;
   $("#profile").innerHTML = `<option value="">All schedule profiles</option>` + Object.entries(PROFILES).map(([k, p]) => `<option value="${k}">${p.name}</option>`).join("");
   $("#league-tag").textContent = LEAGUE_NAME[l] || l;
-  document.querySelectorAll("#nav .tab").forEach((a) => (a.href = link(a.dataset.view)));
+  document.querySelectorAll("#nav [data-view]").forEach((a) => (a.href = link(a.dataset.view)));
   $("#notes-link").href = link("updates");
   weights = loadWeights(l);
   reverse = false;
