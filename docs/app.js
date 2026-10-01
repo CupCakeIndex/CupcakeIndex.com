@@ -22,7 +22,7 @@ const BASE_PRESETS = {
 const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", recent: "FORM", cupcake: "CUP", luck: "UNLK" };
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
 const RANK_VIEWS = new Set(["rankings", "picks", "schedules"]);
-const VIEWS = new Set(["rankings", "picks", "schedules", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents"]);
+const VIEWS = new Set(["rankings", "picks", "schedules", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily"]);
 
 // ------------------------------------------------------------------ forgiving name search
 // Lowercase, strip accents/punctuation ("D.J." -> "dj", "Smith-Njigba" -> "smith njigba"), drop jr/sr/ii/iii.
@@ -110,9 +110,12 @@ async function route() {
     await loadWeek();
     const team = r.params.get("team");
     if (r.view === "rankings" && team) openTeam(team);
+    if (r.view === "rankings") $("#daily-st").textContent = Daily.status();
     if (r.view === "schedules") renderSchedules();
   } else if (r.view === "updates") {
     renderNotes();
+  } else if (r.view === "daily") {
+    Daily.render();
   } else if (r.view === "compare") {
     renderCompare();
   } else if (Live[r.view]) {
@@ -121,7 +124,7 @@ async function route() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "92"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "93"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
