@@ -1291,9 +1291,18 @@ a.mbug:hover .mb-mid b.mb-at { color: var(--accent); }
 .mbug[class*="res-"] .mb-mid { background: linear-gradient(180deg, color-mix(in srgb, var(--res) 26%, #0d0d0f), #0d0d0f); }
 .mbug[class*="res-"] .mb-foot { background: linear-gradient(90deg, color-mix(in srgb, var(--res) 12%, transparent), transparent 70%); border-top-color: color-mix(in srgb, var(--res) 35%, transparent); }
 .mb-mid b.T { color: #eab308; }
-.pace-stat span { display: block; font-size: 10.5px; margin-top: 2px; }
-.pace-card .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-@media (max-width: 560px) { .pace-card .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* player page outlook card: small sub-tabs (this week / season pace) over one compact row of numbers */
+.outlook { padding-top: 10px; padding-bottom: 10px; }
+.ol-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.ol-tabs button { font: inherit; font-size: 11px; padding: 3px 9px; background: transparent; color: var(--muted); border: 1px solid var(--line); cursor: pointer; }
+.ol-tabs button.on { color: var(--accent); border-color: var(--accent); }
+.ol-line { display: flex; flex-wrap: wrap; gap: 6px 22px; }
+.ol-line span { display: flex; flex-direction: column; min-width: 64px; }
+.ol-line small { font-size: 10.5px; color: var(--muted); }
+.ol-line b { font-size: 16px; font-variant-numeric: tabular-nums; }
+.ol-line i { font-style: normal; font-size: 10px; color: var(--muted); }
+.outlook .note { margin: 6px 0 0; font-size: 11px; }
+@media (max-width: 560px) { .ol-line { gap: 6px 14px; } .ol-line span { min-width: 52px; } }
 .mbug.res-W .mb-mid b.W { color: #22c55e; } .mbug.res-L .mb-mid b.L { color: #ef4444; }
 @container (max-width: 520px) {
   .mbug { grid-template-columns: 30px minmax(0, 1fr) 62px minmax(0, 1fr); }

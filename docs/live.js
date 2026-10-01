@@ -848,39 +848,59 @@ const Live = (() => {
     fillFaces(view("stats"));
   }
 
-  // Player page: a small "projected this week" card for college skill players we project
-  async function cfbProjCard(id) {
-    const r = (await cfbProj())?.players?.find((p) => p.id === String(id));
-    if (!r) return "";
+  // Player page: one compact "outlook" card, small sub-tabs for this week's projection and the season pace.
+  // Each pane: { k, tab, cells: [[label, value, "so far" line?]], note }
+  const PACE_MAIN = { QB: ["3", "4", "24"], RB: ["24", "25", "42"], WR: ["42", "53", "43"], TE: ["42", "53", "43"], K: ["83", "84", "86"] };
+  const soLine = (v, d = 0) => `${(+v || 0).toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d })} so far`;
+
+  async function cfbProjPane(id) {
+    const d = await cfbProj(), r = d?.players?.find((p) => p.id === String(id));
+    if (!r) return null;
     const keys = PJ_COLS.filter(([, k]) => (r[CFB_PJ[k]] || 0) >= 0.05 && !(k === "20" && r.pos !== "QB"));
-    return `<div class="card"><h3>Projected for week ${esc((await cfbProj()).week)} <small class="muted">${r.h ? "vs" : "@"} ${esc(r.oa)} · our model</small></h3>
-      <div class="stats">${keys.map(([l, k]) => `<div class="stat"><small>${esc(l)}</small><b>${pjFmt(r[CFB_PJ[k]], l)}</b></div>`).join("")}
-        <div class="stat"><small>PPR pts</small><b>${r.pts.toFixed(1)}</b></div></div>
-      <p class="note">Our own estimate, for fun, not a betting line. <a href="${link("stats", null, { show: "projected", league: "cfb", pos: r.pos })}">How these work →</a></p></div>`;
+    return { k: "week", tab: `Week ${esc(d.week)} ${r.h ? "vs" : "@"} ${esc(r.oa)}`,
+      cells: [...keys.map(([l, k]) => [l, pjFmt(r[CFB_PJ[k]], l)]), ["PPR pts", r.pts.toFixed(1)]],
+      note: `Our own estimate, for fun, not a betting line. <a href="${link("stats", null, { show: "projected", league: "cfb", pos: r.pos })}">How these work →</a>` };
   }
-
-  // Player page: "Season pace" card for NFL skill players and kickers (ESPN: real stats + rest-of-season projection)
-  async function nflPaceCard(id) {
-    const r = (await pjPlayers())?.list?.find((p) => String(p.id) === String(id));
-    if (!r || !(r.pace.pts > 0)) return "";
-    const main = { QB: ["3", "4", "24"], RB: ["24", "25", "42"], WR: ["42", "53", "43"], TE: ["42", "53", "43"], K: ["83", "84", "86"] }[r.pos] || [];
-    const cell = ([l, k]) => `<div class="stat pace-stat"><small>${esc(l)}</small><b>${paceFmt(r.pace[k])}</b><span class="muted">${Math.round(r.so[k] || 0).toLocaleString()} so far</span></div>`;
-    return `<div class="card pace-card"><h3>Season pace <small class="muted">so far + ESPN's projection for each game left</small></h3>
-      <div class="stats">${[...PJ_COLS, ...PJ_K].filter(([, k]) => main.includes(k)).map(cell).join("")}
-        <div class="stat pace-stat"><small>PPR pts</small><b>${r.pace.pts.toFixed(1)}</b><span class="muted">${r.so.pts.toFixed(1)} so far</span></div></div>
-      <p class="note">Where his season totals are headed if he stays healthy, with each game left set for that week's opponent. <a href="${link("stats", null, { show: "projected", league: "nfl", when: "pace", pos: r.pos })}">Full list →</a></p></div>`;
-  }
-
-  // Player page: "Season pace" line, so far -> pace for his main stats (college skill players)
-  async function cfbPaceCard(id) {
+  async function cfbPacePane(id) {
     const r = (await cfbPace())?.players?.find((p) => p.id === String(id));
-    if (!r) return "";
-    const main = { QB: ["3", "4", "24"], RB: ["24", "25", "42"], WR: ["42", "53", "43"], TE: ["42", "53", "43"] }[r.pos] || [];
-    const cell = ([l, k]) => `<div class="stat pace-stat"><small>${esc(l)}</small><b>${paceFmt(r[CFB_PJ[k]])}</b><span class="muted">${Math.round(r.so[CFB_PJ[k]] || 0).toLocaleString()} so far</span></div>`;
-    return `<div class="card pace-card"><h3>Season pace <small class="muted">${r.g + r.gl} games · ${r.gl} left · our model</small></h3>
-      <div class="stats">${PJ_COLS.filter(([, k]) => main.includes(k)).map(cell).join("")}
-        <div class="stat pace-stat"><small>PPR pts</small><b>${r.pts.toFixed(1)}</b><span class="muted">${r.spts.toFixed(1)} so far</span></div></div>
-      <p class="note">Where his season totals are headed: what he's done so far plus our projection for each game left, adjusted for those defenses. <a href="${link("stats", null, { show: "projected", league: "cfb", when: "pace", pos: r.pos })}">Full list →</a></p></div>`;
+    if (!r) return null;
+    const main = PACE_MAIN[r.pos] || [];
+    return { k: "pace", tab: "Season pace",
+      cells: [...PJ_COLS.filter(([, k]) => main.includes(k)).map(([l, k]) => [l, paceFmt(r[CFB_PJ[k]]), soLine(r.so[CFB_PJ[k]])]), ["PPR pts", r.pts.toFixed(1), soLine(r.spts, 1)]],
+      note: `${r.g + r.gl} games, ${r.gl} left: what he's done so far plus our projection for each game left, adjusted for those defenses. <a href="${link("stats", null, { show: "projected", league: "cfb", when: "pace", pos: r.pos })}">Full list →</a>` };
+  }
+  async function nflPanes(id) {
+    const d = await pjPlayers(), r = d?.list?.find((p) => String(p.id) === String(id));
+    if (!r) return [];
+    const main = PACE_MAIN[r.pos] || [], cols = [...PJ_COLS, ...PJ_K].filter(([, k]) => main.includes(k));
+    return [r.week.pts > 0 && { k: "week", tab: `Week ${esc(d.wk)}`,
+        cells: [...cols.map(([l, k]) => [l, pjFmt(r.week[k], l)]), ["PPR pts", r.week.pts.toFixed(1)]],
+        note: `ESPN's fantasy projection, not a betting line. <a href="${link("stats", null, { show: "projected", league: "nfl", pos: r.pos })}">All projections →</a>` },
+      r.pace.pts > 0 && { k: "pace", tab: "Season pace",
+        cells: [...cols.map(([l, k]) => [l, paceFmt(r.pace[k]), soLine(r.so[k])]), ["PPR pts", r.pace.pts.toFixed(1), soLine(r.so.pts, 1)]],
+        note: `Real stats so far plus ESPN's projection for each game left (set for that week's opponent), if he stays healthy. <a href="${link("stats", null, { show: "projected", league: "nfl", when: "pace", pos: r.pos })}">Full list →</a>` }];
+  }
+  function outlookCard(panes) {
+    panes = panes.filter(Boolean);
+    if (!panes.length) return "";
+    let on = "week";
+    try { on = localStorage.getItem("outlookTab") || on; } catch (e) {}
+    if (!panes.some((p) => p.k === on)) on = panes[0].k;
+    return `<div class="card outlook"><div class="ol-tabs">${panes.map((p) => `<button data-k="${p.k}" class="${p.k === on ? "on" : ""}">${p.tab}</button>`).join("")}</div>
+      ${panes.map((p) => `<div class="ol-pane${p.k === on ? "" : " hidden"}" data-k="${p.k}"><div class="ol-line">${p.cells.map(([l, v, sub]) =>
+        `<span><small>${esc(l)}</small><b>${v}</b>${sub ? `<i>${sub}</i>` : ""}</span>`).join("")}</div><p class="note">${p.note}</p></div>`).join("")}</div>`;
+  }
+  async function outlookInto(lg, id, slot) {
+    const html = outlookCard(lg === "cfb" ? await Promise.all([cfbProjPane(id), cfbPacePane(id)]) : await nflPanes(id));
+    if (!html || !slot?.isConnected) return;
+    slot.insertAdjacentHTML("beforebegin", html);
+    const card = slot.previousElementSibling;
+    card.querySelector(".ol-tabs").onclick = (e) => {
+      const k = e.target.closest("[data-k]")?.dataset.k;
+      if (!k) return;
+      card.querySelectorAll("[data-k]").forEach((el) => el.classList.toggle(el.matches("button") ? "on" : "hidden", el.matches("button") ? el.dataset.k === k : el.dataset.k !== k));
+      try { localStorage.setItem("outlookTab", k); } catch (e2) {}
+    };
   }
 
   // ---------------------------------------------------------------- player
@@ -1312,7 +1332,7 @@ const Live = (() => {
       ${injInfo(inj) ? injCard(inj, a.id, fa ? "" : a.team?.id)
         : params.get("inj") ? `<div class="card inj-card" id="pl-inj"><h3>Injury</h3><p class="muted">ESPN has no injury details on file for this player right now.</p></div>` : ""}`;
     fillFaces(view("player"));
-    Promise.all(lg === "cfb" ? [cfbProjCard(id), cfbPaceCard(id)] : [nflPaceCard(id)]).then((html) => { if (html.join("") && my === token) $("#career-slot")?.insertAdjacentHTML("beforebegin", html.join("")); }).catch(() => {});
+    if (my === token) outlookInto(lg, id, $("#career-slot")).catch(() => {});
     const toInj = params.get("inj") && $("#pl-inj");
     if (toInj) pulse(toInj);
     $("#pl-season").onchange = (e) => { location.hash = link("player", id, { season: e.target.value }); };
