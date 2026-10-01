@@ -35,7 +35,7 @@ const Live = (() => {
   const view = (name) => $("#view-" + name);
   const loading = (name) => { view(name).innerHTML = `<div class="card muted">Loading…</div>`; };
   const fail = (name, e) => { view(name).innerHTML = `<div class="card">Couldn't load this from ESPN (${esc(e.message)}). Try again in a minute.</div>`; };
-  const SIZES = { xs: [18, 18], sm: [22, 22], lg: [28, 28], xl: [56, 56], hs: [30, 30], leadshot: [52, 52], headshot: [132, 96] }; // CSS display sizes
+  const SIZES = { xs: [18, 18], sm: [22, 22], lg: [28, 28], xl: [56, 56], hero: [96, 96], hs: [30, 30], leadshot: [52, 52], headshot: [132, 96] }; // CSS display sizes
   let boxTab = "off"; // remembered across live refreshes
   const img = (src, cls = "lg") => {
     if (!safeUrl(src)) return `<span class="logo-ph ${cls}"></span>`;
@@ -2023,6 +2023,20 @@ const Live = (() => {
   }
 
   // ---------------------------------------------------------------- team
+  // Rankings team panel: its mini scorebugs only know names, so add ESPN's abbreviations and kickoff times once they load
+  async function fillBugs(lg, id, root) {
+    const sch = await api(`${SITE(lg)}/teams/${encodeURIComponent(id)}/schedule`, 60000).catch(() => null);
+    for (const e of sch?.events || []) {
+      const el = root.querySelector(`.mbug[data-eid="${CSS.escape(String(e.id))}"]`);
+      if (!el) continue;
+      const c = e.competitions[0], me = c.competitors.find((x) => String(x.team?.id) === String(id)), op = c.competitors.find((x) => x !== me);
+      const ab = (sel, x) => { const b = el.querySelector(sel); if (b && x?.team?.abbreviation) b.textContent = x.team.abbreviation; };
+      ab(".mb-tm.me .ab", me); ab(".mb-tm:not(.me) .ab", op);
+      const when = el.querySelector(".mb-when");
+      if (when && c.status?.type?.state === "pre") when.textContent = statusText(c.status, c.date);
+    }
+  }
+
   async function team(id, params) {
     const lg = league, my = token;
     store.set("lastTeam-" + lg, String(id)); // standings open on this team's conference
@@ -2043,19 +2057,63 @@ const Live = (() => {
     const T = sch.team || {};
     const ours = ourTeam(ranks, lg, { id: T.id, displayName: T.displayName });
 
-    const games = (sch.events || []).map((e) => {
-      const c = e.competitions[0];
+    // schedule: one mini scorebug per game, with our tags / difficulty / win chance from the latest rankings file
+    const ourGames = new Map((ours?.schedule || []).filter((g) => g.espn_id).map((g) => [String(g.espn_id), g]));
+    const score = (x) => x?.score?.displayValue ?? x?.score ?? "";
+    const stateOf = (e) => e.competitions[0].status?.type?.state;
+    const bug = (e) => {
+      const c = e.competitions[0], st = stateOf(e), g = ourGames.get(String(e.id));
       const me = c.competitors.find((x) => String(x.team?.id ?? x.id) === String(T.id)) || c.competitors[0];
-      const op = c.competitors.find((x) => x !== me);
-      const st = c.status?.type?.state;
-      const score = (x) => x?.score?.displayValue ?? x?.score ?? "";
-      const res = st === "post" ? `<span class="${me.winner ? "W" : "L"}">${me.winner ? "W" : "L"}</span> ${esc(score(me))}-${esc(score(op))}`
-        : `<span class="muted">${esc(statusText(c.status, c.date))}</span>`;
-      const opRank = op?.curatedRank?.current;
-      return `<tr><td>${esc(e.week?.text || "")}</td>
-        <td><span class="tm">${me.homeAway === "away" ? "@" : "vs"} ${img(teamLogo(op?.team), "xs")} ${opRank && opRank <= 25 ? `<span class="ap-rk">${opRank}</span>` : ""}${esc(op?.team?.displayName || "")}</span></td>
-        <td><a href="${link("game", e.id)}">${res}</a></td></tr>`;
-    }).join("");
+      const sd = (x) => {
+        const o = ourTeam(ranks, lg, x.team), mine = x === me;
+        return { name: x.team?.location || x.team?.shortDisplayName || "", abbr: x.team?.abbreviation, logo: teamLogo(x.team), score: score(x), me: mine,
+          rank: o?.rank, color: teamColor(mine ? T : o ? { color: (o.color || "").replace("#", "") } : x.team) };
+      };
+      const away = c.competitors.find((x) => x.homeAway === "away") || c.competitors[0], home = c.competitors.find((x) => x !== away);
+      return miniBug({ href: link("game", e.id), wk: (/\d+/.exec(e.week?.text || "") || [])[0] || (e.week?.text || "").slice(0, 4), state: st,
+        status: st === "post" ? c.status?.type?.shortDetail || "Final" : statusText(c.status, c.date), result: st === "post" ? (me.winner ? "W" : "L") : null,
+        neutral: c.neutralSite, away: sd(away), home: sd(home), tags: g ? schedTags(g, nfl) : "",
+        diff: st === "post" && g?.difficulty != null ? g.difficulty : null, winp: st === "pre" && g?.win_prob != null ? g.win_prob : null });
+    };
+    const events = sch.events || [];
+    const games = events.map(bug).join("");
+
+    // team hub header: points per game from finished games, our rank / factors / schedule profile from the rankings file
+    const done = events.filter((e) => stateOf(e) === "post");
+    const perGame = (pick) => done.length ? (done.reduce((s, e) => {
+      const c = e.competitions[0], me = c.competitors.find((x) => String(x.team?.id ?? x.id) === String(T.id)) || c.competitors[0];
+      return s + (+score(pick(me, c.competitors.find((x) => x !== me))) || 0);
+    }, 0) / done.length).toFixed(1) : "–";
+    const next = events.find((e) => stateOf(e) === "in") || events.find((e) => stateOf(e) === "pre");
+    const shown = next || done[done.length - 1];
+    const prof = ours && profileOf(ours);
+    const facs = (INDEX.leagues[lg].factors || []).filter((f) => ours?.scores?.[f.key] != null);
+    const conf = ours?.conference || T.groups?.name || "";
+    const hub = `
+      <div class="card thub" style="--tc:${esc(teamColor(T))}">
+        <div class="th-top">
+          ${img(teamLogo(T), "hero")}
+          <div class="th-id"><h2>${esc(T.displayName || "")}</h2>
+            <p>${[conf, T.standingSummary].filter(Boolean).map(esc).join(" · ")}</p>
+            ${prof ? `<p class="th-prof">${profileBadge(prof)} <small>${esc(PROFILES[prof].desc)}</small></p>` : ""}</div>
+          <div class="th-ranks">
+            <div class="th-rk"><small>RECORD</small><b>${esc(T.recordSummary || ours?.record || "–")}</b></div>
+            ${ours ? `<a class="th-rk ours" href="${link("rankings", null, { team: ours.team })}" title="Cupcake Index rank. Click for why."><small>OUR RANK</small><b>#${ours.rank}</b></a>` : ""}
+            ${ours?.ap_rank ? `<div class="th-rk"><small>AP</small><b>#${esc(ours.ap_rank)}</b></div>` : ""}
+          </div>
+        </div>
+        <div class="th-strip">
+          <div><small>Points / game</small><b>${perGame((m) => m)}</b></div>
+          <div><small>Allowed / game</small><b>${perGame((m, o) => o)}</b></div>
+          ${ours ? `<div><small>Power rating</small><b>${ours.rating > 0 ? "+" : ""}${ours.rating.toFixed(1)}</b></div>` : ""}
+          ${ours ? `<div><small>Why #${ours.rank}?</small><a class="boxlink" href="${link("rankings", null, { team: ours.team })}">See the breakdown →</a></div>` : ""}
+        </div>
+      </div>
+      <div class="th-grid">
+        ${facs.length ? `<div class="card"><h3>Factor scores</h3>${facs.map((f) => `<div class="frow" title="${esc(f.help || "")}"><span>${esc(f.label)}</span><span class="bar${f.invert ? " inv" : ""}"><i style="width:${+ours.scores[f.key] || 0}%"></i></span><b class="num">${Math.round(ours.scores[f.key])}</b></div>`).join("")}</div>` : ""}
+        ${shown ? `<div class="card th-next"><h3>${next ? "Next game" : "Last game"}</h3><div class="mb-list">${bug(shown)}</div>
+          <p class="note">${[shown.competitions[0].venue?.fullName, shown.competitions[0].broadcasts?.[0]?.media?.shortName].filter(Boolean).map(esc).join(" · ")}</p></div>` : ""}
+      </div>`;
 
     const rosterRows = (ros?.athletes || []).filter((g) => g.items?.length).map((g) => `
       <h4>${esc({ offense: "Offense", defense: "Defense", specialTeam: "Special teams", injuredReserveOrOut: "Injured reserve / out", suspended: "Suspended", practiceSquad: "Practice squad" }[g.position] || g.position)}</h4>
@@ -2086,14 +2144,7 @@ const Live = (() => {
     const moves = tab !== "moves" ? [] : (extra?.transactions || []).filter((t, i, all) => String(t.team?.id) === String(T.id) && !all.slice(0, i).some((u) => u.description === t.description && String(u.team?.id) === String(T.id))); // ESPN sometimes posts the same move twice
     const movesRows = moves.map((t) => `<tr><td class="muted">${esc(new Date(t.date).toLocaleDateString(undefined, { month: "short", day: "numeric" }))}</td><td>${esc(t.description)}</td></tr>`).join("");
     const tabLink = (t, label) => `<a class="subtab${tab === t ? " on" : ""}" href="${link("team", id, { tab: t })}">${label}</a>`;
-    view("team").innerHTML = `
-      <div class="card team-head" style="--tc:#${esc((T.color || "").replace(/[^0-9a-f]/gi, ""))}">
-        ${img(teamLogo(T), "xl")}
-        <div><h2>${esc(T.displayName || "")}</h2>
-          <p class="muted">${esc(T.recordSummary || "")}${T.standingSummary ? " · " + esc(T.standingSummary) : ""}</p>
-          ${ours ? `<p><a href="${link("rankings", null, { team: ours.team })}" class="boxlink">Cupcake Index #${ours.rank} · Power ${ours.rating > 0 ? "+" : ""}${ours.rating.toFixed(1)}${lg === "cfb" ? ` · Cupcake ${Math.round(ours.scores.cupcake)}` : ""} · see why →</a></p>` : ""}
-        </div>
-      </div>
+    view("team").innerHTML = `${hub}
       <div class="subtabs">${tabLink("schedule", "Schedule")}${tabLink("roster", "Roster")}${nfl ? tabLink("depth", "Depth chart") + tabLink("moves", "Transactions") : ""}</div>
       <div class="card">${tab === "roster"
         ? rosterRows || `<p class="muted">Roster not available.</p>`
@@ -2101,7 +2152,8 @@ const Live = (() => {
         : tab === "moves" ? (movesRows ? `<div class="table-wrap"><table class="box moves"><tbody>${movesRows}</tbody></table></div>
             <p class="note">Signings, releases and injured-reserve moves since ${esc(new Date(extra.transactions[extra.transactions.length - 1].date).toLocaleDateString(undefined, { month: "long", day: "numeric" }))}.</p>`
             : `<p class="muted">No recent transactions.</p>`)
-        : `<div class="table-wrap"><table class="box"><thead><tr><th>Week</th><th>Opponent</th><th>Result</th></tr></thead><tbody>${games}</tbody></table></div>`}</div>`;
+        : games ? `<div class="mb-list cols">${games}</div>${ourGames.size ? `<p class="note">Tap a game for the box score or preview. Diff (difficulty) is the chance a typical ${nfl ? "top-8 NFL" : "top-25"} team would lose that game; win chances are from the Cupcake Index model.</p>` : ""}`
+        : `<p class="muted">No games scheduled.</p>`}</div>`;
     // arrived from an injury tag: pulse that player's row and show their latest update under it
     const hl = tab === "roster" ? params.get("hl") : null;
     const hlRow = hl && view("team").querySelector(`tr[data-pid="${CSS.escape(hl)}"]`);
@@ -2129,6 +2181,6 @@ const Live = (() => {
   }
 
   // helpers shared with pickem.js: ESPN fetch + cache, logos, our-rank lookup, game status, polling tied to the current view
-  const kit = { SITE, api, img, teamLogo, ourTeam, statusText, poll, token: () => token };
-  return { stop, teamId, scores, game, stats, player, standings, team, freeagents, searchPlayers, kit };
+  const kit = { SITE, api, img, teamLogo, ourTeam, statusText, poll, teamColor, token: () => token };
+  return { stop, teamId, scores, game, stats, player, standings, team, freeagents, searchPlayers, fillBugs, kit };
 })();
