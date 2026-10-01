@@ -494,6 +494,7 @@ const Live = (() => {
 
   async function stats(_, params, refresh = false) {
     if (params.get("show") === "frauds") return frauds(params);
+    if (params.get("show") === "projected") return projected(params);
     const lg = league, my = token;
     const cat = STAT_CATS.find((c) => c.key === params.get("cat")) || STAT_CATS[0];
     const sort = params.get("sort") || cat.sort, dir = params.get("dir") || "desc";
@@ -531,7 +532,7 @@ const Live = (() => {
         ${vals.map((v, j) => `<td class="num${`${prefix}.${def.names[j]}` === sort ? " on" : ""}">${esc(v)}</td>`).join("")}</tr>`;
     }).join("");
     const more = first.pagination && pages < first.pagination.pages;
-    view("stats").innerHTML = stSubStats(false) + `
+    view("stats").innerHTML = stSubStats("leaders") + `
       <div class="sc-bar">
         <div class="presets">${STAT_CATS.map((c) => `<button data-cat="${c.key}" class="${c.key === cat.key ? "on" : ""}">${c.label}</button>`).join("")}</div>
         <select id="st-season">${[curYear, curYear - 1, curYear - 2].map((y) => `<option${y === shownYear ? " selected" : ""}>${y}</option>`).join("")}</select>
@@ -558,8 +559,8 @@ const Live = (() => {
   // Every week ESPN's fantasy feed sets a projection ("line") for each player: passing yards, TDs, catches...
   // A player's fraud score compares what they actually did with their lines in the games they played,
   // stat by stat for their position, as a weighted % below expectation. Over-achievers are the same list flipped.
-  const stSubStats = (on) => `<div class="subtabs"><a class="subtab${on ? "" : " on"}" href="${link("stats")}">Leaders</a>`
-    + `<a class="subtab${on ? " on" : ""}" href="${link("stats", null, { show: "frauds" })}">Frauds</a></div>`;
+  const stSubStats = (on) => `<div class="subtabs">` + [["leaders", "Leaders", {}], ["frauds", "Frauds", { show: "frauds" }], ["projected", "Projected", { show: "projected" }]]
+    .map(([k, l, q]) => `<a class="subtab${k === on ? " on" : ""}" href="${link("stats", null, q)}">${l}</a>`).join("") + `</div>`;
   const FR_POS = { 1: "QB", 2: "RB", 3: "WR", 4: "TE" };
   // [label, ESPN fantasy stat ids (summed), weight, minimum expected per game to count, higher is worse]
   // ids: 3 pass yds, 4 pass TD, 20 INT, 24 rush yds, 25 rush TD, 42 rec yds, 43 rec TD, 53 receptions, 210 games played
@@ -570,10 +571,6 @@ const Live = (() => {
   };
   FR_KEYS.TE = FR_KEYS.WR;
   const FR_MIN_GAMES = 2, FR_MIN_PTS = 8, FR_CUT = 25; // games played, projected PPR pts/game (a real role), % off to be listed
-  // Injury cutoff: leave a player off if he has missed more than this share of his team's games so far
-  // (games played / team games played), or is listed Out, Doubtful or on IR right now. Raise it to be more forgiving.
-  const FR_MAX_MISSED = 0.34;
-  const FR_HURT = new Set(["OUT", "DOUBTFUL", "INJURY_RESERVE"]);
   let frState = { pos: "", over: false };
 
   async function frPlayers() {
@@ -590,13 +587,6 @@ const Live = (() => {
     if (!r.ok) throw new Error(`ESPN ${r.status}`);
     const sum = (s, ids) => ids.reduce((t, k) => t + (s.stats?.[k] || 0), 0);
     const list = [], all = (await r.json()).players || [];
-    // weeks each NFL team has played: any of its players logged a game that week
-    const teamWeeks = new Map();
-    for (const { player: p } of all) for (const s of p?.stats || []) {
-      if (s.seasonId !== y || s.statSplitTypeId !== 1 || s.statSourceId !== 0 || !s.stats?.["210"]) continue;
-      if (!teamWeeks.has(p.proTeamId)) teamWeeks.set(p.proTeamId, new Set());
-      teamWeeks.get(p.proTeamId).add(s.scoringPeriodId);
-    }
     for (const { player: p } of all) {
       const pos = FR_POS[p?.defaultPositionId];
       if (!pos || !p.proTeamId) continue; // rostered on an NFL team
@@ -618,10 +608,7 @@ const Live = (() => {
         }
         return { label, act, exp, used, bad: worse ? act > exp : act < exp };
       });
-      // injured: hurt now, or missed too many of the team's games (still scored, so we can say how many were left out)
-      const played = st.filter((s) => s.statSourceId === 0 && s.stats?.["210"]).length, teamG = teamWeeks.get(p.proTeamId)?.size || played;
-      const hurt = FR_HURT.has(p.injuryStatus) || (teamG > 0 && 1 - played / teamG > FR_MAX_MISSED);
-      if (wsum) list.push({ id: p.id, name: p.fullName, pos, team: p.proTeamId, n, cells, hurt, score: Math.round((100 * score) / wsum) });
+      if (wsum) list.push({ id: p.id, name: p.fullName, pos, team: p.proTeamId, n, cells, score: Math.round((100 * score) / wsum) });
     }
     cache.set(url, { t: Date.now(), data: { y, list } });
     return { y, list };
@@ -630,30 +617,27 @@ const Live = (() => {
   async function frauds(params) {
     const my = token;
     if (league !== "nfl") {
-      view("stats").innerHTML = stSubStats(true) + `<div class="card">Frauds are NFL only: they need ESPN's weekly player projections, which don't exist for college. <a href="${link("stats", null, { show: "frauds", league: "nfl" })}">See NFL frauds →</a></div>`;
+      view("stats").innerHTML = stSubStats("frauds") + `<div class="card">Frauds are NFL only: they need ESPN's weekly player projections, which don't exist for college. <a href="${link("stats", null, { show: "frauds", league: "nfl" })}">See NFL frauds →</a></div>`;
       return;
     }
-    view("stats").innerHTML = stSubStats(true) + `<div class="card muted">Loading…</div>`;
+    view("stats").innerHTML = stSubStats("frauds") + `<div class="card muted">Loading…</div>`;
     let data, teams;
     try {
       [data, teams] = await Promise.all([frPlayers(), api(`${STAND("nfl")}/standings?level=3`, 86400000).then((d) => new Map(groupsOf(d).flatMap((g) => g.entries).map((e) => [String(e.team.id), e.team]))).catch(() => new Map())]);
     } catch (e) { return fail("stats", e); }
     if (my !== token) return;
     const fmt = (v, label) => (/yds/.test(label) ? v.toFixed(0) : v.toFixed(1));
-    view("stats").innerHTML = stSubStats(true) + `<div class="card">
+    view("stats").innerHTML = stSubStats("frauds") + `<div class="card">
       <div class="sc-bar"><h2>${frState.over ? "Over-achievers" : "Frauds"} <small class="muted">${data.y}</small></h2>
         <div class="presets" id="fr-pos">${[["", "All"], ...Object.values(FR_POS).map((p) => [p, p])].map(([v, l]) => `<button data-pos="${v}" class="${v === frState.pos ? "on" : ""}">${l}</button>`).join("")}</div>
         <div class="presets"><button id="fr-over" class="${frState.over ? "on" : ""}" title="Flip the list: players beating their projections">Show over-achievers</button></div></div>
       <p class="fr-how">Each week ESPN sets a projection for every player. <b>Fraud score</b> = how far below those projections they've played, on average, in the stats that matter for their position.</p>
       <div class="table-wrap"><table class="box" id="fr-table"><thead><tr><th class="num">#</th><th>Player</th><th>Team</th><th>Pos</th><th class="num" title="Games played">G</th>
         <th class="num" title="Weighted % below (or above) their weekly projections">${frState.over ? "Above" : "Fraud score"}</th><th colspan="4">Per game: actual / projected</th></tr></thead><tbody></tbody></table></div>
-      <p class="note fr-hurt muted" id="fr-hurt"></p>
-      <p class="note">Players with a real role (projected for ${FR_MIN_PTS}+ PPR fantasy points a game) and ${FR_MIN_GAMES}+ games. Stats per position: QB pass yards (40%), pass TDs (30%), interceptions (15%, more is worse), rush yards (15%); RB rush yards (50%), receiving yards (30%), TDs (20%); WR/TE catches (30%), receiving yards (50%), TDs (20%). Each stat counts at most 100% off, stats a player is barely projected for are skipped, and games they missed don't count. Listed at ${FR_CUT}%+ off. Players who have missed more than ${Math.round(FR_MAX_MISSED * 100)}% of their team's games, or are listed Out, Doubtful or on IR, are left out. <span class="fr-low">Red</span> = below projection. Projections: ESPN fantasy.</p></div>`;
+      <p class="note">Players with a real role (projected for ${FR_MIN_PTS}+ PPR fantasy points a game) and ${FR_MIN_GAMES}+ games. Stats per position: QB pass yards (40%), pass TDs (30%), interceptions (15%, more is worse), rush yards (15%); RB rush yards (50%), receiving yards (30%), TDs (20%); WR/TE catches (30%), receiving yards (50%), TDs (20%). Everything is per game, so games a player missed (injury, bye, benched) simply don't count against him. Each stat counts at most 100% off and stats a player is barely projected for are skipped. Listed at ${FR_CUT}%+ off. <span class="fr-low">Red</span> = below projection. Projections: ESPN fantasy.</p></div>`;
     const draw = () => {
       const fit = data.list.filter((r) => (!frState.pos || r.pos === frState.pos) && (frState.over ? -r.score : r.score) >= FR_CUT);
-      const rows = fit.filter((r) => !r.hurt).sort((a, b) => (frState.over ? a.score - b.score : b.score - a.score));
-      const hurt = fit.length - rows.length;
-      $("#fr-hurt").textContent = hurt ? `${hurt} player${hurt === 1 ? "" : "s"} left out for injuries` : "";
+      const rows = fit.sort((a, b) => (frState.over ? a.score - b.score : b.score - a.score));
       $("#fr-table tbody").innerHTML = rows.map((r, i) => {
         const t = teams.get(String(r.team));
         return `<tr><td class="num muted">${i + 1}</td>
@@ -668,6 +652,107 @@ const Live = (() => {
       $("#fr-pos").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); draw(); };
     $("#fr-over").onclick = () => { frState.over = !frState.over; frauds(params); };
     draw();
+  }
+
+  // ---------------------------------------------------------------- NFL projections (a sub-view of Stats)
+  // ESPN's fantasy feed again: statSourceId 1 = projection; statSplitTypeId 1 = one week, 0 = rest of the season
+  // (this week through week 18; it equals the sum of the weekly projections). Points are ESPN's PPR scoring.
+  // [label, ESPN fantasy stat id, tooltip]; ids: 3 pass yds, 4 pass TD, 20 INT, 24 rush yds, 25 rush TD,
+  // 53 receptions, 42 rec yds, 43 rec TD; kickers: 83 FG made, 84 FG tried, 86 XP made
+  const PJ_COLS = [["Pass yds", "3", "Passing yards"], ["Pass TD", "4", "Passing TDs"], ["INT", "20", "Interceptions thrown"],
+    ["Rush yds", "24", "Rushing yards"], ["Rush TD", "25", "Rushing TDs"], ["Rec", "53", "Receptions"], ["Rec yds", "42", "Receiving yards"], ["Rec TD", "43", "Receiving TDs"]];
+  const PJ_K = [["FGM", "83", "Field goals made"], ["FGA", "84", "Field goals tried"], ["XPM", "86", "Extra points made"]];
+  const PJ_POS = { ...FR_POS, 5: "K" };
+
+  async function pjPlayers() {
+    const now = new Date(), y = now.getMonth() < 8 ? now.getFullYear() - 1 : now.getFullYear(); // before September: last season
+    const base = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${y}`;
+    const wk = Math.min((await api(base, 3600000)).currentScoringPeriod?.id || 1, 18);
+    const url = `${base}/segments/0/leaguedefaults/3?view=kona_player_info#projected`;
+    const hit = cache.get(url);
+    if (hit && Date.now() - hit.t < 600000) return hit.data;
+    const filter = { players: { filterSlotIds: { value: [0, 2, 4, 6, 17] }, limit: 400, sortPercOwned: { sortPriority: 1, sortAsc: false },
+      filterStatsForSourceIds: { value: [1] }, filterStatsForSplitTypeIds: { value: [0, 1] }, filterStatsForScoringPeriodIds: { value: [0, wk] } } };
+    const [r, sched] = await Promise.all([fetch(url.split("#")[0], { headers: { "X-Fantasy-Filter": JSON.stringify(filter) } }),
+      api(`${base}?view=proTeamSchedules_wl`, 86400000).catch(() => null)]);
+    if (!r.ok) throw new Error(`ESPN ${r.status}`);
+    // this week's opponent for each team: [opponent id, home?]
+    const opp = new Map();
+    for (const t of sched?.settings?.proTeams || []) {
+      const g = t.proGamesByScoringPeriod?.[wk]?.[0];
+      if (g) opp.set(t.id, g.homeProTeamId === t.id ? [g.awayProTeamId, true] : [g.homeProTeamId, false]);
+    }
+    const list = [];
+    for (const { player: p } of (await r.json()).players || []) {
+      const pos = PJ_POS[p?.defaultPositionId];
+      if (!pos || !p.proTeamId) continue; // rostered on an NFL team
+      const st = (p.stats || []).filter((s) => s.seasonId === y && s.statSourceId === 1);
+      const week = st.find((s) => s.statSplitTypeId === 1 && s.scoringPeriodId === wk), ros = st.find((s) => s.statSplitTypeId === 0);
+      list.push({ id: p.id, name: p.fullName, pos, team: p.proTeamId, opp: opp.get(p.proTeamId),
+        week: { ...(week?.stats || {}), pts: week?.appliedTotal || 0 }, ros: { ...(ros?.stats || {}), pts: ros?.appliedTotal || 0 } });
+    }
+    const data = { y, wk, list };
+    cache.set(url, { t: Date.now(), data });
+    return data;
+  }
+
+  async function projected(params) {
+    const my = token;
+    if (league !== "nfl") {
+      view("stats").innerHTML = stSubStats("projected") + `<div class="card">Projections are NFL only: they come from ESPN's fantasy football feed, which doesn't cover college. <a href="${link("stats", null, { show: "projected", league: "nfl" })}">See NFL projections →</a></div>`;
+      return;
+    }
+    view("stats").innerHTML = stSubStats("projected") + `<div class="card muted">Loading…</div>`;
+    let data, teams;
+    try {
+      [data, teams] = await Promise.all([pjPlayers(), api(`${STAND("nfl")}/standings?level=3`, 86400000).then((d) => new Map(groupsOf(d).flatMap((g) => g.entries).map((e) => [String(e.team.id), e.team]))).catch(() => new Map())]);
+    } catch (e) { return fail("stats", e); }
+    if (my !== token) return;
+    const ros = params.get("when") === "ros", pos = Object.values(PJ_POS).includes(params.get("pos")) ? params.get("pos") : "";
+    const cols = pos === "K" ? PJ_K : PJ_COLS;
+    const sort = cols.some((c) => c[1] === params.get("sort")) ? params.get("sort") : "pts", dir = params.get("dir") === "asc" ? "asc" : "desc";
+    const shown = Math.max(1, +params.get("pages") || 1) * 100;
+    const go = (changes) => {
+      const p = new URLSearchParams(params);
+      Object.entries(changes).forEach(([k, v]) => (v == null || v === "" ? p.delete(k) : p.set(k, v)));
+      p.set("league", "nfl"); p.set("show", "projected");
+      location.hash = `#/stats?${p}`;
+    };
+    const val = (r) => (ros ? r.ros : r.week);
+    const all = data.list.filter((r) => val(r).pts > 0 && (!pos || r.pos === pos)) // nothing projected = bye week or ruled out
+      .sort((a, b) => (dir === "desc" ? 1 : -1) * ((val(b)[sort] || 0) - (val(a)[sort] || 0)) || val(b).pts - val(a).pts);
+    const fmt = (v, label) => (!v || v < 0.05 ? `<span class="muted">–</span>` : /yds/.test(label) ? Math.round(v).toLocaleString() : v.toFixed(1));
+    const th = (key, label, title) => `<th class="num sortable${key === sort ? " on" : ""}" data-sort="${key}" title="${esc(title)}">${esc(label)}${key === sort ? (dir === "desc" ? " ▼" : " ▲") : ""}</th>`;
+    const tm = (id) => { const t = teams.get(String(id)); return t ? `<a href="${link("team", t.id)}"><span class="tm">${img(teamLogo(t), "xs")} ${esc(t.abbreviation)}</span></a>` : ""; };
+    const rows = all.slice(0, shown).map((r, i) => `<tr data-name="${esc(r.name.toLowerCase())} ${esc((teams.get(String(r.team))?.abbreviation || "").toLowerCase())}"><td class="num muted">${i + 1}</td>
+        <td><div class="team">${face(`https://a.espncdn.com/i/headshots/nfl/players/full/${r.id}.png`, r.name, "hs")}<div><a href="${link("player", r.id)}"><b>${esc(r.name)}</b></a><small class="muted">${esc(r.pos)}</small></div></div></td>
+        <td>${tm(r.team)}</td>${ros ? "" : `<td class="pj-opp">${r.opp ? `<small class="muted">${r.opp[1] ? "vs" : "@"}</small> ${tm(r.opp[0])}` : ""}</td>`}
+        ${cols.map(([l, k]) => `<td class="num${k === sort ? " on" : ""}">${fmt(val(r)[k], l)}</td>`).join("")}
+        <td class="num${sort === "pts" ? " on" : ""}"><b>${val(r).pts.toFixed(1)}</b></td></tr>`).join("");
+    const when = ros ? `the rest of the ${data.y} season (weeks ${data.wk}–18)` : `week ${data.wk}`;
+    view("stats").innerHTML = stSubStats("projected") + `
+      <div class="sc-bar">
+        <div class="presets" id="pj-when"><button data-when="" class="${ros ? "" : "on"}">This week</button><button data-when="ros" class="${ros ? "on" : ""}">Rest of season</button></div>
+        <div class="presets" id="pj-pos">${[["", "All"], ...Object.values(PJ_POS).map((p) => [p, p])].map(([v, l]) => `<button data-pos="${v}" class="${v === pos ? "on" : ""}">${l}</button>`).join("")}</div>
+        <input id="pj-search" type="search" placeholder="Filter player or team…">
+      </div>
+      <p class="fr-how">ESPN's projections for <b>${esc(when)}</b>. These are ESPN's fantasy football forecasts, not betting lines.</p>
+      <div class="table-wrap"><table id="pj-table"><thead><tr><th class="num">#</th><th>Player</th><th>Team</th>${ros ? "" : "<th>Opp</th>"}
+        ${cols.map(([l, k, t]) => th(k, l, t)).join("")}${th("pts", "PPR pts", "Projected fantasy points, PPR scoring (1 per catch)")}</tr></thead>
+        <tbody>${rows || `<tr><td colspan="13" class="muted">No projections yet.</td></tr>`}</tbody></table></div>
+      ${all.length > shown ? `<p><button id="pj-more" class="btn">Show 100 more</button></p>` : ""}
+      <p class="note">Click a column to sort by it. Players on bye or projected for nothing (out) aren't listed${ros ? "; rest-of-season totals skip byes and games ESPN expects them to miss" : ""}. Projections: ESPN fantasy, updated through the week.</p>`;
+    $("#pj-when").onclick = (e) => { const b = e.target.closest("[data-when]"); if (b) go({ when: b.dataset.when, pages: null }); };
+    $("#pj-pos").onclick = (e) => { const b = e.target.closest("[data-pos]"); if (b) go({ pos: b.dataset.pos, pages: null }); };
+    view("stats").querySelector("#pj-table thead").onclick = (e) => {
+      const k = e.target.closest("th")?.dataset.sort;
+      if (k) go({ sort: k === "pts" ? null : k, dir: k === sort && dir === "desc" ? "asc" : null, pages: null });
+    };
+    $("#pj-search").oninput = (e) => {
+      const q = e.target.value.trim().toLowerCase();
+      view("stats").querySelectorAll("#pj-table tbody tr").forEach((tr) => tr.classList.toggle("hidden", !!q && !(tr.dataset.name || "").includes(q)));
+    };
+    if ($("#pj-more")) $("#pj-more").onclick = () => go({ pages: shown / 100 + 1 });
   }
 
   // ---------------------------------------------------------------- player
