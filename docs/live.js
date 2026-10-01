@@ -1042,10 +1042,10 @@ const Live = (() => {
     }
     if (PK) { // "My picks": the viewer's pick moves on instead (kept only if that team is actually in this game)
       g.key = PK.n++; g.fav = g.win;
-      const id = PK.fill ? (g.fav ? String(g.fav.id) : "") : PK.ids[g.key];
-      const w = id && [a, b].find((s) => s && String(s.id) === id);
+      const pick = (id) => id && [a, b].find((s) => s && String(s.id) === id);
+      const w = pick(PK.ids[g.key]) || (PK.fill && g.fav ? pick(String(g.fav.id)) : null); // fill = the model's favorite where you haven't picked
       g.win = w ? { ...w, proj: false } : null;
-      PK.ids[g.key] = w ? id : "";
+      PK.ids[g.key] = w ? String(w.id) : "";
     }
     return g;
   }
@@ -1053,7 +1053,18 @@ const Live = (() => {
 
   // CFP (2026 rules): the 4 power-conference champions + the best Group of 6 champion get in, Notre Dame if top 12,
   // then at-large by rank. Straight seeding: the top 4 get byes; first-round games at the higher seed, then neutral bowls.
-  function cfpBracket(ranks) {
+  // seated = My picks: seat i (seed i + 1) -> the team you typed there, or null (the slot becomes a seed prompt)
+  function cfpBracket(ranks, seated = null) {
+    const s = seated ? Array.from({ length: 12 }, (_, i) => seated(i)) : cfpField(ranks);
+    const seed = (n) => s[n - 1] || null;
+    const fr = [[8, 9], [5, 12], [7, 10], [6, 11]].map(([h, a]) => Object.assign(bGame("cfb", seed(h), seed(a), 0, "First round", true), { sa: h - 1, sb: a - 1 }));
+    const qf = [1, 4, 2, 3].map((h, i) => Object.assign(bGame("cfb", seed(h), fr[i].win, 1, "Quarterfinal", false, [fr[i]]), { sa: h - 1 }));
+    const sf = [0, 2].map((i) => bGame("cfb", qf[i].win, qf[i + 1].win, 2, "Semifinal", false, [qf[i], qf[i + 1]]));
+    const root = bGame("cfb", sf[0].win, sf[1].win, 3, "National championship", false, sf);
+    place(root, { i: 0 });
+    return { field: s, root, cols: ["First round", "Quarterfinals", "Semifinals", "Title game"] };
+  }
+  function cfpField(ranks) {
     const list = [...ranks.byName.values()], P4 = ["SEC", "Big Ten", "Big 12", "ACC"];
     const champ = new Map(); // conference -> its highest-ranked team = our projected champion
     list.forEach((t) => { if (t.conference && !/independent/i.test(t.conference) && !champ.has(t.conference)) champ.set(t.conference, t); });
@@ -1063,25 +1074,19 @@ const Live = (() => {
     const field = new Set(auto), nd = list.find((t) => t.team === "Notre Dame");
     if (nd && nd.rank <= 12) field.add(nd);
     for (const t of list) { if (field.size >= 12) break; field.add(t); }
-    const s = [...field].sort((a, b) => a.rank - b.rank).map((t, i) => ({ name: t.team, short: t.team, logo: t.logo, id: t.id, seed: i + 1,
-      rank: t.rank, record: t.record, rating: t.rating, conf: t.conference, auto: auto.includes(t) }));
-    const seed = (n) => s[n - 1] || null;
-    const fr = [[8, 9], [5, 12], [7, 10], [6, 11]].map(([h, a]) => bGame("cfb", seed(h), seed(a), 0, "First round", true));
-    const qf = [1, 4, 2, 3].map((h, i) => bGame("cfb", seed(h), fr[i].win, 1, "Quarterfinal", false, [fr[i]]));
-    const sf = [0, 2].map((i) => bGame("cfb", qf[i].win, qf[i + 1].win, 2, "Semifinal", false, [qf[i], qf[i + 1]]));
-    const root = bGame("cfb", sf[0].win, sf[1].win, 3, "National championship", false, sf);
-    place(root, { i: 0 });
-    return { field: s, root, cols: ["First round", "Quarterfinals", "Semifinals", "Title game"] };
+    return [...field].sort((a, b) => a.rank - b.rank).map((t, i) => ({ ...cfbTeam(t), seed: i + 1, auto: auto.includes(t) }));
   }
+  const cfbTeam = (t) => ({ name: t.team, short: t.team, logo: t.logo, id: String(t.id), rank: t.rank, record: t.record, rating: t.rating, conf: t.conference });
 
   // One NFL conference: 2v7, 3v6, 4v5 (1 has a bye), then the Divisional round reseeds (1 hosts the lowest seed left).
-  function nflSide(slots, cols, conf) {
-    const s = new Map(slots.map((x) => [x.seed, x])), at = (n) => s.get(n) || null;
-    const wc = [[2, 7], [3, 6], [4, 5]].map(([h, a]) => bGame("nfl", at(h), at(a), cols[0], `${conf} Wild Card`, true));
+  // base = My picks: seat number of this conference's 1 seed (seed n sits in seat base + n - 1)
+  function nflSide(slots, cols, conf, base = 0) {
+    const s = new Map(slots.filter(Boolean).map((x) => [x.seed, x])), at = (n) => s.get(n) || null;
+    const wc = [[2, 7], [3, 6], [4, 5]].map(([h, a]) => Object.assign(bGame("nfl", at(h), at(a), cols[0], `${conf} Wild Card`, true), { sa: base + h - 1, sb: base + a - 1 }));
     const full = wc.every((g) => g.win); // can't reseed until all three Wild Card winners are known
     const low = full ? wc.reduce((x, g) => (g.win.seed > x.win.seed ? g : x)) : wc[0];
     const rest = wc.filter((g) => g !== low);
-    const d1 = bGame("nfl", at(1), full ? low.win : null, cols[1], `${conf} Divisional`, true, [low]);
+    const d1 = Object.assign(bGame("nfl", at(1), full ? low.win : null, cols[1], `${conf} Divisional`, true, [low]), { sa: base });
     const d2 = bGame("nfl", ...(full ? bySeed(rest[0].win, rest[1].win) : [null, null]), cols[1], `${conf} Divisional`, true, rest);
     const top = bGame("nfl", ...bySeed(d1.win, d2.win), cols[2], `${conf} Championship`, true, [d1, d2]);
     place(top, { i: 0 });
@@ -1104,27 +1109,31 @@ const Live = (() => {
     if (words.length > 1) list.push(words.map((w) => w[0]).join("")); // initials: "os" = Ohio State
     return [...new Set(list.map(normName).filter(Boolean))];
   };
-  // Which of the game's two teams does the text mean? Exact word > start of a word/name > typo-tolerant match.
-  function typedTeam(text, g) {
+  // Which team does the text mean, out of a list (a game's two teams, or every team still free for a seed)?
+  // Exact word > start of a word/name > typo-tolerant match.
+  function typedTeam(text, list) {
     const q = normName(text);
     if (!q) return null;
     let best = null;
-    for (const t of [g.a, g.b]) for (const w of terms(t).flatMap((n) => [n, ...n.split(" ").slice(1).map((_, i, a) => a.slice(i).join(" "))])) {
+    for (const t of list) for (const w of terms(t).flatMap((n) => [n, ...n.split(" ").slice(1).map((_, i, a) => a.slice(i).join(" "))])) {
       const f = w.startsWith(q) ? null : fuzzyScore(q, w);
       const sc = w === q ? 0 : w.startsWith(q) ? 1 : f != null ? 2 + f : null;
       if (sc != null && (!best || sc < best.sc || (sc === best.sc && w.length < best.w.length))) best = { t, sc, w };
     }
     return best;
   }
-  const typeRow = (src, k, was = "") => `<div class="br-t br-in"><span class="br-sd">&gt;</span><span class="br-tty">
-    <input data-k="${k}" maxlength="24" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="next"
-      aria-label="Type the winner: ${esc(src.a.name)} or ${esc(src.b.name)}"${was ? ` data-was="${esc(was)}"` : ""}><span class="br-gh" aria-hidden="true"></span></span></div>`;
+  // A chooser = what a prompt accepts: list = its teams, ph = hint while focused, idle = text while not
+  const gameCh = (g) => ({ list: [g.a, g.b], ph: `${g.a.abbr || g.a.short} / ${g.b.abbr || g.b.short}`, idle: "pick_", label: `Type the winner: ${g.a.name} or ${g.b.name}` });
+  // attr = data-k="game" (pick a winner) or data-seat="i" (type a seed)
+  const typeRow = (attr, c, was = "") => `<div class="br-t br-in"><span class="br-sd">&gt;</span><span class="br-tty">
+    <input ${attr} maxlength="24" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="next"
+      aria-label="${esc(c.label)}"${was ? ` data-was="${esc(was)}"` : ""}><span class="br-gh" aria-hidden="true"></span></span></div>`;
   // The visible text is drawn over the (transparent) input: what you typed, a block cursor, then the rest of the best match in grey.
-  function ghost(inp, g) {
-    const v = inp.value, on = document.activeElement === inp, m = typedTeam(v, g), gh = inp.nextElementSibling;
+  function ghost(inp, c) {
+    const v = inp.value, on = document.activeElement === inp, m = typedTeam(v, c.list), gh = inp.nextElementSibling;
     inp.closest(".br-t").classList.toggle("ok", !!m);
     if (!v) {
-      const ph = inp.dataset.was ? `was ${inp.dataset.was}` : on ? `${g.a.abbr || g.a.short} / ${g.b.abbr || g.b.short}` : "pick_";
+      const ph = inp.dataset.was ? `was ${inp.dataset.was}` : on ? c.ph : c.idle;
       gh.innerHTML = `${on ? `<i class="cur"> </i>` : ""}<span class="gh-h">${esc(ph)}</span>`;
       return m;
     }
@@ -1137,7 +1146,8 @@ const Live = (() => {
 
   // Boxes over an SVG of thin connector lines; the projected champion's path is orange.
   // mine = My picks: the viewer's picks are solid, the model's favorite keeps a small grey win % as a hint.
-  function bracketHtml(root, cols, bw, gap, mine = false) {
+  // seatCh(i) = My picks: the chooser for seed seat i (an empty seed slot is a prompt; a filled one can be retyped)
+  function bracketHtml(root, cols, bw, gap, mine = false, seatCh = null) {
     const all = [];
     (function walk(g) { all.push(g); g.kids.forEach(walk); })(root);
     const X = (c) => c * (bw + gap), W = X(cols.length - 1) + bw, H = HEAD + Math.max(...all.map((g) => g.y)) + BH + 2;
@@ -1149,107 +1159,360 @@ const Live = (() => {
     })).join("");
     const idx = new Map(all.map((g, i) => [g, i]));
     // src = the game whose winner fills this slot (My picks: filled slots can be retyped)
-    const row = (s, g, src) => {
+    const row = (s, g, src, seat) => {
       if (!s) return `<div class="br-t"><span class="br-sd"></span><span class="br-n">TBD</span></div>`;
       const won = g.win?.name === s.name, fav = mine ? g.fav?.name === s.name : won, open = mine && g.a && g.b;
-      return `<div class="br-t${won ? " win" : ""}${won && s.name === champ ? " hot" : ""}${open ? " pk" : ""}"${open ? ` data-id="${esc(s.id)}" role="button" aria-pressed="${won}"` : ""}${open || src ? ` tabindex="0"` : ""}${src ? ` data-src="${idx.get(src)}"` : ""}>
-        <span class="br-sd">${s.seed}</span>${img(s.logo, "xs")}<span class="br-n" title="${esc(s.name)}">${esc(s.short)}</span>
+      return `<div class="br-t${won ? " win" : ""}${won && s.name === champ ? " hot" : ""}${open ? " pk" : ""}"${open ? ` data-id="${esc(s.id)}" role="button" aria-pressed="${won}"` : ""}${open || src || seat != null ? ` tabindex="0"` : ""}${src ? ` data-src="${idx.get(src)}"` : ""}${seat != null ? ` data-seat="${seat}"` : ""}>
+        ${seat != null ? `<span class="br-sd ed" title="Change this seed">${s.seed}</span>` : `<span class="br-sd">${s.seed}</span>`}${img(s.logo, "xs")}<span class="br-n" title="${esc(s.name)}">${esc(s.short)}</span>
         <span class="br-p"${mine ? ` title="Model's win chance"` : ""}>${fav && g.p ? Math.round(g.p * 100) + "%" : ""}</span></div>`;
     };
     // My picks: match each slot to the game feeding it. Filled slots match by team; empty ones take the leftover games in order
     // (NFL Divisional slots before reseeding just follow the Wild Card games in order until all three are picked).
     const slot = (g, k) => {
       if (!mine) return row(g[k], g);
+      const seat = g["s" + k];
+      if (seatCh && seat != null) return g[k] ? row(g[k], g, null, seat) : typeRow(`data-seat="${seat}"`, seatCh(seat));
       const used = g.kids.filter((x) => x.win && [g.a, g.b].some((s) => s && String(s.id) === String(x.win.id)));
-      const src = g[k] ? used.find((x) => String(x.win.id) === String(g[k].id)) : g.kids.filter((x) => !used.includes(x))[k === "b" && !g.a ? 1 : 0];
+      const src = g[k] ? used.find((x) => String(x.win.id) === String(g[k].id)) : g.kids.filter((x) => !used.includes(x))[k === "b" && !g.a && g.sa == null ? 1 : 0];
       if (g[k] || src?.win) return row(g[k] || src.win, g, src); // (a Wild Card pick waiting on the reseed shows in its slot)
-      return src?.a && src?.b ? typeRow(src, idx.get(src)) : row(null, g);
+      return src?.a && src?.b ? typeRow(`data-k="${idx.get(src)}"`, gameCh(src)) : row(null, g);
     };
     return `<div class="br-scroll"><div class="br${mine ? " mine" : ""}" style="width:${W}px;height:${H}px">
       <svg width="${W}" height="${H}" aria-hidden="true">${paths}</svg>
       ${cols.map((c, i) => `<div class="br-h" style="left:${X(i)}px;width:${bw}px">${esc(c)}</div>`).join("")}
-      ${all.map((g, i) => `<div class="br-m${g.a?.proj || g.b?.proj ? " proj" : ""}${g === root ? " final" : ""}" data-i="${i}" tabindex="0"
+      ${all.map((g, i) => `<div class="br-m${g.a?.proj || g.b?.proj ? " proj" : ""}${g === root ? " final" : ""}" data-i="${i}"${mine ? "" : ` tabindex="0"`}
         style="left:${X(g.col)}px;top:${HEAD + g.y}px;width:${bw}px">${slot(g, "a")}${slot(g, "b")}</div>`).join("")}
       <div class="cc-tip"></div></div></div>`;
   }
-  // Hover (or tap) a game for both teams and the model's line
-  // In My picks, tapping a team picks it (onPick(game, teamId)); hovering still shows the details.
-  function wireBracket(root, onPick) {
+  // Model's picks: hover (or tap) a game for both teams and the model's line. The box sits beside the game, never on it.
+  // My picks: no hover box (the win % is inline and the odds box lists your picks); tapping a team picks it
+  // (onPick(game, teamId, how)), and seats = { ch(i), set(i, teamId, how) } handles the typed seeds.
+  function wireBracket(root, onPick, seats) {
     const el = $("#view-standings .br");
     if (!el) return;
     const all = [];
     (function walk(g) { all.push(g); g.kids.forEach(walk); })(root);
-    const tip = el.querySelector(".cc-tip");
+    const tip = el.querySelector(".cc-tip"), card = el.closest(".card");
     const who = (s) => (s ? `<span>#${s.seed} ${esc(s.name)}${s.rank ? ` · our #${s.rank}` : ""}${s.record ? ` · ${esc(s.record)}` : ""}${s.proj ? " · projected" : ""}</span>` : `<span>TBD</span>`);
     const show = (b) => {
-      const g = all[+b.dataset.i], f = onPick ? g.fav : g.win; // the model's favorite
+      const g = all[+b.dataset.i], f = g.win; // the model's favorite
       const where = g.home && g.a ? `at ${esc(g.a.short)}` : "neutral site";
-      showTip(el, tip, b.offsetLeft + b.offsetWidth / 2, b.offsetTop - 2, `<small>${esc(g.label)} · ${where}</small>`
-        + (f ? `<b>${onPick ? "Model: " : ""}${esc(f.short)} <em>${Math.round(g.p * 100)}% · by ${Math.abs(g.spread).toFixed(1)}</em></b>` : `<b>TBD</b>`) + who(g.a) + who(g.b));
+      tip.innerHTML = `<small>${esc(g.label)} · ${where}</small>` + (f ? `<b>${esc(f.short)} <em>${Math.round(g.p * 100)}% · by ${Math.abs(g.spread).toFixed(1)}</em></b>` : `<b>TBD</b>`) + who(g.a) + who(g.b);
+      // beside the box (its right on the left half, its left on the right half), never on it: slide up or down from level
+      // with the game to the spot that covers the least of the other games (usually none). It lives in the card, not the
+      // scrolling bracket, so it can also use the space above and below the bracket.
+      tip.className = "cc-tip br-tip";
+      tip.style.transform = "none";
+      const cr = card.getBoundingClientRect(), rel = (m) => { const r = m.getBoundingClientRect(); return [r.left - cr.left, r.top - cr.top, r.right - cr.left, r.bottom - cr.top]; };
+      const tw = Math.min(tip.offsetWidth, cr.width), th = tip.offsetHeight, W = cr.width, H = cr.height, [bl, bt, br, bb] = rel(b);
+      const boxes = [...el.querySelectorAll(".br-m")].map(rel);
+      const clampX = (x) => Math.max(0, Math.min(x, W - tw)), cy = (bt + bb) / 2 - th / 2;
+      const xs = [...((bl + br) / 2 < W / 2 ? [br + 8, bl - 8 - tw] : [bl - 8 - tw, br + 8]).filter((x) => x >= 0 && x + tw <= W), clampX((bl + br) / 2 - tw / 2)];
+      let best = null;
+      for (const x of xs) {
+        for (let k = 0; k <= H / 4 && best?.o !== 0; k++) {
+          const y = Math.max(0, Math.min(cy + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 8, H - th));
+          const o = boxes.reduce((s, [l, t, r, btm]) => s + Math.max(0, Math.min(r, x + tw) - Math.max(l, x)) * Math.max(0, Math.min(btm, y + th) - Math.max(t, y)), 0);
+          if (!best || o < best.o) best = { x, y, o };
+        }
+        if (best.o === 0) break;
+      }
+      tip.style.left = `${best.x}px`; tip.style.top = `${best.y}px`;
+      tip.classList.add("on");
     };
-    el.onpointerover = (e) => { const b = e.target.closest(".br-m"); if (b && e.pointerType === "mouse" && !e.target.closest(".br-in")) show(b); };
-    el.onpointerleave = () => tip.classList.remove("on");
+    const hide = () => tip.classList.remove("on");
+    if (!onPick) {
+      card.appendChild(tip);
+      el.onpointerover = (e) => { const b = e.target.closest(".br-m"); if (b && e.pointerType === "mouse") show(b); };
+      el.onpointerleave = hide;
+      // touch: a tap on a game opens it; the next tap anywhere closes it (see the page-wide pointerdown below)
+      el.onclick = (e) => { const b = e.target.closest(".br-m"); if (b && !tipWasOn) show(b); };
+      el.addEventListener("focusin", (e) => { const b = e.target.closest(".br-m"); if (b && e.target.matches(":focus-visible")) show(b); });
+      return;
+    }
+    const chOf = (inp) => (inp.dataset.seat != null ? seats.ch(+inp.dataset.seat) : gameCh(all[+inp.dataset.k]));
     // Tapping your current pick again clears it (its next slot turns back into a prompt)
     const pickAt = (t) => { const pressed = t.getAttribute("aria-pressed") === "true"; onPick(all[+t.closest(".br-m").dataset.i], pressed ? "" : t.dataset.id, pressed ? "clear" : "click"); };
-    // Retype a filled slot: swap the row for a prompt; leaving it empty puts the team back
+    // Retype a filled slot (a winner, or a seed): swap the row for a prompt; leaving it empty puts the team back
     const retype = (t, ch = "") => {
-      const src = all[+t.dataset.src];
-      if (!src.a || !src.b) return;
+      const seat = t.dataset.seat, src = seat == null && all[+t.dataset.src];
+      if (src && (!src.a || !src.b)) return;
       const old = t.outerHTML, box = document.createElement("div");
-      box.innerHTML = typeRow(src, t.dataset.src, t.querySelector(".br-n").textContent);
+      box.innerHTML = seat != null ? typeRow(`data-seat="${seat}"`, seats.ch(+seat), t.querySelector(".br-n").textContent)
+        : typeRow(`data-k="${t.dataset.src}"`, gameCh(src), t.querySelector(".br-n").textContent);
       const r = box.firstElementChild, inp = r.querySelector("input");
       r.dataset.old = old;
       t.replaceWith(r);
-      inp.value = ch; inp.focus(); ghost(inp, src);
+      inp.value = ch; inp.focus(); ghost(inp, chOf(inp));
     };
     el.onclick = (e) => {
-      if (onPick && e.target.closest(".br-in")) return e.target.closest(".br-in").querySelector("input").focus();
-      const t = onPick && e.target.closest(".br-t.pk");
+      if (e.target.closest(".br-in")) return e.target.closest(".br-in").querySelector("input").focus();
+      const sd = e.target.closest(".br-sd.ed"); // the seed number of a typed seed: retype that seed
+      if (sd) return retype(sd.closest(".br-t"));
+      const t = e.target.closest(".br-t.pk");
       if (t) return pickAt(t);
-      const r = onPick && e.target.closest(".br-t[data-src]"); // a filled slot you can't pick from yet (the other slot is empty)
+      const r = e.target.closest(".br-t[data-src], .br-t[data-seat]"); // a filled slot you can't pick from yet (the other slot is empty)
       if (r) return retype(r);
-      const b = e.target.closest(".br-m"); if (b) show(b); else tip.classList.remove("on");
     };
     el.onkeydown = (e) => {
-      if (!onPick) return;
       const inp = e.target.closest(".br-in input");
       if (inp) {
-        const g = all[+inp.dataset.k];
+        const c = chOf(inp), seat = inp.dataset.seat;
         if ((e.key === "Enter" || (e.key === "Tab" && !e.shiftKey && inp.value)) && !e.isComposing) {
-          const m = typedTeam(inp.value, g);
-          if (m) { e.preventDefault(); return onPick(g, String(m.t.id), "typed"); }
+          const m = typedTeam(inp.value, c.list);
+          if (m) { e.preventDefault(); return seat != null ? seats.set(+seat, String(m.t.id), "typed") : onPick(all[+inp.dataset.k], String(m.t.id), "typed"); }
+          if (e.key === "Enter" && seat != null && inp.dataset.was && !inp.value) { e.preventDefault(); return seats.set(+seat, "", "clear"); } // Enter on an emptied seed clears it
           if (e.key === "Enter") { e.preventDefault(); const r = inp.closest(".br-t"); r.classList.remove("no"); void r.offsetWidth; r.classList.add("no"); }
         }
-        if (e.key === "Escape") { e.preventDefault(); if (inp.value) { inp.value = ""; ghost(inp, g); } else inp.blur(); }
+        if (e.key === "Escape") { e.preventDefault(); if (inp.value) { inp.value = ""; ghost(inp, c); } else inp.blur(); }
         return;
       }
       const t = e.target.closest(".br-t.pk");
       if (t && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); return pickAt(t); }
-      const r = e.target.closest(".br-t[data-src]"); // start typing (or Backspace) on a filled slot to retype it
+      const r = e.target.closest(".br-t[data-src], .br-t[data-seat]"); // start typing (or Backspace) on a filled slot to retype it
       if (r && !e.ctrlKey && !e.metaKey && !e.altKey && (e.key === "Backspace" || /^[a-z0-9&.' -]$/i.test(e.key) && e.key !== " ")) {
         e.preventDefault(); retype(r, e.key === "Backspace" ? "" : e.key);
       }
     };
-    el.oninput = (e) => { const inp = e.target.closest(".br-in input"); if (inp) ghost(inp, all[+inp.dataset.k]); };
+    el.oninput = (e) => { const inp = e.target.closest(".br-in input"); if (inp) ghost(inp, chOf(inp)); };
     // (no onfocusin/onfocusout properties in Chrome; el is rebuilt on every draw, so listeners never pile up)
-    el.addEventListener("focusin", (e) => {
-      const inp = e.target.closest(".br-in input");
-      if (inp) { tip.classList.remove("on"); return ghost(inp, all[+inp.dataset.k]); }
-      const b = e.target.closest(".br-m"); if (b) show(b);
-    });
+    el.addEventListener("focusin", (e) => { const inp = e.target.closest(".br-in input"); if (inp) ghost(inp, chOf(inp)); });
     el.addEventListener("focusout", (e) => {
       const inp = e.target.closest(".br-in input");
       if (!inp) return;
       const r = inp.closest(".br-t");
       if (r.dataset.old && r.isConnected) r.outerHTML = r.dataset.old; // retype left without Enter/Tab: put the team back
-      else if (r.isConnected) ghost(inp, all[+inp.dataset.k]);
+      else if (r.isConnected) ghost(inp, chOf(inp));
     });
-    el.querySelectorAll(".br-in input").forEach((inp) => ghost(inp, all[+inp.dataset.k]));
+    el.querySelectorAll(".br-in input").forEach((inp) => ghost(inp, chOf(inp)));
   }
+  // The bracket's hover box closes on any press or scroll anywhere (one page-wide listener, added once).
+  // tipWasOn lets the press that closed it skip reopening it, so "next tap anywhere closes it" holds on phones.
+  let tipWasOn = false;
+  const hideBrTip = () => { const t = document.querySelector(".cc-tip.br-tip.on"); tipWasOn = !!t; t?.classList.remove("on"); };
+  document.addEventListener("pointerdown", hideBrTip, true);
+  document.addEventListener("scroll", () => document.querySelector(".cc-tip.br-tip.on")?.classList.remove("on"), { capture: true, passive: true });
 
   // My picks travel in the URL as each game's winner (ESPN team id in base 36), games in build order, e.g. &picks=1j.8..2t
   const encPicks = (ids) => ids.map((id) => (id ? (+id).toString(36) : "")).join(".").replace(/\.+$/, "");
   const decPicks = (str) => (/^[0-9a-z.]{1,300}$/.test(str || "") ? str.split(".").map((x) => (x ? String(parseInt(x, 36)) : "")) : []);
+
+  // ---- My picks odds: a Monte Carlo of the rest of the season, then the playoffs, from our power ratings.
+  // Current records + the remaining regular-season schedule come from ESPN's weekly scoreboards; each remaining game
+  // is a coin weighted by our model's win chance (same spread math as above). Then seed the field and play the bracket.
+  const SIM_N = 5000, SIMS = new Map(); // `${lg}-${season}-${week}` -> Promise of the results (kept for the visit)
+  function simOdds(lg, ranks, d) {
+    const info = INDEX.leagues[lg].latest, key = `${lg}-${info.season}-${info.week}`;
+    if (!SIMS.has(key)) SIMS.set(key, runSims(lg, info.season, ranks, d).catch((e) => { SIMS.delete(key); throw e; }));
+    return SIMS.get(key);
+  }
+  async function runSims(lg, season, ranks, d) {
+    const nfl = lg === "nfl", m = GAME[lg], T = [], at = new Map(); // T = every team we simulate; at = ESPN id -> index in T
+    const add = (id, rating, conf, div, name) => { at.set(String(id), T.length); T.push({ id: String(id), rating: rating ?? 0, conf, div, name }); };
+    if (nfl) (d.children || []).forEach((c) => groupsOf(c).forEach((g) => g.entries.forEach((e) =>
+      add(e.team.id, ranks.byName.get(e.team.displayName)?.rating, c.abbreviation, g.name, e.team.displayName))));
+    else ranks.byId.forEach((t) => add(t.id, t.rating, t.conference, null, t.team));
+    const fcs = new Map((ranks.data.fcs_ratings || []).map(([n, r]) => [normName(n), r])); // CFB: FCS opponents' ratings
+    const weeks = nfl ? 18 : 15, q = nfl ? "" : "groups=80&limit=300&";
+    const t0 = performance.now();
+    const boards = await Promise.all(Array.from({ length: weeks }, (_, i) =>
+      api(`${SITE(lg)}/scoreboard?${q}seasontype=2&week=${i + 1}&dates=${season}`, 1800000).catch(() => null)));
+    if (boards.filter(Boolean).length < weeks - 2) throw new Error("schedule unavailable");
+    const W0 = new Float64Array(T.length), L0 = new Float64Array(T.length), G = [], seen = new Set();
+    boards.forEach((sb) => (sb?.events || []).forEach((ev) => {
+      if (seen.has(ev.id)) return;
+      seen.add(ev.id);
+      const c = ev.competitions?.[0], h = c?.competitors?.find((x) => x.homeAway === "home"), a = c?.competitors?.find((x) => x.homeAway === "away");
+      if (!h || !a) return;
+      const hi = at.get(String(h.team?.id)), ai = at.get(String(a.team?.id)), st = ev.status?.type || {};
+      if (hi == null && ai == null) return;
+      if (st.state === "post") { // played: count it (only the teams we track); canceled/postponed games don't count
+        if (!st.completed || /cancel|postpone/i.test(st.name || "")) return;
+        const res = h.winner ? [1, 0] : a.winner ? [0, 1] : [0.5, 0.5];
+        [[hi, res[0]], [ai, res[1]]].forEach(([i, w]) => { if (i != null) { W0[i] += w; L0[i] += 1 - w; } });
+        return;
+      }
+      // still to play. CFB: an opponent we don't track is FCS (its rating if we have one); skip TBD placeholders
+      const out = (x) => !x.team?.location || /tbd/i.test(x.team.displayName || "");
+      if (nfl ? hi == null || ai == null : out(h) || out(a)) return;
+      const r = (x, i) => (i != null ? T[i].rating : fcs.get(normName(x.team.location)) ?? -18);
+      G.push([hi ?? -1, ai ?? -1, phi(((r(h, hi) - r(a, ai)) + (c.neutralSite ? 0 : m.hfa)) * m.scale / m.sigma)]);
+    }));
+    const tFetch = performance.now() - t0;
+
+    // P(i beats j), home = i hosts
+    const pw = (i, j, home) => phi(((T[i].rating - T[j].rating) + (home ? m.hfa : 0)) * m.scale / m.sigma);
+    const play = (i, j, home) => (Math.random() < pw(i, j, home) ? i : j);
+    const n = T.length, W = new Float64Array(n), L = new Float64Array(n), key = new Float64Array(n);
+    const seedCount = new Uint32Array(n * 13), title = new Uint32Array(n);
+    // NFL: conference -> its divisions (team indexes)
+    const confs = nfl ? ["AFC", "NFC"].map((cf) => {
+      const divs = new Map();
+      T.forEach((t, i) => { if (t.conf === cf) { if (!divs.has(t.div)) divs.set(t.div, []); divs.get(t.div).push(i); } });
+      return { all: T.map((t, i) => (t.conf === cf ? i : -1)).filter((i) => i >= 0), divs: [...divs.values()] };
+    }) : null;
+    const P4 = ["SEC", "Big Ten", "Big 12", "ACC"], ND = T.findIndex((t) => t.name === "Notre Dame");
+    const byKey = (x, y) => key[y] - key[x];
+
+    const one = () => {
+      W.set(W0); L.set(L0);
+      for (const [h, a, p] of G) {
+        const hw = Math.random() < p;
+        if (h >= 0) { if (hw) W[h]++; else L[h]++; }
+        if (a >= 0) { if (hw) L[a]++; else W[a]++; }
+      }
+      if (nfl) {
+        // seeds: 4 division winners by record (1-4), then the 3 best other records (5-7); ties = coin flip
+        for (let i = 0; i < n; i++) key[i] = W[i] / (W[i] + L[i] || 1) + Math.random() * 1e-6;
+        const champs = [];
+        for (const cf of confs) {
+          const wins = cf.divs.map((dv) => dv.reduce((x, y) => (key[y] > key[x] ? y : x))).sort(byKey);
+          const s = [...wins, ...cf.all.filter((i) => !wins.includes(i)).sort(byKey).slice(0, 3)];
+          s.forEach((i, k) => seedCount[i * 13 + k + 1]++);
+          // 2v7, 3v6, 4v5 at the better seed; then the 1 seed hosts the lowest seed left; then the better seed hosts
+          const wc = [[1, 6], [2, 5], [3, 4]].map(([x, y]) => (play(s[x], s[y], true) === s[x] ? x : y)).sort((x, y) => x - y);
+          const d1 = play(s[0], s[wc[2]], true) === s[0] ? 0 : wc[2], d2 = play(s[wc[0]], s[wc[1]], true) === s[wc[0]] ? wc[0] : wc[1];
+          const [hi, lo] = d1 < d2 ? [d1, d2] : [d2, d1];
+          champs.push(play(s[hi], s[lo], true));
+        }
+        title[play(champs[0], champs[1], false)]++;
+      } else {
+        // résumé proxy: our rating + 3 points per game over .500. Champion = best record in the conference (ties: résumé).
+        for (let i = 0; i < n; i++) key[i] = T[i].rating + 3 * (W[i] - L[i]);
+        const best = new Map();
+        T.forEach((t, i) => {
+          if (!t.conf || /independent/i.test(t.conf)) return;
+          const b = best.get(t.conf), pct = (x) => W[x] / (W[x] + L[x] || 1);
+          if (b == null || pct(i) > pct(b) || (pct(i) === pct(b) && key[i] > key[b])) best.set(t.conf, i);
+        });
+        const order = T.map((_, i) => i).sort(byKey);
+        const auto = P4.map((c) => best.get(c)).filter((i) => i != null);
+        const g6 = [...best].filter(([c]) => !P4.includes(c)).map(([, i]) => i).sort(byKey)[0];
+        if (g6 != null) auto.push(g6);
+        const field = new Set(auto);
+        if (ND >= 0 && order.indexOf(ND) < 12) field.add(ND);
+        for (const i of order) { if (field.size >= 12) break; field.add(i); }
+        const s = [...field].sort(byKey);
+        s.forEach((i, k) => seedCount[i * 13 + k + 1]++);
+        const fr = [[7, 8], [4, 11], [6, 9], [5, 10]].map(([x, y]) => play(s[x], s[y], true));
+        const qf = [0, 3, 1, 2].map((x, k) => play(s[x], fr[k], false));
+        title[play(play(qf[0], qf[1], false), play(qf[2], qf[3], false), false)]++;
+      }
+    };
+    const t1 = performance.now();
+    for (let k = 0; k < SIM_N; k += 250) { // in chunks, so the page never freezes
+      for (let j = 0; j < 250; j++) one();
+      await new Promise((r) => setTimeout(r));
+    }
+    const ms = performance.now() - t1;
+    const idx = (id) => at.get(String(id));
+    return {
+      n: SIM_N, games: G.length, fetchMs: Math.round(tFetch), simMs: Math.round(ms),
+      seedP: (id, seed) => (idx(id) == null ? 0 : seedCount[idx(id) * 13 + seed] / SIM_N),
+      titleP: (id) => (idx(id) == null ? 0 : title[idx(id)] / SIM_N),
+    };
+  }
+  // "1 in 4,210" / "1 in 3.1 million"; and a percent that never rounds a real chance down to 0
+  function oneIn(p) {
+    const x = 1 / p;
+    if (x < 1e6) return `1 in ${Math.round(x).toLocaleString("en-US")}`;
+    const [v, w] = x < 1e9 ? [x / 1e6, "million"] : x < 1e12 ? [x / 1e9, "billion"] : x < 1e15 ? [x / 1e12, "trillion"] : [x / 1e15, "quadrillion"];
+    return x >= 1e18 ? `1 in ${x.toExponential(1).replace("e+", "×10^")}` : `1 in ${v < 10 ? v.toFixed(1) : Math.round(v)} ${w}`;
+  }
+  const pctTxt = (p) => (p >= 0.1 ? `${(p * 100).toFixed(p >= 0.995 ? 0 : 1)}%` : p >= 1e-4 ? `${(p * 100).toPrecision(2)}%` : `${(p * 100).toExponential(1)}%`);
+
+  // ---- Save Image: the bracket drawn straight onto a canvas, 1600x900 (Twitter's size) at 2x, in the site's dark terminal look
+  const loadImg = (src) => new Promise((ok) => {
+    if (!src) return ok(null);
+    const im = new Image(), t = setTimeout(() => ok(null), 6000);
+    im.crossOrigin = "anonymous"; // ESPN's logo CDN allows it, so the canvas stays exportable
+    im.onload = () => { clearTimeout(t); ok(im); };
+    im.onerror = () => { clearTimeout(t); ok(null); };
+    im.src = src;
+  });
+  // o = { title, sub, stats: [[label, value]], foot }
+  async function bracketPng(root, cols, o) {
+    const Wd = 1600, Ht = 900, S = 2, C = { bg: "#0f1216", card: "#171b21", ink: "#e8eaed", muted: "#9aa3af", line: "#262c35", accent: "#ff7a3d" };
+    const all = [];
+    (function walk(g) { all.push(g); g.kids.forEach(walk); })(root);
+    const teams = new Map();
+    all.forEach((g) => [g.a, g.b].forEach((t) => t && teams.set(String(t.id), t)));
+    const [logos, mark] = await Promise.all([
+      Promise.all([...teams.values()].map((t) => loadImg(thumb(t.logo, 40)).then((im) => [String(t.id), im]))).then((x) => new Map(x)),
+      loadImg("favicon.svg"),
+      document.fonts.ready.then(() => Promise.all(["400", "700"].map((w) => document.fonts.load(`${w} 16px "JetBrains Mono"`)))).catch(() => {}),
+    ]);
+    const F = (w, px) => `${w} ${px}px "JetBrains Mono", ui-monospace, monospace`;
+    const paint = (withLogos) => {
+      const cv = document.createElement("canvas");
+      cv.width = Wd * S; cv.height = Ht * S;
+      const x = cv.getContext("2d");
+      x.scale(S, S);
+      const fit = (s, w) => { s = String(s); while (s.length > 2 && x.measureText(s).width > w) s = s.slice(0, -2) + "…"; return s; };
+      const text = (s, px, py, font, color, align = "left", maxW = 9999) => { x.font = font; x.fillStyle = color; x.textAlign = align; x.fillText(fit(s, maxW), px, py); };
+      x.fillStyle = C.bg; x.fillRect(0, 0, Wd, Ht);
+      x.textBaseline = "alphabetic";
+      text(`> ${o.title}`, 48, 78, F(700, 40), C.accent);
+      text(o.sub, 48, 116, F(400, 20), C.ink, "left", 1100);
+
+      // the bracket: same tree and layout as the page, scaled into the left 1150px
+      const ax = 48, ay = 150, aw = 1150, ah = 700, n = cols.length, gap = n > 4 ? 18 : 44;
+      const bw = (aw - gap * (n - 1)) / n, bh = n > 4 ? 72 : 62;
+      const ys = all.map((g) => g.y), y0 = Math.min(...ys), span = Math.max(...ys) - y0 || 1;
+      const k = Math.min((ah - 30 - bh) / span, (bh + 100) / (BH + VGAP)), used = span * k + bh, top = ay + 30 + (ah - 30 - used) / 2;
+      const X = (c) => ax + c * (bw + gap), Y = (g) => top + (g.y - y0) * k;
+      cols.forEach((c, i) => text(c.toUpperCase(), X(i), top - 14, F(700, 11), C.muted, "left", bw));
+      const champ = root.win && String(root.win.id);
+      all.forEach((g) => g.kids.forEach((kd) => {
+        const right = kd.col < g.col, x1 = X(kd.col) + (right ? bw : 0), x2 = X(g.col) + (right ? 0 : bw), mx = (x1 + x2) / 2;
+        const y1 = Y(kd) + bh / 2, y2 = Y(g) + bh / 2, hot = champ && kd.win && String(kd.win.id) === champ;
+        x.strokeStyle = hot ? C.accent : C.line; x.lineWidth = hot ? 2.5 : 1.5;
+        x.beginPath(); x.moveTo(x1, y1); x.lineTo(mx, y1); x.lineTo(mx, y2); x.lineTo(x2, y2); x.stroke();
+      }));
+      x.textBaseline = "middle";
+      all.forEach((g) => {
+        const gx = X(g.col), gy = Y(g), fin = g === root;
+        x.fillStyle = C.card; x.fillRect(gx, gy, bw, bh);
+        x.strokeStyle = C.line; x.lineWidth = 1;
+        x.beginPath(); x.moveTo(gx, gy + bh / 2); x.lineTo(gx + bw, gy + bh / 2); x.stroke();
+        x.strokeStyle = fin ? C.accent : C.line; x.lineWidth = fin ? 2 : 1; x.strokeRect(gx + 0.5, gy + 0.5, bw - 1, bh - 1);
+        [g.a, g.b].forEach((t, r) => {
+          const mid = gy + (r + 0.5) * bh / 2, lx = gx + 28, ls = 22;
+          if (!t) return text("TBD", lx, mid, F(400, 14), C.muted);
+          const won = g.win && String(g.win.id) === String(t.id), hot = won && String(t.id) === champ;
+          text(String(t.seed), gx + 20, mid, F(400, 12), C.muted, "right");
+          const im = withLogos && logos.get(String(t.id));
+          if (im) x.drawImage(im, lx, mid - ls / 2, ls, ls);
+          else text(String(t.abbr || t.short).slice(0, 4).toUpperCase(), lx + ls / 2, mid, F(700, 9), C.muted, "center"); // logo didn't load
+          if (hot) { x.fillStyle = C.accent; x.fillRect(gx, mid - bh / 4 + 1, 3, bh / 2 - 2); }
+          text(t.short, lx + ls + 8, mid, F(won ? 700 : 400, n > 4 ? 14 : 16), hot ? C.accent : won ? C.ink : C.muted, "left", gx + bw - lx - ls - 14);
+        });
+      });
+
+      // the odds panel
+      const px = 1232, py = 150, pw = 320;
+      x.textBaseline = "alphabetic";
+      x.fillStyle = C.card; x.fillRect(px, py, pw, 470);
+      x.strokeStyle = C.line; x.lineWidth = 1; x.strokeRect(px + 0.5, py + 0.5, pw - 1, 469);
+      text("> ODDS", px + 20, py + 36, F(700, 16), C.accent);
+      o.stats.forEach(([l, v], i) => {
+        const sy = py + 80 + i * 92;
+        text(l.toUpperCase(), px + 20, sy, F(400, 12), C.muted, "left", pw - 40);
+        text(v, px + 20, sy + 36, F(700, i < 2 ? 30 : 22), i === 0 ? C.accent : C.ink, "left", pw - 40);
+      });
+      x.font = F(400, 11);
+      o.foot.split(" ").reduce((ls, w) => { const l = ls[ls.length - 1]; if (l && x.measureText(`${l} ${w}`).width <= pw - 40) ls[ls.length - 1] = `${l} ${w}`; else ls.push(w); return ls; }, [])
+        .forEach((l, i, a) => text(l, px + 20, py + 452 - (a.length - 1 - i) * 16, F(400, 11), C.muted));
+      // watermark: the cupcake mark + the address, bottom right
+      text("cupcakeindex.com", Wd - 48, Ht - 40, F(400, 16), C.muted, "right");
+      x.font = F(400, 16);
+      if (mark) { x.globalAlpha = 0.85; x.drawImage(mark, Wd - 48 - x.measureText("cupcakeindex.com").width - 38, Ht - 40 - 21, 28, 28); x.globalAlpha = 1; }
+      return cv;
+    };
+    const blob = (cv) => new Promise((ok, no) => cv.toBlob((b) => (b ? ok(b) : no(new Error("no image"))), "image/png"));
+    try { return await blob(paint(true)); }
+    catch { return blob(paint(false)); } // a logo without CORS "taints" the canvas so it can't export: redraw without logos
+  }
 
   async function playoff(lg, my, params) {
     loading("standings");
@@ -1272,32 +1535,40 @@ const Live = (() => {
     const pick = (g) => (g.win ? `<p class="br-pick">Model's pick to win it all: <b class="tm">${img(g.win.logo, "xs")} ${esc(g.win.name)}</b>
       <span class="muted">(${Math.round(g.p * 100)}% in the ${nfl ? "Super Bowl" : "title game"})</span></p>` : "");
     const key = `<p class="note">Dashed boxes are projections: each game goes to our model's favorite (win % beside it). Orange line = the projected champion's path. Hover or tap a game for details.</p>`;
-    const keyMine = `<p class="note">Tap a team to send it through, or type it at a <b class="br-gt">&gt;</b> prompt (Enter or Tab picks it and jumps to the next one; Esc clears). Tap your pick again to undo it. Later rounds fill in from your picks${nfl ? " (the Divisional round reseeds from your Wild Card winners)" : ""}.
-      Changing a pick clears later picks that depended on it. Grey % = our model's win chance for its favorite. Orange line = your champion's path.</p>`;
+    const keyMine = `<p class="note">Start blank: type each seed at its <b class="br-gt">&gt;</b> prompt (${nfl ? "seven per conference, AFC teams on the AFC side" : "any 12 FBS teams"}), then pick every game by tapping a team or typing it.
+      Enter or Tab takes the match and jumps to the next prompt; Esc clears. Tap a seed number to change that seed; tap your pick again to undo it.${nfl ? " The Divisional round reseeds from your Wild Card winners." : ""}
+      Changing a seed or pick clears later picks that depended on it. Grey % = our model's win chance for its favorite. Orange line = your champion's path.</p>
+      <p class="note">How the odds work: each remaining regular-season game is simulated with our power ratings (same win-chance math as our picks), then the field is seeded
+      (${nfl ? "4 division winners seeded 1–4 by record, then the 3 best other records" : "auto bids for the 4 power-conference champions and the best Group of 6 champion, Notre Dame if top 12, then at-large; conference champion = best record, résumé = our rating + 3 points per game over .500"};
+      ties are coin flips) and the playoffs are played out. Your field's chance multiplies each team's chance of landing exactly that seed, as if seeds were independent,
+      so treat it as a rough estimate. Your games use each matchup's win chance (higher seed at home${nfl ? "; Super Bowl neutral" : "; first round only"}).</p>`;
 
     // Both leagues build the whole bracket in one go (rebuilt after every pick in My picks).
-    const side = (abbr, cols) => {
-      const c = (d.children || []).find((x) => x.abbreviation === abbr);
-      const slots = (c ? groupsOf(c).flatMap((g) => g.entries) : []).map((e) => {
-        const seed = statNum(e, "playoffseed"), o = ourTeam(ranks, "nfl", e.team);
-        return seed >= 1 && seed <= 7 ? { name: e.team.displayName, short: e.team.shortDisplayName || e.team.displayName, logo: teamLogo(e.team), id: e.team.id,
-          abbr: e.team.abbreviation, loc: e.team.location, mascot: e.team.name, seed, rank: o?.rank, record: stat(e, "total"), rating: o?.rating } : null;
-      }).filter(Boolean);
-      return slots.length === 7 ? nflSide(slots, cols, abbr) : null;
+    // NFL: every team, with its conference and today's seed (ESPN's seeds if the season ended today)
+    const nflTeams = () => (d.children || []).flatMap((c) => groupsOf(c).flatMap((g) => g.entries).map((e) => {
+      const o = ourTeam(ranks, "nfl", e.team);
+      return { name: e.team.displayName, short: e.team.shortDisplayName || e.team.displayName, logo: teamLogo(e.team), id: String(e.team.id), abbr: e.team.abbreviation,
+        loc: e.team.location, mascot: e.team.name, conf: c.abbreviation, now: statNum(e, "playoffseed"), rank: o?.rank, record: stat(e, "total"), rating: o?.rating };
+    }));
+    const slotsOf = (abbr) => {
+      const s = nflTeams().filter((t) => t.conf === abbr && t.now >= 1 && t.now <= 7).map((t) => ({ ...t, seed: t.now }));
+      return s.length === 7 ? s : null;
     };
-    const build = () => {
-      if (!nfl) return cfpBracket(ranks);
-      const afc = side("AFC", [0, 1, 2]), nfc = side("NFC", [6, 5, 4]);
-      if (!afc || !nfc) return null;
+    // seated = My picks: seat i -> the team typed there (NFL seats 0-6 = AFC seeds 1-7, 7-13 = NFC; CFB seats 0-11)
+    const build = (seated = null) => {
+      if (!nfl) return cfpBracket(ranks, seated);
+      const [as, ns] = seated ? [0, 7].map((o) => Array.from({ length: 7 }, (_, i) => seated(o + i))) : [slotsOf("AFC"), slotsOf("NFC")];
+      if (!as || !ns) return null;
+      const afc = nflSide(as, [0, 1, 2], "AFC", 0), nfc = nflSide(ns, [6, 5, 4], "NFC", 7);
       const root = bGame("nfl", afc.win, nfc.win, 3, "Super Bowl", false, [afc, nfc]);
       root.y = (afc.y + nfc.y) / 2;
       return { root, cols: ["AFC Wild Card", "AFC Divisional", "AFC Championship", "Super Bowl", "NFC Championship", "NFC Divisional", "NFC Wild Card"] };
     };
     const [title, bw, gap] = nfl ? ["Super Bowl bracket", 150, 22] : ["CFP projection", 196, 36];
     BH = mine ? 78 : 56;
-    const b0 = build();
-    if (!b0) return out(`<div class="card muted">ESPN hasn't posted playoff seeds yet.</div>`);
-    const table = nfl ? "" : `<div class="card"><h3>The field</h3><div class="table-wrap"><table class="standings"><thead><tr>
+    const b0 = build(); // today's picture
+    if (!b0 && !mine) return out(`<div class="card muted">ESPN hasn't posted playoff seeds yet.</div>`);
+    const table = nfl || !b0 ? "" : `<div class="card"><h3>The field</h3><div class="table-wrap"><table class="standings"><thead><tr>
         <th class="num">Seed</th><th>Team</th><th class="num" title="Cupcake Index rank">Our #</th><th class="num">REC</th><th>Bid</th></tr></thead><tbody>
         ${b0.field.map((s) => `<tr><td class="num">${s.seed}</td>
           <td><a href="${link("team", s.id)}"><span class="tm">${img(s.logo, "xs")} <span class="tn">${esc(s.name)}</span></span></a></td>
@@ -1315,49 +1586,145 @@ const Live = (() => {
       return wireBracket(b0.root);
     }
 
-    // My picks: a shared link's picks win, else this browser's saved picks. Picks for teams no longer in that game are dropped.
-    const saveKey = `bracket-${lg}-${INDEX.leagues[lg].latest.season}`;
-    const ids = decPicks(params.has("picks") ? params.get("picks") : store.get(saveKey));
+    // My picks: a blank bracket. You type every seed (who gets in, and where), then pick every game.
+    // Seeds and picks travel in the URL (&seeds=, &picks=) and are saved in this browser.
+    const season = INDEX.leagues[lg].latest.season, saveKey = `bracket-${lg}-${season}`, seedKey = `bracketSeeds-${lg}-${season}`;
+    const nSeat = nfl ? 14 : 12, seatConf = (i) => (nfl ? (i < 7 ? "AFC" : "NFC") : ""), seatSeed = (i) => (nfl ? i % 7 : i) + 1;
+    const pool = new Map((nfl ? nflTeams() : [...ranks.byId.values()].map(cfbTeam)).map((t) => [t.id, t])); // every team you can seed
+    const current = () => Array.from({ length: nSeat }, (_, i) => (nfl ? [...pool.values()].find((t) => t.conf === seatConf(i) && t.now === seatSeed(i))?.id : b0?.field[i]?.id) || "");
+    const fromUrl = params.has("seeds") || params.has("picks"), savedSeeds = fromUrl ? params.get("seeds") : store.get(seedKey);
+    const ids = decPicks(fromUrl ? params.get("picks") : store.get(saveKey));
+    // links and saves from before blank brackets carried only picks, made on that day's seeds
+    const raw = savedSeeds == null && ids.length ? current() : decPicks(savedSeeds);
+    // keep real teams only, in the right conference, once each
+    const seats = Array.from({ length: nSeat }, (_, i) => raw[i] || "").map((id, i, a) => {
+      const t = pool.get(id);
+      return t && (!nfl || t.conf === seatConf(i)) && a.indexOf(id) === i ? id : "";
+    });
+    const seated = (i) => { const t = pool.get(seats[i]); return t ? { ...t, seed: seatSeed(i) } : null; };
+    // What a seed prompt accepts: teams not seeded elsewhere (NFL: that conference only); better-ranked teams win ties
+    const seatCh = (i) => {
+      const taken = new Set(seats.filter((x, j) => x && j !== i)), nm = `${nfl ? seatConf(i) + " " : ""}${seatSeed(i)} seed`;
+      const list = [...pool.values()].filter((t) => !taken.has(t.id) && (!nfl || t.conf === seatConf(i))).sort((x, y) => (x.rank || 999) - (y.rank || 999));
+      return { list, ph: "type a team", idle: `${nm}_`, label: `Type the ${nm}` };
+    };
+
     out(`<div class="card" id="br-card"></div>${table}${notes}`);
     const card = $("#br-card");
-    // Remember the picks (this browser only) and keep them in the URL, so the address bar is always a shareable link
+    // Remember the bracket (this browser only) and keep it in the URL, so the address bar is always a shareable link
     const save = () => {
-      const enc = encPicks(ids);
-      store.set(saveKey, enc);
-      history.replaceState(null, "", link("standings", null, { show: "playoff", mode: "mine", ...(enc ? { picks: enc } : {}) }));
+      const s = encPicks(seats), p = encPicks(ids);
+      store.set(seedKey, s); store.set(saveKey, p);
+      history.replaceState(null, "", link("standings", null, { show: "playoff", mode: "mine", ...(s ? { seeds: s } : {}), ...(p ? { picks: p } : {}) }));
     };
-    // focus = { after: key } jumps to the next empty slot after that game; { at: key } to that game's slot
+
+    // ---- the odds box (season sims run once per visit; until they finish, sim-based numbers say "simulating…")
+    let odds = null, oddsErr = false, cur = null;
+    const ab = (t) => t.abbr || TEAMX.get(String(t.id))?.abbreviation || t.short;
+    const oddsNums = (b) => {
+      const all = [];
+      (function walk(g) { all.push(g); g.kids.forEach(walk); })(b.root);
+      // each pick's win chance = the model's chance for the team you picked, in that matchup
+      const picked = all.filter((g) => g.win && g.a && g.b && g.fav).map((g) => ({ g, p: String(g.win.id) === String(g.fav.id) ? g.p : 1 - g.p,
+        w: g.win, l: String(g.win.id) === String(g.a.id) ? g.b : g.a }));
+      const c = b.root.win, open = all.filter((g) => !g.win).length, empty = seats.filter((x) => !x).length;
+      const pGames = picked.reduce((x, y) => x * y.p, 1), path = c ? picked.filter((x) => String(x.w.id) === String(c.id)).reduce((x, y) => x * y.p, 1) : null;
+      // P(field as typed) ~ product of each team's chance of getting exactly that seed (as if seeds were independent);
+      // a seed no sim produced counts as 1/N, so the total is an upper bound ("less than")
+      let pField = 1, under = false;
+      if (odds) seats.forEach((id, i) => { if (!id) return; let p = odds.seedP(id, seatSeed(i)); if (!p) { p = 1 / odds.n; under = true; } pField *= p; });
+      return { picked: picked.sort((x, y) => x.p - y.p), c, open, empty, pGames, path, pField, under, done: !open && !empty, title: c && odds ? odds.titleP(c.id) : null };
+    };
+    const oddsHtml = (b) => {
+      const o = oddsNums(b), wait = `<span class="muted">${oddsErr ? "couldn't load the schedule" : "simulating…"}</span>`;
+      const row = (l, v, cls = "") => `<div class="bo-r${cls}"><span>${l}</span><b>${v}</b></div>`;
+      const togo = [o.empty && `${o.empty} seed${o.empty === 1 ? "" : "s"}`, o.open && `${o.open} game${o.open === 1 ? "" : "s"}`].filter(Boolean).join(", ");
+      const whole = o.pField * o.pGames, lt = o.under ? "less than " : "";
+      return `<div class="bo-h">&gt; odds</div>
+        ${row("Your champion wins it all", !o.c ? `<span class="muted">pick one</span>` : odds ? pctTxt(o.title) : wait)}
+        ${o.c ? row("if your bracket plays out", pctTxt(o.path), " sub") : ""}
+        ${row("Whole bracket hits", !o.done ? `<span class="muted">${togo} to go</span>` : odds ? `${lt}${oneIn(whole)}` : wait)}
+        ${o.done && odds ? row(`= field ${lt}${oneIn(o.pField)} × games ${oneIn(o.pGames)}`, whole >= 1e-6 ? `${lt}${pctTxt(whole)}` : "under 0.0001%", " sub") : ""}
+        ${o.picked.length ? `<div class="bo-h2">Your picks, boldest first</div><ol class="bo-l">${o.picked.map((x, k) =>
+          `<li${k ? "" : ` class="risk"`}><b>${Math.round(x.p * 100)}%</b> ${esc(ab(x.w))} over ${esc(ab(x.l))} <span>${esc(x.g.label.replace(/^(AFC|NFC) /, "$1 "))}</span></li>`).join("")}</ol>` : ""}
+        <p class="bo-fn">Estimates from our power ratings and ${SIM_N.toLocaleString("en-US")} simulations of the rest of the season. For fun, not betting advice.</p>`;
+    };
+    const paintOdds = () => { const el = card.querySelector("#br-odds"); if (el && cur) el.innerHTML = oddsHtml(cur); };
+    simOdds(lg, ranks, d).then((r) => { odds = r; if (my === token) paintOdds(); }).catch(() => { oddsErr = true; if (my === token) paintOdds(); });
+
+    // ---- Share: copy the link, or save a picture of the bracket
+    const outside = (e) => { if (!e.target.closest(".br-share")) menu(false); };
+    const escKey = (e) => { if (e.key === "Escape") { menu(false); card.querySelector('[data-act="share"]')?.focus(); } };
+    function menu(open) {
+      const m = card.querySelector(".br-menu");
+      if (m) { m.hidden = !open; card.querySelector('[data-act="share"]').setAttribute("aria-expanded", open); }
+      const f = open ? "addEventListener" : "removeEventListener";
+      document[f]("pointerdown", outside, true); document[f]("keydown", escKey);
+    }
+    const saveImage = async (btn) => {
+      const o = oddsNums(cur), c = o.c, was = btn.textContent;
+      btn.textContent = "Drawing…";
+      try {
+        const blob = await bracketPng(cur.root, cur.cols, {
+          title: `MY ${season} ${nfl ? "SUPER BOWL" : "CFP"} PICKS`,
+          sub: c ? `Champion: ${c.name}` : "Champion: TBD",
+          stats: [["Title odds", c ? (odds ? pctTxt(o.title) : "…") : "–"], ["If my bracket plays out", c ? pctTxt(o.path) : "–"],
+            ["Whole bracket hits", o.done && odds ? `${o.under ? "< " : ""}${oneIn(o.pField * o.pGames)}` : "–"],
+            ["Boldest call", o.picked[0] ? `${Math.round(o.picked[0].p * 100)}% ${ab(o.picked[0].w)} over ${ab(o.picked[0].l)}` : "–"]],
+          foot: `Our power ratings + ${SIM_N.toLocaleString("en-US")} season sims. For fun.`,
+        });
+        const url = URL.createObjectURL(blob), a = document.createElement("a");
+        if ("download" in a) { a.href = url; a.download = `cupcake-index-${lg}-bracket-${season}.png`; document.body.appendChild(a); a.click(); a.remove(); }
+        else window.open(url, "_blank"); // no download support: show the picture in a new tab (press and hold to save)
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        btn.textContent = was; menu(false);
+      } catch { btn.textContent = "Couldn't draw it"; setTimeout(() => (btn.textContent = was), 2000); }
+    };
+
+    // focus = { after: key } jumps to the next empty game after that one; { at: key } to that game's prompt;
+    // { seat: i } to the next empty seed after seat i (then the first game); { seatAt: i } to that seed's prompt
     const draw = (fill = false, focus = null) => {
       PK = { ids, n: 0, fill };
       let b;
-      try { b = build(); } finally { PK = null; }
+      try { b = build(seated); } finally { PK = null; }
+      cur = b;
       const all = [];
       (function walk(g) { all.push(g); g.kids.forEach(walk); })(b.root);
-      const left = all.filter((g) => !g.win).length, c = b.root.win, sx = card.querySelector(".br-scroll")?.scrollLeft || 0;
-      card.innerHTML = `<h3>${title}: my picks</h3>
+      const left = all.filter((g) => !g.win).length, empty = seats.filter((x) => !x).length, c = b.root.win, sx = card.querySelector(".br-scroll")?.scrollLeft || 0;
+      card.innerHTML = `<div class="br-top"><div class="br-head"><h3>${title}: my picks</h3>
         <p class="br-pick">Your champion: ${c ? `<b class="tm br-champ">${img(c.logo, "xs")} ${esc(c.name)}</b>`
-          : `<b>TBD</b> <span class="muted">(${left} game${left === 1 ? "" : "s"} left to pick)</span>`}</p>
-        <div class="br-tools"><button data-act="fill">Fill with model's picks</button><button data-act="reset">Reset</button><button data-act="copy">Copy link</button></div>
-        ${bracketHtml(b.root, b.cols, bw, gap, true)}${keyMine}`;
+          : `<b>TBD</b> <span class="muted">(${empty ? `${empty} seed${empty === 1 ? "" : "s"} and ` : ""}${left} game${left === 1 ? "" : "s"} left)</span>`}</p>
+        <div class="br-tools"><button data-act="seeds" title="Today's seeds; you pick the games">Fill with current picture</button><button data-act="fill" title="Fill the games you haven't picked with our model's favorites">Model's winners</button>
+          <button data-act="reset">Reset</button><span class="br-share"><button data-act="share" aria-haspopup="menu" aria-expanded="false">Share ▾</button>
+          <span class="br-menu" role="menu" hidden><button data-act="copy" role="menuitem">Copy Link</button><button data-act="img" role="menuitem">Save Image</button></span></span></div></div>
+        <div class="br-odds" id="br-odds" aria-live="polite">${oddsHtml(b)}</div></div>
+        ${bracketHtml(b.root, b.cols, bw, gap, true, seatCh)}${keyMine}`;
       card.querySelector(".br-scroll").scrollLeft = sx;
       wireBracket(b.root, (g, id, how) => {
         ids[g.key] = id;
         // typed: keep going to the next empty slot. Cleared by a tap: focus that slot's prompt (mouse only, so phones don't pop the keyboard)
         draw(false, how === "typed" ? { after: g.key } : how === "clear" && matchMedia("(pointer: fine)").matches ? { at: g.key } : null);
         save();
-      });
+      }, { ch: seatCh, set(i, id, how) { seats[i] = id; draw(false, how === "typed" ? { seat: i } : { seatAt: i }); save(); } });
       if (focus) {
-        const ins = [...card.querySelectorAll(".br-in input")].map((x) => [all[+x.dataset.k].key, x]).sort((p, q) => p[0] - q[0]);
-        const to = focus.at != null ? ins.find(([k]) => k === focus.at) : ins.find(([k]) => k > focus.after) || ins[0];
-        to?.[1].focus();
+        const sIns = [...card.querySelectorAll(".br-in input[data-seat]")].sort((p, q) => p.dataset.seat - q.dataset.seat);
+        const gIns = [...card.querySelectorAll(".br-in input[data-k]")].map((x) => [all[+x.dataset.k].key, x]).sort((p, q) => p[0] - q[0]);
+        const to = focus.seatAt != null ? sIns.find((x) => +x.dataset.seat === focus.seatAt)
+          : focus.seat != null ? sIns.find((x) => +x.dataset.seat > focus.seat) || sIns[0] || gIns[0]?.[1]
+          : focus.at != null ? gIns.find(([k]) => k === focus.at)?.[1]
+          : (gIns.find(([k]) => k > focus.after) || gIns[0])?.[1] || sIns[0];
+        to?.focus();
       }
     };
     if (!nfl) api(`${STAND(lg)}/standings?group=80`, 300000) // CFB abbreviations and mascots for typed picks
       .then((s) => groupsOf(s).flatMap((g) => g.entries).forEach((e) => TEAMX.set(String(e.team.id), e.team))).catch(() => {});
     card.onclick = async (e) => {
-      const act = e.target.closest("button[data-act]")?.dataset.act;
+      const btn = e.target.closest("button[data-act]"), act = btn?.dataset.act;
+      if (act === "seeds") { seats.splice(0, nSeat, ...current()); ids.length = 0; draw(); save(); }
       if (act === "fill") { draw(true); save(); }
-      if (act === "reset") { ids.length = 0; draw(); save(); }
+      if (act === "reset") { seats.fill(""); ids.length = 0; draw(); save(); }
+      if (act === "share") menu(card.querySelector(".br-menu").hidden);
+      if (act === "img") saveImage(btn);
       if (act === "copy") {
         const url = location.href;
         try { await navigator.clipboard.writeText(url); }
@@ -1365,9 +1732,8 @@ const Live = (() => {
           const t = Object.assign(document.createElement("textarea"), { value: url });
           document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove();
         }
-        const btn = card.querySelector('[data-act="copy"]');
         btn.textContent = "Copied ✓";
-        setTimeout(() => (btn.textContent = "Copy link"), 1500);
+        setTimeout(() => { btn.textContent = "Copy Link"; menu(false); }, 1200);
       }
     };
     draw();

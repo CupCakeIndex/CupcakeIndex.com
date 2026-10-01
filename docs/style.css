@@ -1018,7 +1018,7 @@ main .sp-more .card { margin: 0; }
 .br-gt { color: var(--accent); }
 @keyframes br-blink { 50% { background: transparent; color: var(--muted); } }
 @keyframes br-no { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
-@media (pointer: coarse) { .br-tty { height: 34px; } .br-tty input, .br-gh { font-size: 16px; } } /* 16px: iOS won't zoom the page on focus */
+@media (pointer: coarse) { .br-tty { height: 34px; } .br.mine .br-in .br-tty { height: 38px; } .br-tty input, .br-gh { font-size: 16px; } } /* 16px: iOS won't zoom the page on focus */
 @media (prefers-reduced-motion: reduce) { .br-gh .cur { animation: none; } .br-in.no .br-tty { animation: none; } }
 /* header search as a terminal prompt: >_ glyph, mono placeholder, block caret in the accent color, "/" shortcut hint */
 .gsearch input { background: var(--bg); border: 1px solid var(--line); padding-left: 34px; padding-right: 28px; caret-color: var(--accent); caret-shape: block; }
@@ -1047,3 +1047,36 @@ main .sp-more .card { margin: 0; }
 /* Stats by year: NFL vs college key (college seasons are a dimmer shade) */
 .cc-lv-key b { display: inline-block; width: 10px; height: 10px; margin: 0 2px 0 8px; }
 .cc-lv-key b:first-child { margin-left: 0; }
+/* My picks: blank bracket header (title + tools on the left, the odds box top right; stacked on phones) */
+.br-top { display: flex; flex-wrap: wrap; gap: 12px 20px; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+.br-head { flex: 1 1 320px; min-width: 0; }
+.br-odds { flex: 0 1 360px; min-width: 0; border: 1px solid var(--line); background: var(--bg); padding: 8px 10px; font: 11px/1.45 "JetBrains Mono", ui-monospace, monospace; }
+.bo-h { color: var(--accent); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+.bo-r { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.bo-r b { font-size: 13px; text-align: right; white-space: nowrap; }
+.bo-r.sub { color: var(--muted); padding-left: 10px; }
+.bo-r.sub b { font-size: 11px; font-weight: 500; }
+.bo-h2 { margin: 6px 0 2px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-size: 10px; }
+.bo-l { list-style: none; margin: 0; padding: 0; max-height: 82px; overflow-y: auto; }
+.bo-l li { display: flex; gap: 6px; white-space: nowrap; }
+.bo-l li b { width: 34px; flex: none; text-align: right; }
+.bo-l li span { color: var(--muted); overflow: hidden; text-overflow: ellipsis; margin-left: auto; }
+.bo-l li.risk { color: var(--accent); }
+.bo-l li.risk b::after { content: "!"; }
+.bo-fn { margin: 6px 0 0; color: var(--muted); font-size: 10px; line-height: 1.4; }
+.br-sd.ed { cursor: pointer; color: var(--accent); text-decoration: underline dotted; text-underline-offset: 2px; }
+.br-sd.ed:hover { color: var(--ink); }
+.br.mine .br-t[data-seat] { color: var(--ink); }
+.br-share { position: relative; display: inline-flex; }
+.br-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 5; display: flex; flex-direction: column; min-width: 150px; background: var(--card); border: 1px solid var(--accent); box-shadow: var(--shadow); }
+.br-menu[hidden] { display: none; }
+.br-menu button { border: 0; border-bottom: 1px solid var(--line); background: none; min-height: 40px; padding: 8px 12px; text-align: left; cursor: pointer; font-size: 12px; font-weight: 700; }
+.br-menu button:last-child { border-bottom: 0; }
+.br-menu button:hover, .br-menu button:focus-visible { background: var(--accent-soft); color: var(--accent); outline: none; }
+.card:has(> .br-tip) { position: relative; }
+.cc-tip.br-tip { max-width: min(340px, 100%); }
+.cc-tip.br-tip span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 640px) {
+  .br-head, .br-odds { flex-basis: 100%; }
+  .br-menu { left: 0; right: auto; }
+}
