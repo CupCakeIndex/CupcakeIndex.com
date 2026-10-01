@@ -563,6 +563,10 @@ const Live = (() => {
   };
   FR_KEYS.TE = FR_KEYS.WR;
   const FR_MIN_GAMES = 2, FR_MIN_PTS = 8, FR_CUT = 25; // games played, projected PPR pts/game (a real role), % off to be listed
+  // Injury cutoff: leave a player off if he has missed more than this share of his team's games so far
+  // (games played / team games played), or is listed Out, Doubtful or on IR right now. Raise it to be more forgiving.
+  const FR_MAX_MISSED = 0.34;
+  const FR_HURT = new Set(["OUT", "DOUBTFUL", "INJURY_RESERVE"]);
   let frState = { pos: "", over: false };
 
   async function frPlayers() {
@@ -578,8 +582,15 @@ const Live = (() => {
     const r = await fetch(url.split("#")[0], { headers: { "X-Fantasy-Filter": JSON.stringify(filter) } });
     if (!r.ok) throw new Error(`ESPN ${r.status}`);
     const sum = (s, ids) => ids.reduce((t, k) => t + (s.stats?.[k] || 0), 0);
-    const list = [];
-    for (const { player: p } of (await r.json()).players || []) {
+    const list = [], all = (await r.json()).players || [];
+    // weeks each NFL team has played: any of its players logged a game that week
+    const teamWeeks = new Map();
+    for (const { player: p } of all) for (const s of p?.stats || []) {
+      if (s.seasonId !== y || s.statSplitTypeId !== 1 || s.statSourceId !== 0 || !s.stats?.["210"]) continue;
+      if (!teamWeeks.has(p.proTeamId)) teamWeeks.set(p.proTeamId, new Set());
+      teamWeeks.get(p.proTeamId).add(s.scoringPeriodId);
+    }
+    for (const { player: p } of all) {
       const pos = FR_POS[p?.defaultPositionId];
       if (!pos || !p.proTeamId) continue; // rostered on an NFL team
       const st = (p.stats || []).filter((s) => s.seasonId === y && s.statSplitTypeId === 1);
@@ -600,7 +611,10 @@ const Live = (() => {
         }
         return { label, act, exp, used, bad: worse ? act > exp : act < exp };
       });
-      if (wsum) list.push({ id: p.id, name: p.fullName, pos, team: p.proTeamId, n, cells, score: Math.round((100 * score) / wsum) });
+      // injured: hurt now, or missed too many of the team's games (still scored, so we can say how many were left out)
+      const played = st.filter((s) => s.statSourceId === 0 && s.stats?.["210"]).length, teamG = teamWeeks.get(p.proTeamId)?.size || played;
+      const hurt = FR_HURT.has(p.injuryStatus) || (teamG > 0 && 1 - played / teamG > FR_MAX_MISSED);
+      if (wsum) list.push({ id: p.id, name: p.fullName, pos, team: p.proTeamId, n, cells, hurt, score: Math.round((100 * score) / wsum) });
     }
     cache.set(url, { t: Date.now(), data: { y, list } });
     return { y, list };
@@ -626,10 +640,13 @@ const Live = (() => {
       <p class="fr-how">Each week ESPN sets a projection for every player. <b>Fraud score</b> = how far below those projections they've played, on average, in the stats that matter for their position.</p>
       <div class="table-wrap"><table class="box" id="fr-table"><thead><tr><th class="num">#</th><th>Player</th><th>Team</th><th>Pos</th><th class="num" title="Games played">G</th>
         <th class="num" title="Weighted % below (or above) their weekly projections">${frState.over ? "Above" : "Fraud score"}</th><th colspan="4">Per game: actual / projected</th></tr></thead><tbody></tbody></table></div>
-      <p class="note">Players with a real role (projected for ${FR_MIN_PTS}+ PPR fantasy points a game) and ${FR_MIN_GAMES}+ games. Stats per position: QB pass yards (40%), pass TDs (30%), interceptions (15%, more is worse), rush yards (15%); RB rush yards (50%), receiving yards (30%), TDs (20%); WR/TE catches (30%), receiving yards (50%), TDs (20%). Each stat counts at most 100% off, stats a player is barely projected for are skipped, and games they missed don't count. Listed at ${FR_CUT}%+ off. <span class="fr-low">Red</span> = below projection. Projections: ESPN fantasy.</p></div>`;
+      <p class="note fr-hurt muted" id="fr-hurt"></p>
+      <p class="note">Players with a real role (projected for ${FR_MIN_PTS}+ PPR fantasy points a game) and ${FR_MIN_GAMES}+ games. Stats per position: QB pass yards (40%), pass TDs (30%), interceptions (15%, more is worse), rush yards (15%); RB rush yards (50%), receiving yards (30%), TDs (20%); WR/TE catches (30%), receiving yards (50%), TDs (20%). Each stat counts at most 100% off, stats a player is barely projected for are skipped, and games they missed don't count. Listed at ${FR_CUT}%+ off. Players who have missed more than ${Math.round(FR_MAX_MISSED * 100)}% of their team's games, or are listed Out, Doubtful or on IR, are left out. <span class="fr-low">Red</span> = below projection. Projections: ESPN fantasy.</p></div>`;
     const draw = () => {
-      const rows = data.list.filter((r) => (!frState.pos || r.pos === frState.pos) && (frState.over ? -r.score : r.score) >= FR_CUT)
-        .sort((a, b) => (frState.over ? a.score - b.score : b.score - a.score));
+      const fit = data.list.filter((r) => (!frState.pos || r.pos === frState.pos) && (frState.over ? -r.score : r.score) >= FR_CUT);
+      const rows = fit.filter((r) => !r.hurt).sort((a, b) => (frState.over ? a.score - b.score : b.score - a.score));
+      const hurt = fit.length - rows.length;
+      $("#fr-hurt").textContent = hurt ? `${hurt} player${hurt === 1 ? "" : "s"} left out for injuries` : "";
       $("#fr-table tbody").innerHTML = rows.map((r, i) => {
         const t = teams.get(String(r.team));
         return `<tr><td class="num muted">${i + 1}</td>
@@ -824,17 +841,24 @@ const Live = (() => {
         ? `<span class="cc-bench-key cc-lv-key"><b style="background:${series[0].color}"></b>NFL <b style="background:color-mix(in srgb, ${series[0].color} 42%, #3a3a40)"></b>College</span>` : "");
 
     const teamCell = (r) => `<span class="tm">${img(r.team.logo, "xs")} ${esc(r.team.abbr)}${r.level === "NCAA" && main.lg === "nfl" && lvl === "both" ? ' <span class="pill lvl">NCAA</span>' : ""}</span>`;
+    // Both mode: college rows are dimmed like the chart's college shade, with a labeled line where the NFL starts
+    const ncaa = (r) => mixLv && r?.level === "NCAA";
+    const divider = (span) => `<tr class="cc-div"><td colspan="${span}"><span>College ↑</span><span>NFL ↓</span></td></tr>`;
     let table;
     if (players.length === 1) {
       const shownRows = C.rows.filter(lvlOk), tot = collegeOnly && main.lg === "nfl" ? C.careerCollege : C.career;
       const cols = C.names.filter((n) => shownRows.some((r) => r.vals[n] != null));
       table = `<table class="box career"><thead><tr><th>Year</th><th>Team</th>${cols.map((n) => `<th class="num${n === metric ? " on" : ""}" title="${esc(n)}">${esc(C.labels[n])}</th>`).join("")}</tr></thead><tbody>
-        ${shownRows.map((r) => `<tr><td>${r.year}</td><td>${teamCell(r)}</td>${cols.map((n) => `<td class="num${n === metric ? " on" : ""}">${esc(r.vals[n] ?? "–")}</td>`).join("")}</tr>`).join("")}
+        ${shownRows.map((r, i) => `${!ncaa(r) && ncaa(shownRows[i - 1]) ? divider(cols.length + 2) : ""}<tr${ncaa(r) ? ' class="cc-ncaa"' : ""}><td>${r.year}</td><td>${teamCell(r)}</td>${cols.map((n) => `<td class="num${n === metric ? " on" : ""}">${esc(r.vals[n] ?? "–")}</td>`).join("")}</tr>`).join("")}
         ${tot ? `<tr class="tot"><td>Career</td><td class="muted">${collegeOnly || main.lvl !== "NFL" ? "College" : "NFL"}</td>${cols.map((n) => `<td class="num${n === metric ? " on" : ""}">${esc(tot[n] ?? "")}</td>`).join("")}</tr>` : ""}</tbody></table>`;
     } else {
       table = `<table class="box career"><thead><tr><th>${align === "career" ? "Career yr" : "Season"}</th>${series.map((sr) => `<th colspan="2" class="cc-h" style="--c:${sr.color}">${esc(sr.p.short)}</th>`).join("")}</tr></thead><tbody>
-        ${xs.map((x) => `<tr><td>${align === "career" ? "Yr " + x : x}</td>${series.map((sr) => { const r = sr.rows.find((q) => q.x === x);
-          return r ? `<td>${align === "career" ? `<small class="muted">${r.year}</small> ` : ""}${teamCell(r)}</td><td class="num on">${esc(r.vals[metric])}</td>` : `<td class="muted">–</td><td></td>`; }).join("")}</tr>`).join("")}
+        ${xs.map((x, i) => { const at = (xx) => series[0].rows.find((q) => q.x === xx), all = series.map((sr) => sr.rows.find((q) => q.x === x));
+          // the line goes where the first player's NFL career starts; other players' college cells are dimmed on their own
+          return `${i && at(x) && !ncaa(at(x)) && series[0].rows.some((q) => q.x < x && ncaa(q)) && !series[0].rows.some((q) => q.x < x && !ncaa(q)) ? divider(1 + series.length * 2) : ""}`
+          + `<tr${all.every((r) => !r || ncaa(r)) && all.some(ncaa) ? ' class="cc-ncaa"' : ""}><td>${align === "career" ? "Yr " + x : x}</td>${all.map((r) => {
+          const dim = ncaa(r) ? ' class="cc-ncaa-c"' : "";
+          return r ? `<td${dim}>${align === "career" ? `<small class="muted">${r.year}</small> ` : ""}${teamCell(r)}</td><td class="num on${ncaa(r) ? " cc-ncaa-c" : ""}">${esc(r.vals[metric])}</td>` : `<td class="muted">–</td><td></td>`; }).join("")}</tr>`; }).join("")}
         <tr class="tot"><td>Career</td>${series.map((sr) => `<td class="muted">${sr.p.lvl === "NFL" && !collegeOnly ? "NFL" : "College"}</td><td class="num">${esc(sr.total)}</td>`).join("")}</tr></tbody></table>`;
     }
     return `<div class="card career-card">
@@ -1503,7 +1527,9 @@ const Live = (() => {
   // which also gives age, experience and last team.
   const FA_POS = { 1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K" };
   const FANTASY_INJ = { OUT: "Out", QUESTIONABLE: "Questionable", DOUBTFUL: "Doubtful", INJURY_RESERVE: "Injured Reserve", SUSPENSION: "Suspension" };
-  let faState = { pos: "", q: "", sort: "best" };
+  let faState = { pos: "", q: "", sort: "best", dir: "desc" };
+  // sortable columns: value to sort by, and which way a first click goes (youngest / newest first, most points first)
+  const FA_COLS = { age: [(r) => r.age, "asc"], exp: [(r) => r.exp, "asc"], ppg: [(r) => r.prod?.ppg, "desc"] };
   // Production: PPR fantasy points per game from the most recent season they played (this season if they were cut
   // mid-year, else last season). Short seasons count as at least 4 games so one big game doesn't top the list.
   function faProduction(c, y) {
@@ -1552,13 +1578,20 @@ const Live = (() => {
         <div class="presets" id="fa-sort" title="How to order the list">${[["best", "Best"], ["rostered", "Most rostered"]].map(([v, l]) => `<button data-sort="${v}" class="${v === faState.sort ? "on" : ""}">${l}</button>`).join("")}</div>
         <input id="fa-search" type="search" placeholder="Filter by name or last team…" value="${esc(faState.q)}">
         <span class="muted live-note" id="fa-status"></span></div>
-      <div class="table-wrap"><table class="box" id="fa-table"><thead><tr><th class="num">#</th><th>Player</th><th>Pos</th><th class="num">Age</th><th class="num" title="Seasons in the NFL (R = rookie)">Exp</th><th>Last team</th><th class="num" title="PPR fantasy points per game in their most recent season">Pts/g</th></tr></thead><tbody></tbody></table></div>
+      <div class="table-wrap"><table class="box" id="fa-table"><thead></thead><tbody></tbody></table></div>
       <p class="note">Unsigned players ESPN lists as free agents. <b>Best</b> ranks them by production in their most recent season (PPR fantasy points per game compared with a typical starter at the same position, so a good kicker and a good receiver are judged fairly; kickers count half since they are the easiest to replace, and seasons under 4 games count as 4). <b>Most rostered</b> is how many ESPN fantasy leagues have them. ESPN only tracks free agents at QB, RB, WR, TE and K.</p></div>`;
     const draw = () => {
       if (my !== token) return;
       const q = normName(faState.q);
       const rows = cands.map((c) => done.get(c.id)).filter((r) => r && (!faState.pos || r.pos === faState.pos) && (!q || r.search.includes(q)));
       if (faState.sort === "best") rows.sort((a, b) => (b.prod?.score ?? -1) - (a.prod?.score ?? -1)); // else ESPN's order: most rostered
+      else if (FA_COLS[faState.sort]) { // a clicked column; players with no value go last either way
+        const val = FA_COLS[faState.sort][0], k = faState.dir === "desc" ? -1 : 1;
+        rows.sort((a, b) => (val(a) == null) - (val(b) == null) || (val(a) == null ? 0 : k * (val(a) - val(b))));
+      }
+      const th = (key, label, title) => { const on = faState.sort === key;
+        return `<th class="num sortable${on ? " on" : ""}" data-col="${key}" title="${title}">${label}${on ? (faState.dir === "desc" ? " ▼" : " ▲") : ""}</th>`; };
+      $("#fa-table thead").innerHTML = `<tr><th class="num">#</th><th>Player</th><th>Pos</th>${th("age", "Age", "Age (click to sort)")}${th("exp", "Exp", "Seasons in the NFL, R = rookie (click to sort)")}<th>Last team</th>${th("ppg", "Pts/g", "PPR fantasy points per game in their most recent season (click to sort)")}</tr>`;
       const checked = cands.filter((c) => done.has(c.id)).length;
       $("#fa-status").textContent = checked < cands.length ? `Checking ESPN rosters… ${checked}/${cands.length}` : `${rows.length} player${rows.length === 1 ? "" : "s"}`;
       $("#fa-table tbody").innerHTML = rows.map((r, i) => `<tr><td class="num muted">${i + 1}</td>
@@ -1575,6 +1608,10 @@ const Live = (() => {
     $("#fa-search").oninput = (e) => { faState.q = e.target.value.trim(); draw(); };
     $("#fa-sort").onclick = (e) => { const b = e.target.closest("[data-sort]"); if (!b) return; faState.sort = b.dataset.sort;
       $("#fa-sort").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); draw(); };
+    // column headers: first click sorts that column, the next flips it
+    $("#fa-table thead").onclick = (e) => { const h = e.target.closest("[data-col]"); if (!h) return; const k = h.dataset.col;
+      faState.dir = faState.sort === k ? (faState.dir === "desc" ? "asc" : "desc") : FA_COLS[k][1]; faState.sort = k;
+      $("#fa-sort").querySelectorAll("button").forEach((x) => x.classList.remove("on")); draw(); };
     draw();
     // check each candidate against ESPN's athlete record, a few at a time, most notable first
     let next = 0;

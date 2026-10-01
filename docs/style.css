@@ -734,6 +734,12 @@ body:not(.show-breakdown) th.factors-col, body:not(.show-breakdown) td.factors {
 table.career th.on, table.career td.on { color: var(--accent); }
 table.career th.cc-h { text-align: left; border-bottom: 2px solid var(--c); }
 .pill.lvl { font-size: 9px; padding: 1px 4px; color: var(--muted); }
+/* College | NFL | Both = Both: college rows dimmed like the chart's college shade, a labeled line where the NFL starts */
+table.career tr.cc-ncaa td, table.career td.cc-ncaa-c { color: var(--muted); background: color-mix(in srgb, var(--muted) 6%, transparent); }
+table.career tr.cc-ncaa td.on, table.career td.cc-ncaa-c.on { color: color-mix(in srgb, var(--accent) 55%, var(--card)); }
+table.career tr.cc-div td { padding: 0 0 0 8px; border-top: 2px solid var(--accent); line-height: 1; }
+table.career tr.cc-div span { display: inline-block; margin: 3px 12px 3px 0; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+table.career tr.cc-div span + span { color: var(--accent); }
 /* phone: game leaders keep the full stat line (completions, TDs) on its own line */
 @media (max-width: 640px) {
   .lrow { grid-template-columns: 1fr 58px 1fr; align-items: start; }
