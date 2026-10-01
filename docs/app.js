@@ -22,7 +22,7 @@ const BASE_PRESETS = {
 const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", recent: "FORM", cupcake: "CUP", luck: "UNLK" };
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
 const RANK_VIEWS = new Set(["rankings", "schedules"]);
-const VIEWS = new Set(["rankings", "picks", "schedules", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily"]);
+const VIEWS = new Set(["rankings", "picks", "schedules", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily", "fantasy"]);
 
 // ------------------------------------------------------------------ forgiving name search
 // Lowercase, strip accents/punctuation ("D.J." -> "dj", "Smith-Njigba" -> "smith njigba"), drop jr/sr/ii/iii.
@@ -118,6 +118,8 @@ async function route() {
     Daily.render();
   } else if (r.view === "picks") {
     Pickem.render(r.params);
+  } else if (r.view === "fantasy") {
+    Fantasy.render(r.params);
   } else if (r.view === "compare") {
     renderCompare();
   } else if (Live[r.view]) {
@@ -126,7 +128,7 @@ async function route() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "97"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "98"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
