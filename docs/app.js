@@ -22,7 +22,9 @@ const BASE_PRESETS = {
 const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", recent: "FORM", cupcake: "CUP", luck: "UNLK" };
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
 const RANK_VIEWS = new Set(["rankings", "schedules"]);
-const VIEWS = new Set(["rankings", "picks", "schedules", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily", "fantasy", "news"]);
+const VIEWS = new Set(["rankings", "picks", "schedules", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily", "fantasy", "news", "games", "settings"]);
+// Sub-pages that light up a parent tab in the nav (the Daily player game lives under Games)
+const NAV_PARENT = { daily: "games" };
 
 // ------------------------------------------------------------------ forgiving name search
 // Lowercase, strip accents/punctuation ("D.J." -> "dj", "Smith-Njigba" -> "smith njigba"), drop jr/sr/ii/iii.
@@ -101,7 +103,8 @@ async function route() {
   if (lg !== league || !LG) setLeague(lg);
   Live.stop();
   document.querySelectorAll(".view").forEach((s) => s.classList.toggle("hidden", s.id !== "view-" + r.view));
-  document.querySelectorAll("#nav .tab").forEach((a) => a.classList.toggle("active", a.dataset.view === r.view));
+  setNavActive(NAV_PARENT[r.view] || r.view);
+  $("#gear").classList.toggle("active", r.view === "settings");
   document.querySelectorAll(".rank-ctl").forEach((el) => el.classList.toggle("hidden", !RANK_VIEWS.has(r.view)));
   $("#drawer").classList.add("hidden");
   document.body.classList.remove("drawer-open");
@@ -116,6 +119,10 @@ async function route() {
     renderNotes();
   } else if (r.view === "daily") {
     Daily.render();
+  } else if (r.view === "games") {
+    renderGames();
+  } else if (r.view === "settings") {
+    Settings.render();
   } else if (r.view === "picks") {
     Pickem.render(r.params);
   } else if (r.view === "fantasy") {
@@ -129,8 +136,50 @@ async function route() {
   }
 }
 
+// ------------------------------------------------------------------ nav
+// Highlight the current page. A page inside the More menu lights up the More button and (wider screens) puts its name on it.
+// Note: unknown routes (#/fantasy, #/news until those pages exist) fall back to rankings.
+const phoneNav = window.matchMedia("(max-width: 640px)");
+function setNavActive(view) {
+  document.querySelectorAll("#nav [data-view]").forEach((a) => a.classList.toggle("active", a.dataset.view === view));
+  const inMenu = [...document.querySelectorAll("#more-menu .mm-item.active")]
+    .find((a) => phoneNav.matches || !a.closest(".nav-narrow"));
+  $("#more-btn").classList.toggle("active", !!inMenu);
+  $("#more-label").textContent = inMenu && !phoneNav.matches ? inMenu.textContent : "More"; // phones: no room for long names
+  setMoreOpen(false);
+}
+function setMoreOpen(open) {
+  $("#more-menu").hidden = !open;
+  $("#more-btn").setAttribute("aria-expanded", open);
+}
+function initNav() {
+  $("#more-btn").onclick = () => setMoreOpen($("#more-menu").hidden);
+  $("#more-menu").onclick = (e) => { if (e.target.closest("a")) setMoreOpen(false); };
+  document.addEventListener("pointerdown", (e) => { if (!e.target.closest(".nav-more")) setMoreOpen(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") setMoreOpen(false); });
+  phoneNav.addEventListener("change", () => setNavActive(NAV_PARENT[parseHash().view] || parseHash().view));
+}
+
+// ------------------------------------------------------------------ games hub
+// One card per game. To add a game: give it a view (its own section + route) and add a card here.
+function renderGames() {
+  const games = [
+    { href: "#/daily", name: "daily_player", title: "Daily player", desc: "Guess today's mystery NFL player in 8 tries. Each guess shows how close you are on team, division, position, age, college and number. A new player every day at midnight.", status: Daily.status() },
+  ];
+  $("#view-games").innerHTML = `<div class="card">
+    <h2>Games</h2>
+    <p class="note">Quick games for football fans. Your progress and streaks are saved in this browser.</p>
+    <div class="games-grid">${games.map((g) => `<a class="game-tile" href="${g.href}">
+      <span class="gt-name"><span class="dg-gt">&gt;</span> ${esc(g.name)}</span>
+      <b>${esc(g.title)}</b>
+      <span class="gt-desc">${esc(g.desc)}</span>
+      <span class="gt-st">${esc(g.status)}</span></a>`).join("")}
+      <div class="game-tile soon"><span class="gt-name"><span class="dg-gt">&gt;</span> more_games<span class="gs-us">_</span></span><span class="gt-desc">More games are on the way.</span></div>
+    </div></div>`;
+}
+
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "102"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "103"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -203,10 +252,13 @@ async function init() {
   $("#drawer").onclick = (e) => { if ("close" in e.target.dataset) closeDrawer(); };
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#drawer").classList.contains("hidden")) closeDrawer(); });
   $("#table tbody").onclick = (e) => {
+    const cm = e.target.closest(".cupm");
+    if (cm) return cupTip(cm);
     const tr = e.target.closest("tr[data-team]");
     if (tr) openTeam(tr.dataset.team);
   };
   initSearch();
+  initNav();
   window.addEventListener("hashchange", route);
   await route();
 }
@@ -220,7 +272,7 @@ function setLeague(l) {
   document.body.dataset.league = l;
   $("#profile").innerHTML = `<option value="">All schedule profiles</option>` + Object.entries(PROFILES).map(([k, p]) => `<option value="${k}">${p.name}</option>`).join("");
   $("#league-tag").textContent = LEAGUE_NAME[l] || l;
-  document.querySelectorAll("#nav .tab").forEach((a) => (a.href = link(a.dataset.view)));
+  document.querySelectorAll("#nav [data-view]").forEach((a) => (a.href = link(a.dataset.view)));
   $("#notes-link").href = link("updates");
   weights = loadWeights(l);
   reverse = false;
@@ -516,17 +568,40 @@ const bestWinText = (g) => g ? `${g.opp_rank && !g.fcs ? "#" + g.opp_rank + " " 
 const untestedTag = (t) => isUntested(t)
   ? ` <span class="pill untested" title="No win over a top-${TESTED[league].quality} team yet. Best win: ${esc(bestWinText(bestWin(t)))}">Beaten Nobody</span>` : "";
 
-// Padding meter: a bar filled to the Cupcake score (50 = average schedule). Empty = no cupcakes played.
+// Padding meter: one small square per game played, filled = a cupcake game, plus a plain count ("2 cupcakes").
+// Half or more of the games against cupcakes = heavy padding (count shown in the accent color).
 // NFL week files from before the NFL got a Cupcake score have no scores.cupcake: no meter.
 function cupMeter(t) {
   if (t.scores.cupcake == null || !(t.wins + t.losses)) return "";
-  const cups = t.schedule.filter((g) => g.result && g.cupcake);
-  const tip = cups.length
-    ? `Padding ${Math.round(t.scores.cupcake)}/100. Cupcakes: ${cups.map((g) => g.opp + (g.fcs ? " (FCS)" : "")).join(", ")}`
-    : "Padding 0/100: no cupcakes played yet";
-  // continuous bar: fills to the exact Padding score, colored green -> red by how far it reaches
-  const pct = cups.length ? Math.max(4, Math.round(t.scores.cupcake)) : 0;
-  return `<span class="cupm" title="${esc(tip)}" aria-label="${esc(tip)}"><em>Padding</em><span class="cupm-track"><span class="cupm-fill" style="width:${pct}%"></span></span></span>`;
+  const played = t.schedule.filter((g) => g.result);
+  const cups = played.filter((g) => g.cupcake);
+  const n = cups.length, heavy = n && n / played.length >= 0.5;
+  const tip = (n
+    ? `${n} of ${played.length} games against cupcakes: ${cups.map((g) => g.opp + (g.fcs ? " (FCS)" : "")).join(", ")}.`
+    : `No cupcakes in ${played.length} games played.`)
+    + ` A cupcake is an opponent far below this team's level (FCS teams always count). Filled square = cupcake game.`;
+  const sq = played.map((g) => `<i${g.cupcake ? ' class="on"' : ""}></i>`).join("");
+  return `<button type="button" class="cupm${heavy ? " heavy" : ""}${n ? "" : " none"}" data-tip="${esc(tip)}" title="${esc(tip)}" aria-label="${esc(tip)}">`
+    + `<span class="cupm-sq" aria-hidden="true">${sq}</span><span class="cupm-n">${n ? n + (n === 1 ? " cupcake" : " cupcakes") : "no cupcakes"}</span></button>`;
+}
+// Tap (phones) or click on a padding meter: a small explanation box instead of opening the team panel
+function cupTip(btn) {
+  let pop = document.getElementById("cupm-pop");
+  if (!pop) {
+    pop = document.createElement("div");
+    pop.id = "cupm-pop";
+    pop.className = "cupm-pop";
+    pop.setAttribute("role", "tooltip");
+    document.body.appendChild(pop);
+    const hide = () => pop.classList.add("hidden");
+    document.addEventListener("pointerdown", (e) => { if (!e.target.closest(".cupm, #cupm-pop")) hide(); });
+    window.addEventListener("scroll", hide, { passive: true });
+  }
+  pop.textContent = btn.dataset.tip;
+  pop.classList.remove("hidden");
+  const r = btn.getBoundingClientRect();
+  pop.style.top = (r.bottom + window.scrollY + 6) + "px";
+  pop.style.left = Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - pop.offsetWidth - 8)) + "px";
 }
 
 function cotwTag(t) {

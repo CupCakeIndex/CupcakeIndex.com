@@ -341,12 +341,6 @@ body.drawer-open { overflow: hidden; }
 @media (max-width: 640px) { .disagree { grid-template-columns: 1fr; } }
 .team .ap-rk { font-size: 11px; margin-right: 2px; }
 
-/* cupcake meter */
-.cupm { display: flex; gap: 1px; margin-top: 3px; cursor: help; line-height: 1; }
-.cupm i { font-style: normal; font-size: 11px; filter: grayscale(1); opacity: .22; }
-.cupm i.on { filter: none; opacity: 1; }
-@media (max-width: 640px) { .cupm { display: flex; } .cupm i { font-size: 10px; } }
-
 /* ---------- broadcast-style badges & meter (replaces emoji) ---------- */
 .prof-badge { display: inline-block; font-family: "Barlow Condensed", Inter, sans-serif; font-weight: 700; font-size: 11px; letter-spacing: .06em;
   line-height: 1; padding: 3px 6px 2px; border: 1.5px solid currentColor; border-radius: 3px; vertical-align: 2px; white-space: nowrap; cursor: help; }
@@ -360,11 +354,6 @@ body.drawer-open { overflow: hidden; }
 .prose li .prof-badge { margin-right: 6px; }
 .prof { display: none; }
 
-.cupm { display: flex; align-items: center; gap: 2px; margin-top: 4px; cursor: help; line-height: 1; --c: var(--good); }
-.cupm em { font-style: normal; font-family: "Barlow Condensed", Inter, sans-serif; font-weight: 700; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
-.cupm i { width: 11px; height: 6px; border-radius: 1px; background: var(--line); }
-.cupm i.on { background: var(--c); }
-.cupm.lvl1 { --c: #2fa866; } .cupm.lvl2 { --c: #8fbf3a; } .cupm.lvl3 { --c: #d9b32b; } .cupm.lvl4 { --c: #e0782b; } .cupm.lvl5 { --c: #e0443a; }
 
 .cotw-icon { font-family: "Barlow Condensed", Inter, sans-serif; font-weight: 700; font-size: 15px; letter-spacing: .08em; line-height: 1;
   color: #fff; background: #e0527a; padding: 8px 9px 7px; border-radius: 4px; }
@@ -447,7 +436,6 @@ body.drawer-open { overflow: hidden; }
 .tmeta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
 .tmeta small { margin: 0; line-height: 16px; }
 .tmeta .cupm { margin: 0; height: 16px; }
-.tmeta .cupm em { display: none; }
 .tmeta .prof-badge, .tmeta .pill {
   display: inline-flex; align-items: center; height: 16px; padding: 0 5px; margin: 0;
   font-size: 10px; line-height: 1; letter-spacing: .06em; vertical-align: middle; }
@@ -458,7 +446,7 @@ body.drawer-open { overflow: hidden; }
 
 .team .tname { display: flex; align-items: baseline; gap: 6px; }
 .tmeta { flex-wrap: nowrap; min-width: 0; }
-.tmeta .cupm { flex: none; width: 63px; }
+.tmeta .cupm { flex: none; }
 .tmeta small { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 
 /* game page: two independent columns + full-width box score */
@@ -527,11 +515,23 @@ body.drawer-open { overflow: hidden; }
   .sb-mid small { display: none; }
 }
 
-/* padding meter: continuous gradient bar */
-.cupm-track { position: relative; display: block; width: 63px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
-.cupm-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px;
-  background: linear-gradient(90deg, #2fa866, #8fbf3a 30%, #d9b32b 55%, #e0782b 78%, #e0443a); background-size: 63px 100%; }
-.tmeta .cupm { width: 63px; align-items: center; }
+/* padding meter: one square per game played (filled = a cupcake game) + a plain count; tap for the explanation */
+.cupm { display: inline-flex; align-items: center; gap: 6px; padding: 0; margin: 0; border: 0; background: none; cursor: help; line-height: 1; color: var(--muted); font-size: 10.5px; white-space: nowrap; }
+.cupm-sq, .cupm-key { display: inline-flex; align-items: center; gap: 2px; }
+.cupm-sq i, .cupm-key i { display: block; width: 6px; height: 6px; border: 1px solid color-mix(in srgb, var(--muted) 70%, transparent); }
+.cupm-sq i.on, .cupm-key i.on { background: var(--accent); border-color: var(--accent); }
+.cupm-n { letter-spacing: .02em; }
+.cupm.heavy .cupm-n { color: var(--accent); font-weight: 700; }
+.cupm:hover .cupm-n, .cupm:focus-visible .cupm-n { text-decoration: underline dotted; text-underline-offset: 2px; }
+.cupm:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.cupm-key { gap: 4px; margin-left: 10px; font-size: 10px; letter-spacing: .02em; text-transform: none; color: var(--muted); font-weight: 400; cursor: help; }
+.cupm-key i.on { margin-left: 6px; }
+.cupm-pop { position: absolute; z-index: 80; max-width: min(320px, calc(100vw - 16px)); padding: 8px 10px; background: var(--card); color: var(--ink);
+  border: 1px solid var(--accent); box-shadow: 0 10px 30px rgba(0,0,0,.45); font-size: 12px; line-height: 1.45; }
+@media (max-width: 640px) {
+  .cupm-key { display: none; }
+  .cupm-sq i { width: 5px; height: 5px; }
+}
 
 /* ---------- leaders strip + box score tabs ---------- */
 .leaders-strip { margin-top: 12px; }
@@ -595,14 +595,22 @@ body.drawer-open { overflow: hidden; }
 }
 
 /* =================== REDESIGN: Data Terminal Mono =================== */
-:root:root:root { --bg:#0a0a0b; --card:#111113; --ink:#ececec; --muted:#8a8a8f; --line:#26262a; --accent:#ff6b2c; --accent-soft:#1c130e; --good:#e8e8e8; --bad:#ff6b2c; --bar:#ececec; --bar-bg:#26262a; --shadow:none; }
+/* The default theme. Other themes (Settings > Theme, html[data-theme-name]) are at the end of this file and override
+   these variables. Light/dark: html[data-theme] is set before first paint by the script in index.html <head>
+   ("light" / "dark", resolved from the System choice); the media query below is the no-JavaScript fallback.
+   .thp = the small theme previews on the Settings page (each one carries its own data-theme-name / data-theme). */
+:root:root:root, .thp[data-theme-name="mono"] { --bg:#0a0a0b; --card:#111113; --ink:#ececec; --muted:#8a8a8f; --line:#26262a; --accent:#ff6b2c; --accent-soft:#1c130e; --good:#e8e8e8; --bad:#ff6b2c; --bar:#ececec; --bar-bg:#26262a; --shadow:none;
+  --on-accent:#000; --radius:0px; --radius-sm:0px; --font-body:"JetBrains Mono", ui-monospace, monospace; --font-head:var(--font-body); --font-badge:"JetBrains Mono", ui-monospace, monospace; }
 @media (prefers-color-scheme: light) {
   :root:root:root:not([data-theme="dark"]) { --bg:#f4f4f2; --card:#ffffff; --ink:#141414; --muted:#6b6b70; --line:#e2e2de; --accent:#e8551b; --accent-soft:#fbeee6;
     --good:#141414; --bad:#e8551b; --bar:#141414; --bar-bg:#e8e8e4; }
 }
+:root:root:root[data-theme="light"], .thp[data-theme-name="mono"][data-theme="light"] { --bg:#f4f4f2; --card:#ffffff; --ink:#141414; --muted:#6b6b70; --line:#e2e2de; --accent:#e8551b; --accent-soft:#fbeee6;
+    --good:#141414; --bad:#e8551b; --bar:#141414; --bar-bg:#e8e8e4; }
 
 
-body, button, select, input { font-family: "JetBrains Mono", ui-monospace, monospace !important; font-size: 13px; }
+body, button, select, input { font-family: var(--font-body) !important; font-size: 13px; }
+h1, h2, h3, #brand { font-family: var(--font-head); }
 h1 { font-size: 26px; letter-spacing: -.02em; }
 /* header logo: monoline cupcake mark (ink = text color, laces = accent) + CUPCAKE_INDEX wordmark */
 .logo { display: inline-flex; align-items: center; gap: 10px; vertical-align: middle; }
@@ -618,21 +626,20 @@ h1 { font-size: 26px; letter-spacing: -.02em; }
 }
 .tag { background: transparent; color: var(--accent); border: 1px solid var(--accent); border-radius: 0; }
 .tab { text-transform: uppercase; font-size: 12px; letter-spacing: .06em; }
-.card, .table-wrap, .cotw, .seg, select, input[type=search], .presets button { border-radius: 0 !important; }
+.card, .table-wrap, .cotw, .seg, select, input[type=search], .presets button { border-radius: var(--radius) !important; }
 #table td, #table th { border: 1px solid var(--line); }
 #table td { padding: 8px 10px; }
 .rank { font-size: 16px !important; color: var(--accent); }
 .team img { filter: grayscale(.2); }
-.seg button.active, .presets button.on { background: var(--accent) !important; color: #000 !important; }
-.prof-badge, .pill { border-radius: 0 !important; box-shadow: none !important; background: transparent !important; text-shadow: none !important; font-family: "JetBrains Mono" !important; }
-.cotw-tag { background: var(--accent) !important; color: #000 !important; clip-path: none; text-shadow: none; }
-.cupm-fill { background: var(--accent) !important; }
+.seg button.active, .presets button.on { background: var(--accent) !important; color: var(--on-accent) !important; }
+.prof-badge, .pill { border-radius: var(--radius-sm) !important; box-shadow: none !important; background: transparent !important; text-shadow: none !important; font-family: var(--font-badge) !important; }
+.cotw-tag { background: var(--accent) !important; color: var(--on-accent) !important; clip-path: none; text-shadow: none; }
 
 /* single-column rankings; weights move to a floating panel */
 #view-rankings { grid-template-columns: minmax(0, 1fr) !important; }
 .weights-fab { position: fixed; right: 18px; bottom: 18px; z-index: 60; display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 14px;
-  background: var(--accent); color: #000; border: 0; border-radius: 4px; cursor: pointer; box-shadow: 0 8px 24px rgba(0,0,0,.45);
-  font: 700 12px/1 "JetBrains Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
+  background: var(--accent); color: var(--on-accent); border: 0; border-radius: 4px; cursor: pointer; box-shadow: 0 8px 24px rgba(0,0,0,.45);
+  font: 700 12px/1 var(--font-body); letter-spacing: .08em; text-transform: uppercase; }
 .weights-fab #wf-preset { background: rgba(0,0,0,.16); padding: 4px 7px; border-radius: 3px; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .weights-fab.open { background: var(--ink); color: var(--bg); }
 .weights { position: fixed !important; right: 18px; bottom: 68px; z-index: 61; width: 360px; max-height: min(72vh, 640px); overflow: auto;
@@ -662,7 +669,6 @@ body:not(.show-breakdown) th.factors-col, body:not(.show-breakdown) td.factors {
   #table .mv { width: 22px; }
   .team img { width: 20px !important; height: 20px !important; }
   .team .tname { font-size: 13px; }
-  .tmeta .cupm, .tmeta .cupm-track { width: 44px; }
 }
 
 /* phones: league switcher on the right, within thumb reach */
@@ -787,7 +793,7 @@ img.wiki { object-position: 50% 20%; }
 #table tbody tr.bully td:first-child { box-shadow: inset 4px 0 0 var(--accent); }
 #table tbody tr.bully td { border-top-color: color-mix(in srgb, var(--accent) 45%, var(--line)); border-bottom-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
 #table tbody tr.bully .tname { color: var(--accent); }
-.tmeta .pill.cup-badge { background: var(--accent) !important; color: #000 !important; border-color: var(--accent) !important; }
+.tmeta .pill.cup-badge { background: var(--accent) !important; color: var(--on-accent) !important; border-color: var(--accent) !important; }
 
 /* phones: show every team tag, wrapping onto a second line when needed */
 @media (max-width: 640px) {
@@ -803,6 +809,38 @@ img.wiki { object-position: 50% 20%; }
 .inj-tag.inj-o { color: #ff4d4d; }
 .inj-line { font-size: 12px; color: var(--muted); }
 .inj-line .inj-tag { margin-left: 0; }
+
+/* Nav: main tabs + a More menu (grouped, terminal-style). Phones: fewer main tabs, the rest move into More. */
+.tabs { overflow: visible; align-items: stretch; }
+.nav-main { display: flex; gap: 4px; min-width: 0; }
+.nav-more { position: relative; display: flex; }
+.more-btn { display: inline-flex; align-items: center; gap: 6px; font: inherit; text-transform: uppercase; font-size: 12px; letter-spacing: .06em; font-weight: 600; }
+.more-btn.active { color: var(--ink); border-color: var(--accent); }
+.more-btn[aria-expanded="true"] { color: var(--ink); }
+.more-car { font-size: 10px; color: var(--accent); transition: transform .15s; }
+.more-btn[aria-expanded="true"] .more-car { transform: rotate(180deg); }
+.more-menu { position: absolute; top: calc(100% + 1px); left: 0; z-index: 75; min-width: 210px; padding: 6px 0; background: var(--card);
+  border: 1px solid var(--accent); box-shadow: 0 18px 50px rgba(0,0,0,.55); }
+.more-menu[hidden] { display: none; }
+.mm-group { display: flex; flex-direction: column; padding: 4px 0; }
+.mm-group + .mm-group { border-top: 1px solid var(--line); }
+.mm-h { padding: 4px 14px 2px; font-size: 10px; letter-spacing: .08em; color: var(--muted); }
+.mm-item { display: block; padding: 8px 14px 8px 28px; font-size: 13px; color: var(--ink); text-decoration: none !important; position: relative; white-space: nowrap; }
+.mm-item::before { content: ">"; position: absolute; left: 14px; color: var(--accent); opacity: 0; }
+.mm-item:hover, .mm-item:focus-visible { background: var(--accent-soft); color: var(--accent); outline: none; }
+.mm-item:hover::before, .mm-item:focus-visible::before, .mm-item.active::before { opacity: 1; }
+.mm-item.active { color: var(--accent); font-weight: 700; }
+.nav-narrow { display: none; }
+@media (max-width: 640px) {
+  .tabs { gap: 0; flex-wrap: nowrap; }
+  .nav-main { flex: 1; gap: 0; overflow-x: auto; scrollbar-width: none; }
+  .nav-main .nav-wide { display: none; }
+  .nav-narrow { display: flex; }
+  .tabs .tab { padding: 8px 8px; }
+  .nav-more { margin-left: auto; }
+  .more-menu { left: auto; right: 0; min-width: 200px; }
+  .mm-item { padding-top: 10px; padding-bottom: 10px; }
+}
 
 /* NFL-only nav tabs (free agents) */
 body[data-league="cfb"] .nfl-only { display: none !important; }
@@ -855,6 +893,9 @@ table.moves td:last-child { white-space: normal; min-width: 240px; }
   :root:not([data-theme="dark"]) .cc-chart .cc-bdot { fill: #b9b9bd; }
   :root:not([data-theme="dark"]) .cc-bench-key i { border-top-color: #b9b9bd; }
 }
+:root[data-theme="light"] .cc-chart .cc-bench { stroke: #b9b9bd; }
+:root[data-theme="light"] .cc-chart .cc-bdot { fill: #b9b9bd; }
+:root[data-theme="light"] .cc-bench-key i { border-top-color: #b9b9bd; }
 
 /* Stats by year: Line / Bar switch (only the chosen chart shows; showing it replays its animation) */
 .cc-box svg[data-mode] { display: none; }
@@ -1075,11 +1116,23 @@ tr.hl-row { background: color-mix(in srgb, var(--accent) 7%, transparent); }
 .inj-card p { margin: 10px 0 0; font-size: 13px; line-height: 1.5; }
 tr.inj-note td { border-top: 0; padding-top: 2px; font-size: 12px; color: var(--ink); background: color-mix(in srgb, var(--accent) 6%, transparent); }
 /* Daily game: guess today's NFL player. Guesses are terminal lines with six feedback tiles (green = match, yellow = close) */
-.daily-cta { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; padding: 8px 12px; border: 1px dashed var(--line); background: var(--card);
-  color: var(--ink); font-size: 13px; text-decoration: none !important; }
-.daily-cta:hover { border-color: var(--accent); }
-.daily-cta .dc-txt { color: var(--muted); }
-.daily-cta .dc-st { margin-left: auto; color: var(--accent); font-weight: 700; white-space: nowrap; }
+/* Rankings: a one-line link to the daily game at the end of the filter row (phones use the Games tab) */
+.daily-mini { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; text-decoration: none !important; }
+.daily-mini:hover { color: var(--ink); }
+.daily-mini #daily-st { color: var(--accent); font-weight: 700; }
+@media (max-width: 640px) { .daily-mini { display: none; } }
+/* Games tab: a grid of game cards (room for more games later) */
+.games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-top: 12px; }
+.game-tile { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); text-decoration: none !important; min-width: 0; }
+a.game-tile:hover { border-color: var(--accent); }
+.game-tile b { font-size: 16px; }
+.gt-name { font-size: 12px; color: var(--muted); }
+.gt-desc { font-size: 12px; color: var(--muted); line-height: 1.45; }
+.gt-st { margin-top: auto; padding-top: 4px; color: var(--accent); font-weight: 700; font-size: 12px; }
+.game-tile.soon { border-style: dashed; justify-content: center; }
+.game-tile.soon .gs-us { animation: gs-blink 1.1s steps(1) infinite; }
+.back-link { display: inline-block; margin: 0 0 10px; font-size: 12px; color: var(--muted); }
+.back-link:hover { color: var(--accent); text-decoration: none; }
 .dg-gt { color: var(--accent); font-weight: 700; }
 .dg { max-width: 760px; --dg-g: #3ccf7e; --dg-y: #e8b90e; }
 .dg-num { font-weight: 400; font-size: 13px; }
@@ -1363,3 +1416,134 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
   #nw-q { min-width: 0; flex: 1 1 140px; }
   #nw-source { flex: 1 1 120px; }
 }
+/* Header gear -> Settings page */
+.gear { display: inline-flex; align-items: center; justify-content: center; align-self: flex-end; width: 38px; height: 38px; flex: none; order: 10;
+  border: 1px solid var(--line); background: var(--bg); color: var(--muted); border-radius: var(--radius); text-decoration: none !important; }
+.gear:hover, .gear.active { color: var(--accent); border-color: var(--accent); }
+.gear svg { width: 18px; height: 18px; }
+@media (max-width: 640px) {
+  .top { position: relative; }
+  .gear { position: absolute; top: 16px; right: 16px; width: 34px; height: 34px; }
+}
+
+/* Settings page: Appearance (Dark / Light / System) + Theme picker with live mini previews */
+.set { max-width: 900px; }
+.set h3 { margin: 18px 0 4px; }
+.set h3:first-of-type { margin-top: 6px; }
+.set .note { margin: 0 0 10px; }
+.set .seg { display: inline-flex; }
+.set .seg button { padding: 8px 18px; }
+.th-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.th-opt { display: flex; flex-direction: column; gap: 8px; padding: 8px; text-align: left; cursor: pointer; background: var(--bg); color: var(--ink);
+  border: 1px solid var(--line); border-radius: var(--radius); }
+.th-opt:hover { border-color: var(--muted); }
+.th-opt.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.th-opt b { font-size: 13px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 6px; }
+.th-opt b span { color: var(--accent); font-size: 11px; white-space: nowrap; }
+.th-opt small { color: var(--muted); font-size: 11px; line-height: 1.4; }
+.set .set-foot { margin-top: 16px; }
+@media (max-width: 640px) { .th-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } .th-opt { padding: 6px; } }
+/* .thp = a tiny fake rankings card drawn with the theme's own variables (see the theme rules below) */
+.thp { display: block; padding: 8px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius); font-family: var(--font-body); overflow: hidden; }
+.thp-h { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font: 700 15px/1 var(--font-head); }
+.thp-h i { font-style: normal; font: 700 8px/1 var(--font-body); padding: 2px 4px; border: 1px solid var(--accent); color: var(--accent); border-radius: var(--radius-sm); }
+.thp-h em { margin-left: auto; width: 26px; height: 12px; background: var(--accent); border-radius: var(--radius-sm); }
+.thp-row { display: grid; grid-template-columns: 14px 1fr 36px; align-items: center; gap: 6px; padding: 4px 6px; margin-top: 3px; background: var(--card);
+  border: 1px solid var(--line); border-radius: var(--radius); font-size: 10px; }
+.thp-row > b { color: var(--accent); font: 700 11px/1 var(--font-head); }
+.thp-row > span { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.thp-row u { text-decoration: none; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.thp-row s { text-decoration: none; display: flex; gap: 2px; }
+.thp-row s i { width: 5px; height: 5px; border: 1px solid var(--muted); }
+.thp-row s i.on { background: var(--accent); border-color: var(--accent); }
+.thp-bar { height: 4px; background: var(--bar-bg); border-radius: 2px; overflow: hidden; }
+.thp-bar i { display: block; height: 100%; background: var(--bar); }
+
+/* =================== THEMES (Settings > Theme) ===================
+   Each theme = a dark palette, a light palette, fonts, corner radius, plus a few targeted overrides.
+   The default (Data Terminal Mono) is defined in the REDESIGN block above. Every theme sets the same variables in both modes.
+   Fonts load only when a theme needs them (see THEME_FONTS in index.html). */
+
+/* --- Data Terminal (green) --- */
+:root:root:root[data-theme-name="terminal"], .thp[data-theme-name="terminal"] {
+  --bg:#0a0b0a; --card:#0f1210; --ink:#e4f2e9; --muted:#7f8f85; --line:#1f2a23; --accent:#3dff8a; --accent-soft:#0e2216; --on-accent:#000;
+  --good:#3dff8a; --bad:#ff5c5c; --bar:#3dff8a; --bar-bg:#1f2a23; }
+:root:root:root[data-theme-name="terminal"][data-theme="light"], .thp[data-theme-name="terminal"][data-theme="light"] {
+  --bg:#f2f6f3; --card:#ffffff; --ink:#0f1a13; --muted:#5d6d62; --line:#d8e2db; --accent:#0b8f45; --accent-soft:#e1f3e8; --on-accent:#fff;
+  --good:#0b8f45; --bad:#d64545; --bar:#0b8f45; --bar-bg:#e0e8e2; }
+
+/* --- Data Terminal Amber --- */
+:root:root:root[data-theme-name="amber"], .thp[data-theme-name="amber"] {
+  --bg:#0c0a06; --card:#14110a; --ink:#f3ead6; --muted:#9a8e72; --line:#2a2416; --accent:#ffb000; --accent-soft:#251b05; --on-accent:#000;
+  --good:#ffc94d; --bad:#ff6b4a; --bar:#ffb000; --bar-bg:#2a2416; }
+:root:root:root[data-theme-name="amber"][data-theme="light"], .thp[data-theme-name="amber"][data-theme="light"] {
+  --bg:#f7f3ea; --card:#fffdf7; --ink:#1e1709; --muted:#74684d; --line:#e6dcc5; --accent:#a86f00; --accent-soft:#fbefd2; --on-accent:#fff;
+  --good:#8a6000; --bad:#c9441c; --bar:#a86f00; --bar-bg:#ece3cf; }
+
+/* --- Sleek Broadcast: Inter + condensed headings, rounded cards, pink-orange Bully banner --- */
+:root:root:root[data-theme-name="broadcast"], .thp[data-theme-name="broadcast"] {
+  --bg:#0d0e12; --card:#15171d; --ink:#f1f2f4; --muted:#9097a3; --line:#252831; --accent:#ff6b2c; --accent-soft:#2a1710; --on-accent:#fff;
+  --good:#3ccf7e; --bad:#ff5c5c; --bar:#ff6b2c; --bar-bg:#262a33;
+  --radius:10px; --radius-sm:3px; --font-body:Inter, system-ui, sans-serif; --font-head:"Barlow Condensed", Inter, sans-serif; --font-badge:"Barlow Condensed", Inter, sans-serif; }
+:root:root:root[data-theme-name="broadcast"][data-theme="light"], .thp[data-theme-name="broadcast"][data-theme="light"] {
+  --bg:#f4f5f7; --card:#ffffff; --ink:#14171c; --muted:#636b78; --line:#e3e6eb; --accent:#e8551b; --accent-soft:#fff0e8; --on-accent:#fff;
+  --good:#1f9d55; --bad:#d64545; --bar:#e8551b; --bar-bg:#e8ebf0; }
+[data-theme-name="broadcast"] #brand, [data-theme-name="broadcast"] h1 { font-weight: 700; letter-spacing: .01em; text-transform: uppercase; }
+[data-theme-name="broadcast"] .tab, [data-theme-name="broadcast"] .more-btn { font: 700 15px/1.2 var(--font-head); letter-spacing: .06em; }
+[data-theme-name="broadcast"] .more-btn, [data-theme-name="varsity"] .more-btn { font-family: var(--font-head) !important; } /* buttons are forced to the body font */
+[data-theme-name="broadcast"] .cotw-tag { background: linear-gradient(135deg, #ee6b92, #f06a2a) !important; color: #fff !important; }
+[data-theme-name="broadcast"] .rank { font-family: var(--font-head); font-size: 22px !important; color: var(--ink); }
+[data-theme-name="broadcast"] .score { font-family: var(--font-head); font-size: 17px; }
+
+/* --- Editorial: serif headlines, ink-black controls, deep red links (light-first; the dark version is warm charcoal) --- */
+:root:root:root[data-theme-name="editorial"], .thp[data-theme-name="editorial"] {
+  --bg:#15130f; --card:#1d1a15; --ink:#efe8da; --muted:#a39a8a; --line:#2f2a22; --accent:#e0675c; --accent-soft:#2c1a17; --on-accent:#15130f;
+  --good:#6cc483; --bad:#e0675c; --bar:#efe8da; --bar-bg:#2f2a22;
+  --radius:6px; --radius-sm:3px; --font-body:Inter, system-ui, sans-serif; --font-head:"Source Serif 4", Georgia, serif; --font-badge:"Barlow Condensed", Inter, sans-serif; }
+:root:root:root[data-theme-name="editorial"][data-theme="light"], .thp[data-theme-name="editorial"][data-theme="light"] {
+  --bg:#f5f1e8; --card:#fffdf8; --ink:#1a1714; --muted:#6e675d; --line:#e4ddcf; --accent:#a3221b; --accent-soft:#f6e7e3; --on-accent:#fff;
+  --good:#2c7a3f; --bad:#a3221b; --bar:#1a1714; --bar-bg:#e9e3d6; }
+[data-theme-name="editorial"] .tab, [data-theme-name="editorial"] .more-btn { text-transform: none; font-size: 14px; letter-spacing: 0; }
+[data-theme-name="editorial"] .seg button.active, [data-theme-name="editorial"] .presets button.on { background: var(--ink) !important; color: var(--bg) !important; }
+[data-theme-name="editorial"] .tname, [data-theme-name="editorial"] .rank { font-family: var(--font-head); font-size: 15px; }
+[data-theme-name="editorial"] .rank { color: var(--ink); font-size: 18px !important; }
+[data-theme-name="editorial"] .tabs { border-bottom: 2px solid var(--ink); }
+
+/* --- Midnight Glass: pure black, frosted rounded cards, pill tabs, warm amber accent --- */
+:root:root:root[data-theme-name="glass"], .thp[data-theme-name="glass"] {
+  --bg:#000000; --card:#121215; --ink:#f5f5f7; --muted:#98989f; --line:#232327; --accent:#ff9f0a; --accent-soft:#2a1c05; --on-accent:#000;
+  --good:#30d158; --bad:#ff453a; --bar:#ff9f0a; --bar-bg:#2a2a2e;
+  --radius:16px; --radius-sm:99px; --font-body:Inter, system-ui, sans-serif; --font-head:Inter, system-ui, sans-serif; --font-badge:"Barlow Condensed", Inter, sans-serif; }
+:root:root:root[data-theme-name="glass"][data-theme="light"], .thp[data-theme-name="glass"][data-theme="light"] {
+  --bg:#f2f2f7; --card:#ffffff; --ink:#1c1c1e; --muted:#6e6e73; --line:#e2e2e7; --accent:#f08c00; --accent-soft:#fff2dc; --on-accent:#000;
+  --good:#248a3d; --bad:#d70015; --bar:#f08c00; --bar-bg:#e5e5ea; }
+[data-theme-name="glass"] h1, [data-theme-name="glass"] #brand { font-weight: 800; letter-spacing: -.035em; }
+[data-theme-name="glass"] .tabs { border-bottom: 0; padding-top: 4px; padding-bottom: 8px; }
+[data-theme-name="glass"] .nav-main { gap: 6px; }
+[data-theme-name="glass"] .tab, [data-theme-name="glass"] .more-btn { text-transform: none; letter-spacing: 0; font-size: 14px; border: 0; border-radius: 99px; background: var(--card); color: var(--ink); padding: 8px 16px; }
+[data-theme-name="glass"] .tab.active, [data-theme-name="glass"] .more-btn.active { background: var(--ink); color: var(--bg); }
+@media (max-width: 640px) {
+  [data-theme-name="glass"] .nav-main { gap: 4px; }
+  [data-theme-name="glass"] .tab, [data-theme-name="glass"] .more-btn { padding: 6px 10px; font-size: 13px; min-height: 32px; }
+  [data-theme-name="glass"] .nav-more { margin-left: 4px; }
+}
+[data-theme-name="glass"] .more-menu { border-radius: 14px; border-color: var(--line); top: calc(100% + 6px); overflow: hidden; }
+[data-theme-name="glass"] .card, [data-theme-name="glass"] .table-wrap { background: color-mix(in srgb, var(--card) 82%, transparent); backdrop-filter: blur(14px); }
+[data-theme-name="glass"] .seg button, [data-theme-name="glass"] .presets button, [data-theme-name="glass"] .btn { border-radius: 99px !important; }
+[data-theme-name="glass"] #table td, [data-theme-name="glass"] #table th { border-width: 0 0 1px; }
+[data-theme-name="glass"] .rank { color: var(--ink); }
+[data-theme-name="glass"] .cotw-tag { background: linear-gradient(135deg, #ee6b92, #f06a2a) !important; color: #fff !important; }
+
+/* --- Varsity: navy + gold, collegiate wordmark, tall condensed team names --- */
+:root:root:root[data-theme-name="varsity"], .thp[data-theme-name="varsity"] {
+  --bg:#0b1628; --card:#0f1e36; --ink:#eef1f6; --muted:#8d9bb3; --line:#1f3253; --accent:#d6a84a; --accent-soft:#1f2a30; --on-accent:#0b1628;
+  --good:#46c37b; --bad:#ff6b6b; --bar:#d6a84a; --bar-bg:#1f3253;
+  --radius:8px; --radius-sm:3px; --font-body:Inter, system-ui, sans-serif; --font-head:Oswald, "Barlow Condensed", sans-serif; --font-badge:"Barlow Condensed", Inter, sans-serif; }
+:root:root:root[data-theme-name="varsity"][data-theme="light"], .thp[data-theme-name="varsity"][data-theme="light"] {
+  --bg:#f5f2ea; --card:#ffffff; --ink:#0b1628; --muted:#5d6b82; --line:#ded8c8; --accent:#9c7016; --accent-soft:#f6ecd6; --on-accent:#fff;
+  --good:#1f8a4c; --bad:#c0392b; --bar:#0b1628; --bar-bg:#e6e0d0; }
+[data-theme-name="varsity"] #brand { font-family: Graduate, var(--font-head); font-weight: 400; letter-spacing: .02em; color: var(--accent); }
+[data-theme-name="varsity"] #brand b { color: var(--ink); }
+[data-theme-name="varsity"] .tab, [data-theme-name="varsity"] .more-btn { font: 600 15px/1.2 var(--font-head); letter-spacing: .08em; }
+[data-theme-name="varsity"] .tname { font-family: var(--font-head); font-weight: 600; font-size: 16px; text-transform: uppercase; letter-spacing: .02em; }
+[data-theme-name="varsity"] .rank { font-family: var(--font-head); font-weight: 400; font-size: 22px !important; }
