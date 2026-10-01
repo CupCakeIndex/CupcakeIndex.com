@@ -1001,3 +1001,45 @@ main .sp-more .card { margin: 0; }
 .br.mine .br-m:has(.win) .br-t.pk:not(.win) { color: var(--muted); }
 .br.mine .br-t.pk:hover, .br.mine .br-t.pk:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
 .br.mine .br-p { color: var(--muted); }
+/* My picks, typed: an empty slot is a terminal prompt (> + block cursor); the typed text is drawn over a transparent input */
+.br.mine .br-t.br-in { padding-right: 4px; gap: 4px; cursor: text; }
+.br-in .br-sd { color: var(--accent); font-weight: 700; font-size: 12px; }
+.br-tty { position: relative; flex: 1; min-width: 0; height: 30px; }
+.br-tty input { position: absolute; inset: 0; width: 100%; height: 100%; box-sizing: border-box; margin: 0; padding: 0 6px; border: 1px solid var(--line); border-radius: 0;
+  background: var(--bg); color: transparent; caret-color: transparent; font-size: 13px; outline: none; }
+.br-tty input:focus { border-color: var(--accent); }
+.br-gh { position: absolute; left: 7px; right: 6px; top: 0; bottom: 0; display: flex; align-items: center; pointer-events: none; font-size: 13px;
+  white-space: pre; overflow: hidden; color: var(--ink); }
+.br-gh .gh-r, .br-gh .gh-h { color: var(--muted); }
+.br-gh .gh-h { overflow: hidden; text-overflow: ellipsis; opacity: .8; }
+.br-gh .cur { font-style: normal; background: var(--accent); color: var(--bg); animation: br-blink 1s steps(1) infinite; }
+.br-in.ok .br-gh .gh-r { color: var(--accent); opacity: .75; }
+.br-in.no .br-tty { animation: br-no .3s; }
+.br-gt { color: var(--accent); }
+@keyframes br-blink { 50% { background: transparent; color: var(--muted); } }
+@keyframes br-no { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+@media (pointer: coarse) { .br-tty { height: 34px; } .br-tty input, .br-gh { font-size: 16px; } } /* 16px: iOS won't zoom the page on focus */
+@media (prefers-reduced-motion: reduce) { .br-gh .cur { animation: none; } .br-in.no .br-tty { animation: none; } }
+/* header search as a terminal prompt: >_ glyph, mono placeholder, block caret in the accent color, "/" shortcut hint */
+.gsearch input { background: var(--bg); border: 1px solid var(--line); padding-left: 34px; padding-right: 28px; caret-color: var(--accent); caret-shape: block; }
+.gsearch input:hover { border-color: var(--muted); }
+.gsearch input:focus { border-color: var(--accent); outline: none; }
+.gsearch input::placeholder { color: var(--muted); opacity: 1; }
+.gsearch .gs-icon { top: 0; bottom: 0; left: 11px; display: flex; flex-direction: row; gap: 0; align-items: center; font-size: 13px; font-weight: 800; line-height: 1; color: var(--accent); }
+.gs-us { animation: gs-blink 1.1s steps(1) infinite; animation-play-state: paused; }
+.gsearch:focus-within .gs-us { animation-play-state: running; }
+@keyframes gs-blink { 50% { opacity: 0; } }
+.gs-k { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); font: 600 10px/1 "JetBrains Mono", monospace; color: var(--muted);
+  border: 1px solid var(--line); padding: 2px 5px; pointer-events: none; }
+.gsearch input:focus ~ .gs-k, .gsearch input:not(:placeholder-shown) ~ .gs-k { display: none; }
+@media (min-width: 641px) { .gsearch input { width: 252px; } }
+@media (prefers-reduced-motion: reduce) { .gs-us { animation: none; } }
+@media (max-width: 640px) {
+  .gsearch input { padding: 0; }
+  .gsearch .gs-icon { left: 0; width: 38px; justify-content: center; }
+  .gs-k { display: none; }
+  .gsearch input::placeholder { color: transparent; }
+  .gsearch.open input::placeholder { color: var(--muted); }
+  .gsearch.open input { padding-left: 34px; padding-right: 8px; }
+  .gsearch.open .gs-icon { display: flex; position: fixed; left: 13px; top: 12px; bottom: auto; height: 38px; width: 32px; z-index: 72; }
+}
