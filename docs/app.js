@@ -64,6 +64,16 @@ function fuzzyScore(query, name) {
   return score + (nw[0].startsWith(qw[0]) ? 0 : 0.05);
 }
 
+// Initials search: "OSU" -> Ohio State, Oklahoma State, Oregon State ("U" for University is optional); "FSU", "LSU", "MSU"...
+function initialsScore(query, name) {
+  const q = normName(query).replace(/[^a-z]/g, "");
+  if (q.length < 2 || q.length > 5 || /\s/.test(query.trim())) return null;
+  const words = normName(name).replace(/[()&.'-]/g, " ").split(" ").filter((w) => w && !["of", "the", "and", "at"].includes(w));
+  if (words.length < 2) return null;
+  const ini = words.map((w) => w[0]).join("");
+  return q === ini || q === ini + "u" || q === "u" + ini ? 0.05 : null;
+}
+
 async function getJSON(url) {
   const r = await fetch(url, { cache: "no-cache" });
   if (!r.ok) throw new Error(url + " " + r.status);
@@ -111,7 +121,7 @@ async function route() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "89"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "90"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -941,10 +951,10 @@ function initSearch() {
     if (text.length < 2) { close(); return; }
     timer = setTimeout(async () => {
       const teams = (await allTeams())
-        .map((x) => ({ ...x, sc: fuzzyScore(text, x.t.team) }))
+        .map((x) => { const f = fuzzyScore(text, x.t.team), i = initialsScore(text, x.t.team); return { ...x, sc: f == null ? i : i == null ? f : Math.min(f, i) }; })
         .filter((x) => x.sc != null)
         .sort((a, b) => a.sc - b.sc || a.t.team.localeCompare(b.t.team))
-        .slice(0, 5).map((x) => ({ type: "team", ...x }));
+        .slice(0, 8).map((x) => ({ type: "team", ...x }));
       const players = (await Live.searchPlayers(text, 8)).map((p) => ({ type: "player", ...p }));
       if (q.value.trim() !== text) return; // user kept typing
       results = [...teams, ...players];
