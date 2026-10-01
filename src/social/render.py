@@ -7,7 +7,7 @@ tweet text for today's slot in the weekly rotation:
     Tue  NFL power rankings top 10 + biggest movers
     Wed  Most padded schedules (Cupcake score) among the CFB top 25
     Thu  Cupcake Bully of the Week (CFB + NFL)
-    Fri  Model vs. Vegas: the CFB lines our model disagrees with most
+    Fri  (rest day: nothing posts)
     Sat  CFB game day: the week's biggest games with model win odds
     Sun  NFL game day: the slate with model win odds
 
@@ -347,64 +347,6 @@ def bully_card(today):
 
 
 # ------------------------------------------------------------------ Fri: model vs Vegas
-def picks_card(today):
-    cur, _, acc = latest("cfb")
-    preds = [p for p in cur.get("predictions", []) if p.get("vegas") is not None and p.get("edge") is not None]
-    wk = preds[0]["week"] if preds else cur["week"] + 1
-    edges = sorted(preds, key=lambda p: -abs(p["edge"]))[:7]
-    ats = acc.get("ats") or {}
-    rec = f"{ats['correct']}-{ats['games'] - ats['correct']} ATS this season" if ats.get("games") else ""
-    img, d = canvas("cfb", f"Week {wk}", "Model vs. Vegas",
-                    "Where our line and the book's line disagree most." + (f"  Model: {rec}." if rec else ""))
-    # lines are shown as the HOME team's spread, like a sportsbook: -4.7 = home favored by 4.7
-    cols = [(PAD, "MATCHUP (AWAY @ HOME)", "la"), (PAD + 860, "OURS", "ra"), (PAD + 1040, "VEGAS", "ra"),
-            (PAD + 1190, "EDGE", "ra"), (W - PAD, "PICK ATS", "ra")]
-    for x, lab, anc in cols:
-        d.text((x, TOP), lab, font=font(16, "Bold"), fill=DIM, anchor=anc)
-    if not edges:
-        d.text((PAD, TOP + 80), "No lines posted yet. Check back.", font=font(30, "Bold"), fill=MUTED)
-    row_h = (BOTTOM - TOP - 40) // 7
-    for i, p in enumerate(edges):
-        y = TOP + 34 + i * row_h
-        cy = y + row_h // 2
-        if i:
-            d.line((PAD, y, W - PAD, y), fill=LINE)
-        d.text((PAD, cy), fit(d, f"{p['away']} @ {p['home']}", font(26, "Bold"), 700), font=font(26, "Bold"), fill=INK, anchor="lm")
-        d.text((PAD + 860, cy), home_spread(p["spread"]), font=font(26, "Bold"), fill=INK, anchor="rm")
-        d.text((PAD + 1040, cy), home_spread(p["vegas"]), font=font(26), fill=MUTED, anchor="rm")
-        d.text((PAD + 1190, cy), f"{abs(p['edge']):.1f}", font=font(26, "ExtraBold"), fill=ACCENT, anchor="rm")
-        d.text((W - PAD, cy), fit(d, p["ats_pick"], font(24, "Bold"), 250), font=font(24, "Bold"), fill=GOOD, anchor="rm")
-    if edges:
-        p = edges[0]
-        text = (f"Model vs. Vegas, CFB Week {wk}: our biggest disagreement is {p['away']} @ {p['home']}. "
-                f"We say {fav_line(p, p['spread'])}, the book says {fav_line(p, p['vegas'])}. Taking {p['ats_pick']}."
-                + (f" Model is {rec}." if rec else "") + " Not betting advice. Just math with an attitude.")
-    else:
-        text = "No Vegas lines yet this week. The model is stretching."
-    return img, text, link("picks", "cfb"), is_stale(cur, today) or not edges
-
-
-def home_spread(margin):
-    """Predicted home margin -> the home team's spread ('-4.7', '+6.5', 'PK')."""
-    return "PK" if abs(margin) < 0.05 else f"{-margin:+.1f}"
-
-
-def fav_line(p, margin, league="cfb"):
-    """Home-margin number -> 'Texas -7.5' style (favorite and points)."""
-    if margin is None:
-        return "—"
-    fav = p["home"] if margin > 0 else p["away"]
-    if abs(margin) < 0.05:
-        return "PICK"
-    return f"{abbr(fav, league)} -{abs(margin):.1f}"
-
-
-def abbr(name, league):
-    name = short(name, league)
-    return name if len(name) <= 12 else name[:11] + "."
-
-
-# ------------------------------------------------------------------ Sat/Sun: game day
 def gameday_card(league, today):
     cur, _, _ = latest(league)
     rank = {t["team"]: t for t in cur["teams"]}
@@ -442,7 +384,6 @@ def gameday_card(league, today):
         d.rectangle((split, bt, bx1, bb), fill=ACCENT if hp >= 0.5 else (64, 64, 70))
         d.text((bx0, bt - 8), f"{1 - hp:.0%}", font=font(20, "Bold"), fill=INK if hp < 0.5 else MUTED, anchor="lb")
         d.text((bx1, bt - 8), f"{hp:.0%}", font=font(20, "Bold"), fill=INK if hp >= 0.5 else MUTED, anchor="rb")
-        d.text(((bx0 + bx1) // 2, bt - 8), fav_line(p, p["spread"], league), font=font(18), fill=MUTED, anchor="mb")
     if games:
         g = games[0]
         fav = g["home"] if g["home_win_prob"] >= 0.5 else g["away"]
@@ -462,7 +403,7 @@ SLOTS = {
     "tue": lambda today: rankings_card("nfl", today),
     "wed": cupcake_card,
     "thu": bully_card,
-    "fri": picks_card,
+    "fri": lambda today: (Image.new("RGB", (16, 9)), "", SITE, True),  # rest day: no post (no betting content)
     "sat": lambda today: gameday_card("cfb", today),
     "sun": lambda today: gameday_card("nfl", today),
 }

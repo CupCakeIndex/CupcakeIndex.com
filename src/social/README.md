@@ -9,7 +9,7 @@ data and, **only if you turn it on**, posts it to the Cupcake Index X account.
 | Tue | NFL power rankings top 10 + biggest movers |
 | Wed | Most padded résumés: Cupcake score for the CFB top 25 |
 | Thu | Cupcake Bully of the Week (CFB + NFL) |
-| Fri | Model vs. Vegas: the CFB lines we disagree with most |
+| Fri | Rest day (nothing posts) |
 | Sat | CFB game day: the week's biggest games with win odds |
 | Sun | NFL game day: the slate with win odds |
 
