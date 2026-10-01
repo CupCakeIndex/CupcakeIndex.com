@@ -126,7 +126,7 @@ async function route() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "99"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "100"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -469,6 +469,32 @@ const profileIcon = (t) => {
   return k ? ` ${profileBadge(k)}` : "";
 };
 
+// Schedule tags for one game in a rankings file (FCS / cupcake / top 25)
+const schedTags = (g, nfl) => [g.fcs && '<span class="pill over">FCS</span>', g.cupcake && '<span class="pill over">cupcake</span>',
+  !g.fcs && g.opp_rank <= (nfl ? 8 : 25) && `<span class="pill under">top ${nfl ? 8 : 25}</span>`].filter(Boolean).join(" ");
+
+// One schedule game as a mini version of the box score's scorebug; the whole thing links to the game.
+// g: { href, eid, wk, state: "pre"|"in"|"post", status, result: "W"|"L" (for the "me" team), neutral, tags, note, diff, winp,
+//      away/home: { name, abbr, logo, score, rank, color, me } }   (away on the left, like the real scorebug)
+function miniBug(g) {
+  const side = (s, which) => {
+    const lose = g.state === "post" && g.result && (s.me ? g.result === "L" : g.result === "W");
+    const pic = safeUrl(s.logo) ? `<img src="${esc(thumb(s.logo, 24))}" alt="" loading="lazy" decoding="async" width="24" height="24">` : `<span class="logo-ph"></span>`;
+    const name = `<span class="mb-nm">${s.rank ? `<i>#${esc(s.rank)}</i>` : ""}<b class="full">${esc(s.name)}</b><b class="ab">${esc(s.abbr || s.name)}</b></span>`;
+    const score = `<span class="mb-sc">${g.state === "pre" ? "" : esc(s.score ?? "")}</span>`;
+    return `<span class="mb-tm ${which}${s.me ? " me" : ""}${lose ? " lose" : ""}">${which === "away" ? pic + name + score : score + name + pic}</span>`;
+  };
+  const mid = g.state === "post" ? `<b class="${g.result === "W" ? "W" : "L"}">${esc(g.result || "")}</b><small>${esc(g.status || "Final")}</small>`
+    : g.state === "in" ? `<b class="live">LIVE</b><small>${esc(g.status || "")}</small>`
+    : `<b class="mb-at">${g.neutral ? "VS" : "@"}</b><small class="mb-when">${esc(g.status || "")}</small>`;
+  const right = g.diff != null ? `<span class="mb-right" title="Difficulty: the chance a typical top team would lose this game"><em>DIFF</em><span class="mb-bar"><i style="width:${Math.round(g.diff * 100)}%"></i></span><b>${Math.round(g.diff * 100)}%</b></span>`
+    : g.winp != null ? `<span class="mb-right mb-win" title="Cupcake Index model's chance this team wins"><b>${Math.round(g.winp * 100)}%</b> to win</span>` : "";
+  const foot = g.tags || g.note || right ? `<span class="mb-foot"><span class="mb-tags">${g.tags || ""}${g.note ? `<small>${g.note}</small>` : ""}</span>${right}</span>` : "";
+  const body = `<span class="mb-wk">WK<b>${esc(g.wk ?? "")}</b></span>${side(g.away, "away")}<span class="mb-mid">${mid}</span>${side(g.home, "home")}${foot}`;
+  const attrs = `class="mbug ${g.state}${foot ? "" : " nofoot"}"${g.eid ? ` data-eid="${esc(g.eid)}"` : ""} style="--ac:${esc(g.away.color || "#6b7280")};--hc:${esc(g.home.color || "#6b7280")}"`;
+  return g.href ? `<a ${attrs} href="${esc(g.href)}">${body}</a>` : `<div ${attrs}>${body}</div>`;
+}
+
 // "Best win" receipt: the highest-ranked opponent a team has beaten (FBS/NFL rank from the power ratings)
 const TESTED = { cfb: { top: 25, quality: 40 }, nfl: { top: 10, quality: 16 } };
 function bestWin(t) {
@@ -593,15 +619,18 @@ function openTeam(name) {
   const sosRank = [...DATA.teams].sort((a, b) => b.raw.sos - a.raw.sos).findIndex((x) => x.team === name) + 1;
   const why = whyBullets(t);
   const nfl = league === "nfl";
+  // each game is a mini scorebug (away team on the left); ESPN abbreviations + kickoff times fill in after the panel opens
+  const byName = new Map(DATA.teams.map((x) => [x.team, x]));
+  const col = (c) => Live.kit.teamColor({ color: (c || "").replace("#", "") });
   const sched = t.schedule.map((g) => {
-    const tags = [g.fcs && '<span class="pill over">FCS</span>', g.cupcake && '<span class="pill over">cupcake</span>',
-      !g.fcs && g.opp_rank <= (nfl ? 8 : 25) && `<span class="pill under">top ${nfl ? 8 : 25}</span>`].filter(Boolean).join(" ");
-    const opp = `${g.loc === "A" ? "@ " : g.loc === "N" ? "vs " : ""}${g.opp_rank && !g.fcs ? `<span class="muted">#${esc(g.opp_rank)}</span> ` : ""}${esc(g.opp)}${tags ? " " + tags : ""}`
-      + (g.qb ? `<small class="muted">QB ${esc(g.qb)}${g.qb !== t.usual_qb && t.usual_qb ? " ⚠" : ""}${g.rest_diff ? ` · ${g.rest_diff > 0 ? "+" : ""}${esc(g.rest_diff)} days rest vs. opp` : ""}</small>` : "");
-    const box = g.espn_id ? ` <a class="boxlink" href="${link("game", g.espn_id)}">${g.upcoming ? "preview" : "box score"}</a>` : "";
-    if (g.upcoming) return `<tr><td>${esc(g.week)}</td><td>${opp}</td><td colspan="2" class="muted">Model: ${g.spread > 0 ? "favored by " + esc(g.spread) : "underdog by " + esc(-g.spread)} (${Math.round(g.win_prob * 100)}%)${box}</td></tr>`;
-    return `<tr><td>${esc(g.week)}</td><td>${opp}</td><td><span class="${g.result === "W" ? "W" : "L"}">${esc(g.result)}</span> ${esc(g.score)}${box}</td>
-      <td class="num" title="A benchmark team wins this game ${Math.round((1 - g.difficulty) * 100)}% of the time">${Math.round(g.difficulty * 100)}%</td></tr>`;
+    const o = byName.get(g.opp) || {};
+    const [pf, pa] = String(g.score || "").split("-");
+    const me = { name: t.team, logo: t.logo, rank: t.rank, color: col(t.color), score: pf, me: true };
+    const op = { name: g.opp, logo: o.logo, rank: g.fcs ? null : g.opp_rank, color: col(o.color), score: pa };
+    const note = g.qb ? `QB ${esc(g.qb)}${g.qb !== t.usual_qb && t.usual_qb ? " ⚠" : ""}${g.rest_diff ? ` · ${g.rest_diff > 0 ? "+" : ""}${esc(g.rest_diff)} days rest vs. opp` : ""}` : "";
+    return miniBug({ href: g.espn_id ? link("game", g.espn_id) : "", eid: g.espn_id, wk: g.week, state: g.upcoming ? "pre" : "post",
+      status: g.upcoming ? "Preview" : "Final", result: g.result, neutral: g.loc === "N", away: g.loc === "H" ? op : me, home: g.loc === "H" ? me : op,
+      tags: schedTags(g, nfl), note, diff: g.upcoming ? null : g.difficulty, winp: g.upcoming ? g.win_prob : null });
   }).join("");
   const bench = nfl ? "top-8 NFL team" : "top-25 team";
   $("#drawer-body").innerHTML = `
@@ -622,14 +651,15 @@ function openTeam(name) {
     ${LG.factors.map((f) => `<div class="frow" title="${esc(f.help)}"><span>${esc(f.label)}</span><span class="bar${f.invert ? " inv" : ""}"><i style="width:${+t.scores[f.key] || 0}%"></i></span><b class="num">${Math.round(t.scores[f.key])}</b></div>`).join("")}
     <p class="note">Power rating = points better than an average ${nfl ? "NFL" : "FBS"} team on a neutral field.${t.scores.cupcake != null ? " Cupcake: higher = softer schedule for a team at this level, counting only games already played." : ""}</p>
     <h3>Schedule</h3>
-    <table class="sched"><thead><tr><th>Wk</th><th>Opponent</th><th>Result</th><th class="num" title="How hard it is for a ${bench} to win this game">Difficulty</th></tr></thead><tbody>${sched}</tbody></table>
-    <p class="note">Difficulty is the chance a typical ${bench} would lose this game.${nfl ? " ⚠ = a different QB than the team's usual starter." : " Beating FCS teams is close to 0%."}</p>`;
+    <div class="mb-list">${sched}</div>
+    <p class="note">Tap a game for the box score or preview. Diff (difficulty) is the chance a typical ${bench} would lose this game.${nfl ? " ⚠ = a different QB than the team's usual starter." : " Beating FCS teams is close to 0%."}</p>`;
   $("#drawer").classList.remove("hidden");
   document.body.classList.add("drawer-open"); // stop the page behind from scrolling on phones
   history.replaceState(null, "", link("rankings", null, { team: name }));
   Live.teamId(league, t).then((id) => {
     const a = $("#team-page-link");
     if (a && id) a.href = link("team", id); else if (a) a.remove();
+    if (id) Live.fillBugs(league, id, $("#drawer-body"));
   });
 }
 
