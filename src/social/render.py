@@ -429,7 +429,8 @@ def render(day, out, today):
     os.makedirs(out, exist_ok=True)
     png = os.path.join(out, f"{day}.png")
     img.convert("RGB").save(png, optimize=True)
-    with_link = os.environ.get("X_INCLUDE_LINK", "true").lower() != "false"
+    # no link by default (Terry's call; also ~13x cheaper per post). Set repo variable X_INCLUDE_LINK=true to add it.
+    with_link = os.environ.get("X_INCLUDE_LINK", "false").lower() == "true"
     body = tweet(text, url, with_link)
     with open(os.path.join(out, f"{day}.txt"), "w", encoding="utf-8") as f:
         f.write(body)

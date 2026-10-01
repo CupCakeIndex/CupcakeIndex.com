@@ -45,8 +45,9 @@ Sources: [X API pricing](https://docs.x.com/x-api/getting-started/pricing),
 [X API rate limits](https://docs.x.com/x-api/fundamentals/rate-limits). Prices change; the
 console shows the current ones.
 
-To save money, drop the link (the picture already says cupcakeindex.com, and your profile links
-to the site): add a repo **variable** `X_INCLUDE_LINK` = `false` (same place as step 4 below).
+Posts go out WITHOUT a link to the site (the picture already says cupcakeindex.com, and your
+profile links to the site). That keeps each post at the cheaper plain-post price. To add the link
+back, set a repo **variable** `X_INCLUDE_LINK` = `true` (same place as step 4 below).
 
 ## Turn it on (one time, about 15 minutes)
 
