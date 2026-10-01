@@ -383,15 +383,15 @@ def gameday_card(league, today):
         bt, bb = cy - 6, cy + 14
         d.rectangle((bx0, bt, split, bb), fill=ACCENT if hp < 0.5 else (64, 64, 70))
         d.rectangle((split, bt, bx1, bb), fill=ACCENT if hp >= 0.5 else (64, 64, 70))
-        d.text((bx0, bt - 8), f"{1 - hp:.0%}", font=font(20, "Bold"), fill=INK if hp < 0.5 else MUTED, anchor="lb")
-        d.text((bx1, bt - 8), f"{hp:.0%}", font=font(20, "Bold"), fill=INK if hp >= 0.5 else MUTED, anchor="rb")
+        d.text((bx0, bt - 8), chance(1 - hp), font=font(20, "Bold"), fill=INK if hp < 0.5 else MUTED, anchor="lb")
+        d.text((bx1, bt - 8), chance(hp), font=font(20, "Bold"), fill=INK if hp >= 0.5 else MUTED, anchor="rb")
     if games:
         g = games[0]
         fav = g["home"] if g["home_win_prob"] >= 0.5 else g["away"]
         pr = max(g["home_win_prob"], 1 - g["home_win_prob"])
         close = min(games, key=lambda p: abs(p["home_win_prob"] - 0.5))
         text = (f"{lname} game day, Week {wk}. Headliner: {short(g['away'], league)} @ {short(g['home'], league)}, "
-                f"model likes {short(fav, league)} at {pr:.0%}. Coin flip of the day: "
+                f"model likes {short(fav, league)} at {chance(pr)}. Coin flip of the day: "
                 f"{short(close['away'], league)} @ {short(close['home'], league)}. No cupcakes were harmed in this graphic.")
     else:
         text = f"No {lname} games on the board this week."
@@ -408,6 +408,12 @@ SLOTS = {
     "sat": lambda today: gameday_card("cfb", today),
     "sun": lambda today: gameday_card("nfl", today),
 }
+
+
+def chance(p):
+    """Win chance as text, never 100% (or 0%) before the game: 99.9% is the cap."""
+    v = max(0.0, min(1.0, p)) * 100
+    return f"{min(99.9, v):.1f}%" if v >= 99.5 else f"{max(0.1, v):.1f}%" if v < 0.5 else f"{round(v)}%"
 
 
 def x_len(text):

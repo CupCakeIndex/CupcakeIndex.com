@@ -96,8 +96,8 @@ const Pickem = (() => {
     };
     const game = (e) => {
       const p = preds.get(String(e.id)), a = side(e, "away"), h = side(e, "home");
-      const fav = p && (p.home_win_prob >= 0.5 ? h : a), prob = p && Math.round(Math.max(p.home_win_prob, 1 - p.home_win_prob) * 100);
-      const hint = fav ? `<span title="Our model's win chance for its favorite">model: ${esc(fav.team.abbreviation || tname(lg, fav.team))} ${prob}%</span>` : "";
+      const fav = p && (p.home_win_prob >= 0.5 ? h : a), prob = p && chancePct(Math.max(p.home_win_prob, 1 - p.home_win_prob));
+      const hint = fav ? `<span title="Our model's win chance for its favorite">model: ${esc(fav.team.abbreviation || tname(lg, fav.team))} ${prob}</span>` : "";
       const st = state(e), when = K.statusText(e.status, e.date) + (st === "pre" && locked(e) ? " · locked" : "");
       return `<div class="pk-game ${st}" data-id="${esc(e.id)}">
         <div class="pk-st">${st === "in" ? '<span class="live-dot"></span>' : ""}<span>${esc(when)}${comp(e).neutralSite ? " · neutral" : ""}</span><a href="${link("game", e.id)}" class="muted">details</a></div>

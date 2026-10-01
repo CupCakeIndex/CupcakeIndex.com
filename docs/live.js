@@ -434,8 +434,8 @@ const Live = (() => {
     const W = 600, H = 160, n = wp.length;
     const pts = wp.map((p, i) => `${((i / (n - 1)) * W).toFixed(1)},${((1 - p.homeWinPercentage) * H).toFixed(1)}`).join(" ");
     const last = wp[n - 1].homeWinPercentage;
-    const lead = last >= 0.5 ? home : away, pct = Math.round((last >= 0.5 ? last : 1 - last) * 100);
-    return `<p class="note">${esc(lead.team.displayName)} ${pct}% <span class="muted">· hover or drag across the chart</span></p>
+    const lead = last >= 0.5 ? home : away, pct = chancePct(last >= 0.5 ? last : 1 - last, last === 0 || last === 1);
+    return `<p class="note">${esc(lead.team.displayName)} ${pct} <span class="muted">· hover or drag across the chart</span></p>
       <div class="wp-box" id="wp-box">
         <svg viewBox="0 0 ${W} ${H}" class="wp" preserveAspectRatio="none" role="img" aria-label="Win probability over the game">
           <line x1="0" y1="${H / 2}" x2="${W}" y2="${H / 2}" class="wp-mid"/>
@@ -464,7 +464,7 @@ const Live = (() => {
       const i = Math.round(f * (wp.length - 1)), p = wp[i];
       const x = (i / (wp.length - 1)) * r.width, y = (1 - p.homeWinPercentage) * r.height;
       const hp = p.homeWinPercentage, homeLeads = hp >= 0.5;
-      const pct = (Math.max(hp, 1 - hp) * 100).toFixed(1);
+      const pct = (hp === 0 || hp === 1 ? 100 : Math.min(99.9, Math.max(hp, 1 - hp) * 100)).toFixed(1); // 100% only once it's decided
       const play = plays.get(String(p.playId));
       cur.classList.remove("hidden");
       vline.style.left = dot.style.left = `${x}px`;
@@ -1569,7 +1569,7 @@ const Live = (() => {
       const won = g.win?.name === s.name, fav = mine ? g.fav?.name === s.name : won, open = mine && g.a && g.b;
       return `<div class="br-t${won ? " win" : ""}${won && s.name === champ ? " hot" : ""}${open ? " pk" : ""}"${open ? ` data-id="${esc(s.id)}" role="button" aria-pressed="${won}"` : ""}${open || src || seat != null ? ` tabindex="0"` : ""}${src ? ` data-src="${idx.get(src)}"` : ""}${seat != null ? ` data-seat="${seat}"` : ""}>
         ${seat != null ? `<span class="br-sd ed" title="Change this seed">${s.seed}</span>` : `<span class="br-sd">${s.seed}</span>`}${img(s.logo, "xs")}<span class="br-n" title="${esc(s.name)}">${esc(s.short)}</span>
-        <span class="br-p"${mine ? ` title="Model's win chance"` : ""}>${fav && g.p ? Math.round(g.p * 100) + "%" : ""}</span></div>`;
+        <span class="br-p"${mine ? ` title="Model's win chance"` : ""}>${fav && g.p ? chancePct(g.p) : ""}</span></div>`;
     };
     // My picks: match each slot to the game feeding it. Filled slots match by team; empty ones take the leftover games in order
     // (NFL Divisional slots before reseeding just follow the Wild Card games in order until all three are picked).
@@ -1602,7 +1602,7 @@ const Live = (() => {
     const show = (b) => {
       const g = all[+b.dataset.i], f = g.win; // the model's favorite
       const where = g.home && g.a ? `at ${esc(g.a.short)}` : "neutral site";
-      tip.innerHTML = `<small>${esc(g.label)} · ${where}</small>` + (f ? `<b>${esc(f.short)} <em>${Math.round(g.p * 100)}% · by ${Math.abs(g.spread).toFixed(1)}</em></b>` : `<b>TBD</b>`) + who(g.a) + who(g.b);
+      tip.innerHTML = `<small>${esc(g.label)} · ${where}</small>` + (f ? `<b>${esc(f.short)} <em>${chancePct(g.p)} · by ${Math.abs(g.spread).toFixed(1)}</em></b>` : `<b>TBD</b>`) + who(g.a) + who(g.b);
       // beside the box (its right on the left half, its left on the right half), never on it: slide up or down from level
       // with the game to the spot that covers the least of the other games (usually none). It lives in the card, not the
       // scrolling bracket, so it can also use the space above and below the bracket.
@@ -1824,7 +1824,7 @@ const Live = (() => {
     const [v, w] = x < 1e9 ? [x / 1e6, "million"] : x < 1e12 ? [x / 1e9, "billion"] : x < 1e15 ? [x / 1e12, "trillion"] : [x / 1e15, "quadrillion"];
     return x >= 1e18 ? `1 in ${x.toExponential(1).replace("e+", "×10^")}` : `1 in ${v < 10 ? v.toFixed(1) : Math.round(v)} ${w}`;
   }
-  const pctTxt = (p) => (p >= 0.1 ? `${(p * 100).toFixed(p >= 0.995 ? 0 : 1)}%` : p >= 1e-4 ? `${(p * 100).toPrecision(2)}%` : `${(p * 100).toExponential(1)}%`);
+  const pctTxt = (p) => (p >= 0.1 ? `${Math.min(99.9, p * 100).toFixed(1)}%` : p >= 1e-4 ? `${(p * 100).toPrecision(2)}%` : `${(p * 100).toExponential(1)}%`);
 
   // ---- Save Image: the bracket drawn straight onto a canvas, 1600x900 (Twitter's size) at 2x, in the site's dark terminal look
   const loadImg = (src) => new Promise((ok) => {
@@ -1938,7 +1938,7 @@ const Live = (() => {
     };
     if (!ranks) return out(`<div class="card muted">Couldn't load our rankings. Try refreshing.</div>`);
     const pick = (g) => (g.win ? `<p class="br-pick">Model's pick to win it all: <b class="tm">${img(g.win.logo, "xs")} ${esc(g.win.name)}</b>
-      <span class="muted">(${Math.round(g.p * 100)}% in the ${nfl ? "Super Bowl" : "title game"})</span></p>` : "");
+      <span class="muted">(${chancePct(g.p)} in the ${nfl ? "Super Bowl" : "title game"})</span></p>` : "");
     const key = `<p class="note">Dashed boxes are projections: each game goes to our model's favorite (win % beside it). Orange line = the projected champion's path. Hover or tap a game for details.</p>`;
     const keyMine = `<p class="note">Start blank: type each seed at its <b class="br-gt">&gt;</b> prompt (${nfl ? "seven per conference, AFC teams on the AFC side" : "any 12 FBS teams"}), then pick every game by tapping a team or typing it.
       Enter or Tab takes the match and jumps to the next prompt; Esc clears. Tap a seed number to change that seed; tap your pick again to undo it.${nfl ? " The Divisional round reseeds from your Wild Card winners." : ""}
@@ -2051,7 +2051,7 @@ const Live = (() => {
         ${row("Whole bracket", !o.done ? `<span class="muted">${togo} to go</span>` : odds ? `${lt}${oneIn(whole)}` : wait)}
         ${o.done && odds ? row(`= field ${lt}${oneIn(o.pField)} × games ${oneIn(o.pGames)}`, whole >= 1e-6 ? `${lt}${pctTxt(whole)}` : "under 0.0001%", " sub") : ""}
         ${o.picked.length ? `<div class="bo-h2">Your picks, boldest first</div><ol class="bo-l">${o.picked.map((x, k) =>
-          `<li${k ? "" : ` class="risk"`}><b>${Math.round(x.p * 100)}%</b> ${esc(ab(x.w))} over ${esc(ab(x.l))} <span>${esc(x.g.label.replace(/^(AFC|NFC) /, "$1 "))}</span></li>`).join("")}</ol>` : ""}
+          `<li${k ? "" : ` class="risk"`}><b>${chancePct(x.p)}</b> ${esc(ab(x.w))} over ${esc(ab(x.l))} <span>${esc(x.g.label.replace(/^(AFC|NFC) /, "$1 "))}</span></li>`).join("")}</ol>` : ""}
         <p class="bo-fn">Estimates from our power ratings and ${SIM_N.toLocaleString("en-US")} simulations of the rest of the season. For fun, not betting advice.</p>`;
     };
     const paintOdds = () => { const el = card.querySelector("#br-odds"); if (el && cur) el.innerHTML = oddsHtml(cur); };
@@ -2075,7 +2075,7 @@ const Live = (() => {
           sub: c ? `Champion: ${c.name}` : "Champion: TBD",
           stats: [["Title chance", c ? (odds ? pctTxt(o.title) : "…") : "–"], ["If my bracket plays out", c ? pctTxt(o.path) : "–"],
             ["Whole bracket", o.done && odds ? `${o.under ? "< " : ""}${oneIn(o.pField * o.pGames)}` : "–"],
-            ["Boldest call", o.picked[0] ? `${Math.round(o.picked[0].p * 100)}% ${ab(o.picked[0].w)} over ${ab(o.picked[0].l)}` : "–"]],
+            ["Boldest call", o.picked[0] ? `${chancePct(o.picked[0].p)} ${ab(o.picked[0].w)} over ${ab(o.picked[0].l)}` : "–"]],
           foot: `Our power ratings + ${SIM_N.toLocaleString("en-US")} season sims. For fun.`,
         });
         const url = URL.createObjectURL(blob), a = document.createElement("a");
