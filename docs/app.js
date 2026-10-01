@@ -199,6 +199,8 @@ async function init() {
   $("#drawer").onclick = (e) => { if ("close" in e.target.dataset) closeDrawer(); };
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#drawer").classList.contains("hidden")) closeDrawer(); });
   $("#table tbody").onclick = (e) => {
+    const cm = e.target.closest(".cupm");
+    if (cm) return cupTip(cm);
     const tr = e.target.closest("tr[data-team]");
     if (tr) openTeam(tr.dataset.team);
   };
@@ -486,17 +488,40 @@ const bestWinText = (g) => g ? `${g.opp_rank && !g.fcs ? "#" + g.opp_rank + " " 
 const untestedTag = (t) => isUntested(t)
   ? ` <span class="pill untested" title="No win over a top-${TESTED[league].quality} team yet. Best win: ${esc(bestWinText(bestWin(t)))}">Beaten Nobody</span>` : "";
 
-// Padding meter: a bar filled to the Cupcake score (50 = average schedule). Empty = no cupcakes played.
+// Padding meter: one small square per game played, filled = a cupcake game, plus a plain count ("2 cupcakes").
+// Half or more of the games against cupcakes = heavy padding (count shown in the accent color).
 // NFL week files from before the NFL got a Cupcake score have no scores.cupcake: no meter.
 function cupMeter(t) {
   if (t.scores.cupcake == null || !(t.wins + t.losses)) return "";
-  const cups = t.schedule.filter((g) => g.result && g.cupcake);
-  const tip = cups.length
-    ? `Padding ${Math.round(t.scores.cupcake)}/100. Cupcakes: ${cups.map((g) => g.opp + (g.fcs ? " (FCS)" : "")).join(", ")}`
-    : "Padding 0/100: no cupcakes played yet";
-  // continuous bar: fills to the exact Padding score, colored green -> red by how far it reaches
-  const pct = cups.length ? Math.max(4, Math.round(t.scores.cupcake)) : 0;
-  return `<span class="cupm" title="${esc(tip)}" aria-label="${esc(tip)}"><em>Padding</em><span class="cupm-track"><span class="cupm-fill" style="width:${pct}%"></span></span></span>`;
+  const played = t.schedule.filter((g) => g.result);
+  const cups = played.filter((g) => g.cupcake);
+  const n = cups.length, heavy = n && n / played.length >= 0.5;
+  const tip = (n
+    ? `${n} of ${played.length} games against cupcakes: ${cups.map((g) => g.opp + (g.fcs ? " (FCS)" : "")).join(", ")}.`
+    : `No cupcakes in ${played.length} games played.`)
+    + ` A cupcake is an opponent far below this team's level (FCS teams always count). Filled square = cupcake game.`;
+  const sq = played.map((g) => `<i${g.cupcake ? ' class="on"' : ""}></i>`).join("");
+  return `<button type="button" class="cupm${heavy ? " heavy" : ""}${n ? "" : " none"}" data-tip="${esc(tip)}" title="${esc(tip)}" aria-label="${esc(tip)}">`
+    + `<span class="cupm-sq" aria-hidden="true">${sq}</span><span class="cupm-n">${n ? n + (n === 1 ? " cupcake" : " cupcakes") : "no cupcakes"}</span></button>`;
+}
+// Tap (phones) or click on a padding meter: a small explanation box instead of opening the team panel
+function cupTip(btn) {
+  let pop = document.getElementById("cupm-pop");
+  if (!pop) {
+    pop = document.createElement("div");
+    pop.id = "cupm-pop";
+    pop.className = "cupm-pop";
+    pop.setAttribute("role", "tooltip");
+    document.body.appendChild(pop);
+    const hide = () => pop.classList.add("hidden");
+    document.addEventListener("pointerdown", (e) => { if (!e.target.closest(".cupm, #cupm-pop")) hide(); });
+    window.addEventListener("scroll", hide, { passive: true });
+  }
+  pop.textContent = btn.dataset.tip;
+  pop.classList.remove("hidden");
+  const r = btn.getBoundingClientRect();
+  pop.style.top = (r.bottom + window.scrollY + 6) + "px";
+  pop.style.left = Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - pop.offsetWidth - 8)) + "px";
 }
 
 function cotwTag(t) {

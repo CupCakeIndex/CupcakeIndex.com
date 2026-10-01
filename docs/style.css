@@ -341,12 +341,6 @@ body.drawer-open { overflow: hidden; }
 @media (max-width: 640px) { .disagree { grid-template-columns: 1fr; } }
 .team .ap-rk { font-size: 11px; margin-right: 2px; }
 
-/* cupcake meter */
-.cupm { display: flex; gap: 1px; margin-top: 3px; cursor: help; line-height: 1; }
-.cupm i { font-style: normal; font-size: 11px; filter: grayscale(1); opacity: .22; }
-.cupm i.on { filter: none; opacity: 1; }
-@media (max-width: 640px) { .cupm { display: flex; } .cupm i { font-size: 10px; } }
-
 /* ---------- broadcast-style badges & meter (replaces emoji) ---------- */
 .prof-badge { display: inline-block; font-family: "Barlow Condensed", Inter, sans-serif; font-weight: 700; font-size: 11px; letter-spacing: .06em;
   line-height: 1; padding: 3px 6px 2px; border: 1.5px solid currentColor; border-radius: 3px; vertical-align: 2px; white-space: nowrap; cursor: help; }
@@ -360,11 +354,6 @@ body.drawer-open { overflow: hidden; }
 .prose li .prof-badge { margin-right: 6px; }
 .prof { display: none; }
 
-.cupm { display: flex; align-items: center; gap: 2px; margin-top: 4px; cursor: help; line-height: 1; --c: var(--good); }
-.cupm em { font-style: normal; font-family: "Barlow Condensed", Inter, sans-serif; font-weight: 700; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
-.cupm i { width: 11px; height: 6px; border-radius: 1px; background: var(--line); }
-.cupm i.on { background: var(--c); }
-.cupm.lvl1 { --c: #2fa866; } .cupm.lvl2 { --c: #8fbf3a; } .cupm.lvl3 { --c: #d9b32b; } .cupm.lvl4 { --c: #e0782b; } .cupm.lvl5 { --c: #e0443a; }
 
 .cotw-icon { font-family: "Barlow Condensed", Inter, sans-serif; font-weight: 700; font-size: 15px; letter-spacing: .08em; line-height: 1;
   color: #fff; background: #e0527a; padding: 8px 9px 7px; border-radius: 4px; }
@@ -447,7 +436,6 @@ body.drawer-open { overflow: hidden; }
 .tmeta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
 .tmeta small { margin: 0; line-height: 16px; }
 .tmeta .cupm { margin: 0; height: 16px; }
-.tmeta .cupm em { display: none; }
 .tmeta .prof-badge, .tmeta .pill {
   display: inline-flex; align-items: center; height: 16px; padding: 0 5px; margin: 0;
   font-size: 10px; line-height: 1; letter-spacing: .06em; vertical-align: middle; }
@@ -458,7 +446,7 @@ body.drawer-open { overflow: hidden; }
 
 .team .tname { display: flex; align-items: baseline; gap: 6px; }
 .tmeta { flex-wrap: nowrap; min-width: 0; }
-.tmeta .cupm { flex: none; width: 63px; }
+.tmeta .cupm { flex: none; }
 .tmeta small { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 
 /* game page: two independent columns + full-width box score */
@@ -527,11 +515,23 @@ body.drawer-open { overflow: hidden; }
   .sb-mid small { display: none; }
 }
 
-/* padding meter: continuous gradient bar */
-.cupm-track { position: relative; display: block; width: 63px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
-.cupm-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px;
-  background: linear-gradient(90deg, #2fa866, #8fbf3a 30%, #d9b32b 55%, #e0782b 78%, #e0443a); background-size: 63px 100%; }
-.tmeta .cupm { width: 63px; align-items: center; }
+/* padding meter: one square per game played (filled = a cupcake game) + a plain count; tap for the explanation */
+.cupm { display: inline-flex; align-items: center; gap: 6px; padding: 0; margin: 0; border: 0; background: none; cursor: help; line-height: 1; color: var(--muted); font-size: 10.5px; white-space: nowrap; }
+.cupm-sq, .cupm-key { display: inline-flex; align-items: center; gap: 2px; }
+.cupm-sq i, .cupm-key i { display: block; width: 6px; height: 6px; border: 1px solid color-mix(in srgb, var(--muted) 70%, transparent); }
+.cupm-sq i.on, .cupm-key i.on { background: var(--accent); border-color: var(--accent); }
+.cupm-n { letter-spacing: .02em; }
+.cupm.heavy .cupm-n { color: var(--accent); font-weight: 700; }
+.cupm:hover .cupm-n, .cupm:focus-visible .cupm-n { text-decoration: underline dotted; text-underline-offset: 2px; }
+.cupm:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.cupm-key { gap: 4px; margin-left: 10px; font-size: 10px; letter-spacing: .02em; text-transform: none; color: var(--muted); font-weight: 400; cursor: help; }
+.cupm-key i.on { margin-left: 6px; }
+.cupm-pop { position: absolute; z-index: 80; max-width: min(320px, calc(100vw - 16px)); padding: 8px 10px; background: var(--card); color: var(--ink);
+  border: 1px solid var(--accent); box-shadow: 0 10px 30px rgba(0,0,0,.45); font-size: 12px; line-height: 1.45; }
+@media (max-width: 640px) {
+  .cupm-key { display: none; }
+  .cupm-sq i { width: 5px; height: 5px; }
+}
 
 /* ---------- leaders strip + box score tabs ---------- */
 .leaders-strip { margin-top: 12px; }
@@ -626,7 +626,6 @@ h1 { font-size: 26px; letter-spacing: -.02em; }
 .seg button.active, .presets button.on { background: var(--accent) !important; color: #000 !important; }
 .prof-badge, .pill { border-radius: 0 !important; box-shadow: none !important; background: transparent !important; text-shadow: none !important; font-family: "JetBrains Mono" !important; }
 .cotw-tag { background: var(--accent) !important; color: #000 !important; clip-path: none; text-shadow: none; }
-.cupm-fill { background: var(--accent) !important; }
 
 /* single-column rankings; weights move to a floating panel */
 #view-rankings { grid-template-columns: minmax(0, 1fr) !important; }
@@ -662,7 +661,6 @@ body:not(.show-breakdown) th.factors-col, body:not(.show-breakdown) td.factors {
   #table .mv { width: 22px; }
   .team img { width: 20px !important; height: 20px !important; }
   .team .tname { font-size: 13px; }
-  .tmeta .cupm, .tmeta .cupm-track { width: 44px; }
 }
 
 /* phones: league switcher on the right, within thumb reach */
