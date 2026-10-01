@@ -2102,8 +2102,10 @@ const Live = (() => {
             <p class="note">Signings, releases and injured-reserve moves since ${esc(new Date(extra.transactions[extra.transactions.length - 1].date).toLocaleDateString(undefined, { month: "long", day: "numeric" }))}.</p>`
             : `<p class="muted">No recent transactions.</p>`)
         : `<div class="table-wrap"><table class="box"><thead><tr><th>Week</th><th>Opponent</th><th>Result</th></tr></thead><tbody>${games}</tbody></table></div>`}</div>`;
+    // latest headlines mentioning this team (news.js), under the schedule
+    if (tab === "schedule") News.forTeam(lg, T.id).then((h) => { if (h && my === token) view("team").insertAdjacentHTML("beforeend", h); });
     // arrived from an injury tag: pulse that player's row and show their latest update under it
-    const hl = tab === "roster" ? params.get("hl") : null;
+    const hl =tab === "roster" ? params.get("hl") : null;
     const hlRow = hl && view("team").querySelector(`tr[data-pid="${CSS.escape(hl)}"]`);
     const rosterInj = hlRow && (ros?.athletes || []).flatMap((g) => g.items || []).find((p) => String(p.id) === hl)?.injuries?.[0];
     const note = (i) => {
