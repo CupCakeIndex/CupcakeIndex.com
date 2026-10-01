@@ -465,6 +465,7 @@ const Live = (() => {
   ];
 
   async function stats(_, params, refresh = false) {
+    if (params.get("show") === "frauds") return frauds(params);
     const lg = league, my = token;
     const cat = STAT_CATS.find((c) => c.key === params.get("cat")) || STAT_CATS[0];
     const sort = params.get("sort") || cat.sort, dir = params.get("dir") || "desc";
@@ -502,7 +503,7 @@ const Live = (() => {
         ${vals.map((v, j) => `<td class="num${`${prefix}.${def.names[j]}` === sort ? " on" : ""}">${esc(v)}</td>`).join("")}</tr>`;
     }).join("");
     const more = first.pagination && pages < first.pagination.pages;
-    view("stats").innerHTML = `
+    view("stats").innerHTML = stSubStats(false) + `
       <div class="sc-bar">
         <div class="presets">${STAT_CATS.map((c) => `<button data-cat="${c.key}" class="${c.key === cat.key ? "on" : ""}">${c.label}</button>`).join("")}</div>
         <select id="st-season">${[curYear, curYear - 1, curYear - 2].map((y) => `<option${y === shownYear ? " selected" : ""}>${y}</option>`).join("")}</select>
@@ -523,6 +524,105 @@ const Live = (() => {
     };
     if ($("#st-more")) $("#st-more").onclick = () => go({ pages: pages + 1 });
     if (!season) poll((r) => stats(_, params, r), 300000); // live-ish: refresh leaders every 5 minutes
+  }
+
+  // ---------------------------------------------------------------- NFL frauds (a sub-view of Stats)
+  // Every week ESPN's fantasy feed sets a projection ("line") for each player: passing yards, TDs, catches...
+  // A player's fraud score compares what they actually did with their lines in the games they played,
+  // stat by stat for their position, as a weighted % below expectation. Over-achievers are the same list flipped.
+  const stSubStats = (on) => `<div class="subtabs"><a class="subtab${on ? "" : " on"}" href="${link("stats")}">Leaders</a>`
+    + `<a class="subtab${on ? " on" : ""}" href="${link("stats", null, { show: "frauds" })}">Frauds</a></div>`;
+  const FR_POS = { 1: "QB", 2: "RB", 3: "WR", 4: "TE" };
+  // [label, ESPN fantasy stat ids (summed), weight, minimum expected per game to count, higher is worse]
+  // ids: 3 pass yds, 4 pass TD, 20 INT, 24 rush yds, 25 rush TD, 42 rec yds, 43 rec TD, 53 receptions, 210 games played
+  const FR_KEYS = {
+    QB: [["Pass yds", ["3"], 0.4, 10], ["Pass TD", ["4"], 0.3, 0], ["INT", ["20"], 0.15, 0, true], ["Rush yds", ["24"], 0.15, 10]],
+    RB: [["Rush yds", ["24"], 0.5, 10], ["Rec yds", ["42"], 0.3, 10], ["TD", ["25", "43"], 0.2, 0]],
+    WR: [["Rec", ["53"], 0.3, 1], ["Rec yds", ["42"], 0.5, 10], ["TD", ["25", "43"], 0.2, 0]],
+  };
+  FR_KEYS.TE = FR_KEYS.WR;
+  const FR_MIN_GAMES = 2, FR_MIN_PTS = 8, FR_CUT = 25; // games played, projected PPR pts/game (a real role), % off to be listed
+  let frState = { pos: "", over: false };
+
+  async function frPlayers() {
+    const now = new Date(), y = now.getMonth() < 8 ? now.getFullYear() - 1 : now.getFullYear(); // before September: last season
+    const base = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${y}`;
+    const cur = (await api(base, 3600000)).currentScoringPeriod?.id || 18;
+    const weeks = Array.from({ length: Math.min(cur, 18) }, (_, i) => i + 1);
+    const filter = { players: { filterSlotIds: { value: [0, 2, 4, 6] }, limit: 350, sortPercOwned: { sortPriority: 1, sortAsc: false },
+      filterStatsForSourceIds: { value: [0, 1] }, filterStatsForSplitTypeIds: { value: [1] }, filterStatsForScoringPeriodIds: { value: weeks } } };
+    const url = `${base}/segments/0/leaguedefaults/3?view=kona_player_info#frauds`;
+    const hit = cache.get(url);
+    if (hit && Date.now() - hit.t < 600000) return hit.data;
+    const r = await fetch(url.split("#")[0], { headers: { "X-Fantasy-Filter": JSON.stringify(filter) } });
+    if (!r.ok) throw new Error(`ESPN ${r.status}`);
+    const sum = (s, ids) => ids.reduce((t, k) => t + (s.stats?.[k] || 0), 0);
+    const list = [];
+    for (const { player: p } of (await r.json()).players || []) {
+      const pos = FR_POS[p?.defaultPositionId];
+      if (!pos || !p.proTeamId) continue; // rostered on an NFL team
+      const st = (p.stats || []).filter((s) => s.seasonId === y && s.statSplitTypeId === 1);
+      const proj = new Map(st.filter((s) => s.statSourceId === 1).map((s) => [s.scoringPeriodId, s]));
+      // games they actually played that also had a line (byes and games they sat out don't count)
+      const games = st.filter((s) => s.statSourceId === 0 && s.stats?.["210"] && proj.has(s.scoringPeriodId));
+      const n = games.length;
+      if (n < FR_MIN_GAMES) continue;
+      if (games.reduce((t, g) => t + (proj.get(g.scoringPeriodId).appliedTotal || 0), 0) / n < FR_MIN_PTS) continue;
+      let score = 0, wsum = 0;
+      const cells = FR_KEYS[pos].map(([label, ids, w, min, worse]) => {
+        const act = games.reduce((t, g) => t + sum(g, ids), 0) / n;
+        const exp = games.reduce((t, g) => t + sum(proj.get(g.scoringPeriodId), ids), 0) / n;
+        const used = exp > 0 && exp >= min;
+        if (used) { // shortfall as a share of the line, capped at ±100% so one stat can't swamp the rest
+          score += w * Math.max(-1, Math.min(1, (worse ? act - exp : exp - act) / exp));
+          wsum += w;
+        }
+        return { label, act, exp, used, bad: worse ? act > exp : act < exp };
+      });
+      if (wsum) list.push({ id: p.id, name: p.fullName, pos, team: p.proTeamId, n, cells, score: Math.round((100 * score) / wsum) });
+    }
+    cache.set(url, { t: Date.now(), data: { y, list } });
+    return { y, list };
+  }
+
+  async function frauds(params) {
+    const my = token;
+    if (league !== "nfl") {
+      view("stats").innerHTML = stSubStats(true) + `<div class="card">Frauds are NFL only: they need ESPN's weekly player projections, which don't exist for college. <a href="${link("stats", null, { show: "frauds", league: "nfl" })}">See NFL frauds →</a></div>`;
+      return;
+    }
+    view("stats").innerHTML = stSubStats(true) + `<div class="card muted">Loading…</div>`;
+    let data, teams;
+    try {
+      [data, teams] = await Promise.all([frPlayers(), api(`${STAND("nfl")}/standings?level=3`, 86400000).then((d) => new Map(groupsOf(d).flatMap((g) => g.entries).map((e) => [String(e.team.id), e.team]))).catch(() => new Map())]);
+    } catch (e) { return fail("stats", e); }
+    if (my !== token) return;
+    const fmt = (v, label) => (/yds/.test(label) ? v.toFixed(0) : v.toFixed(1));
+    view("stats").innerHTML = stSubStats(true) + `<div class="card">
+      <div class="sc-bar"><h2>${frState.over ? "Over-achievers" : "Frauds"} <small class="muted">${data.y}</small></h2>
+        <div class="presets" id="fr-pos">${[["", "All"], ...Object.values(FR_POS).map((p) => [p, p])].map(([v, l]) => `<button data-pos="${v}" class="${v === frState.pos ? "on" : ""}">${l}</button>`).join("")}</div>
+        <div class="presets"><button id="fr-over" class="${frState.over ? "on" : ""}" title="Flip the list: players beating their projections">Show over-achievers</button></div></div>
+      <p class="fr-how">Each week ESPN sets a projection for every player. <b>Fraud score</b> = how far below those projections they've played, on average, in the stats that matter for their position.</p>
+      <div class="table-wrap"><table class="box" id="fr-table"><thead><tr><th class="num">#</th><th>Player</th><th>Team</th><th>Pos</th><th class="num" title="Games played">G</th>
+        <th class="num" title="Weighted % below (or above) their weekly projections">${frState.over ? "Above" : "Fraud score"}</th><th colspan="4">Per game: actual / projected</th></tr></thead><tbody></tbody></table></div>
+      <p class="note">Players with a real role (projected for ${FR_MIN_PTS}+ PPR fantasy points a game) and ${FR_MIN_GAMES}+ games. Stats per position: QB pass yards (40%), pass TDs (30%), interceptions (15%, more is worse), rush yards (15%); RB rush yards (50%), receiving yards (30%), TDs (20%); WR/TE catches (30%), receiving yards (50%), TDs (20%). Each stat counts at most 100% off, stats a player is barely projected for are skipped, and games they missed don't count. Listed at ${FR_CUT}%+ off. <span class="fr-low">Red</span> = below projection. Projections: ESPN fantasy.</p></div>`;
+    const draw = () => {
+      const rows = data.list.filter((r) => (!frState.pos || r.pos === frState.pos) && (frState.over ? -r.score : r.score) >= FR_CUT)
+        .sort((a, b) => (frState.over ? a.score - b.score : b.score - a.score));
+      $("#fr-table tbody").innerHTML = rows.map((r, i) => {
+        const t = teams.get(String(r.team));
+        return `<tr><td class="num muted">${i + 1}</td>
+          <td><div class="team">${face(`https://a.espncdn.com/i/headshots/nfl/players/full/${r.id}.png`, r.name, "hs")}<a href="${link("player", r.id)}">${esc(r.name)}</a></div></td>
+          <td>${t ? `<a href="${link("team", t.id)}"><span class="tm">${img(teamLogo(t), "xs")} ${esc(t.abbreviation)}</span></a>` : ""}</td>
+          <td>${esc(r.pos)}</td><td class="num">${r.n}</td><td class="num"><b class="${r.score > 0 ? "fr-low" : "fr-high"}">${Math.abs(r.score)}%</b></td>
+          ${r.cells.map((c) => `<td class="fr-cell${c.used ? "" : " muted"}"><small class="muted">${esc(c.label)}</small> <span class="${c.used && c.bad ? "fr-low" : ""}">${fmt(c.act, c.label)}</span><small class="muted"> / ${fmt(c.exp, c.label)}</small></td>`).join("")}
+          ${r.cells.length < 4 ? `<td colspan="${4 - r.cells.length}"></td>` : ""}</tr>`;
+      }).join("") || `<tr><td colspan="10" class="muted">No one is ${FR_CUT}%+ ${frState.over ? "above" : "below"} their projections${data.list.length ? "" : " yet (it takes " + FR_MIN_GAMES + " games)"}.</td></tr>`;
+    };
+    $("#fr-pos").onclick = (e) => { const b = e.target.closest("[data-pos]"); if (!b) return; frState.pos = b.dataset.pos;
+      $("#fr-pos").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); draw(); };
+    $("#fr-over").onclick = () => { frState.over = !frState.over; frauds(params); };
+    draw();
   }
 
   // ---------------------------------------------------------------- player
