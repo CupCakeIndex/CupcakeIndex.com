@@ -97,30 +97,37 @@ const Live = (() => {
     const level = /^(Q|P|DTD)$/.test(ab) ? "q" : ab === "D" ? "d" : "o";
     return { ab, level, status: status[0].toUpperCase() + status.slice(1), part, tip: [status[0].toUpperCase() + status.slice(1), part, back ? `est. return ${back}` : ""].filter(Boolean).join(" · ") };
   }
-  // tid (team id) makes the tag a link to that player's row on the team's roster (#/team/ID?tab=roster&hl=PLAYER)
+  // Every tag with a player id is a link: with tid (team id) it goes to that player's row on the team's roster
+  // (#/team/ID?tab=roster&hl=PLAYER); without one (a free agent) it goes to the player's page and its injury card (?inj=1)
   const injTag = (i, pid = "", tid = "") => {
-    const x = injInfo(i), go = pid && tid;
-    return x ? `<span class="inj-tag inj-${x.level}${go ? " go" : ""}" title="${esc(x.tip)}${go ? " · click for the latest" : ""}"${pid ? ` data-pid="${esc(pid)}"` : ""}${go ? ` data-tid="${esc(tid)}" role="link" tabindex="0"` : ""}>${esc(x.ab)}</span>` : "";
+    const x = injInfo(i);
+    return x ? `<span class="inj-tag inj-${x.level}${pid ? " go" : ""}" title="${esc(x.tip)}${pid ? ` · click for ${tid ? "the latest" : "details"}` : ""}"${pid ? ` data-pid="${esc(pid)}" role="link" tabindex="0"` : ""}${pid && tid ? ` data-tid="${esc(tid)}"` : ""}>${esc(x.ab)}</span>` : "";
   };
   // Tags often sit inside a player link, so they navigate from one shared handler instead of nesting another <a>
   const injGo = (e) => {
-    const t = e.target.closest?.(".inj-tag[data-tid]");
+    const t = e.target.closest?.(".inj-tag[data-pid]");
     if (!t || (e.type === "keydown" && e.key !== "Enter")) return;
     e.preventDefault();
     e.stopPropagation();
-    const h = link("team", t.dataset.tid, { tab: "roster", hl: t.dataset.pid });
-    if (location.hash === h) highlightRow(t.dataset.pid); else location.hash = h;
+    const { pid, tid } = t.dataset;
+    const h = tid ? link("team", tid, { tab: "roster", hl: pid }) : link("player", pid, { inj: 1 });
+    if (location.hash !== h) location.hash = h;
+    else if (tid) highlightRow(pid);
+    else pulse(view("player").querySelector("#pl-inj"));
   };
   document.addEventListener("click", injGo);
   document.addEventListener("keydown", injGo);
-  // Scroll to a roster row and pulse it (the same ring as the Schedules chart's focused team)
+  // Scroll to a roster row or the player's injury card and give it a soft glow (gentler than the Schedules chart's ring)
+  function pulse(el) {
+    if (!el) return;
+    el.classList.remove("hl-row");
+    void el.offsetWidth; // restart the animation on a repeat click
+    el.classList.add("hl-row");
+    el.scrollIntoView({ block: "center" });
+  }
   function highlightRow(pid) {
-    const tr = view("team").querySelector(`tr[data-pid="${CSS.escape(String(pid))}"]`);
-    if (!tr) return;
     view("team").querySelectorAll("tr.hl-row").forEach((r) => r.classList.remove("hl-row"));
-    void tr.offsetWidth; // restart the animation on a repeat click
-    tr.classList.add("hl-row");
-    tr.scrollIntoView({ block: "center" });
+    pulse(view("team").querySelector(`tr[data-pid="${CSS.escape(String(pid))}"]`));
   }
   // League-wide NFL injury report (big, so only used to add detail to tags that are already on screen)
   const athleteIdOf = (a) => a?.id || (a?.links?.[0]?.href || "").match(/\/id\/(\d+)/)?.[1] || null;
@@ -1015,6 +1022,7 @@ const Live = (() => {
       a.displayBirthPlace ? `From ${a.displayBirthPlace}` : "",
     ].filter(Boolean);
     const inj = a.injuries?.[0];
+    const fa = a.status?.type === "free-agent"; // ESPN keeps a free agent's last team on the record, so check the status
     const summary = (a.statsSummary?.statistics || []).map((x) => `<div class="stat"><small>${esc(x.displayName)}</small><b>${esc(x.displayValue)}</b>${x.rankDisplayValue ? `<small class="muted">${esc(x.rankDisplayValue)}</small>` : ""}</div>`).join("");
 
     let log = "";
@@ -1054,7 +1062,7 @@ const Live = (() => {
         <div>
           <h2>${esc(a.displayName)}${lg === "nfl" && a.active === false ? ` <span class="retired-tag">Retired</span>` : ""}</h2>
           <p>${a.team ? `<a href="${link("team", a.team.id)}"><span class="tm">${img(a.team.logos?.[0]?.href || a.team.logo, "xs")} ${esc(a.team.displayName)}</span></a>` : ""}
-            ${injInfo(inj) ? ` <span class="inj-line">${injTag(inj, a.id, a.team?.id)} ${esc(injInfo(inj).tip)}</span>` : ""}</p>
+            ${injInfo(inj) ? ` <span class="inj-line">${injTag(inj, a.id, fa ? "" : a.team?.id)} ${esc(injInfo(inj).tip)}</span>` : ""}</p>
           <p class="muted">${facts.map(esc).join(" · ")}<span id="pl-exp">${exp ? " · " + esc(exp) : ""}</span></p>
         </div>
       </div>
@@ -1063,8 +1071,12 @@ const Live = (() => {
       <div class="card"><div class="sc-bar"><h3>Game log</h3>
         <select id="pl-season"${noLogs ? ` class="hidden"` : ""}>${years.map((y) => `<option${y === shown ? " selected" : ""}>${y}</option>`).join("")}</select></div>
         ${log || (noLogs ? `<p class="muted">ESPN doesn't have game-by-game logs for this player's career. Season totals, where ESPN has them, are in Stats by year above.</p>` : shown < 2000 ? `<p class="muted">ESPN doesn't have game-by-game logs for ${shown} (older seasons are spotty before the late 1990s). Season totals are in Stats by year above.</p>`
-          : `<p class="muted">No games logged for this season.</p>`)}</div>`;
+          : `<p class="muted">No games logged for this season.</p>`)}</div>
+      ${injInfo(inj) ? injCard(inj, a.id, fa ? "" : a.team?.id)
+        : params.get("inj") ? `<div class="card inj-card" id="pl-inj"><h3>Injury</h3><p class="muted">ESPN has no injury details on file for this player right now.</p></div>` : ""}`;
     fillFaces(view("player"));
+    const toInj = params.get("inj") && $("#pl-inj");
+    if (toInj) pulse(toInj);
     $("#pl-season").onchange = (e) => { location.hash = link("player", id, { season: e.target.value }); };
     const careers = await careersP;
     if (my !== token) return;
@@ -1080,7 +1092,18 @@ const Live = (() => {
       const me = careers[0], n = me.seasons.length;
       if (!exp && n) $("#pl-exp").textContent = ` · ${n} ${me.lvl === "NFL" ? "NFL" : "college"} season${n > 1 ? "s" : ""} (${me.seasons[0]}${n > 1 ? "–" + me.seasons[n - 1] : ""})`;
     }
-    if (vs.length) $("#career-slot").scrollIntoView({ block: "start" });
+    if (toInj) pulse(toInj); // stats by year just filled in above it, so find it again
+    else if (vs.length) $("#career-slot").scrollIntoView({ block: "start" });
+  }
+  // The player's current injury, at the bottom of their page: status, body part, expected return and ESPN's notes
+  function injCard(i, pid, tid) {
+    const x = injInfo(i), d = i.details || {};
+    const day = (s) => new Date(s.length > 10 ? s : s + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+    const rows = [["Status", x.status], ["Injury", x.part], ["Est. return", d.returnDate ? day(d.returnDate.slice(0, 10)) : ""], ["Updated", i.date ? day(i.date) : ""]]
+      .filter((r) => r[1]).map(([k, v]) => `<div class="stat"><small>${k}</small><b>${esc(v)}</b></div>`).join("");
+    const notes = [...new Set([i.shortComment, i.longComment])].filter((c) => c && c.toLowerCase() !== x.status.toLowerCase());
+    return `<div class="card inj-card" id="pl-inj"><h3>Injury ${injTag(i, pid, tid)}</h3><div class="stats wide">${rows}</div>
+      ${notes.map((c) => `<p>${esc(c)}</p>`).join("")}</div>`;
   }
 
   // ---------------------------------------------------------------- standings
@@ -1309,7 +1332,7 @@ const Live = (() => {
       <div class="cc-tip"></div></div></div>`;
   }
   // Model's picks: hover (or tap) a game for both teams and the model's line. The box sits beside the game, never on it.
-  // My picks: no hover box (the win % is inline and the odds box lists your picks); tapping a team picks it
+  // My picks: no hover box (the win % is inline and the chances box lists your picks); tapping a team picks it
   // (onPick(game, teamId, how)), and seats = { ch(i), set(i, teamId, how) } handles the typed seeds.
   function wireBracket(root, onPick, seats) {
     const el = $("#view-standings .br");
@@ -1421,7 +1444,7 @@ const Live = (() => {
   const encPicks = (ids) => ids.map((id) => (id ? (+id).toString(36) : "")).join(".").replace(/\.+$/, "");
   const decPicks = (str) => (/^[0-9a-z.]{1,300}$/.test(str || "") ? str.split(".").map((x) => (x ? String(parseInt(x, 36)) : "")) : []);
 
-  // ---- My picks odds: a Monte Carlo of the rest of the season, then the playoffs, from our power ratings.
+  // ---- My picks chances: a Monte Carlo of the rest of the season, then the playoffs, from our power ratings.
   // Current records + the remaining regular-season schedule come from ESPN's weekly scoreboards; each remaining game
   // is a coin weighted by our model's win chance (same spread math as above). Then seed the field and play the bracket.
   const SIM_N = 5000, SIMS = new Map(); // `${lg}-${season}-${week}` -> Promise of the results (kept for the visit)
@@ -1613,12 +1636,12 @@ const Live = (() => {
         });
       });
 
-      // the odds panel
+      // the chances panel
       const px = 1232, py = 150, pw = 320;
       x.textBaseline = "alphabetic";
       x.fillStyle = C.card; x.fillRect(px, py, pw, 470);
       x.strokeStyle = C.line; x.lineWidth = 1; x.strokeRect(px + 0.5, py + 0.5, pw - 1, 469);
-      text("> ODDS", px + 20, py + 36, F(700, 16), C.accent);
+      text("> CHANCES", px + 20, py + 36, F(700, 16), C.accent);
       o.stats.forEach(([l, v], i) => {
         const sy = py + 80 + i * 92;
         text(l.toUpperCase(), px + 20, sy, F(400, 12), C.muted, "left", pw - 40);
@@ -1662,7 +1685,7 @@ const Live = (() => {
     const keyMine = `<p class="note">Start blank: type each seed at its <b class="br-gt">&gt;</b> prompt (${nfl ? "seven per conference, AFC teams on the AFC side" : "any 12 FBS teams"}), then pick every game by tapping a team or typing it.
       Enter or Tab takes the match and jumps to the next prompt; Esc clears. Tap a seed number to change that seed; tap your pick again to undo it.${nfl ? " The Divisional round reseeds from your Wild Card winners." : ""}
       Changing a seed or pick clears later picks that depended on it. Grey % = our model's win chance for its favorite. Orange line = your champion's path.</p>
-      <p class="note">How the odds work: each remaining regular-season game is simulated with our power ratings (same win-chance math as our picks), then the field is seeded
+      <p class="note">How the chances work: each remaining regular-season game is simulated with our power ratings (same win-chance math as our picks), then the field is seeded
       (${nfl ? "4 division winners seeded 1–4 by record, then the 3 best other records" : "auto bids for the 4 power-conference champions and the best Group of 6 champion, Notre Dame if top 12, then at-large; conference champion = best record, résumé = our rating + 3 points per game over .500"};
       ties are coin flips) and the playoffs are played out. Your field's chance multiplies each team's chance of landing exactly that seed, as if seeds were independent,
       so treat it as a rough estimate. Your games use each matchup's win chance (higher seed at home${nfl ? "; Super Bowl neutral" : "; first round only"}).</p>`;
@@ -1742,7 +1765,7 @@ const Live = (() => {
       history.replaceState(null, "", link("standings", null, { show: "playoff", mode: "mine", ...(s ? { seeds: s } : {}), ...(p ? { picks: p } : {}) }));
     };
 
-    // ---- the odds box (season sims run once per visit; until they finish, sim-based numbers say "simulating…")
+    // ---- the chances box (season sims run once per visit; until they finish, sim-based numbers say "simulating…")
     let odds = null, oddsErr = false, cur = null;
     const ab = (t) => t.abbr || TEAMX.get(String(t.id))?.abbreviation || t.short;
     const oddsNums = (b) => {
@@ -1764,10 +1787,10 @@ const Live = (() => {
       const row = (l, v, cls = "") => `<div class="bo-r${cls}"><span>${l}</span><b>${v}</b></div>`;
       const togo = [o.empty && `${o.empty} seed${o.empty === 1 ? "" : "s"}`, o.open && `${o.open} game${o.open === 1 ? "" : "s"}`].filter(Boolean).join(", ");
       const whole = o.pField * o.pGames, lt = o.under ? "less than " : "";
-      return `<div class="bo-h">&gt; odds</div>
+      return `<div class="bo-h">&gt; chances</div>
         ${row("Your champion wins it all", !o.c ? `<span class="muted">pick one</span>` : odds ? pctTxt(o.title) : wait)}
         ${o.c ? row("if your bracket plays out", pctTxt(o.path), " sub") : ""}
-        ${row("Whole bracket hits", !o.done ? `<span class="muted">${togo} to go</span>` : odds ? `${lt}${oneIn(whole)}` : wait)}
+        ${row("Whole bracket", !o.done ? `<span class="muted">${togo} to go</span>` : odds ? `${lt}${oneIn(whole)}` : wait)}
         ${o.done && odds ? row(`= field ${lt}${oneIn(o.pField)} × games ${oneIn(o.pGames)}`, whole >= 1e-6 ? `${lt}${pctTxt(whole)}` : "under 0.0001%", " sub") : ""}
         ${o.picked.length ? `<div class="bo-h2">Your picks, boldest first</div><ol class="bo-l">${o.picked.map((x, k) =>
           `<li${k ? "" : ` class="risk"`}><b>${Math.round(x.p * 100)}%</b> ${esc(ab(x.w))} over ${esc(ab(x.l))} <span>${esc(x.g.label.replace(/^(AFC|NFC) /, "$1 "))}</span></li>`).join("")}</ol>` : ""}
@@ -1792,8 +1815,8 @@ const Live = (() => {
         const blob = await bracketPng(cur.root, cur.cols, {
           title: `MY ${season} ${nfl ? "SUPER BOWL" : "CFP"} PICKS`,
           sub: c ? `Champion: ${c.name}` : "Champion: TBD",
-          stats: [["Title odds", c ? (odds ? pctTxt(o.title) : "…") : "–"], ["If my bracket plays out", c ? pctTxt(o.path) : "–"],
-            ["Whole bracket hits", o.done && odds ? `${o.under ? "< " : ""}${oneIn(o.pField * o.pGames)}` : "–"],
+          stats: [["Title chance", c ? (odds ? pctTxt(o.title) : "…") : "–"], ["If my bracket plays out", c ? pctTxt(o.path) : "–"],
+            ["Whole bracket", o.done && odds ? `${o.under ? "< " : ""}${oneIn(o.pField * o.pGames)}` : "–"],
             ["Boldest call", o.picked[0] ? `${Math.round(o.picked[0].p * 100)}% ${ab(o.picked[0].w)} over ${ab(o.picked[0].l)}` : "–"]],
           foot: `Our power ratings + ${SIM_N.toLocaleString("en-US")} season sims. For fun.`,
         });
@@ -1952,7 +1975,7 @@ const Live = (() => {
         const team = teams.get(teamId) || null;
         done.set(c.id, a?.status?.type !== "free-agent" ? null : {
           id: c.id, name: a.displayName || c.fullName, pos: FA_POS[c.defaultPositionId], age: a.age, exp: a.experience?.years,
-          headshot: a.headshot?.href, team, prod: c.prod, inj: FANTASY_INJ[c.injuryStatus] ? injTag({ status: FANTASY_INJ[c.injuryStatus] }) : "",
+          headshot: a.headshot?.href, team, prod: c.prod, inj: FANTASY_INJ[c.injuryStatus] ? injTag({ status: FANTASY_INJ[c.injuryStatus] }, c.id) : "", // no team: links to the player's page
           search: normName(`${a.displayName || c.fullName} ${team?.displayName || ""} ${team?.abbreviation || ""}`),
         });
         soon();
