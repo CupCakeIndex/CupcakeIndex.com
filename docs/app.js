@@ -22,7 +22,7 @@ const BASE_PRESETS = {
 const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", recent: "FORM", cupcake: "CUP", luck: "UNLK" };
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
 const RANK_VIEWS = new Set(["rankings", "schedules"]);
-const VIEWS = new Set(["rankings", "picks", "schedules", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily", "games"]);
+const VIEWS = new Set(["rankings", "picks", "schedules", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily", "games", "settings"]);
 // Sub-pages that light up a parent tab in the nav (the Daily player game lives under Games)
 const NAV_PARENT = { daily: "games" };
 
@@ -104,6 +104,7 @@ async function route() {
   Live.stop();
   document.querySelectorAll(".view").forEach((s) => s.classList.toggle("hidden", s.id !== "view-" + r.view));
   setNavActive(NAV_PARENT[r.view] || r.view);
+  $("#gear").classList.toggle("active", r.view === "settings");
   document.querySelectorAll(".rank-ctl").forEach((el) => el.classList.toggle("hidden", !RANK_VIEWS.has(r.view)));
   $("#drawer").classList.add("hidden");
   document.body.classList.remove("drawer-open");
@@ -120,6 +121,8 @@ async function route() {
     Daily.render();
   } else if (r.view === "games") {
     renderGames();
+  } else if (r.view === "settings") {
+    Settings.render();
   } else if (r.view === "picks") {
     Pickem.render(r.params);
   } else if (r.view === "compare") {
@@ -172,7 +175,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "97"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "98"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });

@@ -595,14 +595,22 @@ body.drawer-open { overflow: hidden; }
 }
 
 /* =================== REDESIGN: Data Terminal Mono =================== */
-:root:root:root { --bg:#0a0a0b; --card:#111113; --ink:#ececec; --muted:#8a8a8f; --line:#26262a; --accent:#ff6b2c; --accent-soft:#1c130e; --good:#e8e8e8; --bad:#ff6b2c; --bar:#ececec; --bar-bg:#26262a; --shadow:none; }
+/* The default theme. Other themes (Settings > Theme, html[data-theme-name]) are at the end of this file and override
+   these variables. Light/dark: html[data-theme] is set before first paint by the script in index.html <head>
+   ("light" / "dark", resolved from the System choice); the media query below is the no-JavaScript fallback.
+   .thp = the small theme previews on the Settings page (each one carries its own data-theme-name / data-theme). */
+:root:root:root, .thp[data-theme-name="mono"] { --bg:#0a0a0b; --card:#111113; --ink:#ececec; --muted:#8a8a8f; --line:#26262a; --accent:#ff6b2c; --accent-soft:#1c130e; --good:#e8e8e8; --bad:#ff6b2c; --bar:#ececec; --bar-bg:#26262a; --shadow:none;
+  --on-accent:#000; --radius:0px; --radius-sm:0px; --font-body:"JetBrains Mono", ui-monospace, monospace; --font-head:var(--font-body); --font-badge:"JetBrains Mono", ui-monospace, monospace; }
 @media (prefers-color-scheme: light) {
   :root:root:root:not([data-theme="dark"]) { --bg:#f4f4f2; --card:#ffffff; --ink:#141414; --muted:#6b6b70; --line:#e2e2de; --accent:#e8551b; --accent-soft:#fbeee6;
     --good:#141414; --bad:#e8551b; --bar:#141414; --bar-bg:#e8e8e4; }
 }
+:root:root:root[data-theme="light"], .thp[data-theme-name="mono"][data-theme="light"] { --bg:#f4f4f2; --card:#ffffff; --ink:#141414; --muted:#6b6b70; --line:#e2e2de; --accent:#e8551b; --accent-soft:#fbeee6;
+    --good:#141414; --bad:#e8551b; --bar:#141414; --bar-bg:#e8e8e4; }
 
 
-body, button, select, input { font-family: "JetBrains Mono", ui-monospace, monospace !important; font-size: 13px; }
+body, button, select, input { font-family: var(--font-body) !important; font-size: 13px; }
+h1, h2, h3, #brand { font-family: var(--font-head); }
 h1 { font-size: 26px; letter-spacing: -.02em; }
 /* header logo: monoline cupcake mark (ink = text color, laces = accent) + CUPCAKE_INDEX wordmark */
 .logo { display: inline-flex; align-items: center; gap: 10px; vertical-align: middle; }
@@ -618,20 +626,20 @@ h1 { font-size: 26px; letter-spacing: -.02em; }
 }
 .tag { background: transparent; color: var(--accent); border: 1px solid var(--accent); border-radius: 0; }
 .tab { text-transform: uppercase; font-size: 12px; letter-spacing: .06em; }
-.card, .table-wrap, .cotw, .seg, select, input[type=search], .presets button { border-radius: 0 !important; }
+.card, .table-wrap, .cotw, .seg, select, input[type=search], .presets button { border-radius: var(--radius) !important; }
 #table td, #table th { border: 1px solid var(--line); }
 #table td { padding: 8px 10px; }
 .rank { font-size: 16px !important; color: var(--accent); }
 .team img { filter: grayscale(.2); }
-.seg button.active, .presets button.on { background: var(--accent) !important; color: #000 !important; }
-.prof-badge, .pill { border-radius: 0 !important; box-shadow: none !important; background: transparent !important; text-shadow: none !important; font-family: "JetBrains Mono" !important; }
-.cotw-tag { background: var(--accent) !important; color: #000 !important; clip-path: none; text-shadow: none; }
+.seg button.active, .presets button.on { background: var(--accent) !important; color: var(--on-accent) !important; }
+.prof-badge, .pill { border-radius: var(--radius-sm) !important; box-shadow: none !important; background: transparent !important; text-shadow: none !important; font-family: var(--font-badge) !important; }
+.cotw-tag { background: var(--accent) !important; color: var(--on-accent) !important; clip-path: none; text-shadow: none; }
 
 /* single-column rankings; weights move to a floating panel */
 #view-rankings { grid-template-columns: minmax(0, 1fr) !important; }
 .weights-fab { position: fixed; right: 18px; bottom: 18px; z-index: 60; display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 14px;
-  background: var(--accent); color: #000; border: 0; border-radius: 4px; cursor: pointer; box-shadow: 0 8px 24px rgba(0,0,0,.45);
-  font: 700 12px/1 "JetBrains Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
+  background: var(--accent); color: var(--on-accent); border: 0; border-radius: 4px; cursor: pointer; box-shadow: 0 8px 24px rgba(0,0,0,.45);
+  font: 700 12px/1 var(--font-body); letter-spacing: .08em; text-transform: uppercase; }
 .weights-fab #wf-preset { background: rgba(0,0,0,.16); padding: 4px 7px; border-radius: 3px; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .weights-fab.open { background: var(--ink); color: var(--bg); }
 .weights { position: fixed !important; right: 18px; bottom: 68px; z-index: 61; width: 360px; max-height: min(72vh, 640px); overflow: auto;
@@ -785,7 +793,7 @@ img.wiki { object-position: 50% 20%; }
 #table tbody tr.bully td:first-child { box-shadow: inset 4px 0 0 var(--accent); }
 #table tbody tr.bully td { border-top-color: color-mix(in srgb, var(--accent) 45%, var(--line)); border-bottom-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
 #table tbody tr.bully .tname { color: var(--accent); }
-.tmeta .pill.cup-badge { background: var(--accent) !important; color: #000 !important; border-color: var(--accent) !important; }
+.tmeta .pill.cup-badge { background: var(--accent) !important; color: var(--on-accent) !important; border-color: var(--accent) !important; }
 
 /* phones: show every team tag, wrapping onto a second line when needed */
 @media (max-width: 640px) {
@@ -885,6 +893,9 @@ table.moves td:last-child { white-space: normal; min-width: 240px; }
   :root:not([data-theme="dark"]) .cc-chart .cc-bdot { fill: #b9b9bd; }
   :root:not([data-theme="dark"]) .cc-bench-key i { border-top-color: #b9b9bd; }
 }
+:root[data-theme="light"] .cc-chart .cc-bench { stroke: #b9b9bd; }
+:root[data-theme="light"] .cc-chart .cc-bdot { fill: #b9b9bd; }
+:root[data-theme="light"] .cc-bench-key i { border-top-color: #b9b9bd; }
 
 /* Stats by year: Line / Bar switch (only the chosen chart shows; showing it replays its animation) */
 .cc-box svg[data-mode] { display: none; }
@@ -1234,3 +1245,135 @@ a.game-tile:hover { border-color: var(--accent); }
 .share-menu button:last-child { border-bottom: 0; }
 .share-menu button:hover, .share-menu button:focus-visible { background: var(--accent-soft); color: var(--accent); outline: none; }
 @media (max-width: 640px) { .share-menu { left: 0; right: auto; } .pk-grid { grid-template-columns: 1fr; } }
+
+/* Header gear -> Settings page */
+.gear { display: inline-flex; align-items: center; justify-content: center; align-self: flex-end; width: 38px; height: 38px; flex: none; order: 10;
+  border: 1px solid var(--line); background: var(--bg); color: var(--muted); border-radius: var(--radius); text-decoration: none !important; }
+.gear:hover, .gear.active { color: var(--accent); border-color: var(--accent); }
+.gear svg { width: 18px; height: 18px; }
+@media (max-width: 640px) {
+  .top { position: relative; }
+  .gear { position: absolute; top: 16px; right: 16px; width: 34px; height: 34px; }
+}
+
+/* Settings page: Appearance (Dark / Light / System) + Theme picker with live mini previews */
+.set { max-width: 900px; }
+.set h3 { margin: 18px 0 4px; }
+.set h3:first-of-type { margin-top: 6px; }
+.set .note { margin: 0 0 10px; }
+.set .seg { display: inline-flex; }
+.set .seg button { padding: 8px 18px; }
+.th-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.th-opt { display: flex; flex-direction: column; gap: 8px; padding: 8px; text-align: left; cursor: pointer; background: var(--bg); color: var(--ink);
+  border: 1px solid var(--line); border-radius: var(--radius); }
+.th-opt:hover { border-color: var(--muted); }
+.th-opt.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.th-opt b { font-size: 13px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 6px; }
+.th-opt b span { color: var(--accent); font-size: 11px; white-space: nowrap; }
+.th-opt small { color: var(--muted); font-size: 11px; line-height: 1.4; }
+.set .set-foot { margin-top: 16px; }
+@media (max-width: 640px) { .th-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } .th-opt { padding: 6px; } }
+/* .thp = a tiny fake rankings card drawn with the theme's own variables (see the theme rules below) */
+.thp { display: block; padding: 8px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius); font-family: var(--font-body); overflow: hidden; }
+.thp-h { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font: 700 15px/1 var(--font-head); }
+.thp-h i { font-style: normal; font: 700 8px/1 var(--font-body); padding: 2px 4px; border: 1px solid var(--accent); color: var(--accent); border-radius: var(--radius-sm); }
+.thp-h em { margin-left: auto; width: 26px; height: 12px; background: var(--accent); border-radius: var(--radius-sm); }
+.thp-row { display: grid; grid-template-columns: 14px 1fr 36px; align-items: center; gap: 6px; padding: 4px 6px; margin-top: 3px; background: var(--card);
+  border: 1px solid var(--line); border-radius: var(--radius); font-size: 10px; }
+.thp-row > b { color: var(--accent); font: 700 11px/1 var(--font-head); }
+.thp-row > span { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.thp-row u { text-decoration: none; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.thp-row s { text-decoration: none; display: flex; gap: 2px; }
+.thp-row s i { width: 5px; height: 5px; border: 1px solid var(--muted); }
+.thp-row s i.on { background: var(--accent); border-color: var(--accent); }
+.thp-bar { height: 4px; background: var(--bar-bg); border-radius: 2px; overflow: hidden; }
+.thp-bar i { display: block; height: 100%; background: var(--bar); }
+
+/* =================== THEMES (Settings > Theme) ===================
+   Each theme = a dark palette, a light palette, fonts, corner radius, plus a few targeted overrides.
+   The default (Data Terminal Mono) is defined in the REDESIGN block above. Every theme sets the same variables in both modes.
+   Fonts load only when a theme needs them (see THEME_FONTS in index.html). */
+
+/* --- Data Terminal (green) --- */
+:root:root:root[data-theme-name="terminal"], .thp[data-theme-name="terminal"] {
+  --bg:#0a0b0a; --card:#0f1210; --ink:#e4f2e9; --muted:#7f8f85; --line:#1f2a23; --accent:#3dff8a; --accent-soft:#0e2216; --on-accent:#000;
+  --good:#3dff8a; --bad:#ff5c5c; --bar:#3dff8a; --bar-bg:#1f2a23; }
+:root:root:root[data-theme-name="terminal"][data-theme="light"], .thp[data-theme-name="terminal"][data-theme="light"] {
+  --bg:#f2f6f3; --card:#ffffff; --ink:#0f1a13; --muted:#5d6d62; --line:#d8e2db; --accent:#0b8f45; --accent-soft:#e1f3e8; --on-accent:#fff;
+  --good:#0b8f45; --bad:#d64545; --bar:#0b8f45; --bar-bg:#e0e8e2; }
+
+/* --- Data Terminal Amber --- */
+:root:root:root[data-theme-name="amber"], .thp[data-theme-name="amber"] {
+  --bg:#0c0a06; --card:#14110a; --ink:#f3ead6; --muted:#9a8e72; --line:#2a2416; --accent:#ffb000; --accent-soft:#251b05; --on-accent:#000;
+  --good:#ffc94d; --bad:#ff6b4a; --bar:#ffb000; --bar-bg:#2a2416; }
+:root:root:root[data-theme-name="amber"][data-theme="light"], .thp[data-theme-name="amber"][data-theme="light"] {
+  --bg:#f7f3ea; --card:#fffdf7; --ink:#1e1709; --muted:#74684d; --line:#e6dcc5; --accent:#a86f00; --accent-soft:#fbefd2; --on-accent:#fff;
+  --good:#8a6000; --bad:#c9441c; --bar:#a86f00; --bar-bg:#ece3cf; }
+
+/* --- Sleek Broadcast: Inter + condensed headings, rounded cards, pink-orange Bully banner --- */
+:root:root:root[data-theme-name="broadcast"], .thp[data-theme-name="broadcast"] {
+  --bg:#0d0e12; --card:#15171d; --ink:#f1f2f4; --muted:#9097a3; --line:#252831; --accent:#ff6b2c; --accent-soft:#2a1710; --on-accent:#fff;
+  --good:#3ccf7e; --bad:#ff5c5c; --bar:#ff6b2c; --bar-bg:#262a33;
+  --radius:10px; --radius-sm:3px; --font-body:Inter, system-ui, sans-serif; --font-head:"Barlow Condensed", Inter, sans-serif; --font-badge:"Barlow Condensed", Inter, sans-serif; }
+:root:root:root[data-theme-name="broadcast"][data-theme="light"], .thp[data-theme-name="broadcast"][data-theme="light"] {
+  --bg:#f4f5f7; --card:#ffffff; --ink:#14171c; --muted:#636b78; --line:#e3e6eb; --accent:#e8551b; --accent-soft:#fff0e8; --on-accent:#fff;
+  --good:#1f9d55; --bad:#d64545; --bar:#e8551b; --bar-bg:#e8ebf0; }
+[data-theme-name="broadcast"] #brand, [data-theme-name="broadcast"] h1 { font-weight: 700; letter-spacing: .01em; text-transform: uppercase; }
+[data-theme-name="broadcast"] .tab, [data-theme-name="broadcast"] .more-btn { font: 700 15px/1.2 var(--font-head); letter-spacing: .06em; }
+[data-theme-name="broadcast"] .more-btn, [data-theme-name="varsity"] .more-btn { font-family: var(--font-head) !important; } /* buttons are forced to the body font */
+[data-theme-name="broadcast"] .cotw-tag { background: linear-gradient(135deg, #ee6b92, #f06a2a) !important; color: #fff !important; }
+[data-theme-name="broadcast"] .rank { font-family: var(--font-head); font-size: 22px !important; color: var(--ink); }
+[data-theme-name="broadcast"] .score { font-family: var(--font-head); font-size: 17px; }
+
+/* --- Editorial: serif headlines, ink-black controls, deep red links (light-first; the dark version is warm charcoal) --- */
+:root:root:root[data-theme-name="editorial"], .thp[data-theme-name="editorial"] {
+  --bg:#15130f; --card:#1d1a15; --ink:#efe8da; --muted:#a39a8a; --line:#2f2a22; --accent:#e0675c; --accent-soft:#2c1a17; --on-accent:#15130f;
+  --good:#6cc483; --bad:#e0675c; --bar:#efe8da; --bar-bg:#2f2a22;
+  --radius:6px; --radius-sm:3px; --font-body:Inter, system-ui, sans-serif; --font-head:"Source Serif 4", Georgia, serif; --font-badge:"Barlow Condensed", Inter, sans-serif; }
+:root:root:root[data-theme-name="editorial"][data-theme="light"], .thp[data-theme-name="editorial"][data-theme="light"] {
+  --bg:#f5f1e8; --card:#fffdf8; --ink:#1a1714; --muted:#6e675d; --line:#e4ddcf; --accent:#a3221b; --accent-soft:#f6e7e3; --on-accent:#fff;
+  --good:#2c7a3f; --bad:#a3221b; --bar:#1a1714; --bar-bg:#e9e3d6; }
+[data-theme-name="editorial"] .tab, [data-theme-name="editorial"] .more-btn { text-transform: none; font-size: 14px; letter-spacing: 0; }
+[data-theme-name="editorial"] .seg button.active, [data-theme-name="editorial"] .presets button.on { background: var(--ink) !important; color: var(--bg) !important; }
+[data-theme-name="editorial"] .tname, [data-theme-name="editorial"] .rank { font-family: var(--font-head); font-size: 15px; }
+[data-theme-name="editorial"] .rank { color: var(--ink); font-size: 18px !important; }
+[data-theme-name="editorial"] .tabs { border-bottom: 2px solid var(--ink); }
+
+/* --- Midnight Glass: pure black, frosted rounded cards, pill tabs, warm amber accent --- */
+:root:root:root[data-theme-name="glass"], .thp[data-theme-name="glass"] {
+  --bg:#000000; --card:#121215; --ink:#f5f5f7; --muted:#98989f; --line:#232327; --accent:#ff9f0a; --accent-soft:#2a1c05; --on-accent:#000;
+  --good:#30d158; --bad:#ff453a; --bar:#ff9f0a; --bar-bg:#2a2a2e;
+  --radius:16px; --radius-sm:99px; --font-body:Inter, system-ui, sans-serif; --font-head:Inter, system-ui, sans-serif; --font-badge:"Barlow Condensed", Inter, sans-serif; }
+:root:root:root[data-theme-name="glass"][data-theme="light"], .thp[data-theme-name="glass"][data-theme="light"] {
+  --bg:#f2f2f7; --card:#ffffff; --ink:#1c1c1e; --muted:#6e6e73; --line:#e2e2e7; --accent:#f08c00; --accent-soft:#fff2dc; --on-accent:#000;
+  --good:#248a3d; --bad:#d70015; --bar:#f08c00; --bar-bg:#e5e5ea; }
+[data-theme-name="glass"] h1, [data-theme-name="glass"] #brand { font-weight: 800; letter-spacing: -.035em; }
+[data-theme-name="glass"] .tabs { border-bottom: 0; padding-top: 4px; padding-bottom: 8px; }
+[data-theme-name="glass"] .nav-main { gap: 6px; }
+[data-theme-name="glass"] .tab, [data-theme-name="glass"] .more-btn { text-transform: none; letter-spacing: 0; font-size: 14px; border: 0; border-radius: 99px; background: var(--card); color: var(--ink); padding: 8px 16px; }
+[data-theme-name="glass"] .tab.active, [data-theme-name="glass"] .more-btn.active { background: var(--ink); color: var(--bg); }
+@media (max-width: 640px) {
+  [data-theme-name="glass"] .nav-main { gap: 4px; }
+  [data-theme-name="glass"] .tab, [data-theme-name="glass"] .more-btn { padding: 6px 10px; font-size: 13px; min-height: 32px; }
+  [data-theme-name="glass"] .nav-more { margin-left: 4px; }
+}
+[data-theme-name="glass"] .more-menu { border-radius: 14px; border-color: var(--line); top: calc(100% + 6px); overflow: hidden; }
+[data-theme-name="glass"] .card, [data-theme-name="glass"] .table-wrap { background: color-mix(in srgb, var(--card) 82%, transparent); backdrop-filter: blur(14px); }
+[data-theme-name="glass"] .seg button, [data-theme-name="glass"] .presets button, [data-theme-name="glass"] .btn { border-radius: 99px !important; }
+[data-theme-name="glass"] #table td, [data-theme-name="glass"] #table th { border-width: 0 0 1px; }
+[data-theme-name="glass"] .rank { color: var(--ink); }
+[data-theme-name="glass"] .cotw-tag { background: linear-gradient(135deg, #ee6b92, #f06a2a) !important; color: #fff !important; }
+
+/* --- Varsity: navy + gold, collegiate wordmark, tall condensed team names --- */
+:root:root:root[data-theme-name="varsity"], .thp[data-theme-name="varsity"] {
+  --bg:#0b1628; --card:#0f1e36; --ink:#eef1f6; --muted:#8d9bb3; --line:#1f3253; --accent:#d6a84a; --accent-soft:#1f2a30; --on-accent:#0b1628;
+  --good:#46c37b; --bad:#ff6b6b; --bar:#d6a84a; --bar-bg:#1f3253;
+  --radius:8px; --radius-sm:3px; --font-body:Inter, system-ui, sans-serif; --font-head:Oswald, "Barlow Condensed", sans-serif; --font-badge:"Barlow Condensed", Inter, sans-serif; }
+:root:root:root[data-theme-name="varsity"][data-theme="light"], .thp[data-theme-name="varsity"][data-theme="light"] {
+  --bg:#f5f2ea; --card:#ffffff; --ink:#0b1628; --muted:#5d6b82; --line:#ded8c8; --accent:#9c7016; --accent-soft:#f6ecd6; --on-accent:#fff;
+  --good:#1f8a4c; --bad:#c0392b; --bar:#0b1628; --bar-bg:#e6e0d0; }
+[data-theme-name="varsity"] #brand { font-family: Graduate, var(--font-head); font-weight: 400; letter-spacing: .02em; color: var(--accent); }
+[data-theme-name="varsity"] #brand b { color: var(--ink); }
+[data-theme-name="varsity"] .tab, [data-theme-name="varsity"] .more-btn { font: 600 15px/1.2 var(--font-head); letter-spacing: .08em; }
+[data-theme-name="varsity"] .tname { font-family: var(--font-head); font-weight: 600; font-size: 16px; text-transform: uppercase; letter-spacing: .02em; }
+[data-theme-name="varsity"] .rank { font-family: var(--font-head); font-weight: 400; font-size: 22px !important; }
