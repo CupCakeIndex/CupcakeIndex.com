@@ -1702,5 +1702,7 @@ const Live = (() => {
     }
   }
 
-  return { stop, teamId, scores, game, stats, player, standings, team, freeagents, searchPlayers };
+  // helpers shared with pickem.js: ESPN fetch + cache, logos, our-rank lookup, game status, polling tied to the current view
+  const kit = { SITE, api, img, teamLogo, ourTeam, statusText, poll, token: () => token };
+  return { stop, teamId, scores, game, stats, player, standings, team, freeagents, searchPlayers, kit };
 })();
