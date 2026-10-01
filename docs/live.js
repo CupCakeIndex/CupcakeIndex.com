@@ -571,7 +571,7 @@ const Live = (() => {
   };
   FR_KEYS.TE = FR_KEYS.WR;
   const FR_MIN_GAMES = 2, FR_MIN_PTS = 8, FR_CUT = 25; // games played, projected PPR pts/game (a real role), % off to be listed
-  let frState = { pos: "", over: false, injured: false };
+  let frState = { pos: "", over: false, injured: true };
   const FR_HURT = new Set(["OUT", "INJURY_RESERVE", "DOUBTFUL"]); // hidden unless "Include injured" is on
 
   async function frPlayers() {
@@ -671,6 +671,10 @@ const Live = (() => {
     ["Rush yds", "24", "Rushing yards"], ["Rush TD", "25", "Rushing TDs"], ["Rec", "53", "Receptions"], ["Rec yds", "42", "Receiving yards"], ["Rec TD", "43", "Receiving TDs"]];
   const PJ_K = [["FGM", "83", "Field goals made"], ["FGA", "84", "Field goals tried"], ["XPM", "86", "Extra points made"]];
   const PJ_POS = { ...FR_POS, 5: "K" };
+  // Projected opens on QBs ("All" is pos=all), each position sorted by its key stat until a column is clicked
+  const PJ_KEY = { QB: "3", RB: "24", WR: "42", TE: "42", K: "83" };
+  const pjPos = (params, list) => (params.get("pos") === "all" ? "" : list.includes(params.get("pos")) ? params.get("pos") : "QB");
+  const pjSort = (params, cols, pos) => (params.get("sort") === "pts" || cols.some((c) => c[1] === params.get("sort")) ? params.get("sort") : PJ_KEY[pos] || "pts");
 
   async function pjPlayers() {
     const now = new Date(), y = now.getMonth() < 8 ? now.getFullYear() - 1 : now.getFullYear(); // before September: last season
@@ -713,9 +717,9 @@ const Live = (() => {
       [data, teams] = await Promise.all([pjPlayers(), api(`${STAND("nfl")}/standings?level=3`, 86400000).then((d) => new Map(groupsOf(d).flatMap((g) => g.entries).map((e) => [String(e.team.id), e.team]))).catch(() => new Map())]);
     } catch (e) { return fail("stats", e); }
     if (my !== token) return;
-    const ros = params.get("when") === "ros", pos = Object.values(PJ_POS).includes(params.get("pos")) ? params.get("pos") : "";
+    const ros = params.get("when") === "ros", pos = pjPos(params, Object.values(PJ_POS));
     const cols = pos === "K" ? PJ_K : PJ_COLS;
-    const sort = cols.some((c) => c[1] === params.get("sort")) ? params.get("sort") : "pts", dir = params.get("dir") === "asc" ? "asc" : "desc";
+    const sort = pjSort(params, cols, pos), dir = params.get("dir") === "asc" ? "asc" : "desc";
     const shown = Math.max(1, +params.get("pages") || 1) * 100;
     const go = (changes) => {
       const p = new URLSearchParams(params);
@@ -748,10 +752,10 @@ const Live = (() => {
       ${all.length > shown ? `<p><button id="pj-more" class="btn">Show 100 more</button></p>` : ""}
       <p class="note">Click a column to sort by it. Players on bye or projected for nothing (out) aren't listed${ros ? "; rest-of-season totals skip byes and games ESPN expects them to miss" : ""}. Projections: ESPN fantasy, updated through the week.</p>`;
     $("#pj-when").onclick = (e) => { const b = e.target.closest("[data-when]"); if (b) go({ when: b.dataset.when, pages: null }); };
-    $("#pj-pos").onclick = (e) => { const b = e.target.closest("[data-pos]"); if (b) go({ pos: b.dataset.pos, pages: null }); };
+    $("#pj-pos").onclick = (e) => { const b = e.target.closest("[data-pos]"); if (b) go({ pos: b.dataset.pos || "all", sort: null, dir: null, pages: null }); };
     view("stats").querySelector("#pj-table thead").onclick = (e) => {
       const k = e.target.closest("th")?.dataset.sort;
-      if (k) go({ sort: k === "pts" ? null : k, dir: k === sort && dir === "desc" ? "asc" : null, pages: null });
+      if (k) go({ sort: k === (PJ_KEY[pos] || "pts") ? null : k, dir: k === sort && dir === "desc" ? "asc" : null, pages: null });
     };
     $("#pj-search").oninput = (e) => {
       const q = e.target.value.trim().toLowerCase();
@@ -779,8 +783,8 @@ const Live = (() => {
       view("stats").innerHTML = stSubStats("projected") + `<div class="card">No college projections yet: they're built with each weekly rankings update. <a href="${link("stats", null, { show: "projected", league: "nfl" })}">See NFL projections →</a></div>`;
       return;
     }
-    const pos = ["QB", "RB", "WR", "TE"].includes(params.get("pos")) ? params.get("pos") : "";
-    const sort = PJ_COLS.some((c) => c[1] === params.get("sort")) ? params.get("sort") : "pts", dir = params.get("dir") === "asc" ? "asc" : "desc";
+    const pos = pjPos(params, ["QB", "RB", "WR", "TE"]);
+    const sort = pjSort(params, PJ_COLS, pos), dir = params.get("dir") === "asc" ? "asc" : "desc";
     const shown = Math.max(1, +params.get("pages") || 1) * 100;
     const go = (changes) => {
       const p = new URLSearchParams(params);
@@ -814,10 +818,10 @@ const Live = (() => {
         <tbody>${rows("")}</tbody></table></div>
       ${all.length > shown ? `<p id="pj-more-p"><button id="pj-more" class="btn">Show 100 more</button></p>` : ""}
       <p class="note"><b>How these work:</b> ${CFB_HOW} ${all.length.toLocaleString()} FBS players projected, using games through week ${esc(data.through)}.</p>`;
-    $("#pj-pos").onclick = (e) => { const b = e.target.closest("[data-pos]"); if (b) go({ pos: b.dataset.pos, pages: null }); };
+    $("#pj-pos").onclick = (e) => { const b = e.target.closest("[data-pos]"); if (b) go({ pos: b.dataset.pos || "all", sort: null, dir: null, pages: null }); };
     view("stats").querySelector("#pj-table thead").onclick = (e) => {
       const k = e.target.closest("th")?.dataset.sort;
-      if (k) go({ sort: k === "pts" ? null : k, dir: k === sort && dir === "desc" ? "asc" : null, pages: null });
+      if (k) go({ sort: k === (PJ_KEY[pos] || "pts") ? null : k, dir: k === sort && dir === "desc" ? "asc" : null, pages: null });
     };
     $("#pj-search").oninput = (e) => {
       const q = e.target.value.trim().toLowerCase();
@@ -2242,7 +2246,7 @@ const Live = (() => {
       };
       const away = c.competitors.find((x) => x.homeAway === "away") || c.competitors[0], home = c.competitors.find((x) => x !== away);
       return miniBug({ href: link("game", e.id), wk: (/\d+/.exec(e.week?.text || "") || [])[0] || (e.week?.text || "").slice(0, 4), state: st,
-        status: st === "post" ? c.status?.type?.shortDetail || "Final" : statusText(c.status, c.date), result: st === "post" ? (me.winner ? "W" : "L") : null,
+        status: st === "post" ? c.status?.type?.shortDetail || "Final" : statusText(c.status, c.date), result: st === "post" ? (me.winner ? "W" : c.competitors.some((x) => x !== me && x.winner) ? "L" : "T") : null,
         neutral: c.neutralSite, away: sd(away), home: sd(home), tags: g ? schedTags(g, nfl) : "",
         diff: st === "post" && g?.difficulty != null ? g.difficulty : null, winp: st === "pre" && g?.win_prob != null ? g.win_prob : null });
     };

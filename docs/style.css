@@ -1283,6 +1283,15 @@ a.mbug:hover .mb-mid b.mb-at { color: var(--accent); }
 .mb-bar { position: relative; width: 56px; height: 5px; background: var(--bar-bg); }
 .mb-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ink); }
 .mb-win b { color: var(--accent); }
+/* finished games: green = win, red = loss, yellow = tie (outline + tinted week box, middle and footer) */
+.mbug.res-W { --res: #22c55e; } .mbug.res-L { --res: #ef4444; } .mbug.res-T { --res: #eab308; }
+.mbug[class*="res-"] { border-color: color-mix(in srgb, var(--res) 70%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--res) 25%, transparent); }
+.mbug[class*="res-"] .mb-wk { background: linear-gradient(180deg, color-mix(in srgb, var(--res) 30%, transparent), color-mix(in srgb, var(--res) 8%, transparent)); border-right-color: color-mix(in srgb, var(--res) 50%, transparent); }
+.mbug[class*="res-"] .mb-wk b { color: var(--res); }
+.mbug[class*="res-"] .mb-mid { background: linear-gradient(180deg, color-mix(in srgb, var(--res) 26%, #0d0d0f), #0d0d0f); }
+.mbug[class*="res-"] .mb-foot { background: linear-gradient(90deg, color-mix(in srgb, var(--res) 12%, transparent), transparent 70%); border-top-color: color-mix(in srgb, var(--res) 35%, transparent); }
+.mb-mid b.T { color: #eab308; }
+.mbug.res-W .mb-mid b.W { color: #22c55e; } .mbug.res-L .mb-mid b.L { color: #ef4444; }
 @container (max-width: 520px) {
   .mbug { grid-template-columns: 30px minmax(0, 1fr) 62px minmax(0, 1fr); }
   .mb-nm .full { display: none; }

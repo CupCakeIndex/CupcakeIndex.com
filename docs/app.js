@@ -179,7 +179,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "105"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "106"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -540,14 +540,15 @@ function miniBug(g) {
     const score = `<span class="mb-sc">${g.state === "pre" ? "" : esc(s.score ?? "")}</span>`;
     return `<span class="mb-tm ${which}${s.me ? " me" : ""}${lose ? " lose" : ""}">${which === "away" ? pic + name + score : score + name + pic}</span>`;
   };
-  const mid = g.state === "post" ? `<b class="${g.result === "W" ? "W" : "L"}">${esc(g.result || "")}</b><small>${esc(g.status || "Final")}</small>`
+  const mid = g.state === "post" ? `<b class="${g.result === "W" ? "W" : g.result === "T" ? "T" : "L"}">${esc(g.result || "")}</b><small>${esc(g.status || "Final")}</small>`
     : g.state === "in" ? `<b class="live">LIVE</b><small>${esc(g.status || "")}</small>`
     : `<b class="mb-at">${g.neutral ? "VS" : "@"}</b><small class="mb-when">${esc(g.status || "")}</small>`;
   const right = g.diff != null ? `<span class="mb-right" title="Difficulty: the chance a typical top team would lose this game"><em>DIFF</em><span class="mb-bar"><i style="width:${Math.round(g.diff * 100)}%"></i></span><b>${Math.round(g.diff * 100)}%</b></span>`
     : g.winp != null ? `<span class="mb-right mb-win" title="Cupcake Index model's chance this team wins"><b>${Math.round(g.winp * 100)}%</b> to win</span>` : "";
   const foot = g.tags || g.note || right ? `<span class="mb-foot"><span class="mb-tags">${g.tags || ""}${g.note ? `<small>${g.note}</small>` : ""}</span>${right}</span>` : "";
   const body = `<span class="mb-wk">WK<b>${esc(g.wk ?? "")}</b></span>${side(g.away, "away")}<span class="mb-mid">${mid}</span>${side(g.home, "home")}${foot}`;
-  const attrs = `class="mbug ${g.state}${foot ? "" : " nofoot"}"${g.eid ? ` data-eid="${esc(g.eid)}"` : ""} style="--ac:${esc(g.away.color || "#6b7280")};--hc:${esc(g.home.color || "#6b7280")}"`;
+  const res = g.state === "post" && ["W", "L", "T"].includes(g.result) ? ` res-${g.result}` : ""; // win/loss/tie tint
+  const attrs = `class="mbug ${g.state}${res}${foot ? "" : " nofoot"}"${g.eid ? ` data-eid="${esc(g.eid)}"` : ""} style="--ac:${esc(g.away.color || "#6b7280")};--hc:${esc(g.home.color || "#6b7280")}"`;
   return g.href ? `<a ${attrs} href="${esc(g.href)}">${body}</a>` : `<div ${attrs}>${body}</div>`;
 }
 
