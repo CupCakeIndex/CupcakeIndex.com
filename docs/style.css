@@ -1291,6 +1291,9 @@ a.mbug:hover .mb-mid b.mb-at { color: var(--accent); }
 .mbug[class*="res-"] .mb-mid { background: linear-gradient(180deg, color-mix(in srgb, var(--res) 26%, #0d0d0f), #0d0d0f); }
 .mbug[class*="res-"] .mb-foot { background: linear-gradient(90deg, color-mix(in srgb, var(--res) 12%, transparent), transparent 70%); border-top-color: color-mix(in srgb, var(--res) 35%, transparent); }
 .mb-mid b.T { color: #eab308; }
+.pace-stat span { display: block; font-size: 10.5px; margin-top: 2px; }
+.pace-card .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 560px) { .pace-card .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .mbug.res-W .mb-mid b.W { color: #22c55e; } .mbug.res-L .mb-mid b.L { color: #ef4444; }
 @container (max-width: 520px) {
   .mbug { grid-template-columns: 30px minmax(0, 1fr) 62px minmax(0, 1fr); }

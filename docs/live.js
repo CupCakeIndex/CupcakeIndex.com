@@ -771,13 +771,19 @@ const Live = (() => {
   const CFB_HOW = `Each past game is adjusted for the defense he faced (big numbers against a bad defense or an FCS team count for less, production against a strong defense counts for more), then recent games weigh most. His per-throw, per-carry and per-catch rates are pulled toward last season's and the position average so a few fluky plays don't swing them, and this week's opponent, home field and our model's expected game flow (favorites run more) adjust the result. In backtests on 2025 and early 2026 it beat a plain season average (about 6.2 vs 6.9 PPR points off per player), but it can't see injuries or depth-chart news.`;
   let cfbProjP = null;
   const cfbProj = () => (cfbProjP ||= getJSON(`data/cfb/${INDEX.leagues.cfb.latest.season}/projections.json`).catch(() => { cfbProjP = null; return null; }));
+  // Season pace: real totals so far + our projection for each remaining game (src/cfb_projections.py season_pace)
+  let cfbPaceP = null;
+  const cfbPace = () => (cfbPaceP ||= getJSON(`data/cfb/${INDEX.leagues.cfb.latest.season}/pace.json`).catch(() => { cfbPaceP = null; return null; }));
+  const PACE_HOW = `Season pace = what he has actually done so far, plus our projection for every game left on his team's regular-season schedule. Each remaining game uses that opponent's defense, home or away, and our model's expected game flow, so a soft back half pushes the pace up and a tough one pulls it down. It assumes he stays healthy and keeps his role.`;
   const cfbTm = (id, ab) => `<a href="${link("team", id)}"><span class="tm">${img(`https://a.espncdn.com/i/teamlogos/ncaa/500/${encodeURIComponent(id)}.png`, "xs")} ${esc(ab)}</span></a>`;
+  const paceFmt = (v) => (!v || v < 0.5 ? `<span class="muted">–</span>` : Math.round(v).toLocaleString()); // season totals: whole numbers
   const pjFmt = (v, label) => (!v || v < 0.05 ? `<span class="muted">–</span>` : /yds/.test(label) ? Math.round(v).toLocaleString() : v.toFixed(1));
 
   async function cfbProjected(params) {
     const my = token;
     view("stats").innerHTML = stSubStats("projected") + `<div class="card muted">Loading…</div>`;
-    const data = await cfbProj();
+    const pace = params.get("when") === "pace";
+    const data = await (pace ? cfbPace() : cfbProj());
     if (my !== token) return;
     if (!data?.players?.length) {
       view("stats").innerHTML = stSubStats("projected") + `<div class="card">No college projections yet: they're built with each weekly rankings update. <a href="${link("stats", null, { show: "projected", league: "nfl" })}">See NFL projections →</a></div>`;
@@ -796,10 +802,11 @@ const Live = (() => {
     const all = data.players.filter((r) => !pos || r.pos === pos)
       .sort((a, b) => (dir === "desc" ? 1 : -1) * (val(b, sort) - val(a, sort)) || b.pts - a.pts);
     const th = (key, label, title) => `<th class="num sortable${key === sort ? " on" : ""}" data-sort="${key}" title="${esc(title)}">${esc(label)}${key === sort ? (dir === "desc" ? " ▼" : " ▲") : ""}</th>`;
+    const soFar = (r, k) => (pace ? ` title="${esc(String(Math.round(r.so[CFB_PJ[k]] || 0)))} so far"` : "");
     const row = (r, i) => `<tr><td class="num muted">${i + 1}</td>
         <td><div class="team">${face(`https://a.espncdn.com/i/headshots/college-football/players/full/${encodeURIComponent(r.id)}.png`, r.n, "hs")}<div><a href="${link("player", r.id)}"><b>${esc(r.n)}</b></a><small class="muted">${esc(r.pos)}</small></div></div></td>
-        <td>${cfbTm(r.t, r.ta)}</td><td class="pj-opp"><small class="muted">${r.h ? "vs" : "@"}</small> ${cfbTm(r.o, r.oa)}</td>
-        ${PJ_COLS.map(([l, k]) => `<td class="num${k === sort ? " on" : ""}">${pjFmt(val(r, k), l)}</td>`).join("")}
+        <td>${cfbTm(r.t, r.ta)}</td>${pace ? `<td class="num">${r.g}<small class="muted"> +${r.gl}</small></td>` : `<td class="pj-opp"><small class="muted">${r.h ? "vs" : "@"}</small> ${cfbTm(r.o, r.oa)}</td>`}
+        ${PJ_COLS.map(([l, k]) => `<td class="num${k === sort ? " on" : ""}"${soFar(r, k)}>${pace ? paceFmt(val(r, k)) : pjFmt(val(r, k), l)}</td>`).join("")}
         <td class="num${sort === "pts" ? " on" : ""}"><b>${r.pts.toFixed(1)}</b></td></tr>`;
     // the filter searches every projected player (not just the rows on screen) and keeps their overall rank
     const rows = (q) => {
@@ -808,16 +815,18 @@ const Live = (() => {
     };
     view("stats").innerHTML = stSubStats("projected") + `
       <div class="sc-bar">
-        <div class="presets"><button class="on">This week</button></div>
+        <div class="presets" id="pj-when"><button data-when="" class="${pace ? "" : "on"}">This week</button><button data-when="pace" class="${pace ? "on" : ""}">Season pace</button></div>
         <div class="presets" id="pj-pos">${[["", "All"], ...["QB", "RB", "WR", "TE"].map((p) => [p, p])].map(([v, l]) => `<button data-pos="${v}" class="${v === pos ? "on" : ""}">${l}</button>`).join("")}</div>
         <input id="pj-search" type="search" placeholder="Find a player or team…">
       </div>
-      <p class="fr-how">Cupcake Index projections for <b>week ${esc(data.week)}</b> (our model). Our own estimates, for fun: not betting lines.</p>
-      <div class="table-wrap"><table id="pj-table"><thead><tr><th class="num">#</th><th>Player</th><th>Team</th><th>Opp</th>
+      <p class="fr-how">${pace ? `<b>Season pace</b>: where each player's ${esc(data.season)} regular-season totals are headed (our model). Hover a number to see his total so far.`
+        : `Cupcake Index projections for <b>week ${esc(data.week)}</b> (our model).`} Our own estimates, for fun: not betting lines.</p>
+      <div class="table-wrap"><table id="pj-table"><thead><tr><th class="num">#</th><th>Player</th><th>Team</th>${pace ? `<th class="num" title="Games played + games left">G</th>` : "<th>Opp</th>"}
         ${PJ_COLS.map(([l, k, t]) => th(k, l, t)).join("")}${th("pts", "PPR pts", "Projected fantasy points, PPR scoring (1 per catch)")}</tr></thead>
         <tbody>${rows("")}</tbody></table></div>
       ${all.length > shown ? `<p id="pj-more-p"><button id="pj-more" class="btn">Show 100 more</button></p>` : ""}
-      <p class="note"><b>How these work:</b> ${CFB_HOW} ${all.length.toLocaleString()} FBS players projected, using games through week ${esc(data.through)}.</p>`;
+      <p class="note"><b>How these work:</b> ${pace ? PACE_HOW + " " : ""}${CFB_HOW} ${all.length.toLocaleString()} FBS players ${pace ? "paced" : "projected"}, using games through week ${esc(data.through)}.</p>`;
+    $("#pj-when").onclick = (e) => { const b = e.target.closest("[data-when]"); if (b) go({ when: b.dataset.when || null, sort: null, dir: null, pages: null }); };
     $("#pj-pos").onclick = (e) => { const b = e.target.closest("[data-pos]"); if (b) go({ pos: b.dataset.pos || "all", sort: null, dir: null, pages: null }); };
     view("stats").querySelector("#pj-table thead").onclick = (e) => {
       const k = e.target.closest("th")?.dataset.sort;
@@ -842,6 +851,18 @@ const Live = (() => {
       <div class="stats">${keys.map(([l, k]) => `<div class="stat"><small>${esc(l)}</small><b>${pjFmt(r[CFB_PJ[k]], l)}</b></div>`).join("")}
         <div class="stat"><small>PPR pts</small><b>${r.pts.toFixed(1)}</b></div></div>
       <p class="note">Our own estimate, for fun, not a betting line. <a href="${link("stats", null, { show: "projected", league: "cfb", pos: r.pos })}">How these work →</a></p></div>`;
+  }
+
+  // Player page: "Season pace" line, so far -> pace for his main stats (college skill players)
+  async function cfbPaceCard(id) {
+    const r = (await cfbPace())?.players?.find((p) => p.id === String(id));
+    if (!r) return "";
+    const main = { QB: ["3", "4", "24"], RB: ["24", "25", "42"], WR: ["42", "53", "43"], TE: ["42", "53", "43"] }[r.pos] || [];
+    const cell = ([l, k]) => `<div class="stat pace-stat"><small>${esc(l)}</small><b>${paceFmt(r[CFB_PJ[k]])}</b><span class="muted">${Math.round(r.so[CFB_PJ[k]] || 0).toLocaleString()} so far</span></div>`;
+    return `<div class="card pace-card"><h3>Season pace <small class="muted">${r.g + r.gl} games · ${r.gl} left · our model</small></h3>
+      <div class="stats">${PJ_COLS.filter(([, k]) => main.includes(k)).map(cell).join("")}
+        <div class="stat pace-stat"><small>PPR pts</small><b>${r.pts.toFixed(1)}</b><span class="muted">${r.spts.toFixed(1)} so far</span></div></div>
+      <p class="note">Where his season totals are headed: what he's done so far plus our projection for each game left, adjusted for those defenses. <a href="${link("stats", null, { show: "projected", league: "cfb", when: "pace", pos: r.pos })}">Full list →</a></p></div>`;
   }
 
   // ---------------------------------------------------------------- player
@@ -1273,7 +1294,7 @@ const Live = (() => {
       ${injInfo(inj) ? injCard(inj, a.id, fa ? "" : a.team?.id)
         : params.get("inj") ? `<div class="card inj-card" id="pl-inj"><h3>Injury</h3><p class="muted">ESPN has no injury details on file for this player right now.</p></div>` : ""}`;
     fillFaces(view("player"));
-    if (lg === "cfb") cfbProjCard(id).then((html) => { if (html && my === token) $("#career-slot")?.insertAdjacentHTML("beforebegin", html); }).catch(() => {});
+    if (lg === "cfb") Promise.all([cfbProjCard(id), cfbPaceCard(id)]).then((html) => { if (html.join("") && my === token) $("#career-slot")?.insertAdjacentHTML("beforebegin", html.join("")); }).catch(() => {});
     const toInj = params.get("inj") && $("#pl-inj");
     if (toInj) pulse(toInj);
     $("#pl-season").onchange = (e) => { location.hash = link("player", id, { season: e.target.value }); };

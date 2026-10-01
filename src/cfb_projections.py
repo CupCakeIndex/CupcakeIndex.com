@@ -174,15 +174,16 @@ def rosters(season, team_ids, refresh):
     return out
 
 
-def margins(season, week):
-    """Our model's expected margin for each team in `week`, from the previous week's file: {espn game id: {team name: margin}}."""
-    f = OUT / str(season) / f"week_{week - 1}.json"
+def margins(season, week, src=None):
+    """Our model's expected margin for each team in `week` (None = every upcoming week), from week `src`'s file
+    (default: the previous week's): {espn game id: {team name: margin}}."""
+    f = OUT / str(season) / f"week_{week - 1 if src is None else src}.json"
     if not f.exists():
         return {}
     out = {}
     for t in json.loads(f.read_text(encoding="utf-8"))["teams"]:
         for s in t.get("schedule", []):
-            if s.get("week") == week and s.get("espn_id") and s.get("spread") is not None:
+            if (week is None or s.get("week") == week) and s.get("espn_id") and s.get("spread") is not None:
                 out.setdefault(str(s["espn_id"]), {})[str(t["id"])] = s["spread"]
     return out
 
@@ -353,9 +354,9 @@ def project(games, matchups, pos_known, prior=None, P=PARAMS, naive=False, D=Non
     return out, D
 
 
-def matchups_for(season, week, refresh):
+def matchups_for(season, week, refresh, mg=None):
     """{team id: {opp, ofbs, home, margin, abbr, oabbr}} for the week's games (margin from our model, may be missing)."""
-    mg = margins(season, week)
+    mg = margins(season, week) if mg is None else mg
     out = {}
     for g in scoreboard(season, week, refresh):
         a, b = g["teams"]
@@ -381,7 +382,7 @@ def build(season, last_week, offline=False, path=None):
     ids = {t["id"] for g in games for t in g["teams"] if t["fbs"]}
     pos = rosters(season, ids, refresh)
     prior = load_prior(season - 1, refresh)
-    proj, _ = project(games, mu, pos, prior)
+    proj, D = project(games, mu, pos, prior)
     rows = []
     for aid, r in proj.items():
         if r["pts"] < 1.0 or not mu[r["t"]]["opp"]:
@@ -395,6 +396,51 @@ def build(season, last_week, offline=False, path=None):
     path = path or OUT / str(season) / "projections.json"
     path.write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
     print(f"  projections: {len(rows)} players for week {week} -> {path.relative_to(ROOT)}")
+    season_pace(season, last_week, games, pos, prior, D, refresh)
+    return data
+
+
+# ---------------------------------------------------------------- season pace
+LAST_WEEK = 16  # regular season incl. conference title games and Army-Navy (unknown matchups are skipped)
+
+
+def season_pace(season, last_week, games, pos_known, prior, D, refresh, P=PARAMS):
+    """Season pace (Stats > Projected > Season pace, player pages): each player's real totals so far plus our
+    projection for every remaining regular-season game: that opponent's defense, home/away and our model's
+    expected margin, so a soft back half pushes the pace up and a tough one pulls it down.
+    Writes docs/data/cfb/<season>/pace.json."""
+    mg = margins(season, None, src=last_week)  # the newest rankings file has a margin for every upcoming game
+    players, _ = player_games(games, pos_known)
+    abbr = {t["id"]: t["abbr"] for g in games for t in g["teams"]}
+    rest, left = {}, {}
+    for w in range(last_week + 1, LAST_WEEK + 1):
+        mu = {t: m for t, m in matchups_for(season, w, refresh, mg).items() if not m["done"] and m["opp"]}
+        if not mu:
+            continue
+        for t in mu:
+            left[t] = left.get(t, 0) + 1
+        proj, _ = project(games, mu, pos_known, prior, P, D=D)
+        for aid, r in proj.items():
+            acc = rest.setdefault(aid, {k: 0.0 for k in STATS})
+            for k in STATS:
+                acc[k] += r[k]
+    rows = []
+    for aid, p in players.items():
+        if p["pos"] not in ("QB", "RB", "WR", "TE"):
+            continue
+        so = {k: sum(x[k] for x in p["games"]) for k in STATS}
+        tot = {k: so[k] + rest.get(aid, {}).get(k, 0.0) for k in STATS}
+        pts = sum(PPR[k] * tot[k] for k in STATS)
+        if pts < 20:
+            continue
+        rows.append({"id": aid, "n": p["n"], "pos": p["pos"], "t": p["t"], "ta": abbr.get(p["t"], ""), "g": len(p["games"]),
+                     "gl": left.get(p["t"], 0), "so": {k: round(v) for k, v in so.items()}, **{k: round(v, 1) for k, v in tot.items()}, "pts": round(pts, 1),
+                     "spts": round(sum(PPR[k] * so[k] for k in STATS), 1)})
+    rows.sort(key=lambda r: -r["pts"])
+    data = {"season": season, "through": last_week, "generated": datetime.now(timezone.utc).isoformat(timespec="minutes"), "players": rows}
+    path = OUT / str(season) / "pace.json"
+    path.write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
+    print(f"  season pace: {len(rows)} players -> {path.relative_to(ROOT)}")
     return data
 
 
