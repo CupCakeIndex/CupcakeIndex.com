@@ -706,10 +706,7 @@ const Live = (() => {
 
   async function projected(params) {
     const my = token;
-    if (league !== "nfl") {
-      view("stats").innerHTML = stSubStats("projected") + `<div class="card">Projections are NFL only: they come from ESPN's fantasy football feed, which doesn't cover college. <a href="${link("stats", null, { show: "projected", league: "nfl" })}">See NFL projections →</a></div>`;
-      return;
-    }
+    if (league !== "nfl") return cfbProjected(params);
     view("stats").innerHTML = stSubStats("projected") + `<div class="card muted">Loading…</div>`;
     let data, teams;
     try {
@@ -761,6 +758,86 @@ const Live = (() => {
       view("stats").querySelectorAll("#pj-table tbody tr").forEach((tr) => tr.classList.toggle("hidden", !!q && !(tr.dataset.name || "").includes(q)));
     };
     if ($("#pj-more")) $("#pj-more").onclick = () => go({ pages: shown / 100 + 1 });
+  }
+
+  // ---------------------------------------------------------------- CFB projections (our model)
+  // ESPN has no college projections, so the weekly job (src/cfb_projections.py) builds ours for every FBS
+  // QB/RB/WR/TE: past games opponent-adjusted, then volume x efficiency x this week's matchup.
+  const CFB_PJ = { 3: "py", 4: "ptd", 20: "int", 24: "ry", 25: "rtd", 53: "rec", 42: "recy", 43: "rectd" }; // NFL column ids -> our keys
+  const CFB_HOW = `Each past game is adjusted for the defense he faced (big numbers against a bad defense or an FCS team count for less, production against a strong defense counts for more), then recent games weigh most. His per-throw, per-carry and per-catch rates are pulled toward last season's and the position average so a few fluky plays don't swing them, and this week's opponent, home field and our model's expected game flow (favorites run more) adjust the result. In backtests on 2025 and early 2026 it beat a plain season average (about 6.2 vs 6.9 PPR points off per player), but it can't see injuries or depth-chart news.`;
+  let cfbProjP = null;
+  const cfbProj = () => (cfbProjP ||= getJSON(`data/cfb/${INDEX.leagues.cfb.latest.season}/projections.json`).catch(() => { cfbProjP = null; return null; }));
+  const cfbTm = (id, ab) => `<a href="${link("team", id)}"><span class="tm">${img(`https://a.espncdn.com/i/teamlogos/ncaa/500/${encodeURIComponent(id)}.png`, "xs")} ${esc(ab)}</span></a>`;
+  const pjFmt = (v, label) => (!v || v < 0.05 ? `<span class="muted">–</span>` : /yds/.test(label) ? Math.round(v).toLocaleString() : v.toFixed(1));
+
+  async function cfbProjected(params) {
+    const my = token;
+    view("stats").innerHTML = stSubStats("projected") + `<div class="card muted">Loading…</div>`;
+    const data = await cfbProj();
+    if (my !== token) return;
+    if (!data?.players?.length) {
+      view("stats").innerHTML = stSubStats("projected") + `<div class="card">No college projections yet: they're built with each weekly rankings update. <a href="${link("stats", null, { show: "projected", league: "nfl" })}">See NFL projections →</a></div>`;
+      return;
+    }
+    const pos = ["QB", "RB", "WR", "TE"].includes(params.get("pos")) ? params.get("pos") : "";
+    const sort = PJ_COLS.some((c) => c[1] === params.get("sort")) ? params.get("sort") : "pts", dir = params.get("dir") === "asc" ? "asc" : "desc";
+    const shown = Math.max(1, +params.get("pages") || 1) * 100;
+    const go = (changes) => {
+      const p = new URLSearchParams(params);
+      Object.entries(changes).forEach(([k, v]) => (v == null || v === "" ? p.delete(k) : p.set(k, v)));
+      p.set("league", "cfb"); p.set("show", "projected");
+      location.hash = `#/stats?${p}`;
+    };
+    const val = (r, k) => (k === "pts" ? r.pts : r[CFB_PJ[k]] || 0);
+    const all = data.players.filter((r) => !pos || r.pos === pos)
+      .sort((a, b) => (dir === "desc" ? 1 : -1) * (val(b, sort) - val(a, sort)) || b.pts - a.pts);
+    const th = (key, label, title) => `<th class="num sortable${key === sort ? " on" : ""}" data-sort="${key}" title="${esc(title)}">${esc(label)}${key === sort ? (dir === "desc" ? " ▼" : " ▲") : ""}</th>`;
+    const row = (r, i) => `<tr><td class="num muted">${i + 1}</td>
+        <td><div class="team">${face(`https://a.espncdn.com/i/headshots/college-football/players/full/${encodeURIComponent(r.id)}.png`, r.n, "hs")}<div><a href="${link("player", r.id)}"><b>${esc(r.n)}</b></a><small class="muted">${esc(r.pos)}</small></div></div></td>
+        <td>${cfbTm(r.t, r.ta)}</td><td class="pj-opp"><small class="muted">${r.h ? "vs" : "@"}</small> ${cfbTm(r.o, r.oa)}</td>
+        ${PJ_COLS.map(([l, k]) => `<td class="num${k === sort ? " on" : ""}">${pjFmt(val(r, k), l)}</td>`).join("")}
+        <td class="num${sort === "pts" ? " on" : ""}"><b>${r.pts.toFixed(1)}</b></td></tr>`;
+    // the filter searches every projected player (not just the rows on screen) and keeps their overall rank
+    const rows = (q) => {
+      const hits = all.map((r, i) => [r, i]).filter(([r]) => !q || `${r.n} ${r.ta}`.toLowerCase().includes(q));
+      return (q ? hits.slice(0, 200) : hits.slice(0, shown)).map(([r, i]) => row(r, i)).join("") || `<tr><td colspan="14" class="muted">No projected player matches.</td></tr>`;
+    };
+    view("stats").innerHTML = stSubStats("projected") + `
+      <div class="sc-bar">
+        <div class="presets"><button class="on">This week</button></div>
+        <div class="presets" id="pj-pos">${[["", "All"], ...["QB", "RB", "WR", "TE"].map((p) => [p, p])].map(([v, l]) => `<button data-pos="${v}" class="${v === pos ? "on" : ""}">${l}</button>`).join("")}</div>
+        <input id="pj-search" type="search" placeholder="Find a player or team…">
+      </div>
+      <p class="fr-how">Cupcake Index projections for <b>week ${esc(data.week)}</b> (our model). Our own estimates, for fun: not betting lines.</p>
+      <div class="table-wrap"><table id="pj-table"><thead><tr><th class="num">#</th><th>Player</th><th>Team</th><th>Opp</th>
+        ${PJ_COLS.map(([l, k, t]) => th(k, l, t)).join("")}${th("pts", "PPR pts", "Projected fantasy points, PPR scoring (1 per catch)")}</tr></thead>
+        <tbody>${rows("")}</tbody></table></div>
+      ${all.length > shown ? `<p id="pj-more-p"><button id="pj-more" class="btn">Show 100 more</button></p>` : ""}
+      <p class="note"><b>How these work:</b> ${CFB_HOW} ${all.length.toLocaleString()} FBS players projected, using games through week ${esc(data.through)}.</p>`;
+    $("#pj-pos").onclick = (e) => { const b = e.target.closest("[data-pos]"); if (b) go({ pos: b.dataset.pos, pages: null }); };
+    view("stats").querySelector("#pj-table thead").onclick = (e) => {
+      const k = e.target.closest("th")?.dataset.sort;
+      if (k) go({ sort: k === "pts" ? null : k, dir: k === sort && dir === "desc" ? "asc" : null, pages: null });
+    };
+    $("#pj-search").oninput = (e) => {
+      const q = e.target.value.trim().toLowerCase();
+      view("stats").querySelector("#pj-table tbody").innerHTML = rows(q);
+      $("#pj-more-p")?.classList.toggle("hidden", !!q);
+      fillFaces(view("stats"));
+    };
+    if ($("#pj-more")) $("#pj-more").onclick = () => go({ pages: shown / 100 + 1 });
+    fillFaces(view("stats"));
+  }
+
+  // Player page: a small "projected this week" card for college skill players we project
+  async function cfbProjCard(id) {
+    const r = (await cfbProj())?.players?.find((p) => p.id === String(id));
+    if (!r) return "";
+    const keys = PJ_COLS.filter(([, k]) => (r[CFB_PJ[k]] || 0) >= 0.05 && !(k === "20" && r.pos !== "QB"));
+    return `<div class="card"><h3>Projected for week ${esc((await cfbProj()).week)} <small class="muted">${r.h ? "vs" : "@"} ${esc(r.oa)} · our model</small></h3>
+      <div class="stats">${keys.map(([l, k]) => `<div class="stat"><small>${esc(l)}</small><b>${pjFmt(r[CFB_PJ[k]], l)}</b></div>`).join("")}
+        <div class="stat"><small>PPR pts</small><b>${r.pts.toFixed(1)}</b></div></div>
+      <p class="note">Our own estimate, for fun, not a betting line. <a href="${link("stats", null, { show: "projected", league: "cfb", pos: r.pos })}">How these work →</a></p></div>`;
   }
 
   // ---------------------------------------------------------------- player
@@ -1192,6 +1269,7 @@ const Live = (() => {
       ${injInfo(inj) ? injCard(inj, a.id, fa ? "" : a.team?.id)
         : params.get("inj") ? `<div class="card inj-card" id="pl-inj"><h3>Injury</h3><p class="muted">ESPN has no injury details on file for this player right now.</p></div>` : ""}`;
     fillFaces(view("player"));
+    if (lg === "cfb") cfbProjCard(id).then((html) => { if (html && my === token) $("#career-slot")?.insertAdjacentHTML("beforebegin", html); }).catch(() => {});
     const toInj = params.get("inj") && $("#pl-inj");
     if (toInj) pulse(toInj);
     $("#pl-season").onchange = (e) => { location.hash = link("player", id, { season: e.target.value }); };
