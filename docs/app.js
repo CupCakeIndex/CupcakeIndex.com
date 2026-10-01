@@ -179,7 +179,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "103"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "104"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -700,12 +700,13 @@ function openTeam(name) {
   const nfl = league === "nfl";
   // each game is a mini scorebug (away team on the left); ESPN abbreviations + kickoff times fill in after the panel opens
   const byName = new Map(DATA.teams.map((x) => [x.team, x]));
+  const ourRank = new Map(rankTeams(DATA.teams).map((x) => [x.team, x.rank]));
   const col = (c) => Live.kit.teamColor({ color: (c || "").replace("#", "") });
   const sched = t.schedule.map((g) => {
     const o = byName.get(g.opp) || {};
     const [pf, pa] = String(g.score || "").split("-");
     const me = { name: t.team, logo: t.logo, rank: t.rank, color: col(t.color), score: pf, me: true };
-    const op = { name: g.opp, logo: o.logo, rank: g.fcs ? null : g.opp_rank, color: col(o.color), score: pa };
+    const op = { name: g.opp, logo: o.logo, rank: g.fcs ? null : ourRank.get(g.opp) || g.opp_rank, color: col(o.color), score: pa };
     const note = g.qb ? `QB ${esc(g.qb)}${g.qb !== t.usual_qb && t.usual_qb ? " ⚠" : ""}${g.rest_diff ? ` · ${g.rest_diff > 0 ? "+" : ""}${esc(g.rest_diff)} days rest vs. opp` : ""}` : "";
     return miniBug({ href: g.espn_id ? link("game", g.espn_id) : "", eid: g.espn_id, wk: g.week, state: g.upcoming ? "pre" : "post",
       status: g.upcoming ? "Preview" : "Final", result: g.result, neutral: g.loc === "N", away: g.loc === "H" ? op : me, home: g.loc === "H" ? me : op,
@@ -1104,7 +1105,12 @@ async function renderNotes() {
 }
 
 // ------------------------------------------------------------------ model lines (scores + game pages)
-// Home-perspective margin (positive = home favored) -> "Team -7.5"
-const lineText = (g, margin) => margin === 0 ? "Pick'em" : `${esc(margin > 0 ? g.home : g.away)} −${Math.abs(margin).toFixed(1)}`;
+// The model's favorite and its chance to win -> "Team 64% to win" (we show chances, not our own point spreads)
+const chanceText = (g) => {
+  const hp = g.home_win_prob != null ? g.home_win_prob : null;
+  if (hp == null) return "";
+  const home = hp >= 0.5;
+  return `${esc(home ? g.home : g.away)} ${Math.round((home ? hp : 1 - hp) * 100)}% to win`;
+};
 
 document.addEventListener("DOMContentLoaded", init);

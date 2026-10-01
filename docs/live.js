@@ -250,7 +250,7 @@ const Live = (() => {
     };
     const odds = c.odds?.[0];
     const p = preds.get(String(e.id));
-    const model = p ? `Model: ${lineText(p, p.spread)}` : "";
+    const model = p && chanceText(p) ? `Model: ${chanceText(p)}` : "";
     const foot = [odds?.details ? `${esc(odds.details)}${odds.overUnder ? ` · O/U ${esc(odds.overUnder)}` : ""}` : "", model, esc(c.broadcast || c.broadcasts?.[0]?.names?.[0] || "")].filter(Boolean).join(" · ");
     return `<a class="game-card ${st}" href="${link("game", e.id)}">
       <div class="gc-status">${st === "in" ? '<span class="live-dot"></span>' : ""}${esc(statusText(e.status, e.date))}</div>
@@ -344,7 +344,7 @@ const Live = (() => {
     if (pc.length || pred) {
       col.left.push(`<div class="card"><h3>Lines</h3><div class="books">
         ${pc.map((o) => `<span class="book">${esc(o.provider?.name || "Book")}: ${esc(o.details || "—")}${o.overUnder ? ` · O/U ${esc(o.overUnder)}` : ""}</span>`).join("")}
-        ${pred ? `<span class="book hot">Cupcake Index model: ${lineText(pred, pred.spread)}</span>` : ""}</div></div>`);
+        ${pred && chanceText(pred) ? `<span class="book hot">Cupcake Index model: ${chanceText(pred)}</span>` : ""}</div></div>`);
     }
     // win probability
     const wp = s.winprobability || [];
