@@ -1043,3 +1043,55 @@ main .sp-more .card { margin: 0; }
   .gsearch.open input { padding-left: 34px; padding-right: 8px; }
   .gsearch.open .gs-icon { display: flex; position: fixed; left: 13px; top: 12px; bottom: auto; height: 38px; width: 32px; z-index: 72; }
 }
+
+/* Daily game: guess today's NFL player. Guesses are terminal lines with six feedback tiles (green = match, yellow = close) */
+.daily-cta { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; padding: 8px 12px; border: 1px dashed var(--line); background: var(--card);
+  color: var(--ink); font-size: 13px; text-decoration: none !important; }
+.daily-cta:hover { border-color: var(--accent); }
+.daily-cta .dc-txt { color: var(--muted); }
+.daily-cta .dc-st { margin-left: auto; color: var(--accent); font-weight: 700; white-space: nowrap; }
+.dg-gt { color: var(--accent); font-weight: 700; }
+.dg { max-width: 760px; --dg-g: #3ccf7e; --dg-y: #e8b90e; }
+.dg-num { font-weight: 400; font-size: 13px; }
+.dg-key { padding: 0 4px; color: #000; font-weight: 700; }
+.dg-key.g, .dg-c.g { background: var(--dg-g); border-color: var(--dg-g); color: #000; }
+.dg-key.y, .dg-c.y { background: var(--dg-y); border-color: var(--dg-y); color: #000; }
+.dg-board { display: flex; flex-direction: column; gap: 10px; margin: 14px 0; }
+.dg-name { margin-bottom: 4px; }
+.dg-row.hit .dg-name b { color: var(--dg-g); }
+.dg-ok { color: var(--dg-g); font-weight: 700; }
+.dg-cells { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.dg-c { border: 1px solid var(--line); background: var(--bg); padding: 4px 6px; min-width: 0; }
+.dg-c small { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; opacity: .7; }
+.dg-c span { display: block; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dg-c i { font-style: normal; margin-left: 3px; }
+.dg-prompt { position: relative; display: flex; align-items: center; gap: 8px; }
+.dg-prompt input { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--line); padding: 8px 10px; caret-color: var(--accent); }
+.dg-prompt input:focus { border-color: var(--accent); outline: none; }
+.dg-left { white-space: nowrap; font-size: 12px; }
+.dg-list { left: 18px; right: auto; width: min(360px, calc(100% - 18px)); }
+.dg-list button.on { background: var(--accent-soft); }
+.dg-note { margin: 10px 0 0; font-size: 12px; }
+.dg-hint { display: flex; gap: 12px; align-items: center; margin-top: 12px; padding: 8px; border: 1px dashed var(--line); }
+.dg-silbox { flex: none; width: 120px; height: 88px; background: var(--muted); }
+.dg-sil { display: block; width: 120px; height: 88px; object-fit: contain; filter: brightness(0); }
+
+.dg-end { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 14px; }
+.dg-ans { display: flex; gap: 12px; align-items: center; }
+.dg-ans img { width: 120px; height: 88px; object-fit: contain; flex: none; }
+.dg-who { display: block; font-size: 20px; font-weight: 800; color: var(--ink); }
+.dg-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 14px 0; text-align: center; }
+.dg-stats div { border: 1px solid var(--line); padding: 6px; }
+.dg-stats b { display: block; font-size: 20px; color: var(--accent); }
+.dg-stats small { color: var(--muted); font-size: 11px; }
+.dg-pre { background: var(--bg); border: 1px solid var(--line); padding: 8px 10px; font-size: 12px; line-height: 1.35; white-space: pre-wrap; }
+.dg-next { margin: 8px 0 0; color: var(--muted); }
+.dg-next b { color: var(--ink); }
+@media (max-width: 640px) {
+  .dg-cells { gap: 3px; }
+  .dg-c { padding: 3px 4px; }
+  .dg-c small { font-size: 9px; letter-spacing: 0; }
+  .dg-c span { font-size: 12px; }
+  .dg .dg-list { position: absolute; top: calc(100% + 4px); left: 18px; right: 0; width: auto; }
+}
+@media (pointer: coarse) { .dg-prompt input { font-size: 16px; } }

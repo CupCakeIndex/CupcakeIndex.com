@@ -17,6 +17,7 @@ import model
 import nfl_data
 import tune
 import highlights
+import daily_game
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "data"
@@ -73,6 +74,10 @@ def run_league(league, season, cfg_league, offline):
         weeks.append(week)
     if league == "nfl" and not offline:
         nfl_data.build_player_index(OUT / "players_nfl.json")
+        try:
+            daily_game.build(season, out_path=OUT / "daily_nfl.json")  # Daily game player pool
+        except Exception as e:  # never let the game block the rankings
+            print(f"  daily game: skipped ({e})")
     if not offline and weeks and weeks[-1]:
         # CFB: only games involving ranked/top-30 teams, to stay inside the free YouTube quota
         wanted = None if league == "nfl" else {t["team"] for t in res["teams"] if t["power_rank"] <= 30 or t["ap_rank"]}
