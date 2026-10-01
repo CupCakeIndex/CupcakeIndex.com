@@ -23,6 +23,7 @@ This script never talks to X. Posting lives in post_to_x.py.
 import argparse
 import datetime as dt
 import io
+import re
 import json
 import os
 import sys
@@ -409,11 +410,17 @@ SLOTS = {
 }
 
 
+def x_len(text):
+    """Length the way X counts it for unverified accounts: links are 23, emoji and other wide characters are 2."""
+    text = re.sub(r"https?://\S+", "x" * 23, text)
+    return sum(2 if ord(c) > 0x10FF else 1 for c in text)
+
+
 def tweet(text, url, with_link=True):
-    """Keep it under X's 280 (a link always counts as 23 characters)."""
+    """Keep it under X's 280 (a link always counts as 23 characters, plus the newline before it)."""
     budget = 280 - (24 if with_link else 0)
-    if len(text) > budget:
-        text = text[:budget - 1].rsplit(" ", 1)[0] + "…"
+    while x_len(text) > budget:
+        text = text[:-2].rsplit(" ", 1)[0] + "…"
     return f"{text}\n{url}" if with_link else text
 
 

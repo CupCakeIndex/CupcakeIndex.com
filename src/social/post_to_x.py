@@ -29,6 +29,11 @@ def main():
         meta = json.load(f)
 
     print("Tweet text:\n" + meta["text"] + "\nImage: " + meta["image"])
+    # last line of defense: the account isn't verified, so X rejects anything over 280
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from render import x_len
+    if x_len(meta["text"]) > 280:
+        sys.exit(f"Refusing to post: {x_len(meta['text'])} characters is over X's 280 limit.")
     enabled = os.environ.get("X_POSTING_ENABLED", "").strip().lower() == "true"
     missing = [k for k in SECRETS if not os.environ.get(k)]
     if not enabled:
