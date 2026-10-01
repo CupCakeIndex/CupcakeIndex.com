@@ -1047,3 +1047,8 @@ main .sp-more .card { margin: 0; }
 /* Stats by year: NFL vs college key (college seasons are a dimmer shade) */
 .cc-lv-key b { display: inline-block; width: 10px; height: 10px; margin: 0 2px 0 8px; }
 .cc-lv-key b:first-child { margin-left: 0; }
+/* NFL frauds (Stats sub-view) */
+.fr-how { margin: 0 0 10px; font-size: 13px; }
+.fr-low { color: #ef5a50; }
+.fr-high { color: #36b56f; }
+.fr-cell { white-space: nowrap; }
