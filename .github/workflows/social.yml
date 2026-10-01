@@ -1,0 +1,53 @@
+name: Daily X post
+
+# Renders today's graphic + tweet text from docs/data and uploads them as a downloadable artifact.
+# It only POSTS to X when the repo variable X_POSTING_ENABLED is "true" AND these secrets exist:
+#   X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET
+# Setup steps: src/social/README.md
+
+on:
+  schedule:
+    # Every day 15:00 UTC (11am Eastern), Aug-Jan only: after the Monday/Tuesday rankings run.
+    - cron: "0 15 * 8-12,1 *"
+  workflow_dispatch:          # "Run workflow" button on GitHub
+    inputs:
+      day:
+        description: "Rotation day to render (mon..sun, blank = today)"
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: social-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r src/social/requirements.txt
+      - name: Render today's graphic
+        env:
+          DAY: ${{ inputs.day }}
+          X_INCLUDE_LINK: ${{ vars.X_INCLUDE_LINK }}
+        run: |
+          if [[ "$DAY" =~ ^(mon|tue|wed|thu|fri|sat|sun)$ ]]; then python src/social/render.py --day "$DAY"; else python src/social/render.py; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: social-post
+          path: out/social/
+          retention-days: 14
+      - name: Post to X (only when switched on)
+        if: vars.X_POSTING_ENABLED == 'true'   # post_to_x.py double-checks this and the secrets
+        env:
+          X_POSTING_ENABLED: ${{ vars.X_POSTING_ENABLED }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+        run: python src/social/post_to_x.py --meta out/social/today.json
