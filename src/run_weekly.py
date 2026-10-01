@@ -18,6 +18,7 @@ import nfl_data
 import tune
 import highlights
 import daily_game
+import cfb_projections
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "data"
@@ -85,6 +86,10 @@ def run_league(league, season, cfg_league, offline):
     if league == "cfb" and weeks:
         comp = model.comparison(teams, d["polls"], weeks[-1], d.get("fpi"), d.get("sp"))
         (out_dir / "compare.json").write_text(json.dumps({"week": weeks[-1], "teams": comp}, separators=(",", ":")), encoding="utf-8")
+        try:  # our own player projections (Stats > Projected); keeps last week's file if ESPN is down
+            cfb_projections.build(season, weeks[-1], offline)
+        except Exception as e:
+            print(f"  projections: skipped ({e!r})")
     print(f"  wrote {len(weeks)} week(s) to {out_dir.relative_to(ROOT)}")
     return weeks, accuracy(graded)
 
