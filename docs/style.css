@@ -119,31 +119,9 @@ tbody tr:last-child td { border-bottom: 0; }
   .score-col { width: auto; }
 }
 
-#picks td { vertical-align: top; }
-#picks small { display: block; font-size: 11.5px; margin-top: 2px; }
 .books { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .book { font-size: 11px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .hot { color: var(--accent); }
-a.book { color: var(--ink); text-decoration: none; border-color: var(--accent); }
-a.book:hover { background: var(--accent-soft); }
-#picks label.pick { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
-#picks .pk { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; cursor: pointer; flex: none; }
-.slip { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 10px 12px;
-  background: var(--card); border: 1px solid var(--accent); box-shadow: 0 -6px 20px rgba(0,0,0,.35); }
-.slip #slip-n { flex: 1; font-size: 12px; color: var(--muted); }
-.slip button { border: 1px solid var(--line); background: var(--bg); padding: 6px 12px; cursor: pointer; font-weight: 700; }
-.slip #slip-copy { background: var(--accent); border-color: var(--accent); color: #000; }
-/* phones: each game becomes a small card instead of a wide table */
-@media (max-width: 640px) {
-  #picks, #picks tbody { display: block; }
-  #picks thead { display: none; }
-  #picks tr { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; padding: 10px 8px; border-bottom: 1px solid var(--line); }
-  #picks td { border: 0; padding: 0; min-width: 0; }
-  #picks td:first-child { grid-column: 1 / -1; font-weight: 700; }
-  #picks td.unplayed { display: none; }
-  #picks td[data-l]::before { content: attr(data-l); display: block; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
-}
-#acc { line-height: 1.6; }
 .foot { max-width: 1280px; margin: 0 auto; padding: 8px 16px 32px; font-size: 12px; color: var(--muted); }
 .foot a { color: inherit; }
 
@@ -1180,3 +1158,37 @@ tr.inj-note td { border-top: 0; padding-top: 2px; font-size: 12px; color: var(--
   .br-head, .br-odds { flex-basis: 100%; }
   .br-menu { left: 0; right: auto; }
 }
+/* Pick'em: one card per game, tap a team to pick it */
+.pk-status { margin: 0 0 10px; color: var(--muted); }
+.pk-rec { color: var(--accent); }
+.pk-tools { align-items: center; }
+.pk-tools .presets { margin: 0 6px 0 0; }
+.pk-tools button:disabled { opacity: .5; cursor: default; }
+.pk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.pk-game { border: 1px solid var(--line); background: var(--bg); padding: 8px 10px; min-width: 0; }
+.pk-game.in { border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+.pk-st { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.pk-st span:not(.live-dot) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pk-at { font-size: 10px; line-height: 1; padding: 1px 0 1px 12px; }
+.pk-team { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 40px; padding: 4px 8px; background: var(--card); border: 1px solid var(--line); cursor: pointer; text-align: left; }
+.pk-team:hover:not(:disabled) { border-color: var(--accent); }
+.pk-team:disabled { cursor: default; }
+.pk-team.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.pk-team.on .pk-n { color: var(--accent); }
+.pk-team.lose:not(.on) { color: var(--muted); }
+.pk-n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.pk-team small { white-space: nowrap; }
+.pk-sc { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pk-team.lose .pk-sc { color: var(--muted); font-weight: 400; }
+.pk-mark { width: 1.2em; text-align: center; }
+.pk-mark.W { color: var(--good); }
+.pk-mark.L { color: var(--bad); }
+.pk-hint { font-size: 11px; margin-top: 4px; text-align: right; }
+/* Share menu (Copy Link / Save Image) */
+.share { position: relative; display: inline-flex; }
+.share-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 5; display: flex; flex-direction: column; min-width: 150px; background: var(--card); border: 1px solid var(--accent); box-shadow: var(--shadow); }
+.share-menu[hidden] { display: none; }
+.share-menu button { border: 0; border-bottom: 1px solid var(--line); background: none; min-height: 40px; padding: 8px 12px; text-align: left; cursor: pointer; font-size: 12px; font-weight: 700; }
+.share-menu button:last-child { border-bottom: 0; }
+.share-menu button:hover, .share-menu button:focus-visible { background: var(--accent-soft); color: var(--accent); outline: none; }
+@media (max-width: 640px) { .share-menu { left: 0; right: auto; } .pk-grid { grid-template-columns: 1fr; } }

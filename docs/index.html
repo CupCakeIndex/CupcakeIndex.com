@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://a.espncdn.com">
 <meta name="theme-color" content="#0f1216">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=96">
+<link rel="stylesheet" href="style.css?v=97">
 </head>
 <body>
 <header class="top">
@@ -42,7 +42,7 @@
   <a class="tab" data-view="stats" href="#/stats">Stats</a>
   <a class="tab" data-view="standings" href="#/standings">Standings</a>
   <a class="tab nfl-only" data-view="freeagents" href="#/freeagents">Free Agents</a>
-  <a class="tab" data-view="picks" href="#/picks">Picks</a>
+  <a class="tab" data-view="picks" href="#/picks">Pick'em</a>
   <a class="tab" data-view="about" href="#/about">How it works</a>
 </nav>
 
@@ -86,17 +86,7 @@
     </div>
   </section>
 
-  <section id="view-picks" class="view hidden">
-    <div class="card">
-      <h2 id="picks-title">Picks</h2>
-      <p class="note" id="acc"></p>
-      <div class="table-wrap"><table id="picks"><thead><tr>
-        <th>Matchup</th><th>Model line</th><th>Books (median)</th><th>Model's side vs. spread</th><th title="The side our win % likes more than the books' odds do (their cut removed)">Moneyline value</th><th>Result</th>
-      </tr></thead><tbody></tbody></table></div>
-      <p class="note">Tick picks to copy them as text for your notes or bet slip. Books don't let other sites fill in a bet slip, so you'll still enter them yourself. Chips marked ↗ open that game at the sportsbook.</p>
-      <div id="slip" class="slip hidden"><span id="slip-n"></span><button id="slip-copy">Copy picks</button><button id="slip-clear">Clear</button></div>
-    </div>
-  </section>
+  <section id="view-picks" class="view hidden"></section>
 
   <section id="view-schedules" class="view hidden">
     <div class="card">
@@ -164,7 +154,7 @@
       <h3>Early season</h3>
       <p>In the first few weeks there isn't enough data, so ratings start from a preseason guess: last year's rating scaled by returning production, plus roster talent. That guess fades to zero within a few weeks. After that it's pure on-field results.</p>
       <h3>Keeping it honest</h3>
-      <p>Each week the ratings pick every game of the following week and set their own point spread. The Picks tab compares that spread with sportsbook lines and tracks how often the model is right, both straight up and against the spread.</p>
+      <p>Each week the ratings pick every game of the following week. On the Pick'em page you make your own picks for the week's games, with the model's win chance shown as a small hint, and see how you did once the games are final.</p>
       <h3>Scores, stats and standings</h3>
       <p>Live scores, box scores, player stats, rosters and standings load straight from ESPN's public data feed in your browser. They update automatically every 30 seconds while games are in progress.</p>
     </div>
@@ -181,8 +171,10 @@
   </div>
 </div>
 
-<script src="app.js?v=96"></script>
-<script src="live.js?v=96"></script>
-<script src="daily.js?v=96"></script>
+<script src="app.js?v=97"></script>
+<script src="live.js?v=97"></script>
+<script src="daily.js?v=97"></script>
+<script src="share.js?v=97"></script>
+<script src="pickem.js?v=97"></script>
 </body>
 </html>
