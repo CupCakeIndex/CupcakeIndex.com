@@ -658,6 +658,8 @@ const Live = (() => {
     const xlabels = xs.map((x, gi) => (gi % step ? "" : `<text x="${px(gi).toFixed(1)}" y="${H - 5}" class="cc-x">${align === "career" ? "Yr " + x : x}</text>`)).join("");
     // lines draw themselves in left to right; each dot pops in as the line reaches it (CSS animations)
     const nodes = [];
+    const mixLv = lvl === "both" && main.lg === "nfl"; // showing college and NFL seasons together
+    const shade = (sr, r) => (mixLv && r.level === "NCAA" ? `color-mix(in srgb, ${sr.color} 42%, #3a3a40)` : sr.color);
     let benchLine = "";
     if (xs.some((x) => benchAt(x) != null)) {
       const pts = xs.map((x, gi) => benchAt(x) != null && { x: px(gi), y: py(benchAt(x)), gi, v: benchAt(x) });
@@ -674,7 +676,7 @@ const Live = (() => {
       pts.forEach((p, i) => { if (p) d += `${pts[i - 1] ? "L" : "M"}${p.x.toFixed(1)},${p.y.toFixed(1)}`; });
       const dots = pts.filter(Boolean).map((p) => {
         nodes.push({ x: p.x, y: p.y, si, label: align === "career" ? `Career yr ${xs[p.gi]} · ${p.r.year}` : String(p.r.year), team: p.r.team.abbr, val: p.r.vals[metric] });
-        return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="${sr.color}" class="cc-dot" data-n="${nodes.length - 1}" style="animation-delay:${(0.1 + si * 0.15 + (p.gi / Math.max(1, xs.length - 1)) * 0.9).toFixed(2)}s"></circle>`;
+        return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" class="cc-dot" data-n="${nodes.length - 1}" style="fill:${shade(sr, p.r)};animation-delay:${(0.1 + si * 0.15 + (p.gi / Math.max(1, xs.length - 1)) * 0.9).toFixed(2)}s"></circle>`;
       }).join("");
       return `<path d="${d}" stroke="${sr.color}" class="cc-line" pathLength="1" style="animation-delay:${si * 0.15}s"/>${dots}`;
     }).join("");
@@ -685,7 +687,7 @@ const Live = (() => {
       if (!r) return "";
       const bx = padL + gi * gw + (gw - bw * series.length) / 2 + si * bw, by = py(r.v);
       bnodes.push({ x: bx + (bw - 2) / 2, y: by, x0: bx, x1: bx + bw - 2, si, label: align === "career" ? `Career yr ${x} · ${r.year}` : String(r.year), team: r.team.abbr, val: r.vals[metric] });
-      return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${(bw - 2).toFixed(1)}" height="${(base - by).toFixed(1)}" fill="${sr.color}" class="cc-bar" data-n="${bnodes.length - 1}" style="animation-delay:${(0.05 + (gi / Math.max(1, xs.length - 1)) * 0.6).toFixed(2)}s"/>`;
+      return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${(bw - 2).toFixed(1)}" height="${(base - by).toFixed(1)}" class="cc-bar" data-n="${bnodes.length - 1}" style="fill:${shade(sr, r)};animation-delay:${(0.05 + (gi / Math.max(1, xs.length - 1)) * 0.6).toFixed(2)}s"/>`;
     }).join("")).join("");
     const benchOver = benchLine ? benchLine.replace(/data-n="(\d+)"/g, (_, n) => { bnodes.push({ ...nodes[+n] }); return `data-n="${bnodes.length - 1}"`; }) : "";
     const svg = (mode, body) => `<svg viewBox="0 0 ${W} ${H}" class="cc-chart cc-${mode}" data-mode="${mode}" role="img" aria-label="${esc(C.labels[metric])} by ${align === "career" ? "career year" : "season"}">${grid}${xlabels}${body}</svg>`;
@@ -696,7 +698,9 @@ const Live = (() => {
     ccHover = { W, H, top, base, cols: xs.map((x, gi) => ({ x, px: px(gi) })), sets: { line: nodes, bar: bnodes }, stat: C.labels[metric], series: series.map((sr) => ({ name: sr.p.name, color: sr.color })) };
     const legend = series.map((sr, i) => `<span class="cc-chip" style="--c:${sr.color}">${face(sr.p.headshot, sr.p.name, "hs", sr.p.lg === "nfl", sr.p.born)} ${esc(sr.p.name)} <small>${esc(sr.p.pos || "")}</small>
       ${i ? `<button class="cc-x-btn" data-rm="${esc(sr.p.lg)}:${esc(sr.p.id)}" aria-label="Remove">×</button>` : ""}</span>`).join("")
-      + (benchLine ? `<span class="cc-bench-key" title="Each season's average for the top 10 players in this stat"><i></i>Top-10 avg</span>` : "");
+      + (benchLine ? `<span class="cc-bench-key" title="Each season's average for the top 10 players in this stat"><i></i>Top-10 avg</span>` : "")
+      + (mixLv && series.some((sr) => sr.rows.some((r) => inView.has(r.x) && r.level === "NCAA"))
+        ? `<span class="cc-bench-key cc-lv-key"><b style="background:${series[0].color}"></b>NFL <b style="background:color-mix(in srgb, ${series[0].color} 42%, #3a3a40)"></b>College</span>` : "");
 
     const teamCell = (r) => `<span class="tm">${img(r.team.logo, "xs")} ${esc(r.team.abbr)}${r.level === "NCAA" && main.lg === "nfl" && lvl === "both" ? ' <span class="pill lvl">NCAA</span>' : ""}</span>`;
     let table;

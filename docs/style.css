@@ -1043,3 +1043,7 @@ main .sp-more .card { margin: 0; }
   .gsearch.open input { padding-left: 34px; padding-right: 8px; }
   .gsearch.open .gs-icon { display: flex; position: fixed; left: 13px; top: 12px; bottom: auto; height: 38px; width: 32px; z-index: 72; }
 }
+
+/* Stats by year: NFL vs college key (college seasons are a dimmer shade) */
+.cc-lv-key b { display: inline-block; width: 10px; height: 10px; margin: 0 2px 0 8px; }
+.cc-lv-key b:first-child { margin-left: 0; }
