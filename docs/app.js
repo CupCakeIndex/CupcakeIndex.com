@@ -98,47 +98,54 @@ function link(view, arg = null, params = {}) {
 
 let lastPage = null;
 function leagueWipe(lg) {
-  // CFB <-> NFL: a burst of pixel particles out of the switch (flying the way it moved: NFL right, CFB left)
-  // and a short glitch on the page content while the other league loads. Nothing covers the screen.
+  // CFB <-> NFL: a short "data stream" of grid-aligned pixels leaves the switch the way it moved (NFL right, CFB left)
+  // and a thin scan line sweeps the content the same way while the other league fades in. The page itself never moves.
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const dir = lg === "nfl" ? 1 : -1, sw = $("#league")?.getBoundingClientRect();
-  const main = document.querySelector("main");
+  const dir = lg === "nfl" ? 1 : -1, sw = $("#league")?.getBoundingClientRect(), main = document.querySelector("main");
+  document.querySelectorAll(".lg-px, .lg-scan").forEach((e) => e.remove());
   if (main) {
-    const html = document.documentElement; // the shake must never make the page scroll sideways
-    main.classList.remove("lg-glitch"); void main.offsetWidth;
-    html.classList.add("lg-glitching"); main.classList.add("lg-glitch");
-    setTimeout(() => { main.classList.remove("lg-glitch"); html.classList.remove("lg-glitching"); }, 280);
+    const r = main.getBoundingClientRect(), top = Math.max(0, r.top);
+    const scan = document.createElement("div"), line = document.createElement("i");
+    scan.className = `lg-scan ${dir > 0 ? "ltr" : "rtl"}`;
+    scan.style.top = top + "px";
+    scan.appendChild(line);
+    document.body.appendChild(scan);
+    const W = innerWidth;
+    line.animate([{ transform: `translateX(${dir > 0 ? -140 : W + 20}px)` }, { transform: `translateX(${dir > 0 ? W + 20 : -140}px)` }],
+      { duration: 450, easing: "cubic-bezier(.4, 0, .2, 1)", fill: "forwards" });
+    setTimeout(() => scan.remove(), 500); // a timer, not onfinish: some browsers finish animations early in background tabs
+    main.classList.remove("lg-in"); void main.offsetWidth; main.classList.add("lg-in");
+    setTimeout(() => main.classList.remove("lg-in"), 500);
   }
   if (!sw) return;
-  document.querySelector(".lg-px")?.remove();
   const c = document.createElement("canvas"), dpr = Math.min(2, window.devicePixelRatio || 1);
   c.className = "lg-px";
   c.width = innerWidth * dpr; c.height = innerHeight * dpr;
   document.body.appendChild(c);
-  const g = c.getContext("2d"), css = getComputedStyle(document.documentElement);
-  const cols = [css.getPropertyValue("--accent").trim() || "#ff6b2c", css.getPropertyValue("--ink").trim() || "#ececec"];
-  const ox = sw.left + sw.width / 2, oy = sw.top + sw.height / 2;
-  const ps = Array.from({ length: 32 }, () => ({
-    x: ox + (Math.random() - 0.5) * sw.width, y: oy + (Math.random() - 0.5) * sw.height,
-    vx: dir * (2 + Math.random() * 9), vy: (Math.random() - 0.35) * 6, s: 2 + Math.floor(Math.random() * 4),
-    c: cols[Math.random() < 0.75 ? 0 : 1], life: 0, max: 26 + Math.random() * 22 }));
+  const g = c.getContext("2d"), accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#ff6b2c";
+  const G = 4, snap = (v) => Math.round(v / G) * G;                       // everything sits on a 4px grid
+  const x0 = dir > 0 ? sw.right + 4 : sw.left - 8, y0 = sw.top + sw.height / 2;
+  const ps = Array.from({ length: 18 }, (_, i) => ({ row: (i % 3) - 1, delay: Math.floor(i / 3) * 2 + (i % 3), speed: 7 + (i % 3) * 2, x: x0 }));
+  let f = 0;
   const step = () => {
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, innerWidth, innerHeight);
     let alive = 0;
     for (const p of ps) {
-      if (p.life++ > p.max) continue;
+      const t = f - p.delay;
+      if (t < 0) { alive++; continue; }
+      if (t > 22) continue;
       alive++;
-      p.x += p.vx; p.y += p.vy; p.vy += 0.25; p.vx *= 0.97;
-      if (Math.random() < 0.08) p.x += dir * 12; // glitchy jump
-      g.globalAlpha = 1 - p.life / p.max;
-      g.fillStyle = p.c;
-      g.fillRect(Math.round(p.x), Math.round(p.y), p.s, p.s);
+      p.x += dir * p.speed;
+      g.globalAlpha = Math.max(0, 1 - t / 22);
+      g.fillStyle = accent;
+      g.fillRect(snap(p.x), snap(y0 + p.row * 8) - G / 2, G, G);
     }
+    f++;
     if (alive) requestAnimationFrame(step); else c.remove();
   };
   requestAnimationFrame(step);
-  setTimeout(() => c.remove(), 2000);
+  setTimeout(() => c.remove(), 1500);
 }
 async function route() {
   const r = parseHash();
@@ -232,7 +239,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "146"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "147"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });

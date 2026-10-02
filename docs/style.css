@@ -1756,14 +1756,13 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 @media (prefers-reduced-motion: reduce) { .acct-toast { transition: none; } }
 /* CFB <-> NFL switch: pixel particles out of the switch (canvas) + a short glitch on the page content */
 .lg-px { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 200; pointer-events: none; }
-main.lg-glitch { animation: lgglitch .28s steps(1) both; }
-@keyframes lgglitch {   /* toned down: small shifts, thin slices, faint color edge */
-  0%   { transform: translate(0); clip-path: inset(0 0 0 0); filter: none; }
-  20%  { transform: translate(-2px, 0); clip-path: inset(0 0 0 0); filter: drop-shadow(1px 0 0 color-mix(in srgb, var(--accent) 60%, transparent)); }
-  40%  { transform: translate(2px, 0); clip-path: inset(30% 0 52% 0); filter: none; }
-  60%  { transform: translate(-1px, 0); clip-path: inset(0 0 0 0); filter: drop-shadow(-1px 0 0 color-mix(in srgb, var(--accent) 60%, transparent)); }
-  100% { transform: none; clip-path: none; filter: none; }
-}
+/* scan line: 2px accent line with a soft trail, one pass across the content in the switch's direction */
+.lg-scan { position: fixed; left: 0; right: 0; bottom: 0; z-index: 199; pointer-events: none; overflow: hidden; }
+.lg-scan i { position: absolute; top: 0; bottom: 0; left: 0; width: 120px; will-change: transform;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 14%, transparent) 80%, var(--accent) calc(100% - 2px), var(--accent)); }
+.lg-scan.rtl i { background: linear-gradient(270deg, transparent, color-mix(in srgb, var(--accent) 14%, transparent) 80%, var(--accent) calc(100% - 2px), var(--accent)); }
+main.lg-in { animation: lgin .4s ease-out both; }
+@keyframes lgin { from { opacity: .35; } to { opacity: 1; } }
 /* phones: Back is a compact arrow box in the header row (Rankings also has Season/Week there); the floating version keeps its label */
 @media (max-width: 760px) {
   .top .controls .back-fab:not(.floating) { width: 38px; padding: 0; justify-content: center; font-size: 16px; }
@@ -1776,4 +1775,3 @@ main.lg-glitch { animation: lgglitch .28s steps(1) both; }
 }
 @media (max-width: 380px) { .sub { font-size: 11px; } .def i { margin: 0 2px 0 1px; } }
 @media (max-width: 760px) { .top .controls #league button { padding-left: 10px; padding-right: 10px; } .top .controls .rank-ctl select { padding-left: 6px; padding-right: 2px; } }
-html.lg-glitching, html.lg-glitching body { overflow-x: clip; }
