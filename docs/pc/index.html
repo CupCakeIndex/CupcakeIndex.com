@@ -87,6 +87,22 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   font: 12px var(--mono); background: var(--bg) center / cover no-repeat; cursor: pointer; overflow: hidden; }
 .photo input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .status { font: 12px var(--mono); color: var(--gold2); min-height: 1em; }
+.hint { margin: 0; color: var(--muted); font-size: 12.5px; }
+/* card search */
+.srch { display: grid; gap: 8px; }
+.srch-bar { display: flex; gap: 8px; } .srch-bar input { flex: 1; min-width: 0; font: 16px var(--body); padding: 9px 10px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; }
+.srch-res { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; max-height: 340px; overflow-y: auto; }
+.srch-hit { display: grid; gap: 4px; padding: 6px; text-align: left; font: 11px/1.3 var(--body); color: var(--muted); }
+.srch-hit img { width: 100%; aspect-ratio: 5 / 7; object-fit: cover; border-radius: 6px; background: #1a1a20; }
+.srch-hit span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* card cropper */
+.crop-sheet { z-index: 60; }
+.crop { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: grid; gap: 10px; justify-items: center; max-width: 100%; }
+.crop h2 { margin: 0; font: 400 26px var(--display); text-transform: uppercase; }
+.crop-stage { position: relative; touch-action: none; }
+.crop-stage canvas { display: block; border-radius: 6px; }
+.crop-box { position: absolute; border: 2px solid var(--gold2); border-radius: 8px; box-shadow: 0 0 0 9999px rgba(0,0,0,.6); cursor: move; touch-action: none; }
+.crop-h { position: absolute; right: -9px; bottom: -9px; width: 20px; height: 20px; border-radius: 50%; background: var(--gold2); border: 2px solid #1a1408; cursor: nwse-resize; }
 .hidden { display: none !important; }
 @media (max-width: 640px) {
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -123,6 +139,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 </div>
 
 <script src="../firebase-config.js"></script>
+<script>window.VAULT_SEARCH_URL = ""; // the Cloudflare Worker's address (workers/vault-search.js) once it's set up</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -245,15 +262,87 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   function alertish(msg) { $("#who").textContent = msg; }
 
   // ---------- add / edit (owner only)
-  async function shrink(file) {
-    // longest side 1000px, JPEG; step the quality down until it fits comfortably in one Firestore document
-    const bmp = await createImageBitmap(file);
-    const s = Math.min(1, 1000 / Math.max(bmp.width, bmp.height)), cv = document.createElement("canvas");
-    cv.width = Math.round(bmp.width * s); cv.height = Math.round(bmp.height * s);
-    cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
-    let q = 0.85, url = cv.toDataURL("image/jpeg", q);
-    while (url.length > 420000 && q > 0.4) { q -= 0.1; url = cv.toDataURL("image/jpeg", q); }
-    return url;
+  // Card search (eBay listing photos) goes through a small Cloudflare Worker that holds the eBay key.
+  // Empty until it's set up; then search shows up in "Add a card".
+  const SEARCH = window.VAULT_SEARCH_URL || "";
+  const CARD_W = 700, CARD_H = 980; // saved size: a 2.5 x 3.5 card
+
+  async function bitmapOf(src) {
+    if (src instanceof Blob) return createImageBitmap(src);
+    const r = await fetch(src);
+    if (!r.ok) throw new Error("image " + r.status);
+    return createImageBitmap(await r.blob());
+  }
+  // Find the card in a photo: the background is whatever color fills the photo's edges; the card is the big block
+  // of rows and columns that differ from it. Returns a 5:7 box around it (in image pixels).
+  function autoRect(bmp) {
+    const W = 200, s = W / bmp.width, H = Math.max(1, Math.round(bmp.height * s));
+    const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    const g = cv.getContext("2d", { willReadFrequently: true }); g.drawImage(bmp, 0, 0, W, H);
+    const px = g.getImageData(0, 0, W, H).data, at = (x, y) => { const i = (y * W + x) * 4; return [px[i], px[i + 1], px[i + 2]]; };
+    const ring = [];
+    for (let x = 0; x < W; x += 2) ring.push(at(x, 1), at(x, H - 2));
+    for (let y = 0; y < H; y += 2) ring.push(at(1, y), at(W - 2, y));
+    const med = [0, 1, 2].map((k) => ring.map((p) => p[k]).sort((a, b) => a - b)[ring.length >> 1]);
+    const fg = (x, y) => { const p = at(x, y); return Math.abs(p[0] - med[0]) + Math.abs(p[1] - med[1]) + Math.abs(p[2] - med[2]) > 60; };
+    const rows = [], cols = new Array(W).fill(0);
+    for (let y = 0; y < H; y++) { let n = 0; for (let x = 0; x < W; x++) if (fg(x, y)) { n++; cols[x]++; } rows.push(n / W); }
+    const on = (arr, lim) => { const i0 = arr.findIndex((v) => v > lim), i1 = arr.length - 1 - [...arr].reverse().findIndex((v) => v > lim); return i0 < 0 ? null : [i0, i1]; };
+    const ry = on(rows, 0.25), rx = on(cols.map((c) => c / H), 0.25);
+    let x0 = 0, y0 = 0, x1 = W, y1 = H;
+    if (ry && rx && (rx[1] - rx[0]) > W * 0.25 && (ry[1] - ry[0]) > H * 0.25) { [x0, x1] = rx; [y0, y1] = ry; }
+    // grow to a 5:7 card shape around the found block, inside the photo
+    let w = x1 - x0, h = y1 - y0, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    if (w / h > 5 / 7) h = w * 7 / 5; else w = h * 5 / 7;
+    w = Math.min(w, W, H * 5 / 7); h = w * 7 / 5;
+    const x = Math.max(0, Math.min(W - w, cx - w / 2)), y = Math.max(0, Math.min(H - h, cy - h / 2));
+    return { x: x / s, y: y / s, w: w / s, h: h / s };
+  }
+  // Show the photo with a card-shaped crop box: drag to move, drag the corner to resize. Resolves with the cropped JPEG.
+  function cropper(bmp) {
+    return new Promise((done) => {
+      const r = autoRect(bmp), view = Math.min(320, innerWidth - 60), sc = view / Math.max(bmp.width, bmp.height * 0.8);
+      const vw = Math.round(bmp.width * sc), vh = Math.round(bmp.height * sc);
+      const box = { x: r.x * sc, y: r.y * sc, w: r.w * sc };
+      const w = document.createElement("div");
+      w.className = "sheet crop-sheet";
+      w.innerHTML = `<div class="crop"><h2>Fit the card</h2><p class="hint">We found the card. Drag the box to move it, drag the corner to resize.</p>
+        <div class="crop-stage" style="width:${vw}px;height:${vh}px"><canvas width="${vw}" height="${vh}"></canvas><div class="crop-box"><i class="crop-h"></i></div></div>
+        <div class="acts"><button type="button" class="primary" id="c-ok">Use crop</button><button type="button" id="c-all">Use whole photo</button></div></div>`;
+      document.body.appendChild(w);
+      w.querySelector("canvas").getContext("2d").drawImage(bmp, 0, 0, vw, vh);
+      const el = w.querySelector(".crop-box");
+      const place = () => { box.w = Math.max(40, Math.min(box.w, vw, vh * 5 / 7)); box.x = Math.max(0, Math.min(vw - box.w, box.x)); box.y = Math.max(0, Math.min(vh - box.w * 7 / 5, box.y));
+        Object.assign(el.style, { left: box.x + "px", top: box.y + "px", width: box.w + "px", height: box.w * 7 / 5 + "px" }); };
+      place();
+      let drag = null;
+      el.addEventListener("pointerdown", (e) => { e.preventDefault(); el.setPointerCapture(e.pointerId); drag = { mode: e.target.classList.contains("crop-h") ? "size" : "move", sx: e.clientX, sy: e.clientY, b: { ...box } }; });
+      el.addEventListener("pointermove", (e) => {
+        if (!drag) return;
+        const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+        if (drag.mode === "move") { box.x = drag.b.x + dx; box.y = drag.b.y + dy; } else box.w = drag.b.w + Math.max(dx, dy * 5 / 7);
+        place();
+      });
+      el.addEventListener("pointerup", () => (drag = null));
+      const out = (sx, sy, sw, sh) => {
+        const cv = document.createElement("canvas"); cv.width = CARD_W; cv.height = CARD_H;
+        const g = cv.getContext("2d"); g.fillStyle = "#111"; g.fillRect(0, 0, CARD_W, CARD_H);
+        // whole photo: fit it in without stretching; crop: fill the card exactly
+        if (sw / sh > CARD_W / CARD_H + 0.01 || sw / sh < CARD_W / CARD_H - 0.01) { const k = Math.min(CARD_W / sw, CARD_H / sh); g.drawImage(bmp, sx, sy, sw, sh, (CARD_W - sw * k) / 2, (CARD_H - sh * k) / 2, sw * k, sh * k); }
+        else g.drawImage(bmp, sx, sy, sw, sh, 0, 0, CARD_W, CARD_H);
+        let q = 0.85, url = cv.toDataURL("image/jpeg", q);
+        while (url.length > 420000 && q > 0.4) { q -= 0.1; url = cv.toDataURL("image/jpeg", q); }
+        w.remove(); done(url);
+      };
+      w.querySelector("#c-ok").onclick = () => out(box.x / sc, box.y / sc, box.w / sc, box.w * 7 / 5 / sc);
+      w.querySelector("#c-all").onclick = () => out(0, 0, bmp.width, bmp.height);
+    });
+  }
+  // pull what we can out of a listing title: "2023 Panini Prizm C.J. Stroud Silver Prizm RC #339 /99 Auto"
+  function fromTitle(t) {
+    const y = (t.match(/(?:^|\s)((?:19|20)\d{2})(?=[\s-])/) || [])[1];
+    const serial = (t.match(/\/\s?(\d{1,4})(?!\d)/) || [])[1];
+    return { year: y || "", rookie: /\s(RC|rookie)(\s|$)/i.test(" " + t + " "), auto: /auto/i.test(t), serial: serial ? "/" + serial : "" };
   }
   function editor(c) {
     c = c || {};
@@ -263,6 +352,9 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       <input type="file" accept="image/*" data-k="${k}" aria-label="${label}"></label>`;
     w.innerHTML = `<form>
       <h2>${c.id ? "Edit card" : "Add a card"}</h2>
+      ${SEARCH ? `<div class="srch"><div class="srch-bar"><input type="search" id="s-q" placeholder="Search eBay: 2023 Prizm Stroud Silver" aria-label="Search for the card">
+        <button type="button" id="s-go">Search</button></div><div class="srch-res" id="s-res"></div><p class="hint" id="s-from"></p></div>
+        <p class="hint">Or use your own photos:</p>` : ""}
       <div class="photos">${photo("front", "Tap to add the front")}${photo("back", "Tap to add the back (optional)")}</div>
       <div class="row2"><label class="f">Player<input name="player" required value="${esc(c.player)}" placeholder="C.J. Stroud"></label>
         <label class="f">Team<input name="team" list="team-list" value="${esc(c.team)}" placeholder="Houston Texans"></label>
@@ -280,12 +372,41 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       <div class="acts"><button type="submit" class="primary">Save card</button><button type="button" id="x">Cancel</button></div></form>`;
     document.body.appendChild(w);
     const imgs = { front: c.front || "", back: c.back || "" }, st = w.querySelector("#st");
-    w.querySelectorAll("input[type=file]").forEach((inp) => inp.onchange = async () => {
-      const f = inp.files[0]; if (!f) return;
-      st.textContent = "Shrinking the photo…";
-      try { imgs[inp.dataset.k] = await shrink(f); const ph = w.querySelector("#ph-" + inp.dataset.k); ph.style.backgroundImage = `url('${imgs[inp.dataset.k]}')`; ph.querySelector("span").textContent = ""; st.textContent = ""; }
-      catch (e) { st.textContent = "That photo couldn't be read. Try a JPEG or a screenshot."; }
-    });
+    // every photo (yours or a listing's) goes through the card cropper: background trimmed, card-shaped
+    const setPhoto = async (k, src) => {
+      st.textContent = "Finding the card in the photo…";
+      try {
+        imgs[k] = await cropper(await bitmapOf(src));
+        const ph = w.querySelector("#ph-" + k); ph.style.backgroundImage = `url('${imgs[k]}')`; ph.querySelector("span").textContent = ""; st.textContent = "";
+      } catch (e) { st.textContent = "That photo couldn't be read. Try a JPEG or a screenshot."; }
+    };
+    w.querySelectorAll("input[type=file]").forEach((inp) => inp.onchange = () => { const f = inp.files[0]; if (f) setPhoto(inp.dataset.k, f); });
+    if (SEARCH) {
+      const res = w.querySelector("#s-res"), q = w.querySelector("#s-q");
+      let found = [];
+      const go = async () => {
+        if (!q.value.trim()) return;
+        res.innerHTML = `<p class="hint">Searching…</p>`;
+        try {
+          found = (await (await fetch(SEARCH + "/search?q=" + encodeURIComponent(q.value.trim()))).json()).items || [];
+          res.innerHTML = found.map((it, i) => `<button type="button" class="srch-hit" data-i="${i}" title="${esc(it.title)}"><img src="${esc(SEARCH + "/img?u=" + encodeURIComponent(it.image))}" alt="" loading="lazy"><span>${esc(it.title)}</span></button>`).join("")
+            || `<p class="hint">No listings found. Try fewer words.</p>`;
+        } catch (e) { res.innerHTML = `<p class="hint">Search isn't working right now (${esc(e.message)}).</p>`; }
+      };
+      w.querySelector("#s-go").onclick = go;
+      q.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); go(); } };
+      res.onclick = async (e) => {
+        const b = e.target.closest("[data-i]"); if (!b) return;
+        const it = found[+b.dataset.i], f = w.querySelector("form"), t = fromTitle(it.title);
+        if (t.year && !f.year.value) f.year.value = t.year;
+        if (t.serial && !f.serial.value) f.serial.value = t.serial;
+        if (t.rookie) f.rookie.checked = true;
+        if (t.auto) f.auto.checked = true;
+        w.querySelector("#s-from").textContent = "From eBay: " + it.title;
+        res.innerHTML = "";
+        await setPhoto("front", SEARCH + "/img?u=" + encodeURIComponent(it.image));
+      };
+    }
     w.querySelector("#x").onclick = () => w.remove();
     w.addEventListener("click", (e) => { if (e.target === w) w.remove(); });
     w.querySelector("form").onsubmit = async (e) => {
