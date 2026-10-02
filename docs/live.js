@@ -306,7 +306,14 @@ const Live = (() => {
     const toGo = dir > 0 ? 100 - spot : spot;
     const type = (play.type?.text || "").toLowerCase(), txt = (play.text || "").toLowerCase();
     const isTD = !!play.scoringPlay && /touchdown/.test(type + txt);
-    const tdTeam = !isTD ? null : String(play.start?.team?.id || play.team?.id) === String(home.team.id) ? home : away;
+    const startTeam = String(play.start?.team?.id || play.team?.id) === String(home.team.id) ? home : away;
+    const otherTeam = (t) => (t === home ? away : home);
+    const defScore = /return touchdown|interception.*touchdown|fumble.*touchdown|safety/.test(type + " " + txt) && !/kickoff return|punt return/.test(type) ? true
+      : /kickoff return touchdown|punt return touchdown/.test(type); // the team that didn't start the play scored
+    const scorer = !play.scoringPlay ? null : defScore ? otherTeam(startTeam) : startTeam;
+    const tdTeam = isTD ? scorer : null;
+    // after any score the next play is a kickoff: the scorer kicks (after a safety, the team that gave it up kicks)
+    const kicker = !play.scoringPlay ? null : /safety/.test(type + txt) ? startTeam : scorer;
     const down = at.down >= 1 && at.down <= 4 && !isTD ? at.down : 0, dist = down ? at.distance || 0 : 0; // ESPN marks scores as down -1
     const fd = down && dist && dist < toGo ? spot + dir * dist : null; // goal to go: no first-down line
     const X = (yl) => 100 + yl * 10; // 10 px per yard; 10-yard end zones
@@ -340,7 +347,7 @@ const Live = (() => {
     // replay timing (seconds): the play runs 0.3-1.6, banner 1.2-3.2, teams walk to the new line 1.9-2.6
     const from = play.start?.yardLine ?? spot, moved = from !== spot;
     const anim = fresh;
-    const appear = (t) => (anim ? ` opacity="0"><animate attributeName="opacity" from="0" to="1" begin="${t}s" dur=".2s" fill="freeze"/` : "");
+    const appear = (t) => (anim && t ? ` opacity="0"><animate attributeName="opacity" from="0" to="1" begin="${t}s" dur=".2s" fill="freeze"/` : "");
     // lines: blue line of scrimmage, yellow first-down line (they show up after the replay)
     const lines = isTD ? "" : `<g${appear(2.5)}>${r(X(spot) - 3, 0, 6, H, "#3d7bff")}${fd != null ? r(X(fd) - 3, 0, 6, H, "#ffd21f") : ""}</g>`;
     // pixel players (idle bob, staggered): offense behind the ball, defense across it
@@ -357,19 +364,19 @@ const Live = (() => {
     const DEF_SET = [["dl", 1.6, 120], ["dl", 1.6, 140], ["dl", 1.6, 160], ["dl", 1.6, 180], ["lb", 5, 110], ["lb", 5, 150], ["lb", 5, 190],
       ["cb", 6, 40], ["cb", 6, 262], ["s", 11, 100], ["s", 11, 200]];
     const D = 2.4; // replay length (s): snap at .4, whistle at 2.4, then everyone resets at the new line
-    const motion = (keys) => {
+    const motion = (keys, len = D) => {
       if (!keys?.length) return "";
       const pts = [[0, 0, 0], ...keys];
-      if (pts.at(-1)[0] < D) pts.push([D, pts.at(-1)[1], pts.at(-1)[2]]);
+      if (pts.at(-1)[0] < len) pts.push([len, pts.at(-1)[1], pts.at(-1)[2]]);
       return `<animateTransform attributeName="transform" type="translate" values="${pts.map((q) => `${q[1].toFixed(1)} ${q[2].toFixed(1)}`).join(";")}"
-        keyTimes="${pts.map((q) => (q[0] / D).toFixed(3)).join(";")}" dur="${D}s" fill="freeze"/>`;
+        keyTimes="${pts.map((q) => (q[0] / len).toFixed(3)).join(";")}" dur="${len}s" fill="freeze"/>`;
     };
     const ball = (x, y) => `<g class="tf-sh">${r(x - 9, y - 4, 18, 8, "#8b4a1f") + r(x - 6, y - 6, 12, 12, "#8b4a1f") + r(x - 4, y - 1, 8, 2, "#ffffff")}</g>`;
     // one formation at yard line `at`; odir = the offense's direction; moves(role, x, y) -> keyframes [[t, dx, dy], ...]
-    const formation = (at, o, odir, moves = () => null) => {
+    const formation = (at, o, odir, moves = () => null, len = D) => {
       const d = o === home ? away : home, out = [];
-      OFF_SET.forEach(([role, yd, y]) => { const x = X(at) - odir * yd * 10; out.push(`<g>${motion(moves(role, x, y, true))}${guy(x, y, o, odir < 0)}</g>`); });
-      DEF_SET.forEach(([role, yd, y]) => { const x = X(at) + odir * yd * 10; out.push(`<g>${motion(moves(role, x, y, false))}${guy(x, y, d, odir > 0)}</g>`); });
+      OFF_SET.forEach(([role, yd, y]) => { const x = X(at) - odir * yd * 10; out.push(`<g>${motion(moves(role, x, y, true), len)}${guy(x, y, o, odir < 0)}</g>`); });
+      DEF_SET.forEach(([role, yd, y]) => { const x = X(at) + odir * yd * 10; out.push(`<g>${motion(moves(role, x, y, false), len)}${guy(x, y, d, odir > 0)}</g>`); });
       return out.join("");
     };
     const bx = X(spot) - dir * 6;
@@ -377,19 +384,32 @@ const Live = (() => {
       const right = (team === home) === true; // home scores going right (into the away end zone)
       const ez = right ? 1100 : 0, cc = [col(team), alt(team), "#ffd21f", "#ffffff"];
       const flash = `<rect x="${ez}" y="0" width="100" height="${H}" fill="${alt(team)}" opacity="0">
-        <animate attributeName="opacity" values="0;.55;0" dur=".5s" begin="${t}s" repeatCount="indefinite"/></rect>`;
+        <animate attributeName="opacity" values="0;.55;0" dur=".5s" begin="${t}s" repeatCount="5"/></rect>`;
       const confetti = Array.from({ length: 28 }, (_, i) => {
         const x = 120 + ((i * 397) % 960), d = 1.6 + (i % 5) * 0.35, b = t + (i % 7) * 0.22;
         return `<rect x="${x}" y="-12" width="8" height="8" fill="${cc[i % 4]}" opacity="0"><set attributeName="opacity" to="1" begin="${b}s"/>
-          <animateTransform attributeName="transform" type="translate" values="0 0;${(i % 3 - 1) * 30} ${H + 24}" dur="${d}s" begin="${b}s" repeatCount="indefinite"/></rect>`;
+          <animateTransform attributeName="transform" type="translate" values="0 0;${(i % 3 - 1) * 30} ${H + 24}" dur="${d}s" begin="${b}s" repeatCount="2" fill="freeze"/></rect>`;
       }).join("");
       const sx0 = ez + 50;
       const scorer = `<g opacity="0"><set attributeName="opacity" to="1" begin="${t}s"/><g>${guy(sx0, 150, team, !right)}${ball(sx0 + 2, 120)}
-        <animateTransform attributeName="transform" type="translate" values="0 0;0 -18;0 0" dur=".45s" begin="${t}s" repeatCount="indefinite"/></g></g>`;
+        <animateTransform attributeName="transform" type="translate" values="0 0;0 -18;0 0" dur=".45s" begin="${t}s" repeatCount="5"/></g>
+        <animate attributeName="opacity" from="1" to="0" begin="${t + 2.4}s" dur=".4s" fill="freeze"/></g>`;
       return flash + scorer + confetti;
     };
     // after a touchdown the field is a party, not a formation
-    const lineup = isTD && tdTeam ? celebrate(tdTeam, fresh ? 2.3 : 0)
+    // kickoff setup: kicking team across its own 35 with the ball on a tee, return team spread out, two returners deep
+    const kickoffSet = (k) => {
+      const kd = k === home ? 1 : -1, K = k === home ? 35 : 65, recv = otherTeam(k), out = [];
+      [30, 55, 80, 105, 130, 170, 195, 220, 245, 270].forEach((y) => out.push(guy(X(K) - kd * 12, y, k, kd < 0)));
+      out.push(guy(X(K) - kd * 70, 150, k, kd < 0)); // the kicker
+      [60, 105, 150, 195, 240].forEach((y) => out.push(guy(X(K + kd * 15), y, recv, kd > 0)));
+      [90, 150, 210].forEach((y) => out.push(guy(X(K + kd * 35), y, recv, kd > 0)));
+      [120, 180].forEach((y) => out.push(guy(X(kd > 0 ? 95 : 5), y, recv, kd > 0)));
+      return out.join("") + r(X(K) - 3, 156, 6, 6, "#ff8c1a") + ball(X(K), 150); // ball on a tee
+    };
+    const party = isTD && tdTeam ? celebrate(tdTeam, fresh ? 2.3 : 0) : "";
+    const setupAt = !fresh ? 0 : isTD ? 5.2 : 2.5; // after a TD: replay, party, everyone jogs off, then the kickoff setup
+    const lineup = kicker ? (fresh ? party : "") + `<g${appear(setupAt)}>${kickoffSet(kicker)}</g>`
       : off ? `<g${appear(2.5)}>${formation(spot, off, dir)}${ball(bx, 150)}</g>` : "";
 
     // penalties: "PENALTY on PIT-M.Pittman, False Start, 5 yards, enforced at PIT 22 - No Play."
@@ -477,7 +497,15 @@ const Live = (() => {
           + flying(0.6, 1.1, `M${kickFrom},150 Q${(kickFrom + postX) / 2},-40 ${postX},${fgGood ? 150 : 70}`);
       } else if (isKick) pig = flying(isPunt ? 0.6 : 0.4, 1.3, `M${kickFrom},150 Q${(kickFrom + kickTo) / 2},-60 ${kickTo},150`);
       else pig = ball(sx - pdir * 6, 150);
-      replay = `<g>${formation(from, pteam, pdir, moves)}${pig}<animate attributeName="opacity" from="1" to="0" begin="${D}s" dur=".2s" fill="freeze"/></g>`;
+      const exitLen = 5.0;
+      const offField = (role, x, y, isOff) => {
+        const k = moves(role, x, y, isOff) || [], last = k.at(-1) || [0, 0, 0], endY = y + last[2];
+        return [...k, [3.6, last[1], last[2]], [4.9, last[1] + (isOff ? -pdir : pdir) * 30, (endY < 150 ? -40 : H + 40) - y]];
+      };
+      replay = isTD
+        ? `<g>${formation(from, pteam, pdir, offField, exitLen)}<g>${pig}<animate attributeName="opacity" from="1" to="0" begin="${D}s" dur=".2s" fill="freeze"/></g>
+            <animate attributeName="opacity" from="1" to="0" begin="${exitLen}s" dur=".2s" fill="freeze"/></g>`
+        : `<g>${formation(from, pteam, pdir, moves)}${pig}<animate attributeName="opacity" from="1" to="0" begin="${D}s" dur=".2s" fill="freeze"/></g>`;
       if (isFlag) { // a striped ref steps up at the sideline and tosses a fluttering flag to the spot
         const rx = Math.max(130, Math.min(1070, sx + pdir * 40)), land = sx + pdir * 18;
         replay += `<g opacity="0"><set attributeName="opacity" to="1" begin="0s" fill="freeze"/>${refSprite(rx, 30, true)}
@@ -498,10 +526,10 @@ const Live = (() => {
     }
 
     const teamTag = (c) => `<span class="tf-team" style="--c:${col(c)}">${img(teamLogo(c.team), "xs")}${esc(c.team.abbreviation || "")}</span>`;
-    const where = isTD ? `${esc(tdTeam?.team?.abbreviation || "")} SCORES` : at.possessionText ? `BALL ON ${esc(at.possessionText)}` : "";
+    const where = kicker ? `${esc(kicker.team.abbreviation || "")} KICKS OFF` : at.possessionText ? `BALL ON ${esc(at.possessionText)}` : "";
     const ddText = isTD ? "TOUCHDOWN!" : down ? `${["", "1ST", "2ND", "3RD", "4TH"][down]} & ${dist < toGo ? dist : "GOAL"}` : "";
     const lastText = play?.text ? play.text.trim() : "";
-    return `<div class="card tecmo" style="--tf-font:'${PIXEL_FONT}'">
+    return `<div class="card tecmo" data-play="${esc(play.id)}" style="--tf-font:'${PIXEL_FONT}'">
       <div class="tf-bar">
         <span>${off ? teamTag(off) + `<b class="tf-arrow">${dir > 0 ? "▶" : "◀"}</b>` : ""}</span>
         <span class="tf-dd">${ddText}</span>
@@ -709,7 +737,13 @@ const Live = (() => {
       col.right.push(`<div class="card"><h3>Injuries</h3><div class="box-pair">${inj.map((t) => `<div><b>${esc(t.team?.displayName || "")}</b><ul class="inj">${t.injuries.slice(0, 15).map((i) =>
         `<li><a href="${link("player", i.athlete?.id)}">${esc(i.athlete?.displayName)}</a> <span class="muted">${esc(i.athlete?.position?.abbreviation || "")}</span> ${injTag(i, i.athlete?.id, t.team?.id)}${injInfo(i)?.part ? ` <small class="muted">${esc(injInfo(i).part)}</small>` : ""}</li>`).join("")}</ul></div>`).join("")}</div></div>`);
     }
+    const oldField = view("game").querySelector(".tecmo"); // same play as last time: keep it so a running animation isn't restarted
     view("game").innerHTML = `<p><a href="${link("scores")}" class="boxlink">← Scores</a></p>${head}${leadersStrip}<div class="game-cols"><div class="gcol">${col.left.join("")}</div><div class="gcol">${col.right.join("")}</div></div>${col.full.join("")}`;
+    const newField = view("game").querySelector(".tecmo");
+    if (oldField && newField && oldField.dataset.play === newField.dataset.play) {
+      newField.replaceWith(oldField);
+      oldField.querySelector(".tf-last")?.replaceWith(newField.querySelector(".tf-last") || "");
+    }
     if (wp.length > 2) initWp(wp, s, away, home);
     const bx = $("#boxscore .box-tabs");
     if (bx) bx.onclick = (e) => {
