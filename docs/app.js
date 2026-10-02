@@ -101,11 +101,12 @@ function leagueWipe(lg) {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   document.querySelector(".lg-wipe")?.remove();
   const w = document.createElement("div");
-  w.className = "lg-wipe";
+  // a slanted band sweeps the way the switch moves: to NFL left -> right, to CFB right -> left
+  w.className = `lg-wipe ${lg === "nfl" ? "ltr" : "rtl"}`;
   w.setAttribute("aria-hidden", "true");
-  w.innerHTML = `<span><b>&gt;</b> ${lg === "nfl" ? "NFL" : "CFB"}<i>_</i></span>`;
+  w.innerHTML = `<div class="lg-band"><span><b>&gt;</b> ${lg === "nfl" ? "NFL" : "CFB"}<i>_</i></span></div>`;
   document.body.appendChild(w);
-  w.addEventListener("animationend", () => w.remove());
+  w.querySelector(".lg-band").addEventListener("animationend", () => w.remove());
   setTimeout(() => w.remove(), 1500); // in case the animation never ends (background tab)
 }
 async function route() {
@@ -200,7 +201,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "142"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "143"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });

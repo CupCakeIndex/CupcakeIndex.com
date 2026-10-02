@@ -1754,13 +1754,19 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
   transition: transform .25s ease; max-width: calc(100vw - 32px); }
 .acct-toast.on { transform: translate(-50%, 0); }
 @media (prefers-reduced-motion: reduce) { .acct-toast { transition: none; } }
-/* CFB <-> NFL switch: an accent panel wipes across left to right, the new league loads underneath */
-.lg-wipe { position: fixed; inset: 0; z-index: 200; pointer-events: none; background: var(--accent); display: grid; place-items: center;
-  animation: lgwipe .7s cubic-bezier(.7, 0, .3, 1) forwards; }
-.lg-wipe span { font: 800 clamp(48px, 12vw, 120px)/1 "JetBrains Mono", monospace; color: var(--bg); letter-spacing: .02em; }
-.lg-wipe b { font-weight: 800; opacity: .55; }
-.lg-wipe i { font-style: normal; animation: lgblink .35s steps(1) infinite; }
-@keyframes lgwipe { 0% { clip-path: inset(0 100% 0 0); } 42%, 58% { clip-path: inset(0 0 0 0); } 100% { clip-path: inset(0 0 0 100%); } }
+/* CFB <-> NFL switch: a slanted accent band (parallelogram) sweeps across, the way the switch moved:
+   to NFL left -> right, to CFB right -> left. The text rides in the middle, upright. */
+.lg-wipe { position: fixed; inset: 0; z-index: 200; pointer-events: none; overflow: hidden; }
+.lg-band { position: absolute; top: 0; bottom: 0; left: -20vw; width: 140vw; background: var(--accent); display: grid; place-items: center;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 35%, transparent); animation: .75s cubic-bezier(.7, 0, .3, 1) forwards; }
+.lg-wipe.ltr .lg-band { animation-name: lgwipe-ltr; }
+.lg-wipe.rtl .lg-band { animation-name: lgwipe-rtl; }
+.lg-band span { transform: skewX(18deg); font: 800 clamp(48px, 12vw, 120px)/1 "JetBrains Mono", monospace; color: var(--bg); letter-spacing: .02em; }
+.lg-band b { font-weight: 800; opacity: .55; }
+.lg-band i { font-style: normal; animation: lgblink .35s steps(1) infinite; }
+@keyframes lgwipe-ltr { 0% { transform: translateX(-170vw) skewX(-18deg); } 42%, 58% { transform: translateX(0) skewX(-18deg); } 100% { transform: translateX(170vw) skewX(-18deg); } }
+@keyframes lgwipe-rtl { 0% { transform: translateX(170vw) skewX(18deg); } 42%, 58% { transform: translateX(0) skewX(18deg); } 100% { transform: translateX(-170vw) skewX(18deg); } }
+.lg-wipe.rtl .lg-band span { transform: skewX(-18deg); }
 @keyframes lgblink { 50% { opacity: 0; } }
 /* phones: Back is a compact arrow box in the header row (Rankings also has Season/Week there); the floating version keeps its label */
 @media (max-width: 760px) {
