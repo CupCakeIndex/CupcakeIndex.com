@@ -66,6 +66,11 @@ html, body { overflow-x: hidden; }
 .tag { font: 700 10px var(--mono); letter-spacing: .08em; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); }
 .tag.rc { color: #7ee0a0; border-color: #2c5a3c; } .tag.auto { color: #ffb4d6; border-color: #5a2c44; } .tag.num { color: var(--gold2); border-color: #5a4a20; } .tag.grade { color: #9ec6ff; border-color: #2c3f5a; }
 .own { display: flex; gap: 6px; margin-top: 6px; } .own button { padding: 5px 9px; font-size: 11px; }
+.team-h { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; margin: 14px 0 -4px; padding-bottom: 8px; border-bottom: 1px solid var(--line);
+  font: 400 26px/1 var(--display); text-transform: uppercase; letter-spacing: .02em; }
+.team-h:first-child { margin-top: 0; }
+.team-h img { width: 34px; height: 34px; object-fit: contain; }
+.team-h small { margin-left: auto; font: 700 11px var(--mono); letter-spacing: .1em; color: var(--muted); }
 .empty-state { text-align: center; padding: 60px 16px; color: var(--muted); border: 1px dashed var(--line); border-radius: 16px; }
 .empty-state h3 { font: 400 30px var(--display); color: var(--ink); margin: 0 0 6px; text-transform: uppercase; }
 footer { margin-top: 40px; color: var(--muted); font-size: 12px; text-align: center; }
@@ -111,7 +116,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   <div class="tools" id="tools">
     <input type="search" id="q" placeholder="Search player, team, set…" aria-label="Search cards">
     <button class="chip" data-f="rc">RC</button><button class="chip" data-f="auto">AUTO</button><button class="chip" data-f="num">NUMBERED</button><button class="chip" data-f="graded">GRADED</button>
-    <select id="sort" aria-label="Sort"><option value="new">Newest added</option><option value="year">Year (newest)</option><option value="player">Player A-Z</option><option value="team">Team A-Z</option></select>
+    <select id="sort" aria-label="Sort"><option value="team">By team</option><option value="new">Newest added</option><option value="year">Year (newest)</option><option value="player">Player A-Z</option></select>
   </div>
   <section class="grid" id="grid"></section>
   <footer>Tap a card to flip it. Part of <a href="../">the Cupcake Index</a>.</footer>
@@ -142,6 +147,12 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     }
   }
   const isOwner = () => user && owner && owner.uid === user.uid;
+  let TEAMS = [];
+  fetch("../data/teams.json").then((r) => r.json()).then((d) => { TEAMS = [...(d.nfl || []), ...(d.cfb || [])]; draw(); }).catch(() => {});
+  const teamInfo = (name) => {
+    const n = (name || "").toLowerCase().trim();
+    return n ? TEAMS.find((t) => t.name.toLowerCase() === n) || TEAMS.find((t) => (t.mascot || "").toLowerCase() === n || n.endsWith(" " + (t.mascot || "").toLowerCase())) : null;
+  };
 
   // ---------- drawing
   const tagsOf = (c) => [c.rookie && '<span class="tag rc">RC</span>', c.auto && '<span class="tag auto">AUTO</span>',
@@ -149,7 +160,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   const face = (img, cls, label) => img ? `<div class="face ${cls}" style="background-image:url('${img}')"></div>` : `<div class="face ${cls} empty">${label}</div>`;
   const cardHtml = (c) => `<article class="card" data-id="${esc(c.id)}" tabindex="0" aria-label="${esc([c.year, c.set, c.player].filter(Boolean).join(" "))}">
       <div class="inner">${face(c.front, "front", "No photo")}${face(c.back, "back", "No back photo")}</div>
-      <div class="meta"><b>${esc(c.player || "Unknown player")}</b><span>${esc([c.year, c.set, c.parallel].filter(Boolean).join(" · "))}${c.team ? " · " + esc(c.team) : ""}</span>
+      <div class="meta"><b>${esc(c.player || "Unknown player")}</b><span>${esc([c.year, c.set, c.parallel].filter(Boolean).join(" · "))}${c.team && $("#sort").value !== "team" ? " · " + esc(c.team) : ""}</span>
         <div class="tags">${tagsOf(c)}</div>
         ${isOwner() ? `<div class="own"><button data-edit="${esc(c.id)}">Edit</button><button data-del="${esc(c.id)}">Delete</button></div>` : ""}</div></article>`;
 
@@ -170,8 +181,19 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       && (!filters.has("rc") || c.rookie) && (!filters.has("auto") || c.auto) && (!filters.has("num") || c.serial) && (!filters.has("graded") || c.grade));
     const s = $("#sort").value;
     list.sort(s === "year" ? (a, b) => (b.year || 0) - (a.year || 0) : s === "player" ? (a, b) => (a.player || "").localeCompare(b.player || "")
-      : s === "team" ? (a, b) => (a.team || "").localeCompare(b.team || "") : (a, b) => (b.added || 0) - (a.added || 0));
-    $("#grid").innerHTML = list.map(cardHtml).join("") || `<div class="empty-state" style="grid-column:1/-1"><h3>${cards.length ? "No matches" : "The vault is empty"}</h3>
+      : s === "team" ? (a, b) => (a.team || "~").localeCompare(b.team || "~") || (b.added || 0) - (a.added || 0) : (a, b) => (b.added || 0) - (a.added || 0));
+    // By team: a header (logo, name, count) before each team's cards
+    let html = "", last = null;
+    for (const c of list) {
+      const team = c.team || "No team";
+      if (s === "team" && team !== last) {
+        const t = teamInfo(team), n = list.filter((x) => (x.team || "No team") === team).length;
+        html += `<h2 class="team-h">${t?.logo ? `<img src="${esc(t.logo)}" alt="" width="34" height="34">` : ""}<span>${esc(team)}</span><small>${n} card${n === 1 ? "" : "s"}</small></h2>`;
+        last = team;
+      }
+      html += cardHtml(c);
+    }
+    $("#grid").innerHTML = html || `<div class="empty-state" style="grid-column:1/-1"><h3>${cards.length ? "No matches" : "The vault is empty"}</h3>
       ${cards.length ? "Try a different search or filter." : isOwner() ? "Tap <b>+ Add card</b> to put your first card in." : "Cards are on the way."}</div>`;
   }
 
@@ -243,7 +265,8 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       <h2>${c.id ? "Edit card" : "Add a card"}</h2>
       <div class="photos">${photo("front", "Tap to add the front")}${photo("back", "Tap to add the back (optional)")}</div>
       <div class="row2"><label class="f">Player<input name="player" required value="${esc(c.player)}" placeholder="C.J. Stroud"></label>
-        <label class="f">Team<input name="team" value="${esc(c.team)}" placeholder="Houston Texans"></label></div>
+        <label class="f">Team<input name="team" list="team-list" value="${esc(c.team)}" placeholder="Houston Texans"></label>
+        <datalist id="team-list">${TEAMS.map((t) => `<option value="${esc(t.name)}">`).join("")}</datalist></div>
       <div class="row2"><label class="f">Year<input name="year" inputmode="numeric" value="${esc(c.year)}" placeholder="2023"></label>
         <label class="f">Set<input name="set" value="${esc(c.set)}" placeholder="Panini Prizm"></label></div>
       <div class="row2"><label class="f">Parallel / insert<input name="parallel" value="${esc(c.parallel)}" placeholder="Silver"></label>
