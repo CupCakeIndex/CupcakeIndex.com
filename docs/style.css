@@ -481,6 +481,7 @@ body.drawer-open { overflow: hidden; }
 .sb-name a { color: #fff; display: flex; align-items: baseline; gap: 6px; }
 .sb-team.home .sb-name a { justify-content: flex-end; }
 .sb-name b { font-size: 22px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-ab { display: none; }
 .sb-name small { font-family: "Barlow Condensed", Inter, sans-serif; font-size: 15px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
 .sb-name em { font-style: normal; font-size: 12px; opacity: .8; margin-top: 4px; }
 .sb-rank { font-family: "Barlow Condensed", Inter, sans-serif; font-weight: 700; font-size: 16px; opacity: .85; }
@@ -507,7 +508,8 @@ body.drawer-open { overflow: hidden; }
   .sb-team.away .sb-score, .sb-team.home .sb-score { margin: 0; order: 3; }
   .sb-team.home .sb-name a, .sb-name a { justify-content: center; }
   .sb-team img.xl { width: 40px; height: 40px; }
-  .sb-name b { font-size: 15px; }
+  .sb-name, .sb-name a { max-width: 100%; min-width: 0; }
+  .sb-name b { font-size: 14px; max-width: 100%; }
   .sb-name small, .sb-name em { display: none; }
   .sb-score { font-size: 40px; }
   .sb-mid { min-width: 0; padding: 8px 4px; }
@@ -1283,6 +1285,19 @@ a.mbug:hover .mb-mid b.mb-at { color: var(--accent); }
 .mb-bar { position: relative; width: 56px; height: 5px; background: var(--bar-bg); }
 .mb-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ink); }
 .mb-win b { color: var(--accent); }
+/* ---- mobile pass (most visitors are on phones) ---- */
+@media (max-width: 640px) {
+  .book { white-space: normal; }                         /* long chips (our model's line) wrap instead of running off */
+  #updated { display: none; }
+  .sb-full { display: none; } .sb-ab { display: inline; }   /* live scoreboard: PIT / CLE instead of "Pitt..." */                            /* header: motto only, one less line before the content */
+  .sub { font-size: 12px; margin-top: 2px; }
+  .top { gap: 10px; padding-top: 12px; }
+  .sp-zoom { top: auto; bottom: 34px; left: auto; right: 8px; transform: none; }   /* off the corner labels */
+  .sp-zoom button { min-width: 30px; height: 28px; }
+  #fa-table th:nth-child(1), #fa-table td:nth-child(1), #fa-table th:nth-child(6), #fa-table td:nth-child(6) { display: none; }
+  #fa-table td:nth-child(2) { max-width: 150px; }
+  #fa-table td:nth-child(2) b, #fa-table td:nth-child(2) a { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
 /* pick'em season panel */
 .pk-season { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin: 6px 0 12px; padding: 12px 14px; border: 1px solid var(--line); background: color-mix(in srgb, var(--accent) 6%, var(--card)); }
 .pk-season.muted { display: block; font-size: 13px; }
@@ -1518,7 +1533,7 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 .set .note { margin: 0 0 10px; }
 .set .seg { display: inline-flex; }
 .set .seg button { padding: 8px 18px; }
-.th-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+#set-theme.th-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
 .th-opt { display: flex; flex-direction: column; gap: 8px; padding: 8px; text-align: left; cursor: pointer; background: var(--bg); color: var(--ink);
   border: 1px solid var(--line); border-radius: var(--radius); }
 .th-opt:hover { border-color: var(--muted); }
@@ -1527,7 +1542,7 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 .th-opt b span { color: var(--accent); font-size: 11px; white-space: nowrap; }
 .th-opt small { color: var(--muted); font-size: 11px; line-height: 1.4; }
 .set .set-foot { margin-top: 16px; }
-@media (max-width: 640px) { .th-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } .th-opt { padding: 6px; } }
+@media (max-width: 640px) { #set-theme.th-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } .th-opt { padding: 6px; } }
 /* .thp = a tiny fake rankings card drawn with the theme's own variables (see the theme rules below) */
 .thp { display: block; padding: 8px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius); font-family: var(--font-body); overflow: hidden; }
 .thp-h { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font: 700 15px/1 var(--font-head); }

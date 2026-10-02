@@ -602,8 +602,8 @@ const Live = (() => {
             : isKneel ? "TAKE A KNEE" : isSpike ? "SPIKE!" : play.end?.down === 1 && (play.start?.down || 0) > 0 && moved && !isKick ? "FIRST DOWN!" : "";
       const sub = big === "FLAG!" ? flagInfo : "";
       if (big) {
-        banner = `<g opacity="0"><rect x="250" y="${sub ? 92 : 105}" width="700" height="${sub ? 116 : 90}" fill="#000" opacity=".78"/>
-          <text x="600" y="${sub ? 136 : 152}" class="tf-big">${big}</text>${sub ? `<text x="600" y="182" class="tf-sub">${esc(sub)}</text>` : ""}
+        banner = `<g opacity="0"><rect x="@BX0@" y="${sub ? 92 : 105}" width="@BW@" height="${sub ? 116 : 90}" fill="#000" opacity=".78"/>
+          <text x="@BXC@" y="${sub ? 136 : 152}" class="tf-big">${big}</text>${sub ? `<text x="@BXC@" y="182" class="tf-sub">${esc(sub)}</text>` : ""}
           <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.1;.85;1" begin="${big === "FLAG!" ? 1.3 : 2}s" dur="${sub ? 2.6 : 2}s" fill="freeze"/></g>`;
       }
       if (pat && scorer) { // the try: extra point through the posts, or a two-point run / pass at the goal line
@@ -628,11 +628,19 @@ const Live = (() => {
         replay += `<g opacity="0" visibility="hidden"><set attributeName="visibility" to="visible" begin="${t0}s" fill="freeze"/><set attributeName="opacity" to="1" begin="${t0}s" fill="freeze"/>${formation(los, scorer, sd, patMoves, PAT_LEN, t0)}${pball}
           <animate attributeName="opacity" from="1" to="0" begin="${t0 + PAT_LEN}s" dur=".2s" fill="freeze"/><set attributeName="visibility" to="hidden" begin="${t0 + PAT_LEN + 0.2}s" fill="freeze"/></g>`;
         const word = pat.kind === "xp" ? (pat.good ? "IT'S GOOD!" : "NO GOOD!") : pat.good ? "2 PT GOOD!" : "2 PT FAILS";
-        banner += `<g opacity="0"><rect x="300" y="105" width="600" height="90" fill="#000" opacity=".78"/><text x="600" y="152" class="tf-big">${word}</text>
+        banner += `<g opacity="0"><rect x="@BX0@" y="105" width="@BW@" height="90" fill="#000" opacity=".78"/><text x="@BXC@" y="152" class="tf-big">${word}</text>
           <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.1;.85;1" begin="${t0 + 1.4}s" dur="1.5s" fill="freeze"/></g>`;
       }
     }
 
+    // phones: frame the action (old spot, new spot, first-down line) instead of all 120 yards; kickoffs and scores stay full
+    let vbX = 0, vbW = 1200;
+    if (typeof matchMedia === "function" && matchMedia("(max-width: 600px)").matches && !kicker) {
+      const xs = [X(spot), X(from), fd != null ? X(fd) : X(spot)];
+      const lo = Math.min(...xs) - 220, hi = Math.max(...xs) + 220;
+      vbW = Math.min(1200, Math.max(640, hi - lo));
+      vbX = Math.max(0, Math.min(1200 - vbW, (lo + hi) / 2 - vbW / 2));
+    }
     const teamTag = (c) => `<span class="tf-team" style="--c:${col(c)}">${img(teamLogo(c.team), "xs")}${esc(c.team.abbreviation || "")}</span>`;
     const where = kicker ? `${esc(kicker.team.abbreviation || "")} KICKS OFF` : at.possessionText ? `BALL ON ${esc(at.possessionText)}` : "";
     const ddText = isTD ? "TOUCHDOWN!" : down ? `${["", "1ST", "2ND", "3RD", "4TH"][down]} & ${dist < toGo ? dist : "GOAL"}` : "";
@@ -644,8 +652,8 @@ const Live = (() => {
         <span class="tf-where">${where}${toGo <= 20 && off && !isTD ? ` <b class="tf-red">RED ZONE</b>` : ""}</span>
       </div>
       <div class="tf-wrap"><div class="tf-tip hidden"></div>
-      <svg class="tf-field" viewBox="0 0 1200 ${H}" shape-rendering="crispEdges" role="img"
-        aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, where].filter(Boolean).join(", "))}">${base.join("")}${lines}${lineup}${anim ? "" : flagOnField}${replay}${banner}</svg></div>
+      <svg class="tf-field" viewBox="${vbX.toFixed(0)} 0 ${vbW.toFixed(0)} ${H}" shape-rendering="crispEdges" role="img"
+        aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, where].filter(Boolean).join(", "))}">${base.join("")}${lines}${lineup}${anim ? "" : flagOnField}${replay}${banner.replace(/@BX0@/g, (vbX + vbW / 2 - Math.min(700, vbW - 40) / 2).toFixed(0)).replace(/@BW@/g, Math.min(700, vbW - 40).toFixed(0)).replace(/@BXC@/g, (vbX + vbW / 2).toFixed(0))}</svg></div>
       <div class="tf-clock" title="A rough play clock since the last play came in. It doesn't hold anything back: the field checks for a new play every 5 seconds and replays it as soon as it arrives">
         <span>PLAY CLOCK</span><span class="tf-track"><i style="animation-delay:-${Math.min(since, 40).toFixed(1)}s"></i></span></div>
       <div class="tf-key"><span><i style="background:#3d7bff"></i>Line of scrimmage</span>${fd != null ? `<span><i style="background:#ffd21f"></i>First down</span>` : ""}
@@ -759,7 +767,7 @@ const Live = (() => {
       const result = st === "post" ? (c.winner ? " win" : " lose") : "";
       const logoImg = img(teamLogo(c.team), "xl");
       const name = `<div class="sb-name">
-          <a href="${link("team", c.team.id)}">${ap ? `<span class="sb-rank">${ap}</span>` : ""}<b>${esc(c.team.location || tname(c))}</b></a>
+          <a href="${link("team", c.team.id)}">${ap ? `<span class="sb-rank">${ap}</span>` : ""}<b><span class="sb-full">${esc(c.team.location || tname(c))}</span><span class="sb-ab">${esc(c.team.abbreviation || "")}</span></b></a>
           <small>${esc(c.team.name || "")}</small>
           <em>${esc(c.record?.[0]?.summary || c.record?.[0]?.displayValue || "")}${ours ? ` · Cupcake Index #${ours.rank}` : ""}</em></div>`;
       const score = `<span class="sb-score">${st === "pre" ? "" : esc(c.score ?? "")}</span>`;
