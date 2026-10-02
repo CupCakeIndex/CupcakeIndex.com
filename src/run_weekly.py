@@ -78,7 +78,7 @@ def run_league(league, season, cfg_league, offline):
         res["cupcake_of_week"] = cotw
         for t in res["teams"]:
             t["cotw_weeks"] = list(cotw_hist.get(t["team"], []))
-        picks = model.predictions(games, res.pop("ratings"), week, cfg, lines, adjust)
+        picks = model.predictions(games, res.pop("ratings"), week, cfg, lines, adjust, res.pop("eff"))
         graded += [p for p in picks if "actual" in p]
         res.update(season=season, league=league, predictions=picks,
                    generated=datetime.now(timezone.utc).isoformat(timespec="minutes"))

@@ -250,7 +250,7 @@ const Live = (() => {
     };
     const odds = c.odds?.[0];
     const p = preds.get(String(e.id));
-    const model = p && chanceText(p) ? `Model: ${chanceText(p)}` : "";
+    const model = p && chanceText(p) ? `<span${p.why ? ` title="${esc(p.why)}"` : ""}>Model: ${chanceText(p)}</span>` : "";
     const foot = [odds?.details ? `${esc(odds.details)}${odds.overUnder ? ` · O/U ${esc(odds.overUnder)}` : ""}` : "", model, esc(c.broadcast || c.broadcasts?.[0]?.names?.[0] || "")].filter(Boolean).join(" · ");
     return `<a class="game-card ${st}" href="${link("game", e.id)}">
       <div class="gc-status">${st === "in" ? '<span class="live-dot"></span>' : ""}${esc(statusText(e.status, e.date))}</div>
@@ -344,7 +344,8 @@ const Live = (() => {
     if (pc.length || pred) {
       col.left.push(`<div class="card"><h3>Lines</h3><div class="books">
         ${pc.map((o) => `<span class="book">${esc(o.provider?.name || "Book")}: ${esc(o.details || "—")}${o.overUnder ? ` · O/U ${esc(o.overUnder)}` : ""}</span>`).join("")}
-        ${pred && chanceText(pred) ? `<span class="book hot">Cupcake Index model: ${chanceText(pred)}</span>` : ""}</div></div>`);
+        ${pred && chanceText(pred) ? `<span class="book hot">Cupcake Index model: ${chanceText(pred)}</span>` : ""}</div>
+        ${pred?.why ? `<p class="why"><b>Why:</b> ${esc(pred.why)}</p>` : ""}</div>`);
     }
     // win probability
     const wp = s.winprobability || [];
@@ -723,7 +724,7 @@ const Live = (() => {
       [data, teams] = await Promise.all([pjPlayers(), api(`${STAND("nfl")}/standings?level=3`, 86400000).then((d) => new Map(groupsOf(d).flatMap((g) => g.entries).map((e) => [String(e.team.id), e.team]))).catch(() => new Map())]);
     } catch (e) { return fail("stats", e); }
     if (my !== token) return;
-    const when = ["ros", "pace"].includes(params.get("when")) ? params.get("when") : "", ros = when === "ros", pace = when === "pace", pos = pjPos(params, Object.values(PJ_POS));
+    const when = ["ros", "pace"].includes(params.get("when")) ? "pace" : "", ros = false, pace = when === "pace", pos = pjPos(params, Object.values(PJ_POS));
     const cols = pos === "K" ? PJ_K : PJ_COLS;
     const sort = pjSort(params, cols, pos), dir = params.get("dir") === "asc" ? "asc" : "desc";
     const shown = Math.max(1, +params.get("pages") || 1) * 100;
@@ -747,7 +748,7 @@ const Live = (() => {
     const whenTxt = ros ? `the rest of the ${data.y} season (weeks ${data.wk}–18)` : `week ${data.wk}`;
     view("stats").innerHTML = stSubStats("projected") + `
       <div class="sc-bar">
-        <div class="presets" id="pj-when">${[["", "This week"], ["ros", "Rest of season"], ["pace", "Season pace"]].map(([v, l]) => `<button data-when="${v}" class="${v === when ? "on" : ""}">${l}</button>`).join("")}</div>
+        <div class="presets" id="pj-when">${[["", "This week"], ["pace", "Season pace"]].map(([v, l]) => `<button data-when="${v}" class="${v === when ? "on" : ""}">${l}</button>`).join("")}</div>
         <div class="presets" id="pj-pos">${[["", "All"], ...Object.values(PJ_POS).map((p) => [p, p])].map(([v, l]) => `<button data-pos="${v}" class="${v === pos ? "on" : ""}">${l}</button>`).join("")}</div>
         <input id="pj-search" type="search" placeholder="Filter player or team…">
       </div>
@@ -850,7 +851,7 @@ const Live = (() => {
 
   // Player page: one compact "outlook" card, small sub-tabs for this week's projection and the season pace.
   // Each pane: { k, tab, cells: [[label, value, "so far" line?]], note }
-  const PACE_MAIN = { QB: ["3", "4", "24"], RB: ["24", "25", "42"], WR: ["42", "53", "43"], TE: ["42", "53", "43"], K: ["83", "84", "86"] };
+  const PACE_MAIN = { QB: ["3", "4", "20", "24"], RB: ["24", "25", "42"], WR: ["42", "53", "43"], TE: ["42", "53", "43"], K: ["83", "84", "86"] };
   const soLine = (v, d = 0) => `${(+v || 0).toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d })} so far`;
 
   async function cfbProjPane(id) {
@@ -2307,7 +2308,7 @@ const Live = (() => {
       return miniBug({ href: link("game", e.id), wk: (/\d+/.exec(e.week?.text || "") || [])[0] || (e.week?.text || "").slice(0, 4), state: st,
         status: st === "post" ? c.status?.type?.shortDetail || "Final" : statusText(c.status, c.date), result: st === "post" ? (me.winner ? "W" : c.competitors.some((x) => x !== me && x.winner) ? "L" : "T") : null,
         neutral: c.neutralSite, away: sd(away), home: sd(home), tags: g ? schedTags(g, nfl) : "",
-        diff: st === "post" && g?.difficulty != null ? g.difficulty : null, winp: st === "pre" && g?.win_prob != null ? g.win_prob : null });
+        diff: st === "post" && g?.difficulty != null ? g.difficulty : null, winp: st === "pre" && g?.win_prob != null ? g.win_prob : null, why: st === "pre" ? g?.why : null });
     };
     const events = sch.events || [];
     const games = events.map(bug).join("");

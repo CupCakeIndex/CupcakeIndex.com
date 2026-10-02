@@ -3,6 +3,9 @@
     "date": "2026-09-30",
     "title": "Launch day",
     "items": [
+      "College win chances now blend team strength with play-by-play efficiency instead of using power alone. Tested on 2025 games, it picks more winners (73% vs 72%).",
+      "Every upcoming game now says why our model leans the way it does, e.g. \"Edge South Carolina: home field. Edge Kentucky: a slightly stronger team, slightly more efficient play.\" It's on team schedules, game pages, and the Scores page (hover the model line).",
+      "Stats > Projected: removed \"Rest of season\" (Season pace already covers it). Quarterbacks' Season pace on player pages now includes interceptions.",
       "New NFL model: the NFL now has its own ratings instead of sharing the college engine. Last season carries over all year, scores are blended with play-by-play efficiency (EPA per play), recent weeks count more, and backup quarterbacks are marked down. Tested on every game from 2020 to 2025: 64.4% of winners picked, up from 62.6%.",
       "NFL cupcakes are real mismatches now: the opponent must be clearly bad and 5+ points worse than you. Good teams like the Lions no longer show up as anyone's cupcake. Bully of the Week is the most lopsided win over a weaker team (week 3: Jaguars 35-6 over the Patriots).",
       "Win chances now top out at 99.9% (and bottom out at 0.1%) until a game is over. Nothing is ever a 100% lock.",

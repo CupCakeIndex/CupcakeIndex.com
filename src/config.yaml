@@ -28,7 +28,13 @@ cfb:
     prior_games: 5          # Preseason expectation counts like this many games in week 1...
     prior_fade_week: 9      # ...and fades to zero by this week (backtested on 2025-26: best of 8 settings, though all were close)
     one_score: 8            # Margin that counts as a "one-score game"
-    spread_scale: 1.2       # Stretch predicted spreads (the margin cap compresses them). Fit on 2025 results.
+    spread_scale: 1.2       # (only used if the predict_ settings below are removed)
+    # Win chances blend power with efficiency. Fit on 2025-26 games (predicting each week from the week before):
+    # picked 73.2% of 2025 winners vs 71.7% with power alone. Résumé was tested too and made predictions worse.
+    predict_power: 0.73       # points per point of power rating difference
+    predict_efficiency: 4.6   # points per unit of efficiency difference (opponent-adjusted EPA/play + success rate)
+    predict_home: 3.5         # home field in a prediction (the power rating itself uses home_field above)
+    predict_sigma: 15.4       # spread of results around the prediction
     done_share: 0.9         # Share of a week's games that must be final before it's published
 
 nfl:

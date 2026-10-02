@@ -23,23 +23,23 @@
      ],
      "accuracy": {
       "games": 792,
-      "correct": 593,
-      "mae": 12.5,
+      "correct": 595,
+      "mae": 12.4,
       "vegas_su": {
        "games": 792,
        "correct": 601
       },
       "model_su_lined": {
        "games": 792,
-       "correct": 593
+       "correct": 595
       },
       "ats": {
-       "games": 769,
-       "correct": 409
+       "games": 768,
+       "correct": 404
       },
       "ats_strong": {
-       "games": 440,
-       "correct": 234
+       "games": 405,
+       "correct": 221
       },
       "vegas_mae": 11.9
      }
@@ -53,23 +53,23 @@
      ],
      "accuracy": {
       "games": 232,
-      "correct": 192,
-      "mae": 12.5,
+      "correct": 194,
+      "mae": 12.3,
       "vegas_su": {
        "games": 232,
        "correct": 203
       },
       "model_su_lined": {
        "games": 232,
-       "correct": 192
+       "correct": 194
       },
       "ats": {
        "games": 227,
-       "correct": 117
+       "correct": 113
       },
       "ats_strong": {
-       "games": 151,
-       "correct": 76
+       "games": 153,
+       "correct": 77
       },
       "vegas_mae": 10.8
      }
@@ -126,7 +126,7 @@
     "cupcake": 5,
     "luck": 5
    },
-   "updated": "2026-09-30T21:04+00:00",
+   "updated": "2026-10-02T00:15+00:00",
    "modes": {
     "best": {
      "power": 55,
@@ -142,19 +142,19 @@
      "sos": 25,
      "cupcake": 15
     },
-    "games": 878,
+    "games": 714,
     "accuracy": {
-     "best": 0.7209567198177677,
-     "deserving": 0.6355353075170843,
-     "old_default": 0.7175398633257403,
-     "power_only": 0.7309007981755986
+     "best": 0.7128851540616247,
+     "deserving": 0.6456582633053222,
+     "old_default": 0.7142857142857143,
+     "power_only": 0.726507713884993
     },
     "out_of_sample": {
-     "trained_on": 2025,
-     "tested_on": 2026,
-     "games": 164,
-     "best": 0.7560975609756098,
-     "old_default": 0.7317073170731707
+     "trained_on": 2024,
+     "tested_on": 2025,
+     "games": 714,
+     "best": null,
+     "old_default": 0.7142857142857143
     }
    }
   },
@@ -285,7 +285,7 @@
     "cupcake": 5,
     "luck": 5
    },
-   "updated": "2026-10-01T23:29+00:00",
+   "updated": "2026-10-02T00:15+00:00",
    "modes": {
     "best": {
      "power": 60,
@@ -318,5 +318,5 @@
    }
   }
  },
- "updated": "2026-10-01T23:29+00:00"
+ "updated": "2026-10-02T00:15+00:00"
 }

@@ -179,7 +179,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "111"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "112"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -544,8 +544,9 @@ function miniBug(g) {
     : g.state === "in" ? `<b class="live">LIVE</b><small>${esc(g.status || "")}</small>`
     : `<b class="mb-at">${g.neutral ? "VS" : "@"}</b><small class="mb-when">${esc(g.status || "")}</small>`;
   const right = g.diff != null ? `<span class="mb-right" title="Difficulty: the chance a typical top team would lose this game"><em>DIFF</em><span class="mb-bar"><i style="width:${Math.round(g.diff * 100)}%"></i></span><b>${Math.round(g.diff * 100)}%</b></span>`
-    : g.winp != null ? `<span class="mb-right mb-win" title="Cupcake Index model's chance this team wins"><b>${chancePct(g.winp)}</b> to win</span>` : "";
-  const foot = g.tags || g.note || right ? `<span class="mb-foot"><span class="mb-tags">${g.tags || ""}${g.note ? `<small>${g.note}</small>` : ""}</span>${right}</span>` : "";
+    : g.winp != null ? `<span class="mb-right mb-win" title="${esc(g.why || "Cupcake Index model's chance this team wins")}"><b>${chancePct(g.winp)}</b> to win</span>` : "";
+  const why = g.winp != null && g.why ? `<span class="mb-why">${esc(g.why)}</span>` : "";
+  const foot = g.tags || g.note || right ? `<span class="mb-foot"><span class="mb-tags">${g.tags || ""}${g.note ? `<small>${g.note}</small>` : ""}</span>${right}${why}</span>` : "";
   const body = `<span class="mb-wk">WK<b>${esc(g.wk ?? "")}</b></span>${side(g.away, "away")}<span class="mb-mid">${mid}</span>${side(g.home, "home")}${foot}`;
   const res = g.state === "post" && ["W", "L", "T"].includes(g.result) ? ` res-${g.result}` : ""; // win/loss/tie tint
   const attrs = `class="mbug ${g.state}${res}${foot ? "" : " nofoot"}"${g.eid ? ` data-eid="${esc(g.eid)}"` : ""} style="--ac:${esc(g.away.color || "#6b7280")};--hc:${esc(g.home.color || "#6b7280")}"`;
@@ -711,7 +712,7 @@ function openTeam(name) {
     const note = g.qb ? `QB ${esc(g.qb)}${g.qb !== t.usual_qb && t.usual_qb ? " ⚠" : ""}${g.rest_diff ? ` · ${g.rest_diff > 0 ? "+" : ""}${esc(g.rest_diff)} days rest vs. opp` : ""}` : "";
     return miniBug({ href: g.espn_id ? link("game", g.espn_id) : "", eid: g.espn_id, wk: g.week, state: g.upcoming ? "pre" : "post",
       status: g.upcoming ? "Preview" : "Final", result: g.result, neutral: g.loc === "N", away: g.loc === "H" ? op : me, home: g.loc === "H" ? me : op,
-      tags: schedTags(g, nfl), note, diff: g.upcoming ? null : g.difficulty, winp: g.upcoming ? g.win_prob : null });
+      tags: schedTags(g, nfl), note, diff: g.upcoming ? null : g.difficulty, winp: g.upcoming ? g.win_prob : null, why: g.upcoming ? g.why : null });
   }).join("");
   const bench = nfl ? "top-8 NFL team" : "top-25 team";
   $("#drawer-body").innerHTML = `

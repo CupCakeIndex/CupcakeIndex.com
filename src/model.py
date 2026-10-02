@@ -249,6 +249,48 @@ def prior_strength(week, cfg):
     return cfg["prior_games"] * max(0.0, (fade - week) / (fade - 1))
 
 
+# --------------------------------------------------------------------------- game predictions
+def expected_margin(cfg, r_us, r_them, e_us=0.0, e_them=0.0, loc=0, extra=0.0):
+    """Expected margin for "us" and the parts it's made of (points, + = good for us).
+    loc: 1 = we're home, -1 = away, 0 = neutral. College blends power with efficiency (predict_* in config.yaml,
+    fit on 2025-26 results); the NFL's rating already blends both (src/nfl_model.py). extra = e.g. backup-QB points."""
+    if "predict_power" in cfg:
+        parts = {"power": cfg["predict_power"] * (r_us - r_them), "efficiency": cfg["predict_efficiency"] * (e_us - e_them),
+                 "home": cfg["predict_home"] * loc}
+    else:
+        sc = cfg.get("spread_scale", 1.0)
+        parts = {"power": sc * (r_us - r_them), "home": sc * cfg["home_field"] * loc}
+    if extra:
+        parts["qb"] = extra
+    parts = {k: float(v) for k, v in parts.items()}  # plain floats (numpy types don't survive json.dumps)
+    return sum(parts.values()), parts
+
+
+def win_prob(cfg, margin):
+    return phi(margin / cfg.get("predict_sigma", cfg["game_sigma"]))
+
+
+def explain(parts, us, them):
+    """Why the model leans the way it does, in words (no point numbers: the site doesn't show its own lines).
+    -> "Edge South Carolina: home field. Edge Kentucky: a slightly stronger team, slightly more efficient play." """
+    def adv(v):
+        return "slightly " if v < 3 else "clearly " if v >= 8 else ""
+
+    def phrase(k, v):
+        return {"power": f"a {adv(v)}stronger team",
+                "efficiency": f"{adv(v)}more efficient play",
+                "home": "home field",
+                "qb": "the other side starting a backup QB"}[k]
+    edges = {us: [], them: []}
+    for k, v in sorted(parts.items(), key=lambda kv: -abs(kv[1])):
+        if abs(v) >= 0.75:
+            edges[us if v > 0 else them].append(phrase(k, abs(v)))
+    margin = sum(parts.values())
+    order = (us, them) if margin >= 0 else (them, us)
+    out = " ".join(f"Edge {t}: {', '.join(edges[t])}." for t in order if edges[t])
+    return out or "No real edge either way: a true toss-up."
+
+
 # --------------------------------------------------------------------------- polls
 
 def ap_ranks(polls, week, name="AP Top 25"):
@@ -282,6 +324,8 @@ def build_week(fbs, games, advanced, polls, week, cfg, prior, rgames=None, node_
     is_low = lambda n: n not in fbs  # FCS or lower division
     rank = {t: i + 1 for i, t in enumerate(sorted(teams, key=lambda t: -R[t]))}
     ppa, sr = efficiency_ratings(teams, advanced, fbs, week, cfg)
+    sd_p, sd_s = (np.std(list(ppa.values())) or 1), (np.std(list(sr.values())) or 1) if ppa else (1, 1)
+    eff = {n: 0.7 * ppa[n] / sd_p + 0.3 * sr.get(n, 0) / sd_s for n in ppa} if ppa else {}
     bench_rank = min(cfg.get("benchmark_rank", 25), len(teams)) - 1
     bench = R[sorted(teams, key=lambda t: -R[t])[bench_rank]]  # e.g. the #25 CFB team's rating
     ap = ap_ranks(polls, week)
@@ -334,14 +378,15 @@ def build_week(fbs, games, advanced, polls, week, cfg, prior, rgames=None, node_
                 row.update(score=f"{us}-{them}", result="W" if won else "L", perf=round(perf, 1),
                            difficulty=round(1 - p25, 2))
             else:
-                spread = (R[t] - ro + loc_pts) * cfg.get("spread_scale", 1.0)
-                row.update(upcoming=True, spread=round(spread, 1), win_prob=round(phi(spread / cfg["game_sigma"]), 2))
+                loc = 0 if x["neutral"] else (1 if home else -1)
+                spread, parts = expected_margin(cfg, R[t], ro, eff.get(t, 0.0), eff.get(onode, eff.get(FCS, 0.0)), loc)
+                row.update(upcoming=True, spread=round(spread, 1), win_prob=round(win_prob(cfg, spread), 2),
+                           why=explain(parts, t, opp))
             sched.append(row)
         n = wins + losses
         raw["power"][t] = R[t]
         raw["resume"][t] = sor
-        raw["efficiency"][t] = (0.7 * ppa.get(t, 0) / (np.std(list(ppa.values())) or 1)
-                                + 0.3 * sr.get(t, 0) / (np.std(list(sr.values())) or 1)) if ppa else R[t]
+        raw["efficiency"][t] = eff.get(t, 0.0) if ppa else R[t]
         raw["sos"][t] = float(np.mean(opp_ratings)) if opp_ratings else 0.0
         raw["recent"][t] = float(np.mean(perfs[-cfg["recent_games"]:])) if perfs else R[t]
         raw["cupcake"][t] = cup_sum / n if n else 0.0
@@ -371,7 +416,7 @@ def build_week(fbs, games, advanced, polls, week, cfg, prior, rgames=None, node_
             **detail[t],
         })
     low = sorted(((n, r) for n, r in R.items() if is_low(n) and n != FCS), key=lambda x: -x[1])
-    return {"week": week, "prior_weight": round(k, 2), "teams": out, "ratings": R,
+    return {"week": week, "prior_weight": round(k, 2), "teams": out, "ratings": R, "eff": eff,
             "fcs_ratings": [[n, round(r, 1)] for n, r in low]}
 
 
@@ -430,7 +475,7 @@ def comparison(fbs, polls, week, fpi, sp):
     return {t: {"ap": ap.get(t), "coaches": coaches.get(t), "fpi": f.get(t), "sp": s.get(t)} for t in fbs}
 
 
-def predictions(games, ratings, week, cfg, lines=None, adjust=None):
+def predictions(games, ratings, week, cfg, lines=None, adjust=None, eff=None):
     """Model picks for week+1 games vs. the sportsbooks, graded if they've been played.
 
     `spread` / `vegas` are expected home margins (positive = home favored).
@@ -441,11 +486,11 @@ def predictions(games, ratings, week, cfg, lines=None, adjust=None):
         if x["week"] != week + 1:
             continue
         rh, ra = ratings.get(x["hnode"], cfg["fcs_rating"]), ratings.get(x["anode"], cfg["fcs_rating"])
-        spread = (rh - ra + (0 if x["neutral"] else cfg["home_field"])) * cfg.get("spread_scale", 1.0)
-        if adjust:  # e.g. NFL backup quarterbacks
-            spread += adjust(x)
+        e = eff or {}
+        spread, parts = expected_margin(cfg, rh, ra, e.get(x["hnode"], e.get(FCS, 0.0)), e.get(x["anode"], e.get(FCS, 0.0)),
+                                        0 if x["neutral"] else 1, adjust(x) if adjust else 0.0)  # adjust: e.g. NFL backup QBs
         p = {"week": x["week"], "home": x["home"], "away": x["away"], "espn_id": x["espn"], "spread": round(spread, 1),
-             "home_win_prob": round(phi(spread / cfg["game_sigma"]), 3),
+             "home_win_prob": round(win_prob(cfg, spread), 3), "why": explain(parts, x["home"], x["away"]),
              "pick": x["home"] if spread >= 0 else x["away"]}
         if x["hqb"] or x["aqb"]:
             p.update(home_qb=x["hqb"], away_qb=x["aqb"])
