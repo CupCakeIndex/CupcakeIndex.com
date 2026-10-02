@@ -174,8 +174,8 @@ def facts_for(team, gs, names, upcoming):
     if len(nt) >= 10:
         nw, nl = sum(g["won"] for g in nt), sum(not g["won"] and not g["tie"] for g in nt)
         recent = nt[-10:]
-        out.append({"big": rec(nw, nl), "label": f"in night games since {FIRST}",
-                    "detail": f"{round(100 * nw / len(nt))}% wins. Last 10 night games: {rec(sum(g['won'] for g in recent), sum(not g['won'] and not g['tie'] for g in recent))}"})
+        out.append({"big": rec(nw, nl), "label": f"in prime time since {FIRST}",
+                    "detail": f"{round(100 * nw / len(nt))}% wins. Last 10 prime-time games: {rec(sum(g['won'] for g in recent), sum(not g['won'] and not g['tie'] for g in recent))}"})
     # 6. next opponent
     nxt = upcoming.get(team)
     if nxt:

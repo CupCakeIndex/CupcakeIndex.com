@@ -1754,8 +1754,7 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
   transition: transform .25s ease; max-width: calc(100vw - 32px); }
 .acct-toast.on { transform: translate(-50%, 0); }
 @media (prefers-reduced-motion: reduce) { .acct-toast { transition: none; } }
-/* CFB <-> NFL switch: pixel particles out of the switch (canvas) + a short glitch on the page content */
-.lg-px { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 200; pointer-events: none; }
+/* CFB <-> NFL switch: a scan line sweeps the content (app.js leagueWipe) */
 /* scan line: 2px accent line with a soft trail, one pass across the content in the switch's direction */
 .lg-scan { position: fixed; left: 0; right: 0; bottom: 0; z-index: 199; pointer-events: none; overflow: hidden; }
 .lg-scan i { position: absolute; top: 0; bottom: 0; left: 0; width: 120px; will-change: transform;

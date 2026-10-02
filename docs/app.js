@@ -98,11 +98,11 @@ function link(view, arg = null, params = {}) {
 
 let lastPage = null;
 function leagueWipe(lg) {
-  // CFB <-> NFL: a short "data stream" of grid-aligned pixels leaves the switch the way it moved (NFL right, CFB left)
-  // and a thin scan line sweeps the content the same way while the other league fades in. The page itself never moves.
+  // CFB <-> NFL: a thin scan line sweeps the content the way the switch moved (NFL right, CFB left)
+  // while the other league fades in. The page itself never moves.
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const dir = lg === "nfl" ? 1 : -1, sw = $("#league")?.getBoundingClientRect(), main = document.querySelector("main");
-  document.querySelectorAll(".lg-px, .lg-scan").forEach((e) => e.remove());
+  const dir = lg === "nfl" ? 1 : -1, main = document.querySelector("main");
+  document.querySelectorAll(".lg-scan").forEach((e) => e.remove());
   if (main) {
     const r = main.getBoundingClientRect(), top = Math.max(0, r.top);
     const scan = document.createElement("div"), line = document.createElement("i");
@@ -117,35 +117,6 @@ function leagueWipe(lg) {
     main.classList.remove("lg-in"); void main.offsetWidth; main.classList.add("lg-in");
     setTimeout(() => main.classList.remove("lg-in"), 500);
   }
-  if (!sw) return;
-  const c = document.createElement("canvas"), dpr = Math.min(2, window.devicePixelRatio || 1);
-  c.className = "lg-px";
-  c.width = innerWidth * dpr; c.height = innerHeight * dpr;
-  document.body.appendChild(c);
-  const g = c.getContext("2d"), accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#ff6b2c";
-  const G = 4, snap = (v) => Math.round(v / G) * G;                       // everything sits on a 4px grid
-  const x0 = dir > 0 ? sw.right + 4 : sw.left - 8, y0 = sw.top + sw.height / 2;
-  const ps = Array.from({ length: 18 }, (_, i) => ({ row: (i % 3) - 1, delay: Math.floor(i / 3) * 2 + (i % 3), speed: 7 + (i % 3) * 2, x: x0 }));
-  let f = 0;
-  const step = () => {
-    g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    g.clearRect(0, 0, innerWidth, innerHeight);
-    let alive = 0;
-    for (const p of ps) {
-      const t = f - p.delay;
-      if (t < 0) { alive++; continue; }
-      if (t > 22) continue;
-      alive++;
-      p.x += dir * p.speed;
-      g.globalAlpha = Math.max(0, 1 - t / 22);
-      g.fillStyle = accent;
-      g.fillRect(snap(p.x), snap(y0 + p.row * 8) - G / 2, G, G);
-    }
-    f++;
-    if (alive) requestAnimationFrame(step); else c.remove();
-  };
-  requestAnimationFrame(step);
-  setTimeout(() => c.remove(), 1500);
 }
 async function route() {
   const r = parseHash();
@@ -239,7 +210,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "161"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "162"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });

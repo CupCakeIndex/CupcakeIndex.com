@@ -20,7 +20,7 @@ on:
         description: "Which stat (best = the strongest one right now)"
         type: choice
         default: best
-        options: [best, bully_drought, week_drought, series_week, soft_unbeaten, top25_test, cupcake_streak, top10_drought, nfl_series_week, nfl_playoff_drought, nfl_night_record, nfl_top8_test]
+        options: [best, bully_drought, week_drought, series_week, soft_unbeaten, top25_test, cupcake_streak, top10_drought, nfl_series_week, nfl_playoff_drought, nfl_primetime_record, nfl_top8_test]
       theme:
         description: "Card look (a site theme; random = surprise me)"
         type: choice
@@ -65,7 +65,7 @@ jobs:
           if [ -n "$STAT" ]; then TRY="$STAT best"
           else case "$(date -u +%u)" in
             6) TRY="week_drought series_week top10_drought best" ;;
-            7) TRY="nfl_series_week nfl_playoff_drought nfl_night_record best" ;;
+            7) TRY="nfl_series_week nfl_playoff_drought nfl_primetime_record best" ;;
             *) TRY="best" ;;
           esac; fi
           for k in $TRY; do python src/social/cupcake_stats.py --stat "$k" --theme "$THEME" && break; done || echo "Nothing to post"

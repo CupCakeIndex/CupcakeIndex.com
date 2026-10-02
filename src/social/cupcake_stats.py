@@ -197,9 +197,10 @@ def _():
         return None
     t, dr, streak, start = cands[0]
     last = dr["last"]
-    tail = (f"its last one came {when(last['d'])}, {score(last)} {where(last)}." if last
-            else f"it hasn't won one since at least {start}, as far back as our data goes.")
-    text = (f"{t['team']} has won {streak} straight games against cupcakes. On the road against ranked teams, it's "
+    nick = mascot(t["team"], "cfb")
+    tail = (f"the last win came {when(last['d'])}, {score(last)} {where(last)}." if last
+            else f"no wins since at least {start}, as far back as our data goes.")
+    text = (f"{t['team']} has won {streak} straight games against cupcakes. On the road against ranked teams, {nick} are "
             f"0-{dr['since_l']}: {tail}")
     rows = [(c[0], c[1]["years"], f"0-{c[1]['since_l']} since {c[1]['last']['d'][:4] if c[1]['last'] else c[3]}") for c in cands]
     big = f"0-{dr['since_l']}"
@@ -334,7 +335,7 @@ def _():
     fcs = f" (plus {r[2]} FCS)" if r[2] else ""
     since = (f"That's the softest {n}-0 start since {prev[1]} in {prev[0]} ({prev[2][0]}-{prev[2][1]})." if prev
              else f"That's the softest {n}-0 start in our data, which goes back to {start}.")
-    text = f"{t['team']} is {n}-0. The FBS teams it has beaten are a combined {r[0]}-{r[1]}{fcs}. {since}"
+    text = f"{t['team']} is {n}-0. The FBS teams {mascot(t['team'], 'cfb')} have beaten are a combined {r[0]}-{r[1]}{fcs}. {since}"
     rows = [(c[0], -pct(c[1]), f"{c[1][0]}-{c[1][1]}" + (f" +{c[1][2]} FCS" if c[1][2] else "")) for c in cands]
     return fact("cfb", rows, f"Softest {n}-0 since {prev[0]}" if prev else f"Softest {n}-0 we can find", "Unbeaten teams, by the combined record of the FBS teams they've beaten",
                 "combined record of FBS teams beaten", text, f"{r[0]}-{r[1]}", "combined record of the FBS teams beaten",
@@ -402,6 +403,22 @@ def fact_of(fs, label_start):
     return next((f for f in fs if f["label"].startswith(label_start)), None)
 
 
+_MASCOTS = {}
+
+
+def mascot(name, league):
+    """'the Buckeyes' / 'the Lions': how a sentence refers to a team the second time (never 'it')."""
+    if not _MASCOTS:
+        try:
+            d = json.loads((Path(ROOT) / "docs" / "data" / "teams.json").read_text(encoding="utf-8"))
+            for lg in ("cfb", "nfl"):
+                _MASCOTS[lg] = {t["name"]: t.get("mascot") or "" for t in d.get(lg, [])}
+        except (OSError, ValueError):
+            pass
+    m = _MASCOTS.get(league, {}).get(name) or (name.split(" ")[-1] if league == "nfl" else "")
+    return f"the {m}" if m else "they"
+
+
 def short_name(name, league):
     return name.split(" ")[-1] if league == "nfl" else name
 
@@ -452,8 +469,9 @@ def _():
             t, n, lab, f = lead
             who, verb, has = the(t["team"], league)
             last = f["detail"].replace("Last loss to one: ", "")
-            tail = (f"The last cupcake to beat {'them' if league == 'nfl' else 'it'}: {last}." if "Last loss" in f["detail"]
-                    else f"No cupcake has beaten {'them' if league == 'nfl' else 'it'} since at least {d['since']}.")
+            nick = mascot(t["team"], league)
+            tail = (f"The last cupcake to beat {nick}: {last}." if "Last loss" in f["detail"]
+                    else f"No cupcake has beaten {nick} since at least {d['since']}.")
             return fact(league, [(r[0], r[1], r[2]) for r in rows_], "Cupcake streaks", "Longest active win streaks against cupcakes (our cupcake rule)",
                         "straight wins over cupcakes", f"{who} {has} won {n} straight games against cupcakes. {tail}", str(n), "straight wins over cupcakes", n / 10)
         out += candidates(rows, build, 3)
@@ -552,10 +570,10 @@ def have(has):
     return "haven't" if has == "have" else "hasn't"
 
 
-@stat("nfl_night_record")
+@stat("nfl_primetime_record")
 def _():
     def pick(t, fs):
-        f = fact_of(fs, "in night games")
+        f = fact_of(fs, "in prime time")
         if not f:
             return None
         w, l = (int(x) for x in f["big"].split("-")[:2])
@@ -566,9 +584,9 @@ def _():
         t, dev, lab, f = lead
         who, verb, has = the(t["team"], "nfl")
         good = int(f["big"].split("-")[0]) > int(f["big"].split("-")[1])
-        return fact("nfl", [(r[0], r[1], r[2]) for r in rows_], "Under the lights" if good else "Lights too bright", f"Night-game records since {d['since']} (7 PM Eastern or later)",
-                    "night-game record", f"{who} {verb} {f['big']} in night games since {d['since']} ({f['detail'].split('.')[0]}). {f['detail'].split('. ', 1)[-1]}.",
-                    f["big"], "in night games since " + str(d["since"]), dev * 20)
+        return fact("nfl", [(r[0], r[1], r[2]) for r in rows_], "Prime-time players" if good else "Not ready for prime time", f"Prime-time records since {d['since']} (kickoff 7 PM Eastern or later)",
+                    "prime-time record", f"{who} {verb} {f['big']} in prime time since {d['since']} ({f['detail'].split('.')[0]}). {f['detail'].split('. ', 1)[-1]}.",
+                    f["big"], "in prime time since " + str(d["since"]), dev * 20)
     return candidates(rows, build)
 
 
