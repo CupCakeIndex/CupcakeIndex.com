@@ -96,7 +96,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 .hint { margin: 0; color: var(--muted); font-size: 12.5px; }
 .photos > div, .photos { align-items: start; }
 .pcell { display: grid; gap: 6px; }
-.adj { justify-self: center; margin-top: -4px; padding: 5px 10px; font-size: 11px; }
+.adj { padding: 5px 10px; font-size: 11px; }
 /* card search */
 .srch { display: grid; gap: 8px; }
 .srch-bar { display: flex; gap: 8px; } .srch-bar input { flex: 1; min-width: 0; font: 16px var(--body); padding: 9px 10px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; }
@@ -105,13 +105,19 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 .srch-hit img { width: 100%; aspect-ratio: 5 / 7; object-fit: cover; border-radius: 6px; background: #1a1a20; }
 .srch-hit span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 /* card cropper */
-.crop-sheet { z-index: 60; }
+.crop-sheet { z-index: 60; overflow-x: hidden; }
 .crop { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: grid; gap: 10px; justify-items: center; max-width: 100%; }
 .crop h2 { margin: 0; font: 400 26px var(--display); text-transform: uppercase; }
 .crop-stage { position: relative; touch-action: none; }
 .crop-stage canvas { display: block; border-radius: 6px; }
-.crop-box { position: absolute; border: 2px solid var(--gold2); border-radius: 8px; box-shadow: 0 0 0 9999px rgba(0,0,0,.6); cursor: move; touch-action: none; }
-.crop-h { position: absolute; right: -9px; bottom: -9px; width: 20px; height: 20px; border-radius: 50%; background: var(--gold2); border: 2px solid #1a1408; cursor: nwse-resize; }
+.crop-stage svg { position: absolute; inset: 0; pointer-events: none; }
+.crop-dim { fill: rgba(0,0,0,.55); }
+.crop-edge { fill: none; stroke: var(--gold2); stroke-width: 2; }
+.crop-dot { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; background: rgba(255,207,74,.25); border: 2px solid var(--gold2); box-shadow: 0 0 0 2px #1a1408; pointer-events: none; }
+.crop-dot::after { content: ""; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: var(--gold2); }
+.crop-stage .crop-loupe { position: absolute; display: none; width: 110px; height: 110px; border-radius: 50%; border: 2px solid var(--gold2); box-shadow: 0 6px 18px rgba(0,0,0,.6); pointer-events: none; }
+.crop .acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.adj-bar { display: flex; gap: 6px; justify-content: center; margin-top: -4px; }
 .hidden { display: none !important; }
 @media (max-width: 640px) {
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -148,6 +154,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 </div>
 
 <script src="../firebase-config.js"></script>
+<script src="cardcrop.js?v=1"></script>
 <script>window.VAULT_SEARCH_URL = ""; // the Cloudflare Worker's address (workers/vault-search.js) once it's set up</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -274,168 +281,65 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   // Card search (eBay listing photos) goes through a small Cloudflare Worker that holds the eBay key.
   // Empty until it's set up; then search shows up in "Add a card".
   const SEARCH = window.VAULT_SEARCH_URL || "";
-  const CARD_W = 700, CARD_H = 980; // saved size: a 2.5 x 3.5 card
-
-  async function bitmapOf(src) {
-    if (src instanceof Blob) return createImageBitmap(src);
-    const r = await fetch(src);
-    if (!r.ok) throw new Error("image " + r.status);
-    return createImageBitmap(await r.blob());
-  }
-  // Find the card in a photo: the background is whatever color fills the photo's edges; the card is the big block
-  // of rows and columns that differ from it. Returns a 5:7 box around it (in image pixels).
-  function autoRect(bmp) {
-    const W = 200, s = W / bmp.width, H = Math.max(1, Math.round(bmp.height * s));
-    const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
-    const g = cv.getContext("2d", { willReadFrequently: true }); g.drawImage(bmp, 0, 0, W, H);
-    const px = g.getImageData(0, 0, W, H).data, at = (x, y) => { const i = (y * W + x) * 4; return [px[i], px[i + 1], px[i + 2]]; };
-    const ring = [];
-    for (let x = 0; x < W; x += 2) ring.push(at(x, 1), at(x, H - 2));
-    for (let y = 0; y < H; y += 2) ring.push(at(1, y), at(W - 2, y));
-    const med = [0, 1, 2].map((k) => ring.map((p) => p[k]).sort((a, b) => a - b)[ring.length >> 1]);
-    const fg = (x, y) => { const p = at(x, y); return Math.abs(p[0] - med[0]) + Math.abs(p[1] - med[1]) + Math.abs(p[2] - med[2]) > 60; };
-    const rows = [], cols = new Array(W).fill(0);
-    for (let y = 0; y < H; y++) { let n = 0; for (let x = 0; x < W; x++) if (fg(x, y)) { n++; cols[x]++; } rows.push(n / W); }
-    const on = (arr, lim) => { const i0 = arr.findIndex((v) => v > lim), i1 = arr.length - 1 - [...arr].reverse().findIndex((v) => v > lim); return i0 < 0 ? null : [i0, i1]; };
-    const ry = on(rows, 0.25), rx = on(cols.map((c) => c / H), 0.25);
-    let x0 = 0, y0 = 0, x1 = W, y1 = H;
-    if (ry && rx && (rx[1] - rx[0]) > W * 0.25 && (ry[1] - ry[0]) > H * 0.25) { [x0, x1] = rx; [y0, y1] = ry; }
-    // grow to a 5:7 card shape around the found block, inside the photo
-    let w = x1 - x0, h = y1 - y0, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-    if (w / h > 5 / 7) h = w * 7 / 5; else w = h * 5 / 7;
-    w = Math.min(w, W, H * 5 / 7); h = w * 7 / 5;
-    const x = Math.max(0, Math.min(W - w, cx - w / 2)), y = Math.max(0, Math.min(H - h, cy - h / 2));
-    return { x: x / s, y: y / s, w: w / s, h: h / s };
-  }
-  // Show the photo with a card-shaped crop box: drag to move, drag the corner to resize. Resolves with the cropped JPEG.
-  function cropper(bmp) {
+  const CC = window.CardCrop;
+  // Corner picker: the photo with 4 dots. Drag each dot onto a corner of the card (a zoom bubble shows
+  // exactly where you are), then the card gets warped flat. Resolves with the 4 corners, "whole", or null (cancel).
+  function cornerPicker(bmp, start) {
     return new Promise((done) => {
-      const r = autoRect(bmp), view = Math.min(320, innerWidth - 60), sc = view / Math.max(bmp.width, bmp.height * 0.8);
-      const vw = Math.round(bmp.width * sc), vh = Math.round(bmp.height * sc);
-      const box = { x: r.x * sc, y: r.y * sc, w: r.w * sc };
+      const maxW = Math.min(360, innerWidth - 84), maxH = Math.min(innerHeight * 0.58, 520);
+      const sc = Math.min(maxW / bmp.width, maxH / bmp.height), vw = Math.round(bmp.width * sc), vh = Math.round(bmp.height * sc);
+      const guess = () => CC.findQuad(bmp) || (CC.isScan(bmp) ? CC.frame(bmp) : [[.1, .1], [.9, .1], [.9, .9], [.1, .9]].map(([x, y]) => [x * bmp.width, y * bmp.height]));
+      let q = (start || guess()).map(([x, y]) => [x * sc, y * sc]);
       const w = document.createElement("div");
       w.className = "sheet crop-sheet";
-      w.innerHTML = `<div class="crop"><h2>Fit the card</h2><p class="hint">We found the card. Drag the box to move it, drag the corner to resize.</p>
-        <div class="crop-stage" style="width:${vw}px;height:${vh}px"><canvas width="${vw}" height="${vh}"></canvas><div class="crop-box"><i class="crop-h"></i></div></div>
-        <div class="acts"><button type="button" class="primary" id="c-ok">Use crop</button><button type="button" id="c-all">Use whole photo</button></div></div>`;
+      w.innerHTML = `<div class="crop"><h2>Set the corners</h2><p class="hint">Drag each dot onto a corner of the card. We'll make it flat and square.</p>
+        <div class="crop-stage" style="width:${vw}px;height:${vh}px"><canvas width="${vw}" height="${vh}"></canvas>
+          <svg width="${vw}" height="${vh}" viewBox="0 0 ${vw} ${vh}"><path class="crop-dim" fill-rule="evenodd"></path><polygon class="crop-edge"></polygon></svg>
+          ${[0, 1, 2, 3].map((i) => `<i class="crop-dot" data-i="${i}"></i>`).join("")}<canvas class="crop-loupe" width="110" height="110"></canvas></div>
+        <div class="acts"><button type="button" class="primary" id="c-ok">Straighten it</button><button type="button" id="c-auto">Auto-find</button>
+          <button type="button" id="c-all">Use whole photo</button><button type="button" id="c-x">Cancel</button></div></div>`;
       document.body.appendChild(w);
-      w.querySelector("canvas").getContext("2d").drawImage(bmp, 0, 0, vw, vh);
-      const el = w.querySelector(".crop-box");
-      const place = () => { box.w = Math.max(40, Math.min(box.w, vw, vh * 5 / 7)); box.x = Math.max(0, Math.min(vw - box.w, box.x)); box.y = Math.max(0, Math.min(vh - box.w * 7 / 5, box.y));
-        Object.assign(el.style, { left: box.x + "px", top: box.y + "px", width: box.w + "px", height: box.w * 7 / 5 + "px" }); };
-      place();
-      let drag = null;
-      el.addEventListener("pointerdown", (e) => { e.preventDefault(); el.setPointerCapture(e.pointerId); drag = { mode: e.target.classList.contains("crop-h") ? "size" : "move", sx: e.clientX, sy: e.clientY, b: { ...box } }; });
-      el.addEventListener("pointermove", (e) => {
-        if (!drag) return;
-        const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
-        if (drag.mode === "move") { box.x = drag.b.x + dx; box.y = drag.b.y + dy; } else box.w = drag.b.w + Math.max(dx, dy * 5 / 7);
-        place();
-      });
-      el.addEventListener("pointerup", () => (drag = null));
-      const out = (sx, sy, sw, sh) => {
-        const cv = document.createElement("canvas"); cv.width = CARD_W; cv.height = CARD_H;
-        const g = cv.getContext("2d"); g.fillStyle = "#111"; g.fillRect(0, 0, CARD_W, CARD_H);
-        // whole photo: fit it in without stretching; crop: fill the card exactly
-        if (sw / sh > CARD_W / CARD_H + 0.01 || sw / sh < CARD_W / CARD_H - 0.01) { const k = Math.min(CARD_W / sw, CARD_H / sh); g.drawImage(bmp, sx, sy, sw, sh, (CARD_W - sw * k) / 2, (CARD_H - sh * k) / 2, sw * k, sh * k); }
-        else g.drawImage(bmp, sx, sy, sw, sh, 0, 0, CARD_W, CARD_H);
-        let q = 0.85, url = cv.toDataURL("image/jpeg", q);
-        while (url.length > 420000 && q > 0.4) { q -= 0.1; url = cv.toDataURL("image/jpeg", q); }
-        w.remove(); done(url);
+      const [cv, lp] = w.querySelectorAll("canvas"), dots = w.querySelectorAll(".crop-dot"), stage = w.querySelector(".crop-stage");
+      cv.getContext("2d").drawImage(bmp, 0, 0, vw, vh);
+      const draw = () => {
+        w.querySelector(".crop-edge").setAttribute("points", q.map((p) => p.map((v) => v.toFixed(1)).join(",")).join(" "));
+        w.querySelector(".crop-dim").setAttribute("d", `M0 0H${vw}V${vh}H0Z M${q.map((p) => p.join(" ")).join(" L")}Z`);
+        dots.forEach((d, i) => { d.style.left = q[i][0] + "px"; d.style.top = q[i][1] + "px"; });
       };
-      w.querySelector("#c-ok").onclick = () => out(box.x / sc, box.y / sc, box.w / sc, box.w * 7 / 5 / sc);
-      w.querySelector("#c-all").onclick = () => out(0, 0, bmp.width, bmp.height);
+      const lg = lp.getContext("2d"), Z = 3;
+      const loupe = (p) => {
+        if (!p) { lp.style.display = "none"; return; }
+        const k = 1 / sc, half = 55 / Z;
+        lg.fillStyle = "#000"; lg.fillRect(0, 0, 110, 110);
+        lg.drawImage(bmp, (p[0] - half) * k, (p[1] - half) * k, 2 * half * k, 2 * half * k, 0, 0, 110, 110);
+        lg.strokeStyle = "#ffcf4a"; lg.lineWidth = 1; lg.beginPath(); lg.moveTo(55, 40); lg.lineTo(55, 70); lg.moveTo(40, 55); lg.lineTo(70, 55); lg.stroke();
+        // float the bubble away from the finger: above it, or below when there's no room
+        Object.assign(lp.style, { display: "block", left: Math.max(0, Math.min(vw - 110, p[0] - 55)) + "px", top: (p[1] > 140 ? p[1] - 150 : p[1] + 40) + "px" });
+      };
+      draw();
+      let drag = null;
+      stage.addEventListener("pointerdown", (e) => {
+        const r = stage.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+        // grab the nearest dot (generous reach for thumbs)
+        let bi = 0; q.forEach((p, i) => { if (Math.hypot(p[0] - x, p[1] - y) < Math.hypot(q[bi][0] - x, q[bi][1] - y)) bi = i; });
+        if (Math.hypot(q[bi][0] - x, q[bi][1] - y) > 44) return;
+        e.preventDefault(); stage.setPointerCapture(e.pointerId);
+        drag = { i: bi, ox: q[bi][0] - x, oy: q[bi][1] - y }; loupe(q[bi]);
+      });
+      stage.addEventListener("pointermove", (e) => {
+        if (!drag) return;
+        const r = stage.getBoundingClientRect();
+        q[drag.i] = [Math.max(0, Math.min(vw, e.clientX - r.left + drag.ox)), Math.max(0, Math.min(vh, e.clientY - r.top + drag.oy))];
+        draw(); loupe(q[drag.i]);
+      });
+      const up = () => { drag = null; loupe(null); };
+      stage.addEventListener("pointerup", up); stage.addEventListener("pointercancel", up);
+      const close = (v) => { w.remove(); done(v); };
+      w.querySelector("#c-ok").onclick = () => close(CC.order(q.map(([x, y]) => [x / sc, y / sc])));
+      w.querySelector("#c-auto").onclick = () => { const f = CC.findQuad(bmp); if (f) { q = f.map(([x, y]) => [x * sc, y * sc]); draw(); } else w.querySelector(".hint").textContent = "Couldn't spot the card on its own here. Drag the dots onto its corners."; };
+      w.querySelector("#c-all").onclick = () => close("whole");
+      w.querySelector("#c-x").onclick = () => close(null);
     });
-  }
-  // ---------- automatic straightening: find the card's 4 corners (works when it's tilted or shot at an angle)
-  // and warp it flat to an exact 2.5 x 3.5 card. Returns null when it can't find a clear card (then: crop box).
-  function findCorners(bmp) {
-    const W = 320, s = W / Math.max(bmp.width, bmp.height), w = Math.round(bmp.width * s), h = Math.round(bmp.height * s);
-    const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
-    const g = cv.getContext("2d", { willReadFrequently: true }); g.drawImage(bmp, 0, 0, w, h);
-    const px = g.getImageData(0, 0, w, h).data, col = (i) => [px[i * 4], px[i * 4 + 1], px[i * 4 + 2]];
-    // background = the typical color around the photo's edge; "card" = clearly different from it
-    const ring = [];
-    for (let x = 0; x < w; x += 2) ring.push(col(x), col((h - 1) * w + x));
-    for (let y = 0; y < h; y += 2) ring.push(col(y * w), col(y * w + w - 1));
-    const med = [0, 1, 2].map((k) => ring.map((p) => p[k]).sort((a, b) => a - b)[ring.length >> 1]);
-    const dist = new Float32Array(w * h);
-    for (let i = 0; i < w * h; i++) dist[i] = Math.abs(px[i * 4] - med[0]) + Math.abs(px[i * 4 + 1] - med[1]) + Math.abs(px[i * 4 + 2] - med[2]);
-    const ringD = ring.map((p) => Math.abs(p[0] - med[0]) + Math.abs(p[1] - med[1]) + Math.abs(p[2] - med[2])).sort((a, b) => a - b);
-    const thr = Math.max(40, ringD[Math.floor(ringD.length * 0.9)] * 1.5); // above the background's own noise
-    const mask = new Uint8Array(w * h);
-    for (let i = 0; i < w * h; i++) mask[i] = dist[i] > thr ? 1 : 0;
-    // keep the biggest connected blob (the card), ignore specks
-    const lab = new Int32Array(w * h), stack = [];
-    let best = 0, bestN = 0, id = 0;
-    for (let i = 0; i < w * h; i++) {
-      if (!mask[i] || lab[i]) continue;
-      id++; let n = 0; stack.push(i); lab[i] = id;
-      while (stack.length) {
-        const j = stack.pop(); n++;
-        const x = j % w, y = (j / w) | 0;
-        for (const k of [x > 0 ? j - 1 : -1, x < w - 1 ? j + 1 : -1, y > 0 ? j - w : -1, y < h - 1 ? j + w : -1])
-          if (k >= 0 && mask[k] && !lab[k]) { lab[k] = id; stack.push(k); }
-      }
-      if (n > bestN) { bestN = n; best = id; }
-    }
-    if (bestN < w * h * 0.08 || bestN > w * h * 0.97) return null; // no clear card in the photo
-    // corners = the blob's extreme points along the diagonals (good for tilts up to ~30 degrees)
-    let tl = null, tr = null, br = null, bl = null, a = Infinity, b = -Infinity, c = -Infinity, d = Infinity;
-    for (let i = 0; i < w * h; i++) {
-      if (lab[i] !== best) continue;
-      const x = i % w, y = (i / w) | 0;
-      if (x + y < a) { a = x + y; tl = [x, y]; }
-      if (x + y > b) { b = x + y; br = [x, y]; }
-      if (x - y > c) { c = x - y; tr = [x, y]; }
-      if (x - y < d) { d = x - y; bl = [x, y]; }
-    }
-    const q = [tl, tr, br, bl].map(([x, y]) => [x / s, y / s]);
-    // sanity: a real card fills most of the quad it spans, and isn't a sliver
-    const area = Math.abs(q.reduce((sum, p, i) => { const n = q[(i + 1) % 4]; return sum + p[0] * n[1] - n[0] * p[1]; }, 0)) / 2 * s * s;
-    if (area < bestN * 0.75 || area > bestN * 1.35) return null;
-    return q;
-  }
-  // solve the 3x3 perspective map that sends the output rectangle onto the 4 corners
-  function homography(src, dst) {
-    const A = [], B = [];
-    for (let i = 0; i < 4; i++) {
-      const [x, y] = src[i], [u, v] = dst[i];
-      A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); B.push(u);
-      A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); B.push(v);
-    }
-    for (let i = 0; i < 8; i++) { // Gaussian elimination with pivoting
-      let p = i; for (let r = i + 1; r < 8; r++) if (Math.abs(A[r][i]) > Math.abs(A[p][i])) p = r;
-      [A[i], A[p]] = [A[p], A[i]]; [B[i], B[p]] = [B[p], B[i]];
-      for (let r = 0; r < 8; r++) { if (r === i) continue; const f = A[r][i] / A[i][i]; for (let k = i; k < 8; k++) A[r][k] -= f * A[i][k]; B[r] -= f * B[i]; }
-    }
-    return B.map((v, i) => v / A[i][i]).concat(1);
-  }
-  function straighten(bmp, q) {
-    // portrait card: if the found shape is wider than tall (a horizontal card or a sideways photo), turn it upright
-    const len = (p, r) => Math.hypot(p[0] - r[0], p[1] - r[1]);
-    if ((len(q[0], q[1]) + len(q[3], q[2])) > (len(q[0], q[3]) + len(q[1], q[2]))) q = [q[3], q[0], q[1], q[2]];
-    // pull the corners in by 1% so no background slips in along the edges
-    const cx = q.reduce((s2, p) => s2 + p[0], 0) / 4, cy = q.reduce((s2, p) => s2 + p[1], 0) / 4;
-    q = q.map(([x, y]) => [x + (cx - x) * 0.012, y + (cy - y) * 0.012]);
-    const S = Math.min(1, 1600 / Math.max(bmp.width, bmp.height)), sw = Math.round(bmp.width * S), sh = Math.round(bmp.height * S);
-    const sc = document.createElement("canvas"); sc.width = sw; sc.height = sh;
-    const sg = sc.getContext("2d", { willReadFrequently: true }); sg.drawImage(bmp, 0, 0, sw, sh);
-    const src = sg.getImageData(0, 0, sw, sh).data;
-    const H = homography([[0, 0], [CARD_W, 0], [CARD_W, CARD_H], [0, CARD_H]], q.map(([x, y]) => [x * S, y * S]));
-    const out = document.createElement("canvas"); out.width = CARD_W; out.height = CARD_H;
-    const og = out.getContext("2d"), img = og.createImageData(CARD_W, CARD_H), o = img.data;
-    for (let y = 0; y < CARD_H; y++) for (let x = 0; x < CARD_W; x++) {
-      const z = H[6] * x + H[7] * y + H[8], u = (H[0] * x + H[1] * y + H[2]) / z, v = (H[3] * x + H[4] * y + H[5]) / z;
-      const x0 = Math.max(0, Math.min(sw - 2, u | 0)), y0 = Math.max(0, Math.min(sh - 2, v | 0)), fx = Math.min(1, Math.max(0, u - x0)), fy = Math.min(1, Math.max(0, v - y0));
-      const i00 = (y0 * sw + x0) * 4, i10 = i00 + 4, i01 = i00 + sw * 4, i11 = i01 + 4, k = (y * CARD_W + x) * 4;
-      for (let ch = 0; ch < 3; ch++) o[k + ch] = (src[i00 + ch] * (1 - fx) + src[i10 + ch] * fx) * (1 - fy) + (src[i01 + ch] * (1 - fx) + src[i11 + ch] * fx) * fy;
-      o[k + 3] = 255;
-    }
-    og.putImageData(img, 0, 0);
-    let qq = 0.85, url = out.toDataURL("image/jpeg", qq);
-    while (url.length > 420000 && qq > 0.4) { qq -= 0.1; url = out.toDataURL("image/jpeg", qq); }
-    return url;
   }
   // pull what we can out of a listing title: "2023 Panini Prizm C.J. Stroud Silver Prizm RC #339 /99 Auto"
   function fromTitle(t) {
@@ -471,23 +375,31 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       <div class="acts"><button type="submit" class="primary">Save card</button><button type="button" id="x">Cancel</button></div></form>`;
     document.body.appendChild(w);
     const imgs = { front: c.front || "", back: c.back || "" }, st = w.querySelector("#st");
-    // every photo (yours or a listing's) goes through the card cropper: background trimmed, card-shaped
-    // automatic: find the card, straighten it, done. The crop box only opens if no clear card is found,
-    // or if you tap "Adjust" under the photo.
-    const bmps = {};
-    const show = (k) => { const ph = w.querySelector("#ph-" + k); ph.style.backgroundImage = `url('${imgs[k]}')`; ph.querySelector("span").textContent = "";
-      let adj = w.querySelector("#adj-" + k);
-      if (!adj) { adj = document.createElement("button"); adj.type = "button"; adj.id = "adj-" + k; adj.className = "adj"; adj.textContent = "Adjust"; ph.after(adj);
-        adj.onclick = async () => { if (bmps[k]) { imgs[k] = await cropper(bmps[k]); show(k); } }; } };
+    // automatic: find the card's corners, warp it flat and upright, done. "Corners" lets you place the 4 corners
+    // yourself (also works on a card that's already saved), "Rotate" spins it 180 degrees.
+    const P = { front: {}, back: {} }; // per photo: bmp (the photo), q (its corners or "whole"), t (half-turns)
+    const render = (k) => { const p = P[k]; imgs[k] = p.q === "whole" ? CC.whole(p.bmp, p.t) : CC.warp(p.bmp, p.q, p.t); show(k); };
+    const show = (k) => {
+      const ph = w.querySelector("#ph-" + k); ph.style.backgroundImage = imgs[k] ? `url('${imgs[k]}')` : ""; if (imgs[k]) ph.querySelector("span").textContent = "";
+      if (!imgs[k] || w.querySelector("#adj-" + k)) return;
+      const bar = document.createElement("div"); bar.className = "adj-bar"; bar.id = "adj-" + k;
+      bar.innerHTML = `<button type="button" class="adj">Corners</button><button type="button" class="adj">Rotate</button>`;
+      ph.after(bar);
+      const [cb, rb] = bar.querySelectorAll("button");
+      const ready = async () => { const p = P[k]; if (!p.bmp) { p.bmp = await CC.bitmapOf(imgs[k]); p.t = 0; } return p; }; // saved card: start from its photo
+      cb.onclick = async () => { const p = await ready(), v = await cornerPicker(p.bmp, Array.isArray(p.q) ? p.q : null); if (v) { p.q = v; render(k); } };
+      rb.onclick = async () => { const p = await ready(); if (!p.q) p.q = "whole"; p.t = (p.t + 1) % 2; render(k); };
+    };
+    show("front"); show("back");
     const setPhoto = async (k, src) => {
       st.textContent = "Finding and straightening the card…";
       try {
-        const bmp = bmps[k] = await bitmapOf(src);
+        const p = P[k] = { bmp: await CC.bitmapOf(src), t: 0 };
         await new Promise((r) => setTimeout(r, 30)); // let the message paint before the heavy lifting
-        const q = findCorners(bmp);
-        imgs[k] = q ? straighten(bmp, q) : await cropper(bmp);
-        show(k);
-        st.textContent = q ? "Card found and straightened. Tap Adjust if it's off." : "";
+        p.q = CC.findQuad(p.bmp) || (CC.isScan(p.bmp) ? CC.frame(p.bmp) : null);
+        if (!p.q) { st.textContent = ""; p.q = await cornerPicker(p.bmp) || "whole"; }
+        else st.textContent = "Card found and straightened. Tap Corners if it's off.";
+        render(k);
       } catch (e) { st.textContent = "That photo couldn't be read. Try a JPEG or a screenshot."; }
     };
     w.querySelectorAll("input[type=file]").forEach((inp) => inp.onchange = () => { const f = inp.files[0]; if (f) setPhoto(inp.dataset.k, f); });
