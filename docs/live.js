@@ -2874,13 +2874,14 @@ const Live = (() => {
     const prof = ours && profileOf(ours);
     const facs = (INDEX.leagues[lg].factors || []).filter((f) => ours?.scores?.[f.key] != null);
     const conf = ours?.conference || T.groups?.name || "";
-    // Just the Facts (college): true stats about this team from our game history (src/social/team_facts.py)
-    const factsAll = lg === "cfb" && ours ? await getJSON("data/cfb/facts.json").catch(() => null) : null;
+    // Just the Facts: true stats about this team from our game history (src/social/team_facts.py, nfl_facts.py)
+    const factsAll = ours ? await getJSON(`data/${lg}/facts.json`).catch(() => null) : null;
     if (my !== token) return;
     const facts = factsAll?.teams?.[ours?.team] || [];
     const factsCard = facts.length ? `<div class="card jfacts"><h3>Just the facts <small>since ${esc(factsAll.since)} · updated ${esc(factsAll.updated)}</small></h3>
         <div class="jf-grid">${facts.map((f) => `<div class="jf"><b>${esc(f.big)}</b><span>${esc(f.label)}</span><small>${esc(f.detail)}</small></div>`).join("")}</div>
-        <p class="note">Cupcake = an opponent far below this team's level, the same rule as the rankings. "Ranked" and "top 10" use the AP poll going into each game.</p></div>` : "";
+        <p class="note">${nfl ? "Cupcake = a clearly bad team 5+ points worse, the same rule as the rankings. \"Winning record\" is going into the game; \"playoff team\" made the playoffs that season. Night games kick off at 7 PM Eastern or later. Raiders, Chargers and Rams include their Oakland, San Diego and St. Louis years."
+          : "Cupcake = an opponent far below this team's level, the same rule as the rankings. \"Ranked\" and \"top 10\" use the AP poll going into each game."}</p></div>` : "";
     const hub = `
       <div class="card thub" style="--tc:${esc(teamColor(T))}">
         <div class="th-top">

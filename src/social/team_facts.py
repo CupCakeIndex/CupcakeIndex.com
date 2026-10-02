@@ -56,7 +56,7 @@ def facts_for(team, start, upcoming, share_avg):
     dr = C.drought(gs, lambda g: g["loc"] == "A" and g["opp_ap"], tstart)
     if dr["n"]:
         if dr["last"]:
-            out.append({"big": dr["last"]["d"][:4], "label": "last road win over a ranked team",
+            out.append({"big": str(dr["last"]["season"]), "label": "last road win over a ranked team",
                         "detail": game_line(dr["last"]) + since(dr)})
         else:
             out.append({"big": rec(0, dr["since_l"]), "label": "on the road vs ranked teams",
@@ -66,7 +66,7 @@ def facts_for(team, start, upcoming, share_avg):
     dr = C.drought(gs, lambda g: g["opp_ap"] and g["opp_ap"] <= 10, tstart)
     if dr["n"]:
         if dr["last"]:
-            out.append({"big": dr["last"]["d"][:4], "label": "last win over a top-10 team",
+            out.append({"big": str(dr["last"]["season"]), "label": "last win over a top-10 team",
                         "detail": game_line(dr["last"]) + since(dr)})
         else:
             out.append({"big": rec(0, dr["since_l"]), "label": "vs top-10 teams",

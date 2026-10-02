@@ -41,7 +41,8 @@ jobs:
         env:
           CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
         run: |
-          python src/social/cupcake_history.py && python src/social/team_facts.py || echo "Facts skipped this time"
+          python src/social/cupcake_history.py && python src/social/team_facts.py || echo "College facts skipped this time"
+          python src/social/nfl_facts.py || echo "NFL facts skipped this time"
       - name: Publish
         run: |
           git config user.name "rankings-bot"

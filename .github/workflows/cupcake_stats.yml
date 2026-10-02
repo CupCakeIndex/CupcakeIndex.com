@@ -52,6 +52,7 @@ jobs:
         run: |
           python src/social/cupcake_history.py
           python src/social/team_facts.py || echo "Facts skipped this time"   # team pages: Just the Facts
+          python src/social/nfl_facts.py --refresh || echo "NFL facts skipped this time"
       - name: Make the drafts
         env:
           THEME: ${{ inputs.theme || 'random' }}
@@ -80,7 +81,7 @@ jobs:
         run: |
           git config user.name "rankings-bot"
           git config user.email "rankings-bot@users.noreply.github.com"
-          git add data/history docs/data/cfb/facts.json
+          git add data/history docs/data/cfb/facts.json docs/data/nfl/facts.json
           git add data/social/posted.json 2>/dev/null || true
           git diff --cached --quiet && echo "Nothing new" && exit 0
           git commit -m "Cupcake stats: history / posting log $(date -u +%Y-%m-%dT%H:%MZ)"

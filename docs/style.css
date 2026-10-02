@@ -1725,3 +1725,8 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 @keyframes refspin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .gear.refresh.spin svg { animation: none; } }
 @media (max-width: 640px) { .gear.refresh { position: absolute; top: 12px; right: 58px; width: 34px; height: 34px; } }
+/* header: the motto is a dictionary entry for "cupcake" */
+.def b { font-weight: 800; color: var(--ink); letter-spacing: .02em; }
+.def i { font-style: italic; color: var(--accent); margin: 0 4px 0 2px; }
+@media (max-width: 640px) { .def-more { display: none; } }   /* phones: the short definition, one line */
+@media (min-width: 641px) { .top > .brand { flex: 1 1 340px; min-width: 0; } .top > .brand .sub { max-width: 62ch; } }
