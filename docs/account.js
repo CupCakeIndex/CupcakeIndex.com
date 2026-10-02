@@ -83,6 +83,7 @@ const Account = (() => {
   async function signIn() {
     await start();
     const p = new firebase.auth.GoogleAuthProvider();
+    p.setCustomParameters({ prompt: "select_account" }); // always show Google's account picker
     // the home-screen app can't always open a popup, so it goes to Google's page and comes back instead
     const standalone = window.navigator.standalone || matchMedia("(display-mode: standalone)").matches;
     try { await (standalone ? fb.auth().signInWithRedirect(p) : fb.auth().signInWithPopup(p)); }
@@ -95,6 +96,10 @@ const Account = (() => {
     await fb.auth().signOut();
     toast("Signed out");
     setStatus("Signed out. Your picks are saved to your account and come back when you sign in.");
+  }
+  async function switchAccount() {
+    await fb.auth().signOut(); // clears this device's copy (it's safe in the account you're leaving)
+    signIn();
   }
   async function deleteAccount() {
     try {
@@ -137,7 +142,7 @@ const Account = (() => {
     return `<h3>Account</h3>
       ${user ? `<div class="acct-me">${pic}<div><b>Signed in as ${esc(user.displayName || user.email || "you")}</b>
           <small>Your Pick'em picks and record, the daily game and your fantasy team are saved to your account and show up on any device you sign in on.</small></div></div>
-        <div class="acct-btns"><button type="button" class="boxbtn" id="acct-out">Sign out</button>
+        <div class="acct-btns"><button type="button" class="boxbtn" id="acct-switch">Switch account</button><button type="button" class="boxbtn" id="acct-out">Sign out</button>
           <button type="button" class="boxbtn danger" id="acct-del">Delete my account</button></div>
         <div class="acct-confirm hidden" id="acct-confirm"><span>Delete your account and everything saved to it? This can't be undone.</span>
           <button type="button" class="boxbtn danger" id="acct-del-yes">Yes, delete it</button><button type="button" class="boxbtn" id="acct-del-no">Keep it</button></div>`
@@ -150,6 +155,7 @@ const Account = (() => {
     const on = (id, fn) => { const b = root.querySelector("#" + id); if (b) b.onclick = fn; };
     on("acct-in", signIn);
     on("acct-out", signOut);
+    on("acct-switch", switchAccount);
     on("acct-del", () => root.querySelector("#acct-confirm").classList.remove("hidden"));
     on("acct-del-no", () => root.querySelector("#acct-confirm").classList.add("hidden"));
     on("acct-del-yes", deleteAccount);
