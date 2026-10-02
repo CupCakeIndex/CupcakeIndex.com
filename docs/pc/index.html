@@ -88,6 +88,9 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 .photo input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .status { font: 12px var(--mono); color: var(--gold2); min-height: 1em; }
 .hint { margin: 0; color: var(--muted); font-size: 12.5px; }
+.photos > div, .photos { align-items: start; }
+.pcell { display: grid; gap: 6px; }
+.adj { justify-self: center; margin-top: -4px; padding: 5px 10px; font-size: 11px; }
 /* card search */
 .srch { display: grid; gap: 8px; }
 .srch-bar { display: flex; gap: 8px; } .srch-bar input { flex: 1; min-width: 0; font: 16px var(--body); padding: 9px 10px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; }
@@ -338,6 +341,96 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       w.querySelector("#c-all").onclick = () => out(0, 0, bmp.width, bmp.height);
     });
   }
+  // ---------- automatic straightening: find the card's 4 corners (works when it's tilted or shot at an angle)
+  // and warp it flat to an exact 2.5 x 3.5 card. Returns null when it can't find a clear card (then: crop box).
+  function findCorners(bmp) {
+    const W = 320, s = W / Math.max(bmp.width, bmp.height), w = Math.round(bmp.width * s), h = Math.round(bmp.height * s);
+    const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+    const g = cv.getContext("2d", { willReadFrequently: true }); g.drawImage(bmp, 0, 0, w, h);
+    const px = g.getImageData(0, 0, w, h).data, col = (i) => [px[i * 4], px[i * 4 + 1], px[i * 4 + 2]];
+    // background = the typical color around the photo's edge; "card" = clearly different from it
+    const ring = [];
+    for (let x = 0; x < w; x += 2) ring.push(col(x), col((h - 1) * w + x));
+    for (let y = 0; y < h; y += 2) ring.push(col(y * w), col(y * w + w - 1));
+    const med = [0, 1, 2].map((k) => ring.map((p) => p[k]).sort((a, b) => a - b)[ring.length >> 1]);
+    const dist = new Float32Array(w * h);
+    for (let i = 0; i < w * h; i++) dist[i] = Math.abs(px[i * 4] - med[0]) + Math.abs(px[i * 4 + 1] - med[1]) + Math.abs(px[i * 4 + 2] - med[2]);
+    const ringD = ring.map((p) => Math.abs(p[0] - med[0]) + Math.abs(p[1] - med[1]) + Math.abs(p[2] - med[2])).sort((a, b) => a - b);
+    const thr = Math.max(40, ringD[Math.floor(ringD.length * 0.9)] * 1.5); // above the background's own noise
+    const mask = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) mask[i] = dist[i] > thr ? 1 : 0;
+    // keep the biggest connected blob (the card), ignore specks
+    const lab = new Int32Array(w * h), stack = [];
+    let best = 0, bestN = 0, id = 0;
+    for (let i = 0; i < w * h; i++) {
+      if (!mask[i] || lab[i]) continue;
+      id++; let n = 0; stack.push(i); lab[i] = id;
+      while (stack.length) {
+        const j = stack.pop(); n++;
+        const x = j % w, y = (j / w) | 0;
+        for (const k of [x > 0 ? j - 1 : -1, x < w - 1 ? j + 1 : -1, y > 0 ? j - w : -1, y < h - 1 ? j + w : -1])
+          if (k >= 0 && mask[k] && !lab[k]) { lab[k] = id; stack.push(k); }
+      }
+      if (n > bestN) { bestN = n; best = id; }
+    }
+    if (bestN < w * h * 0.08 || bestN > w * h * 0.97) return null; // no clear card in the photo
+    // corners = the blob's extreme points along the diagonals (good for tilts up to ~30 degrees)
+    let tl = null, tr = null, br = null, bl = null, a = Infinity, b = -Infinity, c = -Infinity, d = Infinity;
+    for (let i = 0; i < w * h; i++) {
+      if (lab[i] !== best) continue;
+      const x = i % w, y = (i / w) | 0;
+      if (x + y < a) { a = x + y; tl = [x, y]; }
+      if (x + y > b) { b = x + y; br = [x, y]; }
+      if (x - y > c) { c = x - y; tr = [x, y]; }
+      if (x - y < d) { d = x - y; bl = [x, y]; }
+    }
+    const q = [tl, tr, br, bl].map(([x, y]) => [x / s, y / s]);
+    // sanity: a real card fills most of the quad it spans, and isn't a sliver
+    const area = Math.abs(q.reduce((sum, p, i) => { const n = q[(i + 1) % 4]; return sum + p[0] * n[1] - n[0] * p[1]; }, 0)) / 2 * s * s;
+    if (area < bestN * 0.75 || area > bestN * 1.35) return null;
+    return q;
+  }
+  // solve the 3x3 perspective map that sends the output rectangle onto the 4 corners
+  function homography(src, dst) {
+    const A = [], B = [];
+    for (let i = 0; i < 4; i++) {
+      const [x, y] = src[i], [u, v] = dst[i];
+      A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); B.push(u);
+      A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); B.push(v);
+    }
+    for (let i = 0; i < 8; i++) { // Gaussian elimination with pivoting
+      let p = i; for (let r = i + 1; r < 8; r++) if (Math.abs(A[r][i]) > Math.abs(A[p][i])) p = r;
+      [A[i], A[p]] = [A[p], A[i]]; [B[i], B[p]] = [B[p], B[i]];
+      for (let r = 0; r < 8; r++) { if (r === i) continue; const f = A[r][i] / A[i][i]; for (let k = i; k < 8; k++) A[r][k] -= f * A[i][k]; B[r] -= f * B[i]; }
+    }
+    return B.map((v, i) => v / A[i][i]).concat(1);
+  }
+  function straighten(bmp, q) {
+    // portrait card: if the found shape is wider than tall (a horizontal card or a sideways photo), turn it upright
+    const len = (p, r) => Math.hypot(p[0] - r[0], p[1] - r[1]);
+    if ((len(q[0], q[1]) + len(q[3], q[2])) > (len(q[0], q[3]) + len(q[1], q[2]))) q = [q[3], q[0], q[1], q[2]];
+    // pull the corners in by 1% so no background slips in along the edges
+    const cx = q.reduce((s2, p) => s2 + p[0], 0) / 4, cy = q.reduce((s2, p) => s2 + p[1], 0) / 4;
+    q = q.map(([x, y]) => [x + (cx - x) * 0.012, y + (cy - y) * 0.012]);
+    const S = Math.min(1, 1600 / Math.max(bmp.width, bmp.height)), sw = Math.round(bmp.width * S), sh = Math.round(bmp.height * S);
+    const sc = document.createElement("canvas"); sc.width = sw; sc.height = sh;
+    const sg = sc.getContext("2d", { willReadFrequently: true }); sg.drawImage(bmp, 0, 0, sw, sh);
+    const src = sg.getImageData(0, 0, sw, sh).data;
+    const H = homography([[0, 0], [CARD_W, 0], [CARD_W, CARD_H], [0, CARD_H]], q.map(([x, y]) => [x * S, y * S]));
+    const out = document.createElement("canvas"); out.width = CARD_W; out.height = CARD_H;
+    const og = out.getContext("2d"), img = og.createImageData(CARD_W, CARD_H), o = img.data;
+    for (let y = 0; y < CARD_H; y++) for (let x = 0; x < CARD_W; x++) {
+      const z = H[6] * x + H[7] * y + H[8], u = (H[0] * x + H[1] * y + H[2]) / z, v = (H[3] * x + H[4] * y + H[5]) / z;
+      const x0 = Math.max(0, Math.min(sw - 2, u | 0)), y0 = Math.max(0, Math.min(sh - 2, v | 0)), fx = Math.min(1, Math.max(0, u - x0)), fy = Math.min(1, Math.max(0, v - y0));
+      const i00 = (y0 * sw + x0) * 4, i10 = i00 + 4, i01 = i00 + sw * 4, i11 = i01 + 4, k = (y * CARD_W + x) * 4;
+      for (let ch = 0; ch < 3; ch++) o[k + ch] = (src[i00 + ch] * (1 - fx) + src[i10 + ch] * fx) * (1 - fy) + (src[i01 + ch] * (1 - fx) + src[i11 + ch] * fx) * fy;
+      o[k + 3] = 255;
+    }
+    og.putImageData(img, 0, 0);
+    let qq = 0.85, url = out.toDataURL("image/jpeg", qq);
+    while (url.length > 420000 && qq > 0.4) { qq -= 0.1; url = out.toDataURL("image/jpeg", qq); }
+    return url;
+  }
   // pull what we can out of a listing title: "2023 Panini Prizm C.J. Stroud Silver Prizm RC #339 /99 Auto"
   function fromTitle(t) {
     const y = (t.match(/(?:^|\s)((?:19|20)\d{2})(?=[\s-])/) || [])[1];
@@ -355,7 +448,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       ${SEARCH ? `<div class="srch"><div class="srch-bar"><input type="search" id="s-q" placeholder="Search eBay: 2023 Prizm Stroud Silver" aria-label="Search for the card">
         <button type="button" id="s-go">Search</button></div><div class="srch-res" id="s-res"></div><p class="hint" id="s-from"></p></div>
         <p class="hint">Or use your own photos:</p>` : ""}
-      <div class="photos">${photo("front", "Tap to add the front")}${photo("back", "Tap to add the back (optional)")}</div>
+      <div class="photos"><div class="pcell">${photo("front", "Tap to add the front")}</div><div class="pcell">${photo("back", "Tap to add the back (optional)")}</div></div>
       <div class="row2"><label class="f">Player<input name="player" required value="${esc(c.player)}" placeholder="C.J. Stroud"></label>
         <label class="f">Team<input name="team" list="team-list" value="${esc(c.team)}" placeholder="Houston Texans"></label>
         <datalist id="team-list">${TEAMS.map((t) => `<option value="${esc(t.name)}">`).join("")}</datalist></div>
@@ -373,11 +466,22 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     document.body.appendChild(w);
     const imgs = { front: c.front || "", back: c.back || "" }, st = w.querySelector("#st");
     // every photo (yours or a listing's) goes through the card cropper: background trimmed, card-shaped
+    // automatic: find the card, straighten it, done. The crop box only opens if no clear card is found,
+    // or if you tap "Adjust" under the photo.
+    const bmps = {};
+    const show = (k) => { const ph = w.querySelector("#ph-" + k); ph.style.backgroundImage = `url('${imgs[k]}')`; ph.querySelector("span").textContent = "";
+      let adj = w.querySelector("#adj-" + k);
+      if (!adj) { adj = document.createElement("button"); adj.type = "button"; adj.id = "adj-" + k; adj.className = "adj"; adj.textContent = "Adjust"; ph.after(adj);
+        adj.onclick = async () => { if (bmps[k]) { imgs[k] = await cropper(bmps[k]); show(k); } }; } };
     const setPhoto = async (k, src) => {
-      st.textContent = "Finding the card in the photo…";
+      st.textContent = "Finding and straightening the card…";
       try {
-        imgs[k] = await cropper(await bitmapOf(src));
-        const ph = w.querySelector("#ph-" + k); ph.style.backgroundImage = `url('${imgs[k]}')`; ph.querySelector("span").textContent = ""; st.textContent = "";
+        const bmp = bmps[k] = await bitmapOf(src);
+        await new Promise((r) => setTimeout(r, 30)); // let the message paint before the heavy lifting
+        const q = findCorners(bmp);
+        imgs[k] = q ? straighten(bmp, q) : await cropper(bmp);
+        show(k);
+        st.textContent = q ? "Card found and straightened. Tap Adjust if it's off." : "";
       } catch (e) { st.textContent = "That photo couldn't be read. Try a JPEG or a screenshot."; }
     };
     w.querySelectorAll("input[type=file]").forEach((inp) => inp.onchange = () => { const f = inp.files[0]; if (f) setPhoto(inp.dataset.k, f); });
