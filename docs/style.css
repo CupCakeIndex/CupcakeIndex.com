@@ -1309,6 +1309,7 @@ a.mbug:hover .mb-mid b.mb-at { color: var(--accent); }
 @keyframes tf-bob { 50% { transform: translateY(-3px); } }
 @media (prefers-reduced-motion: reduce) { .tf-guy, .tf-arrow, .tf-red { animation: none; } }
 .tf-big { font-family: var(--tf-font), monospace; font-size: 40px; fill: #ffd21f; text-anchor: middle; dominant-baseline: middle; paint-order: stroke; stroke: #000; stroke-width: 6px; }
+.tf-sub { font-family: var(--tf-font), monospace; font-size: 16px; fill: #ffffff; text-anchor: middle; dominant-baseline: middle; }
 .tf-clock { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-family: var(--tf-font), monospace; font-size: 9px; color: #9aa0a6; }
 .tf-track { flex: 1; height: 8px; background: #1b1f24; border: 2px solid #000; }
 .tf-track i { display: block; height: 100%; background: #ffd21f; transform-origin: left; animation: tf-clock 40s linear forwards; }

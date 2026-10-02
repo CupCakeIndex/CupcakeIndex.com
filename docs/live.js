@@ -354,6 +354,22 @@ const Live = (() => {
       ? `<animateTransform attributeName="transform" type="translate" from="${shift} 0" to="0 0" begin="1.9s" dur=".7s" fill="freeze"/>` : ""}
       <g${appear(1.9)}>${team.join("")}${ball(bx, 150)}</g></g>`;
 
+    // penalties: "PENALTY on PIT-M.Pittman, False Start, 5 yards, enforced at PIT 22 - No Play."
+    const isFlag = /penalty/.test(type + txt);
+    const pm = /penalty on ([a-z]{2,4})-[^,]*,\s*([^,]+?),\s*(\d+)\s*yards?/i.exec(play.text || "");
+    const flagInfo = !isFlag ? "" : /declined/.test(txt) ? "DECLINED" + (pm ? ` · ${pm[2].toUpperCase()}` : "")
+      : pm ? `${pm[2].toUpperCase()} · ${pm[1].toUpperCase()} · ${pm[3]} YDS` : "";
+    // pixel ref (black-and-white stripes, arm up) and a two-frame fluttering flag
+    const refSprite = (x, y, throwing) => r(x - 5, y - 16, 10, 5, "#111") + r(x - 4, y - 11, 8, 6, "#f5c9a6")
+      + [0, 1, 2, 3].map((i) => r(x - 7, y - 5 + i * 3, 14, 3, i % 2 ? "#111" : "#f2f2f2")).join("")
+      + r(x - 6, y + 7, 5, 9, "#111") + r(x + 1, y + 7, 5, 9, "#111")
+      + (throwing ? `<g>${r(x + 7, y - 14, 3, 12, "#f2f2f2")}<animate attributeName="opacity" values="1;0" keyTimes="0;.5" dur=".5s" begin=".1s" repeatCount="2" calcMode="discrete"/></g>${r(x + 7, y - 4, 3, 10, "#f2f2f2")}` : "");
+    const flagSprite = (x, y) => `<g><g>${r(x - 9, y - 6, 16, 10, "#ffd21f")}${r(x + 7, y - 6, 4, 4, "#ffffff")}${r(x - 9, y + 4, 8, 2, "#c9a400")}
+        <animate attributeName="opacity" values="1;0;1" keyTimes="0;.5;1" dur=".24s" repeatCount="8" calcMode="discrete" fill="freeze"/></g>
+      <g opacity="0">${r(x - 8, y - 8, 14, 12, "#ffd21f")}${r(x + 6, y - 8, 4, 4, "#ffffff")}${r(x - 8, y + 4, 6, 2, "#c9a400")}
+        <animate attributeName="opacity" values="0;1;0" keyTimes="0;.5;1" dur=".24s" repeatCount="8" calcMode="discrete" fill="freeze"/></g></g>`;
+    const flagOnField = isFlag ? `<g>${flagSprite(X(from) + (String(play.start?.team?.id) === String(home.team.id) ? 1 : -1) * 18, 176)}</g>` : "";
+
     // the replay itself
     let replay = "", banner = "";
     if (anim) {
@@ -372,16 +388,21 @@ const Live = (() => {
       } else if (moved) {
         replay = `<g opacity="0">${runner(0)}<set attributeName="opacity" to="1" begin=".3s" fill="freeze"/><animateTransform attributeName="transform" type="translate" from="${sx} 0" to="${ex} 0" begin=".3s" dur="1.3s" fill="freeze"/>${fade}</g>`;
       }
-      if (/penalty/.test(type + txt)) { // a flag floats down
-        replay += `<g opacity="0">${r(-8, -10, 16, 12, "#ffd21f")}<set attributeName="opacity" to="1" begin=".2s" fill="freeze"/>${r(-8, 2, 3, 10, "#ffd21f")}<animateMotion path="M${sx + pdir * 20},-20 L${sx + pdir * 30},170" begin=".2s" dur="1.1s" fill="freeze"/>${fade}</g>`;
+      if (isFlag) { // a striped ref steps up at the sideline and tosses a fluttering flag to the spot
+        const rx = Math.max(130, Math.min(1070, sx + pdir * 40)), land = sx + pdir * 18;
+        replay += `<g opacity="0"><set attributeName="opacity" to="1" begin="0s" fill="freeze"/>${refSprite(rx, 30, true)}
+          <animate attributeName="opacity" from="1" to="0" begin="2.6s" dur=".3s" fill="freeze"/></g>`;
+        replay += `<g opacity="0">${flagSprite(0, 0)}<set attributeName="opacity" to="1" begin=".35s" fill="freeze"/>
+          <animateMotion path="M${rx + 8},24 Q${(rx + land) / 2},-50 ${land},176" begin=".35s" dur=".95s" fill="freeze"/></g>`;
       }
       const big = play.scoringPlay && /touchdown/.test(type + txt) ? "TOUCHDOWN!" : /field goal good/.test(type) ? "IT'S GOOD!"
         : /interception/.test(type) ? "PICKED OFF!" : /fumble/.test(type + txt) && /recover/.test(txt) ? "FUMBLE!" : /sack/.test(type) ? "SACK!"
-          : /penalty/.test(type + txt) ? "FLAG!" : play.end?.down === 1 && (play.start?.down || 0) > 0 && moved && !/kick|punt/.test(type) ? "FIRST DOWN!" : "";
+          : isFlag ? "FLAG!" : play.end?.down === 1 && (play.start?.down || 0) > 0 && moved && !/kick|punt/.test(type) ? "FIRST DOWN!" : "";
+      const sub = big === "FLAG!" ? flagInfo : "";
       if (big) {
-        banner = `<g opacity="0"><rect x="300" y="105" width="600" height="90" fill="#000" opacity=".75"/>
-          <text x="600" y="152" class="tf-big">${big}</text>
-          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.1;.85;1" begin="1.2s" dur="2s" fill="freeze"/></g>`;
+        banner = `<g opacity="0"><rect x="250" y="${sub ? 92 : 105}" width="700" height="${sub ? 116 : 90}" fill="#000" opacity=".78"/>
+          <text x="600" y="${sub ? 136 : 152}" class="tf-big">${big}</text>${sub ? `<text x="600" y="182" class="tf-sub">${esc(sub)}</text>` : ""}
+          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.1;.85;1" begin="${big === "FLAG!" ? 1.3 : 1.2}s" dur="${sub ? 2.6 : 2}s" fill="freeze"/></g>`;
       }
     }
 
@@ -396,7 +417,7 @@ const Live = (() => {
         <span class="tf-where">${where}${toGo <= 20 && off ? ` <b class="tf-red">RED ZONE</b>` : ""}</span>
       </div>
       <svg class="tf-field" viewBox="0 0 1200 ${H}" shape-rendering="crispEdges" role="img"
-        aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, where].filter(Boolean).join(", "))}">${base.join("")}${lines}${lineup}${replay}${banner}</svg>
+        aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, where].filter(Boolean).join(", "))}">${base.join("")}${lines}${lineup}${anim ? "" : flagOnField}${replay}${banner}</svg>
       <div class="tf-clock" title="A rough play clock since the last play came in: the field updates on its own">
         <span>NEXT SNAP</span><span class="tf-track"><i style="animation-delay:-${Math.min(since, 40).toFixed(1)}s"></i></span></div>
       <div class="tf-key"><span><i style="background:#3d7bff"></i>Line of scrimmage</span>${fd != null ? `<span><i style="background:#ffd21f"></i>First down</span>` : ""}
