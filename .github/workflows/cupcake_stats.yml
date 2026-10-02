@@ -49,7 +49,9 @@ jobs:
       - name: Update the game history
         env:
           CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
-        run: python src/social/cupcake_history.py
+        run: |
+          python src/social/cupcake_history.py
+          python src/social/team_facts.py || echo "Facts skipped this time"   # team pages: Just the Facts
       - name: Make the drafts
         env:
           THEME: ${{ inputs.theme || 'random' }}
@@ -78,7 +80,8 @@ jobs:
         run: |
           git config user.name "rankings-bot"
           git config user.email "rankings-bot@users.noreply.github.com"
-          git add data/history data/social/posted.json 2>/dev/null || git add data/history
+          git add data/history docs/data/cfb/facts.json
+          git add data/social/posted.json 2>/dev/null || true
           git diff --cached --quiet && echo "Nothing new" && exit 0
           git commit -m "Cupcake stats: history / posting log $(date -u +%Y-%m-%dT%H:%MZ)"
           git pull --rebase

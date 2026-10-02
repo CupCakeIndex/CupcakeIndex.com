@@ -37,11 +37,16 @@ jobs:
           SEASON: ${{ inputs.season }}
         run: |
           if [[ "$SEASON" =~ ^[0-9]{4}$ ]]; then python src/run_weekly.py --season "$SEASON"; else python src/run_weekly.py; fi
+      - name: Just the Facts (team pages) from the college game history
+        env:
+          CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+        run: |
+          python src/social/cupcake_history.py && python src/social/team_facts.py || echo "Facts skipped this time"
       - name: Publish
         run: |
           git config user.name "rankings-bot"
           git config user.email "rankings-bot@users.noreply.github.com"
-          git add docs/data
+          git add docs/data data/history
           git diff --cached --quiet && echo "No changes" && exit 0
           git commit -m "Rankings update $(date -u +%Y-%m-%d)"
           git push

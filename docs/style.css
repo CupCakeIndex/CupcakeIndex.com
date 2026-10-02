@@ -1710,3 +1710,12 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 @media (max-width: 640px) {
   #table thead th:first-child, #table td.rank, #table th.mv, #table td.mv { text-align: center; }
 }
+/* team page: Just the Facts (college) */
+.jfacts h3 small { font-weight: 400; font-size: 12px; color: var(--muted); margin-left: 8px; text-transform: none; letter-spacing: 0; }
+.jf-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 10px; }
+.jf { display: grid; gap: 3px; align-content: start; padding: 12px 14px; border: 1px solid var(--line); border-top: 3px solid var(--accent); background: var(--bg); min-width: 0; }
+.jf b { font-family: "Barlow Condensed", Inter, sans-serif; font-size: 30px; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
+.jf span { font-weight: 700; font-size: 13px; }
+.jf small { font-size: 12px; color: var(--muted); line-height: 1.4; }
+@media (max-width: 640px) { .jf-grid { grid-template-columns: 1fr 1fr; gap: 8px; } .jf { padding: 10px; } .jf b { font-size: 24px; } }
+@media (max-width: 380px) { .jf-grid { grid-template-columns: 1fr; } }

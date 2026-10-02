@@ -68,12 +68,12 @@ def first_season():
 
 
 def team_start(team, start):
-    """First season (at or after `start`) of an unbroken run of seasons this team appears in. Teams that moved up
-    to FBS or changed names aren't in the early files, so a "since at least <year>" claim starts here instead."""
+    """First season (at or after `start`) of the team's unbroken run in FBS. Before a team moved up, our data only
+    has its games against FBS teams, and a renamed team isn't in the early files, so claims start here instead."""
     seasons = sorted(y for y, d in history().items() if y >= start)
     first = None
     for y in reversed(seasons):
-        if not any(team in (x["h"], x["a"]) for x in history()[y]["games"]):
+        if team not in history()[y]["fbs"]:
             break
         first = y
     return first or start

@@ -2874,6 +2874,13 @@ const Live = (() => {
     const prof = ours && profileOf(ours);
     const facs = (INDEX.leagues[lg].factors || []).filter((f) => ours?.scores?.[f.key] != null);
     const conf = ours?.conference || T.groups?.name || "";
+    // Just the Facts (college): true stats about this team from our game history (src/social/team_facts.py)
+    const factsAll = lg === "cfb" && ours ? await getJSON("data/cfb/facts.json").catch(() => null) : null;
+    if (my !== token) return;
+    const facts = factsAll?.teams?.[ours?.team] || [];
+    const factsCard = facts.length ? `<div class="card jfacts"><h3>Just the facts <small>since ${esc(factsAll.since)} · updated ${esc(factsAll.updated)}</small></h3>
+        <div class="jf-grid">${facts.map((f) => `<div class="jf"><b>${esc(f.big)}</b><span>${esc(f.label)}</span><small>${esc(f.detail)}</small></div>`).join("")}</div>
+        <p class="note">Cupcake = an opponent far below this team's level, the same rule as the rankings. "Ranked" and "top 10" use the AP poll going into each game.</p></div>` : "";
     const hub = `
       <div class="card thub" style="--tc:${esc(teamColor(T))}">
         <div class="th-top">
@@ -2898,7 +2905,7 @@ const Live = (() => {
         ${facs.length ? `<div class="card"><h3>Factor scores</h3>${facs.map((f) => `<div class="frow" title="${esc(f.help || "")}"><span>${esc(f.label)}</span><span class="bar${f.invert ? " inv" : ""}"><i style="width:${+ours.scores[f.key] || 0}%"></i></span><b class="num">${Math.round(ours.scores[f.key])}</b></div>`).join("")}</div>` : ""}
         ${shown ? `<div class="card th-next"><h3>${next ? "Next game" : "Last game"}</h3><div class="mb-list">${bug(shown)}</div>
           <p class="note">${[shown.competitions[0].venue?.fullName, shown.competitions[0].broadcasts?.[0]?.media?.shortName].filter(Boolean).map(esc).join(" · ")}</p></div>` : ""}
-      </div>`;
+      </div>${factsCard}`;
 
     const rosterRows = (ros?.athletes || []).filter((g) => g.items?.length).map((g) => `
       <h4>${esc({ offense: "Offense", defense: "Defense", specialTeam: "Special teams", injuredReserveOrOut: "Injured reserve / out", suspended: "Suspended", practiceSquad: "Practice squad" }[g.position] || g.position)}</h4>
