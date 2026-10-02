@@ -1730,3 +1730,17 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 .def i { font-style: italic; color: var(--accent); margin: 0 4px 0 2px; }
 @media (max-width: 640px) { .def-more { display: none; } }   /* phones: the short definition, one line */
 @media (min-width: 641px) { .top > .brand { flex: 1 1 340px; min-width: 0; } .top > .brand .sub { max-width: 62ch; } }
+/* Settings > Account (Sign in with Google) */
+.gbtn { display: inline-flex; align-items: center; gap: 10px; padding: 10px 16px; border: 1px solid var(--line); background: #fff; color: #1f1f1f;
+  font: 600 14px/1 Inter, system-ui, sans-serif; border-radius: 4px; cursor: pointer; }
+.gbtn:hover { box-shadow: 0 1px 6px rgba(0,0,0,.35); }
+.acct-me { display: flex; gap: 12px; align-items: center; }
+.acct-me img { border-radius: 50%; flex: none; }
+.acct-me div { display: grid; gap: 2px; min-width: 0; }
+.acct-me small { color: var(--muted); }
+.acct-btns, .acct-confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+.acct-confirm span { color: var(--ink); font-size: 13px; }
+.boxbtn.danger { color: var(--bad, #ef4444); border-color: color-mix(in srgb, var(--bad, #ef4444) 60%, transparent); }
+.privacy { max-width: 760px; }
+.boxbtn { display: inline-flex; align-items: center; padding: 8px 14px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: 600 13px/1 inherit; font-family: inherit; cursor: pointer; }
+.boxbtn:hover { border-color: var(--accent); }

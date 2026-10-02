@@ -26,6 +26,7 @@ const Settings = (() => {
     THEMES.forEach((t) => CIT.font(t.key)); // previews need every theme's fonts
     v.innerHTML = `<div class="card set">
       <h2>Settings</h2>
+      ${typeof Account !== "undefined" ? Account.section() : ""}
       <h3>Appearance</h3>
       <p class="note">System follows your phone or computer's dark/light setting.</p>
       <div class="seg" id="set-mode" role="group" aria-label="Appearance">${MODES.map(([k, l]) =>
@@ -40,6 +41,7 @@ const Settings = (() => {
     v.querySelector("#set-mode").onclick = (e) => { const b = e.target.closest("[data-mode]"); if (b) { CIT.save(b.dataset.mode, CIT.name()); render(); } };
     v.querySelector("#set-theme").onclick = (e) => { const b = e.target.closest("[data-theme-key]"); if (b) { CIT.save(CIT.mode(), b.dataset.themeKey); render(); } };
     v.querySelector("#set-reset").onclick = () => { CIT.save("system", "mono"); render(); };
+    if (typeof Account !== "undefined") Account.wire(v);
   }
 
   return { render };

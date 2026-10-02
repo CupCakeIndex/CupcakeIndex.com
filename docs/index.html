@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://a.espncdn.com">
 <meta name="theme-color" content="#0f1216">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=137">
+<link rel="stylesheet" href="style.css?v=138">
 <script>
 // Appearance (Dark / Light / System) + theme from the Settings page, applied before first paint so the page never flashes.
 // html[data-theme] = "dark" | "light" (System is resolved here and follows the device live); html[data-theme-name] = theme key.
@@ -185,6 +185,24 @@ window.CIT = (function () {
   <section id="view-news" class="view hidden"></section>
   <section id="view-games" class="view hidden"></section>
   <section id="view-settings" class="view hidden"></section>
+  <section id="view-privacy" class="view hidden"><div class="card prose privacy">
+    <h2>Privacy</h2>
+    <p>You don't need an account to use the Cupcake Index. Without one, your Pick'em picks, daily game and fantasy team stay in this browser only, and we never see them.</p>
+    <h3>If you sign in</h3>
+    <ul>
+      <li><b>Sign-in is handled by Google.</b> We never see or store your password.</li>
+      <li><b>What we keep:</b> an account ID, your first name, and your game data (Pick'em picks and record, daily game progress and stats, fantasy team), so it shows up on every device you sign in on.</li>
+      <li><b>What we don't keep:</b> no email list, no birthday, no location, no payment info. We don't sell or share anything, and there are no ads.</li>
+      <li><b>Where it lives:</b> Google Firebase. Security rules let each account read and change only its own data.</li>
+      <li><b>Delete it any time:</b> Settings (the gear) &gt; Account &gt; Delete my account removes everything we stored for you.</li>
+    </ul>
+    <h3>The fine print</h3>
+    <ul>
+      <li>Accounts are for people 13 and older.</li>
+      <li>The Cupcake Index is free and just for fun. Nothing here is betting advice, and there's no real money involved.</li>
+      <li>Questions: message us on X.</li>
+    </ul>
+  </div></section>
 
   <section id="view-updates" class="view hidden">
     <div class="card prose"><h2>Release notes</h2><div id="notes"><p class="muted">Loading…</p></div></div>
@@ -228,13 +246,15 @@ window.CIT = (function () {
   </div>
 </div>
 
-<script src="app.js?v=137"></script>
-<script src="live.js?v=137"></script>
-<script src="daily.js?v=137"></script>
-<script src="share.js?v=137"></script>
-<script src="pickem.js?v=137"></script>
-<script src="fantasy.js?v=137"></script>
-<script src="news.js?v=137"></script>
-<script src="settings.js?v=137"></script>
+<script src="app.js?v=138"></script>
+<script src="live.js?v=138"></script>
+<script src="daily.js?v=138"></script>
+<script src="share.js?v=138"></script>
+<script src="pickem.js?v=138"></script>
+<script src="fantasy.js?v=138"></script>
+<script src="news.js?v=138"></script>
+<script src="settings.js?v=138"></script>
+<script src="firebase-config.js?v=138"></script>
+<script src="account.js?v=138"></script>
 </body>
 </html>

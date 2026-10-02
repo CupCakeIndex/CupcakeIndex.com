@@ -1,0 +1,10 @@
+rules_version = '2';
+// Cupcake Index accounts: each signed-in person can read and write ONLY their own document (users/<their uid>).
+// Paste this into Firebase console > Firestore Database > Rules, then Publish.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}
