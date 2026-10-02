@@ -239,7 +239,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "159"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "160"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -491,15 +491,18 @@ function renderCotw() {
   if (!c) return;
   const team = DATA.teams.find((t) => t.team === c.team) || {};
   const [us, them] = String(c.score_line).split("-");
+  // phones show the short name (NFL: "Jaguars"; college names are already short) so the banner stays on one line each
+  const nick = (n) => (league === "nfl" ? String(n).split(" ").pop() : n);
+  const dual = (n) => nick(n) === n ? esc(n) : `<span class="cotw-full">${esc(n)}</span><span class="cotw-short">${esc(nick(n))}</span>`;
   const oppTag = c.fcs ? `<span class="prof-badge prof-walk">FCS</span>` : `<span class="muted">#${esc(c.opp_rank)}</span>`;
   $("#cotw").innerHTML = `
     <div class="cotw-tag"><span>Cupcake</span><span>Bully of the Week</span><small>Week ${esc(c.week)}</small></div>
     <div class="cotw-main">
       ${safeUrl(team.logo) ? `<img src="${esc(thumb(team.logo, 46))}" alt="" width="46" height="46" class="cotw-logo">` : ""}
       <div>
-        <div class="cotw-line"><a href="#" data-team="${esc(c.team)}" class="cotw-team">${esc(c.team)}</a>
+        <div class="cotw-line"><a href="#" data-team="${esc(c.team)}" class="cotw-team">${dual(c.team)}</a>
           <span class="cotw-score">${esc(us)}<span>–</span>${esc(them)}</span></div>
-        <div class="cotw-sub">over ${esc(c.opp)} ${oppTag} · won by ${esc(c.margin)}</div>
+        <div class="cotw-sub">over ${dual(c.opp)} ${oppTag} · <span class="cotw-full">won </span>by ${esc(c.margin)}</div>
       </div>
     </div>
     ${c.espn_id ? `<a class="cotw-btn" href="${link("game", c.espn_id)}">Box score →</a>` : ""}`;

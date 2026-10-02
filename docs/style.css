@@ -1840,3 +1840,14 @@ html:not([data-theme-name="mono"]):not([data-theme-name="terminal"]):not([data-t
 .watch:hover, .watch:focus { background: var(--accent-fill, var(--accent)); color: var(--on-accent, #fff); outline: none; }
 .sb-mid .watch { color: #ececec; border-color: #ececec88; }
 .sb-mid .watch:hover { background: #ececec; color: #0e0f12; }
+/* Bully of the Week banner on phones: short names, one line for name + score, one line for the "over ..." line */
+.cotw-short { display: none; }
+@media (max-width: 640px) {
+  .cotw-full { display: none; } .cotw-short { display: inline; }
+  .cotw-tag { padding: 10px 14px 10px 12px; }
+  .cotw-tag span:first-child { font-size: 15px; } .cotw-tag span:nth-child(2) { font-size: 11px; }
+  .cotw-main { gap: 8px; }
+  .cotw-line { flex-wrap: nowrap; gap: 8px; }
+  .cotw-team { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cotw-sub { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
