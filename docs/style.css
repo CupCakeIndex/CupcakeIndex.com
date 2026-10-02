@@ -1707,3 +1707,6 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
   .tmeta .prof-badge, .tmeta .pill { font-size: 9px; padding: 0 4px; height: 15px; flex: none; }
   .tmeta .pill { display: inline-flex; }
 }
+@media (max-width: 640px) {
+  #table thead th:first-child, #table td.rank, #table th.mv, #table td.mv { text-align: center; }
+}
