@@ -12,7 +12,8 @@ const Live = (() => {
   async function api(url, maxAge = 60000) {
     const hit = cache.get(url);
     if (hit && Date.now() - hit.t < maxAge) return hit.data;
-    const r = await fetch(url);
+    // maxAge 0 = a live refresh: add a throwaway param so ESPN's edge cache can't hand back a stale copy
+    const r = await fetch(maxAge ? url : `${url}${url.includes("?") ? "&" : "?"}_=${Date.now()}`);
     if (!r.ok) throw new Error(`ESPN ${r.status}`);
     const data = await r.json();
     cache.set(url, { t: Date.now(), data });
@@ -294,7 +295,10 @@ const Live = (() => {
     const off = String(home.team.id) === possId ? home : String(away.team.id) === possId ? away : null;
     const dir = off === home ? 1 : off === away ? -1 : 0; // +1 = attacking right
     const toGo = dir > 0 ? 100 - spot : spot;
-    const down = at.down || 0, dist = at.distance || 0;
+    const type = (play.type?.text || "").toLowerCase(), txt = (play.text || "").toLowerCase();
+    const isTD = !!play.scoringPlay && /touchdown/.test(type + txt);
+    const tdTeam = !isTD ? null : String(play.start?.team?.id || play.team?.id) === String(home.team.id) ? home : away;
+    const down = at.down >= 1 && at.down <= 4 && !isTD ? at.down : 0, dist = down ? at.distance || 0 : 0; // ESPN marks scores as down -1
     const fd = down && dist && dist < toGo ? spot + dir * dist : null; // goal to go: no first-down line
     const X = (yl) => 100 + yl * 10; // 10 px per yard; 10-yard end zones
     const H = 300, col = (c) => (c === home ? tc.home : tc.away);
@@ -316,6 +320,7 @@ const Live = (() => {
       const cx = x0 + 47, rot = x0 === 0 ? -90 : 90;
       base.push(`<text x="${cx}" y="${H / 2}" class="tf-ez" fill="${alt(c)}" transform="rotate(${rot} ${cx} ${H / 2})">${esc(c.team.abbreviation || "")}</text>`);
     }
+    for (const gx of [10, 1190]) base.push(r(gx - 3, 118, 6, 64, "#ffd21f") + r(gx - 6, 116, 12, 6, "#ffd21f") + r(gx - 6, 178, 12, 6, "#ffd21f"));
     // this drive so far, in the offense's color
     const start = drive?.start?.yardLine;
     if (off && start != null && start !== spot) {
@@ -325,11 +330,10 @@ const Live = (() => {
 
     // replay timing (seconds): the play runs 0.3-1.6, banner 1.2-3.2, teams walk to the new line 1.9-2.6
     const from = play.start?.yardLine ?? spot, moved = from !== spot;
-    const type = (play.type?.text || "").toLowerCase(), txt = (play.text || "").toLowerCase();
     const anim = fresh;
     const appear = (t) => (anim ? ` opacity="0"><animate attributeName="opacity" from="0" to="1" begin="${t}s" dur=".2s" fill="freeze"/` : "");
     // lines: blue line of scrimmage, yellow first-down line (they show up after the replay)
-    const lines = `<g${appear(2.4)}>${r(X(spot) - 3, 0, 6, H, "#3d7bff")}${fd != null ? r(X(fd) - 3, 0, 6, H, "#ffd21f") : ""}</g>`;
+    const lines = isTD ? "" : `<g${appear(2.5)}>${r(X(spot) - 3, 0, 6, H, "#3d7bff")}${fd != null ? r(X(fd) - 3, 0, 6, H, "#ffd21f") : ""}</g>`;
     // pixel players (idle bob, staggered): offense behind the ball, defense across it
     let k = 0;
     const guy = (x, y, c, flip) => {
@@ -338,21 +342,46 @@ const Live = (() => {
         + r(x - 6, y - 14, 12, 8, helm) + r(x - 8, y - 6, 16, 12, jersey) + r(x - 7, y + 6, 5, 8, "#f2f2f2") + r(x + 2, y + 6, 5, 8, "#f2f2f2")
         + r(x + (flip ? -9 : 5), y - 4, 4, 6, "#f5c9a6") + "</g>";
     };
-    const team = [];
-    if (off) {
-      const def = off === home ? away : home, b = (yards) => X(spot) - dir * yards * 10;
-      [[1.6, 110], [1.6, 130], [1.6, 150], [1.6, 170], [1.6, 190], [5, 150], [7.5, 132], [1.6, 40], [1.6, 262], [2.8, 222]]
-        .forEach(([yd, y]) => team.push(guy(b(yd), y, off, dir < 0)));
-      const d = (yards) => X(spot) + dir * yards * 10;
-      [[1.6, 120], [1.6, 140], [1.6, 160], [1.6, 180], [5, 110], [5, 150], [5, 190], [6, 40], [6, 262], [11, 100], [11, 200]]
-        .forEach(([yd, y]) => team.push(guy(d(yd), y, def, dir > 0)));
-    }
-    const ball = (x, y) => r(x - 9, y - 4, 18, 8, "#8b4a1f") + r(x - 6, y - 6, 12, 12, "#8b4a1f") + r(x - 4, y - 1, 8, 2, "#ffffff");
+    // formations: [role, yards off the ball, y]. Offense behind the ball, defense across it.
+    const OFF_SET = [["ol", 1.6, 110], ["ol", 1.6, 130], ["c", 1.6, 150], ["ol", 1.6, 170], ["ol", 1.6, 190], ["qb", 5, 150], ["rb", 7.5, 132],
+      ["wr", 1.6, 40], ["wr2", 1.6, 262], ["te", 2.8, 222]];
+    const DEF_SET = [["dl", 1.6, 120], ["dl", 1.6, 140], ["dl", 1.6, 160], ["dl", 1.6, 180], ["lb", 5, 110], ["lb", 5, 150], ["lb", 5, 190],
+      ["cb", 6, 40], ["cb", 6, 262], ["s", 11, 100], ["s", 11, 200]];
+    const D = 2.4; // replay length (s): snap at .4, whistle at 2.4, then everyone resets at the new line
+    const motion = (keys) => {
+      if (!keys?.length) return "";
+      const pts = [[0, 0, 0], ...keys];
+      if (pts.at(-1)[0] < D) pts.push([D, pts.at(-1)[1], pts.at(-1)[2]]);
+      return `<animateTransform attributeName="transform" type="translate" values="${pts.map((q) => `${q[1].toFixed(1)} ${q[2].toFixed(1)}`).join(";")}"
+        keyTimes="${pts.map((q) => (q[0] / D).toFixed(3)).join(";")}" dur="${D}s" fill="freeze"/>`;
+    };
+    const ball = (x, y) => `<g class="tf-sh">${r(x - 9, y - 4, 18, 8, "#8b4a1f") + r(x - 6, y - 6, 12, 12, "#8b4a1f") + r(x - 4, y - 1, 8, 2, "#ffffff")}</g>`;
+    // one formation at yard line `at`; odir = the offense's direction; moves(role, x, y) -> keyframes [[t, dx, dy], ...]
+    const formation = (at, o, odir, moves = () => null) => {
+      const d = o === home ? away : home, out = [];
+      OFF_SET.forEach(([role, yd, y]) => { const x = X(at) - odir * yd * 10; out.push(`<g>${motion(moves(role, x, y, true))}${guy(x, y, o, odir < 0)}</g>`); });
+      DEF_SET.forEach(([role, yd, y]) => { const x = X(at) + odir * yd * 10; out.push(`<g>${motion(moves(role, x, y, false))}${guy(x, y, d, odir > 0)}</g>`); });
+      return out.join("");
+    };
     const bx = X(spot) - dir * 6;
-    const shift = X(from) - X(spot); // the teams start the replay lined up at the old spot
-    const lineup = `<g transform="translate(${anim && moved ? shift : 0} 0)">${anim && moved
-      ? `<animateTransform attributeName="transform" type="translate" from="${shift} 0" to="0 0" begin="1.9s" dur=".7s" fill="freeze"/>` : ""}
-      <g${appear(1.9)}>${team.join("")}${ball(bx, 150)}</g></g>`;
+    const celebrate = (team, t) => {
+      const right = (team === home) === true; // home scores going right (into the away end zone)
+      const ez = right ? 1100 : 0, cc = [col(team), alt(team), "#ffd21f", "#ffffff"];
+      const flash = `<rect x="${ez}" y="0" width="100" height="${H}" fill="${alt(team)}" opacity="0">
+        <animate attributeName="opacity" values="0;.55;0" dur=".5s" begin="${t}s" repeatCount="indefinite"/></rect>`;
+      const confetti = Array.from({ length: 28 }, (_, i) => {
+        const x = 120 + ((i * 397) % 960), d = 1.6 + (i % 5) * 0.35, b = t + (i % 7) * 0.22;
+        return `<rect x="${x}" y="-12" width="8" height="8" fill="${cc[i % 4]}" opacity="0"><set attributeName="opacity" to="1" begin="${b}s"/>
+          <animateTransform attributeName="transform" type="translate" values="0 0;${(i % 3 - 1) * 30} ${H + 24}" dur="${d}s" begin="${b}s" repeatCount="indefinite"/></rect>`;
+      }).join("");
+      const sx0 = ez + 50;
+      const scorer = `<g opacity="0"><set attributeName="opacity" to="1" begin="${t}s"/><g>${guy(sx0, 150, team, !right)}${ball(sx0 + 2, 120)}
+        <animateTransform attributeName="transform" type="translate" values="0 0;0 -18;0 0" dur=".45s" begin="${t}s" repeatCount="indefinite"/></g></g>`;
+      return flash + scorer + confetti;
+    };
+    // after a touchdown the field is a party, not a formation
+    const lineup = isTD && tdTeam ? celebrate(tdTeam, fresh ? 2.3 : 0)
+      : off ? `<g${appear(2.5)}>${formation(spot, off, dir)}${ball(bx, 150)}</g>` : "";
 
     // penalties: "PENALTY on PIT-M.Pittman, False Start, 5 yards, enforced at PIT 22 - No Play."
     const isFlag = /penalty/.test(type + txt);
@@ -360,10 +389,10 @@ const Live = (() => {
     const flagInfo = !isFlag ? "" : /declined/.test(txt) ? "DECLINED" + (pm ? ` · ${pm[2].toUpperCase()}` : "")
       : pm ? `${pm[2].toUpperCase()} · ${pm[1].toUpperCase()} · ${pm[3]} YDS` : "";
     // pixel ref (black-and-white stripes, arm up) and a two-frame fluttering flag
-    const refSprite = (x, y, throwing) => r(x - 5, y - 16, 10, 5, "#111") + r(x - 4, y - 11, 8, 6, "#f5c9a6")
+    const refSprite = (x, y, throwing) => `<g class="tf-sh">` + r(x - 5, y - 16, 10, 5, "#111") + r(x - 4, y - 11, 8, 6, "#f5c9a6")
       + [0, 1, 2, 3].map((i) => r(x - 7, y - 5 + i * 3, 14, 3, i % 2 ? "#111" : "#f2f2f2")).join("")
       + r(x - 6, y + 7, 5, 9, "#111") + r(x + 1, y + 7, 5, 9, "#111")
-      + (throwing ? `<g>${r(x + 7, y - 14, 3, 12, "#f2f2f2")}<animate attributeName="opacity" values="1;0" keyTimes="0;.5" dur=".5s" begin=".1s" repeatCount="2" calcMode="discrete"/></g>${r(x + 7, y - 4, 3, 10, "#f2f2f2")}` : "");
+      + (throwing ? `<g>${r(x + 7, y - 14, 3, 12, "#f2f2f2")}<animate attributeName="opacity" values="1;0" keyTimes="0;.5" dur=".5s" begin=".1s" repeatCount="2" calcMode="discrete"/></g>${r(x + 7, y - 4, 3, 10, "#f2f2f2")}` : "") + "</g>";
     const flagSprite = (x, y) => `<g><g>${r(x - 9, y - 6, 16, 10, "#ffd21f")}${r(x + 7, y - 6, 4, 4, "#ffffff")}${r(x - 9, y + 4, 8, 2, "#c9a400")}
         <animate attributeName="opacity" values="1;0;1" keyTimes="0;.5;1" dur=".24s" repeatCount="8" calcMode="discrete" fill="freeze"/></g>
       <g opacity="0">${r(x - 8, y - 8, 14, 12, "#ffd21f")}${r(x + 6, y - 8, 4, 4, "#ffffff")}${r(x - 8, y + 4, 6, 2, "#c9a400")}
@@ -374,20 +403,70 @@ const Live = (() => {
     let replay = "", banner = "";
     if (anim) {
       const pdir = String(play.start?.team?.id) === String(home.team.id) ? 1 : -1; // direction of the team that ran the play
-      const sx = X(from), ex = X(spot);
+      const sx = X(from), ex = isTD ? X(pdir > 0 ? 104 : -4) : X(spot); // touchdowns finish in the end zone
       const carrier = play.start?.team?.id && String(play.start.team.id) === String(home.team.id) ? home : away;
-      const runner = (x) => `<g>${r(x - 6, 136, 12, 8, alt(carrier))}${r(x - 8, 144, 16, 12, col(carrier))}${r(x - 7, 156, 5, 8, "#f2f2f2")}${r(x + 2, 156, 5, 8, "#f2f2f2")}${ball(x + pdir * 10, 150)}</g>`;
-      const fade = `<animate attributeName="opacity" from="1" to="0" begin="1.8s" dur=".3s" fill="freeze"/>`;
-      if (/kickoff|punt|field goal|extra point/.test(type)) {
-        const tx = /field goal|extra point/.test(type) ? X(pdir > 0 ? 105 : -5) : ex;
-        replay = `<g opacity="0">${ball(0, 0)}<set attributeName="opacity" to="1" begin=".3s" fill="freeze"/><animateMotion path="M${sx},150 Q${(sx + tx) / 2},-60 ${tx},150" begin=".3s" dur="1.3s" fill="freeze"/>${fade}</g>`;
-      } else if (/pass/.test(type) || /\bpass\b/.test(txt)) {
-        const qb = sx - pdir * 50, land = /incomplet/.test(type + txt) ? sx + pdir * 160 : ex;
-        replay = `<g opacity="0">${ball(0, 0)}<set attributeName="opacity" to="1" begin=".3s" fill="freeze"/><animateMotion path="M${qb},150 Q${(qb + land) / 2},20 ${land},150" begin=".3s" dur="1s" fill="freeze"/>${fade}</g>`
-          + (/incomplet/.test(type + txt) ? "" : `<g opacity="0">${runner(ex)}<animate attributeName="opacity" from="0" to="1" begin="1.2s" dur=".1s" fill="freeze"/>${fade}</g>`);
-      } else if (moved) {
-        replay = `<g opacity="0">${runner(0)}<set attributeName="opacity" to="1" begin=".3s" fill="freeze"/><animateTransform attributeName="transform" type="translate" from="${sx} 0" to="${ex} 0" begin=".3s" dur="1.3s" fill="freeze"/>${fade}</g>`;
-      }
+      const pteam = carrier, dteam = pteam === home ? away : home;
+      const isFG = /field goal|extra point/.test(type), isPunt = /punt/.test(type), isKO = /kickoff/.test(type), isKick = isFG || isPunt || isKO;
+      const fgGood = isFG && /good/.test(type + txt) && !/no good|missed|blocked/.test(type + txt);
+      const isSack = /sack/.test(type), isKneel = /kneel/.test(type + txt), isSpike = /spike/.test(type + txt);
+      const isPass = !isKick && !isSack && !isSpike && (/pass/.test(type) || /\bpass\b/.test(txt));
+      const isInt = isPass && /intercept/.test(type + txt), incomplete = isPass && !isInt && /incomplet/.test(type + txt);
+      const isRun = !isKick && !isPass && !isSack && !isKneel && !isSpike && moved && !/penalty/.test(type);
+      const qbx = sx - pdir * 50, drop = qbx - pdir * 30, rbx = sx - pdir * 75;
+      // where the ball is caught: the end spot on a completion, ~15 yds downfield on an incompletion or a pick
+      const catchX = incomplete || isInt ? sx + pdir * 150 : ex, catchY = 100;
+      const postX = pdir > 0 ? 1190 : 10; // goalposts at the back of the end zone being attacked
+      const kickFrom = isFG ? sx - pdir * 70 : isPunt ? sx - pdir * 140 : sx;
+      const kickTo = isFG ? postX : isKO && /touchback/.test(txt) ? X(pdir > 0 ? 105 : -5) : ex;
+      const chase = (x, y, tx, ty, f, t = 1.9) => [[t, (tx - x) * f, (ty - y) * f]];
+      const moves = (role, x, y, isOff) => {
+        if (isRun) {
+          if (isOff) return role === "rb" ? [[0.6, sx - pdir * 40 - x, 150 - y], [1.9, ex - x, 150 - y]]
+            : role === "qb" ? [[0.6, -pdir * 10, 0]] : role.startsWith("wr") ? [[1.9, pdir * 110, 0]] : [[0.9, pdir * 16, 0]];
+          return chase(x, y, ex + pdir * 12, 150, role === "s" || role === "cb" ? 0.75 : 0.6);
+        }
+        if (isPass) {
+          if (isOff) return role === "qb" ? [[0.9, drop - x, 0]] : role === "wr" ? [[1.6, catchX - x, catchY - y], [1.9, catchX - x + pdir * (incomplete ? 12 : 0), catchY - y]]
+            : role === "wr2" ? [[1.9, pdir * 160, 0]] : role === "te" ? [[1.9, pdir * 110, -40]] : role === "rb" ? [[0.9, -pdir * 6, 14]]
+              : isInt ? [[0.8, -pdir * 10, 0], [2.2, (ex - x) * 0.5, (150 - y) * 0.5]] : [[0.8, -pdir * 10, 0]];
+          if (isInt && role === "cb" && y === 40) return [[1.55, catchX + pdir * 8 - x, catchY - y], [2.3, ex - x, 150 - y]]; // jumps the route, runs it back
+          return role === "dl" ? chase(x, y, drop, 150, 0.55, 1.2) : chase(x, y, catchX + pdir * 14, catchY, role === "lb" ? 0.5 : 0.8);
+        }
+        if (isSack) {
+          if (isOff) return role === "qb" ? [[1.2, ex - x, 0]] : [[0.8, -pdir * 10, 0]];
+          return role === "dl" && y === 140 ? [[1.2, ex + pdir * 8 - x, 150 - y]] : chase(x, y, ex, 150, 0.4);
+        }
+        if (isKneel || isSpike) return isOff && role === "qb" ? [[0.6, sx - pdir * 14 - x, 0]] : null;
+        if (isFG) return isOff ? (role === "qb" ? [[0.4, kickFrom - x, 0]] : role === "rb" ? [[0.4, kickFrom - pdir * 20 - x, 0], [0.55, kickFrom - x, 0]] : null)
+          : role === "dl" ? [[0.6, -pdir * 12, 0]] : null;
+        if (isPunt) return isOff ? (role === "qb" ? [[0.4, kickFrom - x, 0]] : [[2.2, pdir * 240, 0]])
+          : role === "s" && y === 100 ? [[1.7, kickTo - x, 150 - y], [2.3, ex - x, 150 - y]] : chase(x, y, ex, 150, 0.4, 2.2);
+        if (isKO) return isOff ? [[2.2, pdir * 260, 0]] : chase(x, y, kickTo, 150, 0.35, 2.2);
+        return null; // timeouts, pre-snap flags: everyone holds
+      };
+      // the ball: snapped to the QB, then carried, thrown or kicked
+      const held = (keys) => `<g transform="translate(${sx} 150)"><g>${ball(0, 0)}${motion(keys)}</g></g>`;
+      const flying = (begin, dur, path, then = "") => `<g opacity="0">${ball(0, 0)}<set attributeName="opacity" to="1" begin="${begin}s" fill="freeze"/>
+          <animateMotion path="${path}" begin="${begin}s" dur="${dur}s" fill="freeze"/>${then}</g>`;
+      let pig = "";
+      if (isRun) pig = held([[0.4, qbx - sx, 0], [0.6, -pdir * 40, 0], [1.9, ex - sx + pdir * 10, 0]]);
+      else if (isSack) pig = held([[0.4, qbx - sx, 0], [1.2, ex - sx, 0]]);
+      else if (isKneel || isSpike) pig = held([[0.4, -pdir * 14, 0], ...(isSpike ? [[0.7, -pdir * 10, 30]] : [])]);
+      else if (isPass) {
+        const throwHand = held([[0.4, qbx - sx, 0], [0.9, drop - sx, 0]]).replace("</g></g>", `<set attributeName="opacity" to="0" begin=".95s" fill="freeze"/></g></g>`);
+        if (incomplete) { // sails past the receiver, skids into the turf with a little bounce
+          const land = catchX + pdir * 40;
+          pig = throwHand + flying(0.95, 0.9, `M${drop},150 Q${(drop + land) / 2},-10 ${land},120 L${land + pdir * 14},112 L${land + pdir * 24},122`);
+        } else if (isInt) { // picked: the corner catches it and carries it back
+          pig = throwHand + `<g opacity="0">${ball(0, 0)}<set attributeName="opacity" to="1" begin=".95s" fill="freeze"/>
+            <animateMotion path="M${drop},150 Q${(drop + catchX) / 2},-10 ${catchX + pdir * 8},${catchY} L${ex},150" keyPoints="0;.72;1" keyTimes="0;.45;1" calcMode="linear" begin=".95s" dur="1.35s" fill="freeze"/></g>`;
+        } else pig = throwHand + flying(0.95, 0.65, `M${drop},150 Q${(drop + catchX) / 2},-10 ${catchX},${catchY}`);
+      } else if (isFG) { // snap, hold, kick: through the posts, or wide
+        pig = held([[0.4, kickFrom - sx, 0]]).replace("</g></g>", `<set attributeName="opacity" to="0" begin=".6s" fill="freeze"/></g></g>`)
+          + flying(0.6, 1.1, `M${kickFrom},150 Q${(kickFrom + postX) / 2},-40 ${postX},${fgGood ? 150 : 70}`);
+      } else if (isKick) pig = flying(isPunt ? 0.6 : 0.4, 1.3, `M${kickFrom},150 Q${(kickFrom + kickTo) / 2},-60 ${kickTo},150`);
+      else pig = ball(sx - pdir * 6, 150);
+      replay = `<g>${formation(from, pteam, pdir, moves)}${pig}<animate attributeName="opacity" from="1" to="0" begin="${D}s" dur=".2s" fill="freeze"/></g>`;
       if (isFlag) { // a striped ref steps up at the sideline and tosses a fluttering flag to the spot
         const rx = Math.max(130, Math.min(1070, sx + pdir * 40)), land = sx + pdir * 18;
         replay += `<g opacity="0"><set attributeName="opacity" to="1" begin="0s" fill="freeze"/>${refSprite(rx, 30, true)}
@@ -395,47 +474,85 @@ const Live = (() => {
         replay += `<g opacity="0">${flagSprite(0, 0)}<set attributeName="opacity" to="1" begin=".35s" fill="freeze"/>
           <animateMotion path="M${rx + 8},24 Q${(rx + land) / 2},-50 ${land},176" begin=".35s" dur=".95s" fill="freeze"/></g>`;
       }
-      const big = play.scoringPlay && /touchdown/.test(type + txt) ? "TOUCHDOWN!" : /field goal good/.test(type) ? "IT'S GOOD!"
-        : /interception/.test(type) ? "PICKED OFF!" : /fumble/.test(type + txt) && /recover/.test(txt) ? "FUMBLE!" : /sack/.test(type) ? "SACK!"
-          : isFlag ? "FLAG!" : play.end?.down === 1 && (play.start?.down || 0) > 0 && moved && !/kick|punt/.test(type) ? "FIRST DOWN!" : "";
+      const big = isTD ? "TOUCHDOWN!" : isFG ? (fgGood ? "IT'S GOOD!" : /blocked/.test(type + txt) ? "BLOCKED!" : "NO GOOD!")
+        : isInt ? "PICKED OFF!" : /fumble/.test(type + txt) && /recover/.test(txt) ? "FUMBLE!" : isSack ? "SACK!" : /safety/.test(type + txt) ? "SAFETY!"
+          : isFlag ? "FLAG!" : incomplete ? "INCOMPLETE" : /touchback/.test(txt) ? "TOUCHBACK" : /fair catch/.test(txt) ? "FAIR CATCH"
+            : isKneel ? "TAKE A KNEE" : isSpike ? "SPIKE!" : play.end?.down === 1 && (play.start?.down || 0) > 0 && moved && !isKick ? "FIRST DOWN!" : "";
       const sub = big === "FLAG!" ? flagInfo : "";
       if (big) {
         banner = `<g opacity="0"><rect x="250" y="${sub ? 92 : 105}" width="700" height="${sub ? 116 : 90}" fill="#000" opacity=".78"/>
           <text x="600" y="${sub ? 136 : 152}" class="tf-big">${big}</text>${sub ? `<text x="600" y="182" class="tf-sub">${esc(sub)}</text>` : ""}
-          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.1;.85;1" begin="${big === "FLAG!" ? 1.3 : 1.2}s" dur="${sub ? 2.6 : 2}s" fill="freeze"/></g>`;
+          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.1;.85;1" begin="${big === "FLAG!" ? 1.3 : 2}s" dur="${sub ? 2.6 : 2}s" fill="freeze"/></g>`;
       }
     }
 
     const teamTag = (c) => `<span class="tf-team" style="--c:${col(c)}">${img(teamLogo(c.team), "xs")}${esc(c.team.abbreviation || "")}</span>`;
-    const where = at.possessionText ? `BALL ON ${esc(at.possessionText)}` : "";
-    const ddText = down ? `${["", "1ST", "2ND", "3RD", "4TH"][down] || down + "TH"} & ${dist < toGo ? dist : "GOAL"}` : "";
+    const where = isTD ? `${esc(tdTeam?.team?.abbreviation || "")} SCORES` : at.possessionText ? `BALL ON ${esc(at.possessionText)}` : "";
+    const ddText = isTD ? "TOUCHDOWN!" : down ? `${["", "1ST", "2ND", "3RD", "4TH"][down]} & ${dist < toGo ? dist : "GOAL"}` : "";
     const lastText = play?.text ? play.text.trim() : "";
     return `<div class="card tecmo" style="--tf-font:'${PIXEL_FONT}'">
       <div class="tf-bar">
         <span>${off ? teamTag(off) + `<b class="tf-arrow">${dir > 0 ? "▶" : "◀"}</b>` : ""}</span>
         <span class="tf-dd">${ddText}</span>
-        <span class="tf-where">${where}${toGo <= 20 && off ? ` <b class="tf-red">RED ZONE</b>` : ""}</span>
+        <span class="tf-where">${where}${toGo <= 20 && off && !isTD ? ` <b class="tf-red">RED ZONE</b>` : ""}</span>
       </div>
       <svg class="tf-field" viewBox="0 0 1200 ${H}" shape-rendering="crispEdges" role="img"
         aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, where].filter(Boolean).join(", "))}">${base.join("")}${lines}${lineup}${anim ? "" : flagOnField}${replay}${banner}</svg>
-      <div class="tf-clock" title="A rough play clock since the last play came in: the field updates on its own">
-        <span>NEXT SNAP</span><span class="tf-track"><i style="animation-delay:-${Math.min(since, 40).toFixed(1)}s"></i></span></div>
+      <div class="tf-clock" title="A rough play clock since the last play came in. It doesn't hold anything back: the field checks for a new play every 5 seconds and replays it as soon as it arrives">
+        <span>PLAY CLOCK</span><span class="tf-track"><i style="animation-delay:-${Math.min(since, 40).toFixed(1)}s"></i></span></div>
       <div class="tf-key"><span><i style="background:#3d7bff"></i>Line of scrimmage</span>${fd != null ? `<span><i style="background:#ffd21f"></i>First down</span>` : ""}
         ${drive?.description ? `<span class="muted">This drive: ${esc(drive.description)}</span>` : ""}</div>
       ${lastText ? `<p class="tf-last"><b>LAST PLAY</b> ${esc(lastText)}</p>` : ""}
     </div>`;
   }
 
+  // Live games read two ESPN feeds on every check: the game summary (full play-by-play, refreshes every ~6 s)
+  // and the scoreboard (refreshes every ~4 s, often a play ahead). Whichever has the newer play wins.
+  // College uses the game's own conference scoreboard (the all-FBS one is ~1 MB).
+  const sbGroup = new Map(); // game id -> conference id, learned on the first load
+  function mergeScoreboard(s, sb, id) {
+    const ev = (sb?.events || []).find((e) => String(e.id) === String(id));
+    const sc = ev?.competitions?.[0], comp = s.header?.competitions?.[0];
+    if (!sc || !comp) return;
+    const sit = sc.situation, lp = sit?.lastPlay;
+    const drives = (s.drives ||= {});
+    const cur = drives.current || (drives.previous || []).at(-1), last = cur?.plays?.at(-1);
+    let newer = false;
+    try { newer = !!lp?.id && (!last || BigInt(lp.id) > BigInt(last.id)); } catch (e) { newer = !!lp?.id && lp.id !== last?.id; }
+    if (!newer) return;
+    // the scoreboard is ahead: take its clock, score and possession, and add its last play to the drive
+    comp.status = sc.status || comp.status;
+    comp.competitors.forEach((c) => {
+      const x = sc.competitors.find((y) => String(y.team?.id || y.id) === String(c.team?.id || c.id));
+      if (x) c.score = x.score;
+      c.possession = !!sit.possession && String(sit.possession) === String(c.team?.id);
+    });
+    const play = {
+      id: lp.id, text: lp.text, type: lp.type, scoringPlay: (lp.scoreValue || 0) > 0,
+      start: { yardLine: lp.start?.yardLine, team: lp.start?.team || lp.team },
+      end: { yardLine: lp.end?.yardLine ?? sit.yardLine, down: sit.down, distance: sit.distance, possessionText: sit.possessionText,
+        team: { id: sit.possession || lp.end?.team?.id } },
+    };
+    const same = cur && String(cur.team?.id) === String(lp.team?.id) && cur.start?.yardLine === lp.drive?.start?.yardLine;
+    drives.current = same ? { ...cur, description: lp.drive?.description || cur.description, plays: [...cur.plays, play] }
+      : { team: lp.team, start: lp.drive?.start, description: lp.drive?.description, plays: [play] };
+  }
+
   async function game(id, params, refresh = false) {
     const lg = league, my = token;
     if (!refresh) loading("game");
-    let s, ranks;
+    let s, ranks, sb = null;
     try {
-      [s, ranks] = await Promise.all([api(`${SITE(lg)}/summary?event=${encodeURIComponent(id)}`, refresh ? 0 : 15000), modelRanks(lg)]);
+      const grp = sbGroup.get(String(id));
+      const sbUrl = lg === "nfl" ? `${SITE(lg)}/scoreboard` : grp ? `${SITE(lg)}/scoreboard?groups=${encodeURIComponent(grp)}` : null;
+      [s, ranks, sb] = await Promise.all([api(`${SITE(lg)}/summary?event=${encodeURIComponent(id)}`, refresh ? 0 : 15000), modelRanks(lg),
+        refresh && sbUrl ? api(sbUrl, 0).catch(() => null) : null]);
     } catch (e) { return fail("game", e); }
     if (my !== token) return;
     const comp = s.header?.competitions?.[0];
     if (!comp) return fail("game", new Error("no game data"));
+    if (comp.groups?.id) sbGroup.set(String(id), comp.groups.id);
+    if (sb) mergeScoreboard(s, sb, id);
     const st = comp.status?.type?.state;
     const away = comp.competitors.find((c) => c.homeAway === "away"), home = comp.competitors.find((c) => c.homeAway === "home");
     const tname = (c) => c.team.displayName || c.team.location;
@@ -591,7 +708,7 @@ const Live = (() => {
       bx.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b.dataset.bt === k));
       document.querySelectorAll("#boxscore .box-sec").forEach((sec) => sec.classList.toggle("hidden", sec.dataset.sec !== k));
     };
-    if (st === "in") poll((r) => game(id, params, r), 12000); // live: check often so new plays replay quickly
+    if (st === "in") poll((r) => game(id, params, r), 5000); // live: check every 5 s so a new play replays right after the snap
   }
 
   // Where each win-probability point falls in game time (0 = kickoff, 1 = end of regulation, more for overtime),

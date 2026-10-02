@@ -1306,6 +1306,7 @@ a.mbug:hover .mb-mid b.mb-at { color: var(--accent); }
 .wp-now.flip b { left: auto; right: 12px; }
 @keyframes wp-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ink) 50%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
 .tf-guy { animation: tf-bob .8s steps(2) infinite; }
+.tf-guy, .tf-sh { filter: drop-shadow(3px 3px 0 rgba(0, 0, 0, .45)); } /* hard pixel drop shadow */
 @keyframes tf-bob { 50% { transform: translateY(-3px); } }
 @media (prefers-reduced-motion: reduce) { .tf-guy, .tf-arrow, .tf-red { animation: none; } }
 .tf-big { font-family: var(--tf-font), monospace; font-size: 40px; fill: #ffd21f; text-anchor: middle; dominant-baseline: middle; paint-order: stroke; stroke: #000; stroke-width: 6px; }
