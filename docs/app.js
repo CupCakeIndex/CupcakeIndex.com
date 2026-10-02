@@ -179,7 +179,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "124"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "125"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -264,7 +264,7 @@ async function init() {
   await route();
 }
 
-// Back button (phones): shows once you've moved around inside the site; same as the browser's back
+// Back button (phones, in the header): shows once you've moved around inside the site; same as the browser's back
 function initBack() {
   const btn = document.createElement("button");
   btn.className = "back-fab hidden";
@@ -272,7 +272,7 @@ function initBack() {
   btn.setAttribute("aria-label", "Back");
   btn.innerHTML = "&larr; Back";
   btn.onclick = () => history.back();
-  document.body.appendChild(btn);
+  (document.querySelector(".top .controls") || document.body).prepend(btn); // in the header, left of search
   // each history entry remembers how deep it is; a brand-new entry has no state yet
   let depth = history.state?.cupDepth || 0;
   history.replaceState({ ...(history.state || {}), cupDepth: depth }, "");
