@@ -239,7 +239,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "154"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "155"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -325,6 +325,7 @@ async function init() {
   window.addEventListener("hashchange", route);
   initBack();
   initPicLinks();
+  CIT.apply(); // now that the header exists: search placeholder for the current theme
   // Refresh button (header): the home-screen app has no browser reload, so this reloads the page with fresh data
   $("#refresh")?.addEventListener("click", (e) => { e.currentTarget.classList.add("spin"); setTimeout(() => location.reload(), 150); });
   await route();

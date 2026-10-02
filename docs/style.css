@@ -1825,3 +1825,12 @@ html[data-theme-name="team"] :is(#view-rankings, #view-scores, #view-picks, #vie
 .pf-none { padding: 8px 10px; color: var(--muted); font-family: "JetBrains Mono", monospace; font-size: 13px; }
 .pf-picked { display: inline-flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--accent); font-weight: 700; }
 .pf-picked button { border: 0; background: none; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px 0 6px; }
+/* My Team: letterman-jacket wordmark. CUPCAKE in the team color trimmed in the second color, _INDEX the reverse (chenille-patch look) */
+html[data-theme-name="team"] #brand { font-family: Graduate, var(--font-head); font-weight: 400; letter-spacing: .05em; font-size: 1.08em; color: var(--accent);
+  -webkit-text-stroke: 1.4px var(--team-alt, var(--ink)); paint-order: stroke fill; text-shadow: 2px 3px 0 rgba(0,0,0,.55); }
+html[data-theme-name="team"] #brand b { color: var(--team-alt, var(--ink)); -webkit-text-stroke: 1.4px var(--accent); }
+/* search button: the >_ prompt in the terminal themes, a plain magnifying glass everywhere else */
+.gs-mag { display: none; width: 17px; height: 17px; }
+html:not([data-theme-name="mono"]):not([data-theme-name="terminal"]):not([data-theme-name="amber"]) .gsearch .gs-gt,
+html:not([data-theme-name="mono"]):not([data-theme-name="terminal"]):not([data-theme-name="amber"]) .gsearch .gs-us { display: none; }
+html:not([data-theme-name="mono"]):not([data-theme-name="terminal"]):not([data-theme-name="amber"]) .gsearch .gs-mag { display: block; }
