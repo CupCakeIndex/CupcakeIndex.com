@@ -317,6 +317,11 @@ const Live = (() => {
     const tdTeam = isTD ? scorer : null;
     // after any score the next play is a kickoff: the scorer kicks (after a safety, the team that gave it up kicks)
     const kicker = !play.scoringPlay ? null : /safety/.test(type + txt) ? startTeam : scorer;
+    // "... TOUCHDOWN. C.Boswell extra point is GOOD" / "TWO-POINT CONVERSION ATTEMPT. J.Allen pass to ... ATTEMPT SUCCEEDS."
+    const two = /two-point conversion attempt\.?(.*?)attempt (succeeds|fails)/i.exec(play.text || "");
+    const pat = !isTD ? null : two ? { kind: "2pt", good: /succeeds/i.test(two[2]), pass: /\bpass\b/i.test(two[1]) }
+      : /extra point/i.test(play.text || "") ? { kind: "xp", good: /extra point is good/i.test(play.text || "") } : null;
+    const PAT_AT = 5.2, PAT_LEN = 2.6; // the try starts once everyone has jogged off; the kickoff setup follows it
     const down = at.down >= 1 && at.down <= 4 && !isTD ? at.down : 0, dist = down ? at.distance || 0 : 0; // ESPN marks scores as down -1
     const fd = down && dist && dist < toGo ? spot + dir * dist : null; // goal to go: no first-down line
     const X = (yl) => 100 + yl * 10; // 10 px per yard; 10-yard end zones
@@ -367,19 +372,19 @@ const Live = (() => {
     const DEF_SET = [["dl", 1.6, 120], ["dl", 1.6, 140], ["dl", 1.6, 160], ["dl", 1.6, 180], ["lb", 5, 110], ["lb", 5, 150], ["lb", 5, 190],
       ["cb", 6, 40], ["cb", 6, 262], ["s", 11, 100], ["s", 11, 200]];
     const D = 2.4; // replay length (s): snap at .4, whistle at 2.4, then everyone resets at the new line
-    const motion = (keys, len = D) => {
+    const motion = (keys, len = D, begin = 0) => {
       if (!keys?.length) return "";
       const pts = [[0, 0, 0], ...keys];
       if (pts.at(-1)[0] < len) pts.push([len, pts.at(-1)[1], pts.at(-1)[2]]);
       return `<animateTransform attributeName="transform" type="translate" values="${pts.map((q) => `${q[1].toFixed(1)} ${q[2].toFixed(1)}`).join(";")}"
-        keyTimes="${pts.map((q) => (q[0] / len).toFixed(3)).join(";")}" dur="${len}s" fill="freeze"/>`;
+        keyTimes="${pts.map((q) => (q[0] / len).toFixed(3)).join(";")}" dur="${len}s" begin="${begin}s" fill="freeze"/>`;
     };
     const ball = (x, y) => `<g class="tf-sh">${r(x - 9, y - 4, 18, 8, "#8b4a1f") + r(x - 6, y - 6, 12, 12, "#8b4a1f") + r(x - 4, y - 1, 8, 2, "#ffffff")}</g>`;
     // one formation at yard line `at`; odir = the offense's direction; moves(role, x, y) -> keyframes [[t, dx, dy], ...]
-    const formation = (at, o, odir, moves = () => null, len = D) => {
+    const formation = (at, o, odir, moves = () => null, len = D, begin = 0) => {
       const d = o === home ? away : home, out = [];
-      OFF_SET.forEach(([role, yd, y]) => { const x = X(at) - odir * yd * 10; out.push(`<g>${motion(moves(role, x, y, true), len)}${guy(x, y, o, odir < 0)}</g>`); });
-      DEF_SET.forEach(([role, yd, y]) => { const x = X(at) + odir * yd * 10; out.push(`<g>${motion(moves(role, x, y, false), len)}${guy(x, y, d, odir > 0)}</g>`); });
+      OFF_SET.forEach(([role, yd, y]) => { const x = X(at) - odir * yd * 10; out.push(`<g>${motion(moves(role, x, y, true), len, begin)}${guy(x, y, o, odir < 0)}</g>`); });
+      DEF_SET.forEach(([role, yd, y]) => { const x = X(at) + odir * yd * 10; out.push(`<g>${motion(moves(role, x, y, false), len, begin)}${guy(x, y, d, odir > 0)}</g>`); });
       return out.join("");
     };
     const bx = X(spot) - dir * 6;
@@ -411,7 +416,7 @@ const Live = (() => {
       return out.join("") + r(X(K) - 3, 156, 6, 6, "#ff8c1a") + ball(X(K), 150); // ball on a tee
     };
     const party = isTD && tdTeam ? celebrate(tdTeam, fresh ? 2.3 : 0) : "";
-    const setupAt = !fresh ? 0 : isTD ? 5.2 : 2.5; // after a TD: replay, party, everyone jogs off, then the kickoff setup
+    const setupAt = !fresh ? 0 : isTD ? (pat ? PAT_AT + PAT_LEN + 0.3 : PAT_AT) : 2.5; // TD: replay, party, jog off, the try, then the kickoff setup
     const lineup = kicker ? (fresh ? party : "") + `<g${appear(setupAt)}>${kickoffSet(kicker)}</g>`
       : off ? `<g${appear(2.5)}>${formation(spot, off, dir)}${ball(bx, 150)}</g>` : "";
 
@@ -525,6 +530,31 @@ const Live = (() => {
         banner = `<g opacity="0"><rect x="250" y="${sub ? 92 : 105}" width="700" height="${sub ? 116 : 90}" fill="#000" opacity=".78"/>
           <text x="600" y="${sub ? 136 : 152}" class="tf-big">${big}</text>${sub ? `<text x="600" y="182" class="tf-sub">${esc(sub)}</text>` : ""}
           <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.1;.85;1" begin="${big === "FLAG!" ? 1.3 : 2}s" dur="${sub ? 2.6 : 2}s" fill="freeze"/></g>`;
+      }
+      if (pat && scorer) { // the try: extra point through the posts, or a two-point run / pass at the goal line
+        const sd = scorer === home ? 1 : -1, goal = sd > 0 ? 100 : 0;
+        const los = goal - sd * (pat.kind === "xp" ? (league === "nfl" ? 15 : 3) : league === "nfl" ? 2 : 3), lx = X(los), t0 = PAT_AT;
+        const holdX = lx - sd * 70, posts = sd > 0 ? 1190 : 10, inEZ = X(goal + sd * 4);
+        const patMoves = (role, x, y, isOff) => {
+          if (pat.kind === "xp") return isOff ? (role === "qb" ? [[0.4, holdX - x, 0]] : role === "rb" ? [[0.4, holdX - sd * 20 - x, 0], [0.55, holdX - x, 0]] : null)
+            : role === "dl" ? [[0.6, -sd * 12, 0]] : null;
+          if (!pat.pass) return isOff ? (role === "rb" ? [[0.6, lx - sd * 30 - x, 150 - y], [1.4, (pat.good ? inEZ : lx + sd * 5) - x, 150 - y]] : [[0.8, sd * 12, 0]])
+            : [[1.4, ((pat.good ? inEZ : lx + sd * 6) - x) * 0.6, (150 - y) * 0.6]];
+          return isOff ? (role === "qb" ? [[0.8, -sd * 40, 0]] : role === "wr" ? [[1.4, inEZ - x, 100 - y]] : [[0.8, -sd * 8, 0]])
+            : [[1.4, (inEZ - x) * 0.6, (100 - y) * 0.5]];
+        };
+        const pball = pat.kind === "xp"
+          ? `<g transform="translate(${lx} 150)"><g>${ball(0, 0)}${motion([[0.4, holdX - lx, 0]], 0.6, t0)}<set attributeName="opacity" to="0" begin="${t0 + 0.6}s" fill="freeze"/></g></g>`
+            + flying(t0 + 0.6, 1.0, `M${holdX},150 Q${(holdX + posts) / 2},-30 ${posts},${pat.good ? 150 : 70}`)
+          : pat.pass
+            ? `<g transform="translate(${lx} 150)"><g>${ball(0, 0)}${motion([[0.8, -sd * 50, 0]], 0.9, t0)}<set attributeName="opacity" to="0" begin="${t0 + 0.9}s" fill="freeze"/></g></g>`
+              + flying(t0 + 0.9, 0.55, `M${lx - sd * 50},150 Q${(lx + inEZ) / 2},40 ${pat.good ? inEZ : inEZ + sd * 20},${pat.good ? 100 : 160}`)
+            : `<g transform="translate(${lx} 150)"><g>${ball(0, 0)}${motion([[0.6, -sd * 30, 0], [1.4, (pat.good ? inEZ : lx + sd * 5) - lx + sd * 10, 0]], 1.5, t0)}</g></g>`;
+        replay += `<g opacity="0"><set attributeName="opacity" to="1" begin="${t0}s" fill="freeze"/>${formation(los, scorer, sd, patMoves, PAT_LEN, t0)}${pball}
+          <animate attributeName="opacity" from="1" to="0" begin="${t0 + PAT_LEN}s" dur=".2s" fill="freeze"/></g>`;
+        const word = pat.kind === "xp" ? (pat.good ? "IT'S GOOD!" : "NO GOOD!") : pat.good ? "2 PT GOOD!" : "2 PT FAILS";
+        banner += `<g opacity="0"><rect x="300" y="105" width="600" height="90" fill="#000" opacity=".78"/><text x="600" y="152" class="tf-big">${word}</text>
+          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.1;.85;1" begin="${t0 + 1.4}s" dur="1.5s" fill="freeze"/></g>`;
       }
     }
 
