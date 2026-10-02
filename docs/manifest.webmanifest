@@ -1,0 +1,15 @@
+{
+  "name": "The Cupcake Index",
+  "short_name": "Cupcake",
+  "description": "CFB + NFL power rankings. Bullying cupcakes isn't a résumé.",
+  "start_url": "./#/rankings",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0a0a0b",
+  "theme_color": "#0a0a0b",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
