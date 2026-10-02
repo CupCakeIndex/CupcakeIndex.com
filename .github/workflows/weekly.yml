@@ -43,6 +43,7 @@ jobs:
         run: |
           python src/social/cupcake_history.py && python src/social/team_facts.py || echo "College facts skipped this time"
           python src/social/nfl_facts.py || echo "NFL facts skipped this time"
+          python src/team_meta.py || echo "Team list skipped this time"   # favorite-team picker + Team theme colors
       - name: Publish
         run: |
           git config user.name "rankings-bot"

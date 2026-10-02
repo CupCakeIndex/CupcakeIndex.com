@@ -11,10 +11,16 @@ const Settings = (() => {
     { key: "editorial", name: "Editorial", blurb: "Newspaper serif headlines. Best in Light." },
     { key: "glass", name: "Midnight Glass", blurb: "Pure black, frosted cards, pill tabs." },
     { key: "varsity", name: "Varsity", blurb: "Navy and gold, collegiate lettering." },
+    { key: "team", name: "My Team", blurb: "Varsity lettering in your favorite team's colors, with its logo around the site." },
   ];
 
   // A tiny fake rankings card in the theme's own colors (the .thp element carries the theme + mode attributes)
-  const preview = (key, mode) => `<span class="thp" data-theme-name="${key}" data-theme="${mode}" aria-hidden="true">
+  // My Team's preview gets your team's colors inline (the same math index.html uses for the real thing)
+  const teamStyle = (key, mode) => {
+    const t = key === "team" && CIT.myTeam();
+    return t ? ` style="${Object.entries(CIT.teamVars(t, mode === "light")).map(([k, v]) => `${k}:${v.replace(/"/g, "'")}`).join(";")}"` : "";
+  };
+  const preview = (key, mode) => `<span class="thp" data-theme-name="${key}" data-theme="${mode}"${teamStyle(key, mode)} aria-hidden="true">
     <span class="thp-h">Index <i>CFB</i><em></em></span>
     ${[["1", "Alabama", 82, 1], ["2", "Texas", 74, 0]].map(([r, t, w, cup]) => `<span class="thp-row"><b>${r}</b>
       <span><u>${t}</u><s><i${cup ? ' class="on"' : ""}></i><i></i><i></i></s></span>
@@ -27,6 +33,7 @@ const Settings = (() => {
     v.innerHTML = `<div class="card set">
       <h2>Settings</h2>
       ${typeof Account !== "undefined" ? Account.section() : ""}
+      ${typeof Profile !== "undefined" ? Profile.section() : ""}
       <h3>Appearance</h3>
       <p class="note">System follows your phone or computer's dark/light setting.</p>
       <div class="seg" id="set-mode" role="group" aria-label="Appearance">${MODES.map(([k, l]) =>
@@ -39,9 +46,15 @@ const Settings = (() => {
       <p class="note set-foot">Saved in this browser only. <button type="button" class="link" id="set-reset">Back to the default</button> (Data Terminal Mono, System)</p>
     </div>`;
     v.querySelector("#set-mode").onclick = (e) => { const b = e.target.closest("[data-mode]"); if (b) { CIT.save(b.dataset.mode, CIT.name()); render(); } };
-    v.querySelector("#set-theme").onclick = (e) => { const b = e.target.closest("[data-theme-key]"); if (b) { CIT.save(CIT.mode(), b.dataset.themeKey); render(); } };
+    v.querySelector("#set-theme").onclick = (e) => {
+      const b = e.target.closest("[data-theme-key]");
+      if (!b) return;
+      if (b.dataset.themeKey === "team" && !CIT.myTeam()) return Profile.open(false); // pick a team first
+      CIT.save(CIT.mode(), b.dataset.themeKey); render();
+    };
     v.querySelector("#set-reset").onclick = () => { CIT.save("system", "mono"); render(); };
     if (typeof Account !== "undefined") Account.wire(v);
+    if (typeof Profile !== "undefined") Profile.wire(v);
   }
 
   return { render };

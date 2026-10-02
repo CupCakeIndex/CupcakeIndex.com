@@ -5,7 +5,7 @@
 const Account = (() => {
   const CFG = window.FIREBASE_CONFIG;
   const SDK = "https://www.gstatic.com/firebasejs/10.12.2/";
-  const SYNCED = (k) => /^pickem-/.test(k) || k === "daily-nfl" || k === "daily-nfl-stats" || k === "fantasy-team";
+  const SYNCED = (k) => /^pickem-/.test(k) || k === "daily-nfl" || k === "daily-nfl-stats" || k === "fantasy-team" || k === "cupcake-profile";
   let fb = null, user = null, status = "", timer = null, ready = null;
 
   const enabled = () => !!(CFG && CFG.apiKey && CFG.projectId);
@@ -21,7 +21,7 @@ const Account = (() => {
       fb.auth().onAuthStateChanged((u) => {
         const was = user;
         // signing out (or switching straight to another account): clear this device's copy; it's safe in the account
-        if (was && (!u || u.uid !== was.uid)) { clearSynced(); window.dispatchEvent(new HashChangeEvent("hashchange")); }
+        if (was && (!u || u.uid !== was.uid)) { clearSynced(); CIT.apply(); Profile.header(); window.dispatchEvent(new HashChangeEvent("hashchange")); }
         user = u;
         badge();
         rerender(); // show signed in/out right away; the first sync runs in the background
@@ -72,6 +72,8 @@ const Account = (() => {
       await doc().set({ name: (user.displayName || "").split(" ")[0], data: all, updated: new Date().toISOString() });
       setStatus("Saved to your account.");
       window.dispatchEvent(new HashChangeEvent("hashchange")); // redraw the page with the merged data
+      CIT.apply(); Profile.header(); // your team's colors and header button come with the account
+      if (!store.get(Profile.KEY)) Profile.open(true); // first sign-in: name, what you watch, favorite team
     } catch (e) { setStatus(friendly(e)); }
   }
   async function syncUp() {
@@ -162,5 +164,5 @@ const Account = (() => {
   }
 
   if (enabled()) start(); // pick up a returning sign-in (or a finished redirect) on page load
-  return { enabled, section, wire };
+  return { enabled, section, wire, user: () => user };
 })();

@@ -1591,7 +1591,7 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
   --good:#1f9d55; --bad:#d64545; --bar:#e8551b; --bar-bg:#e8ebf0; }
 [data-theme-name="broadcast"] #brand, [data-theme-name="broadcast"] h1 { font-weight: 700; letter-spacing: .01em; text-transform: uppercase; }
 [data-theme-name="broadcast"] .tab, [data-theme-name="broadcast"] .more-btn { font: 700 15px/1.2 var(--font-head); letter-spacing: .06em; }
-[data-theme-name="broadcast"] .more-btn, [data-theme-name="varsity"] .more-btn { font-family: var(--font-head) !important; } /* buttons are forced to the body font */
+[data-theme-name="broadcast"] .more-btn, [data-theme-name="varsity"] .more-btn, [data-theme-name="team"] .more-btn { font-family: var(--font-head) !important; } /* buttons are forced to the body font */
 [data-theme-name="broadcast"] .cotw-tag { background: linear-gradient(135deg, #ee6b92, #f06a2a) !important; color: #fff !important; }
 [data-theme-name="broadcast"] .rank { font-family: var(--font-head); font-size: 22px !important; color: var(--ink); }
 [data-theme-name="broadcast"] .score { font-family: var(--font-head); font-size: 17px; }
@@ -1636,18 +1636,18 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 [data-theme-name="glass"] .cotw-tag { background: linear-gradient(135deg, #ee6b92, #f06a2a) !important; color: #fff !important; }
 
 /* --- Varsity: navy + gold, collegiate wordmark, tall condensed team names --- */
-:root:root:root[data-theme-name="varsity"], .thp[data-theme-name="varsity"] {
+:root:root:root[data-theme-name="varsity"], .thp[data-theme-name="varsity"], :root:root:root[data-theme-name="team"], .thp[data-theme-name="team"] {
   --bg:#0b1628; --card:#0f1e36; --ink:#eef1f6; --muted:#8d9bb3; --line:#1f3253; --accent:#d6a84a; --accent-soft:#1f2a30; --on-accent:#0b1628;
   --good:#46c37b; --bad:#ff6b6b; --bar:#d6a84a; --bar-bg:#1f3253;
   --radius:8px; --radius-sm:3px; --font-body:Inter, system-ui, sans-serif; --font-head:Oswald, "Barlow Condensed", sans-serif; --font-badge:"Barlow Condensed", Inter, sans-serif; }
-:root:root:root[data-theme-name="varsity"][data-theme="light"], .thp[data-theme-name="varsity"][data-theme="light"] {
+:root:root:root[data-theme-name="varsity"][data-theme="light"], .thp[data-theme-name="varsity"][data-theme="light"], :root:root:root[data-theme-name="team"][data-theme="light"], .thp[data-theme-name="team"][data-theme="light"] {
   --bg:#f5f2ea; --card:#ffffff; --ink:#0b1628; --muted:#5d6b82; --line:#ded8c8; --accent:#9c7016; --accent-soft:#f6ecd6; --on-accent:#fff;
   --good:#1f8a4c; --bad:#c0392b; --bar:#0b1628; --bar-bg:#e6e0d0; }
-[data-theme-name="varsity"] #brand { font-family: Graduate, var(--font-head); font-weight: 400; letter-spacing: .02em; color: var(--accent); }
-[data-theme-name="varsity"] #brand b { color: var(--ink); }
-[data-theme-name="varsity"] .tab, [data-theme-name="varsity"] .more-btn { font: 600 15px/1.2 var(--font-head); letter-spacing: .08em; }
-[data-theme-name="varsity"] .tname { font-family: var(--font-head); font-weight: 600; font-size: 16px; text-transform: uppercase; letter-spacing: .02em; }
-[data-theme-name="varsity"] .rank { font-family: var(--font-head); font-weight: 400; font-size: 22px !important; }
+[data-theme-name="varsity"] #brand, [data-theme-name="team"] #brand { font-family: Graduate, var(--font-head); font-weight: 400; letter-spacing: .02em; color: var(--accent); }
+[data-theme-name="varsity"] #brand b, [data-theme-name="team"] #brand b { color: var(--ink); }
+[data-theme-name="varsity"] .tab, [data-theme-name="varsity"] .more-btn, [data-theme-name="team"] .tab, [data-theme-name="team"] .more-btn { font: 600 15px/1.2 var(--font-head); letter-spacing: .08em; }
+[data-theme-name="varsity"] .tname, [data-theme-name="team"] .tname { font-family: var(--font-head); font-weight: 600; font-size: 16px; text-transform: uppercase; letter-spacing: .02em; }
+[data-theme-name="varsity"] .rank, [data-theme-name="team"] .rank { font-family: var(--font-head); font-weight: 400; font-size: 22px !important; }
 /* game leaders: Takeaways row (INT / fumble recoveries, ties all listed) */
 .tk-pics { display: flex; flex: none; }
 .tk-pics .leadshot + .leadshot { margin-left: -18px; }
@@ -1779,3 +1779,36 @@ main.lg-in { animation: lgin .4s ease-out both; }
 @media (max-width: 760px) { .top .controls #league button { min-height: 0; } }
 /* team logos and player headshots open their page (initPicLinks) */
 img[src*="teamlogos"], img[src*="collegefootballdata.com/logos"], img[src*="headshots"] { cursor: pointer; }
+
+/* ===== My Team: profile window, header team button / "My teams" menu, your row on Rankings, mascot watermark ===== */
+.pf-wrap { position: fixed; inset: 0; z-index: 120; background: rgba(0,0,0,.6); display: grid; place-items: center; padding: 16px; overflow-y: auto; }
+.pf { width: min(480px, 100%); display: grid; gap: 14px; margin: 0; }
+.pf h2 { margin: 0; }
+.pf-row { display: grid; gap: 6px; }
+.pf-row > span { font-weight: 700; font-size: 13px; }
+.pf-row small { font-weight: 400; color: var(--muted); }
+.pf input[type="text"], .pf select { width: 100%; padding: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; font-size: 16px; border-radius: var(--radius-sm, 3px); }
+.pf .seg { align-self: start; }
+.pf-check { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+.pf-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+.pf-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pf-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 8px; border: 1px solid var(--line); font-size: 12px; }
+.pf-chip button { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 16px; line-height: 1; padding: 0 4px; }
+.pf-sum { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+.pf-team { display: inline-flex; align-items: center; gap: 6px; }
+.pf-team small { color: var(--muted); }
+.my-team { position: relative; order: 8; align-self: flex-end; }
+.my-team-btn { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border: 1px solid var(--accent); background: var(--card); padding: 0; cursor: pointer; }
+.my-team-btn img { width: 26px; height: 26px; object-fit: contain; }
+.my-team-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 80; min-width: 220px; display: grid; background: var(--card); border: 1px solid var(--line); box-shadow: 0 8px 24px rgba(0,0,0,.4); padding: 6px; }
+.my-team-menu b { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); padding: 4px 8px; }
+.my-team-menu a { display: flex; align-items: center; gap: 8px; padding: 8px; color: var(--ink); text-decoration: none; }
+.my-team-menu a:hover { background: var(--accent-soft); }
+.my-team-menu small { margin-left: auto; color: var(--muted); font-size: 11px; }
+@media (max-width: 760px) { .my-team { order: 2; } }
+#table tr.my-row td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+#table tr.my-row td:first-child { box-shadow: inset 4px 0 0 var(--accent); }
+/* mascot watermark: your team's logo, big and faint, behind the main pages (Team theme only) */
+html[data-theme-name="team"] :is(#view-rankings, #view-scores, #view-picks, #view-games, #view-settings)::before { content: ""; position: fixed;
+  right: -6vmin; bottom: -6vmin; width: 46vmin; height: 46vmin; z-index: -1; pointer-events: none;
+  background: var(--team-logo, none) center / contain no-repeat; opacity: .07; }

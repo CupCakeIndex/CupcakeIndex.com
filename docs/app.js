@@ -239,7 +239,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "152"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "153"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -386,6 +386,8 @@ function setLeague(l) {
   LG = INDEX.leagues[l];
   loadedKey = null;
   store.set("league", l);
+  if (CIT.name() === "team") CIT.apply(); // Team theme: this league's favorite team's colors
+  if (typeof Profile !== "undefined") Profile.header();
   document.querySelectorAll("#league button").forEach((b) => b.classList.toggle("active", b.dataset.league === l));
   document.body.dataset.league = l;
   $("#profile").innerHTML = `<option value="">All schedule profiles</option>` + Object.entries(PROFILES).map(([k, p]) => `<option value="${k}">${p.name}</option>`).join("");
@@ -770,7 +772,9 @@ function render() {
       return `<span class="chip${only === f.key ? " sel" : ""}" style="${heat(f.invert ? 100 - v : v)}" title="${esc(f.label)}: ${esc(v)}">${Math.round(v)}</span>`;
     }).join("");
     const bully = DATA.cupcake_of_week && DATA.cupcake_of_week.team === t.team;
-    return `<tr data-team="${esc(t.team)}"${bully ? ' class="bully"' : ""}>
+    const mine = typeof Profile !== "undefined" && Profile.get()?.[league]?.name === t.team; // your favorite team's row
+    const cls = [bully ? "bully" : "", mine ? "my-row" : ""].filter(Boolean).join(" ");
+    return `<tr data-team="${esc(t.team)}"${cls ? ` class="${cls}"` : ""}>
       <td class="num rank">${t.rank}</td><td class="mv">${mv}</td>
       <td><div class="team">${logo(t)}<div class="tcell">
         <b class="tname" title="${esc(t.conference || "")}">${t.ap_rank ? `<span class="ap-rk" title="AP Poll rank">${esc(t.ap_rank)}</span>` : ""}${esc(t.team)}</b>
