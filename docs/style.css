@@ -503,8 +503,7 @@ body.drawer-open { overflow: hidden; }
 @media (max-width: 760px) {
   .scorebug { grid-template-columns: 1fr auto 1fr; }
   .sb-team { padding: 12px 10px; gap: 8px; flex-direction: column; text-align: center; }
-  .sb-team.home { flex-direction: column; text-align: center; }   /* same order as away: logo, name, score */
-  .sb-team.home img.xl, .sb-team.home .logo-ph { order: 1; } .sb-team.home .sb-name { order: 2; }
+  .sb-team.home { flex-direction: column-reverse; text-align: center; }
   .sb-team.away { flex-direction: column; }
   .sb-team.away .sb-score, .sb-team.home .sb-score { margin: 0; order: 3; }
   .sb-team.home .sb-name a, .sb-name a { justify-content: center; }
@@ -1680,4 +1679,13 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 @media (max-width: 640px) {
   #table th[data-col="record"], #table tbody td:nth-child(4), #table th.score-col { text-align: center; }
   #table .score { justify-content: center; }
+}
+/* phones: game scoreboard score sits beside the logo, toward the middle (PIT logo 24 | FINAL | 27 CLE logo); name + record underneath */
+@media (max-width: 760px) {
+  .sb-team.away, .sb-team.home { display: grid; align-items: center; justify-items: center; column-gap: 10px; row-gap: 6px; }
+  .sb-team.away { grid-template-columns: auto auto; grid-template-areas: "logo score" "name name"; }
+  .sb-team.home { grid-template-columns: auto auto; grid-template-areas: "score logo" "name name"; }
+  .sb-team img.xl, .sb-team > .logo-ph { grid-area: logo; }
+  .sb-team .sb-score { grid-area: score; order: 0 !important; margin: 0 !important; }
+  .sb-team .sb-name { grid-area: name; }
 }
