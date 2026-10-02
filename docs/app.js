@@ -179,7 +179,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "134"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "135"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -261,6 +261,8 @@ async function init() {
   initNav();
   window.addEventListener("hashchange", route);
   initBack();
+  // Refresh button (header): the home-screen app has no browser reload, so this reloads the page with fresh data
+  $("#refresh")?.addEventListener("click", (e) => { e.currentTarget.classList.add("spin"); setTimeout(() => location.reload(), 150); });
   await route();
 }
 

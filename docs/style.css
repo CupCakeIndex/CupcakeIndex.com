@@ -1719,3 +1719,9 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 .jf small { font-size: 12px; color: var(--muted); line-height: 1.4; }
 @media (max-width: 640px) { .jf-grid { grid-template-columns: 1fr 1fr; gap: 8px; } .jf { padding: 10px; } .jf b { font-size: 24px; } }
 @media (max-width: 380px) { .jf-grid { grid-template-columns: 1fr; } }
+/* header refresh button: same box as the gear, just left of it */
+.gear.refresh { order: 9; cursor: pointer; font: inherit; padding: 0; }
+.gear.refresh.spin svg { animation: refspin .6s linear infinite; }
+@keyframes refspin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .gear.refresh.spin svg { animation: none; } }
+@media (max-width: 640px) { .gear.refresh { position: absolute; top: 12px; right: 58px; width: 34px; height: 34px; } }
