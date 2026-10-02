@@ -3,6 +3,8 @@
     "date": "2026-09-30",
     "title": "Launch day",
     "items": [
+      "Live games get an 8-bit field (Tecmo Bowl style) on the game page: who has the ball, which way they're going, the line of scrimmage, the first-down line, this drive shaded in, and pixel players lined up. Each new play replays on the field (runs, pass arcs, kicks, flags, and big TOUCHDOWN! / FIRST DOWN! / SACK! banners), and a play-clock bar fills the wait for the next snap. Live game pages now check for new plays every 12 seconds.",
+      "Win probability chart: the line now follows the game clock (halftime = halfway across, with quarter marks), and the current chance is shown next to the dot.",
       "College win chances now blend team strength with play-by-play efficiency instead of using power alone. Tested on 2025 games, it picks more winners (73% vs 72%).",
       "Every upcoming game now says why our model leans the way it does, e.g. \"Edge South Carolina: home field. Edge Kentucky: a slightly stronger team, slightly more efficient play.\" It's on team schedules, game pages, and the Scores page (hover the model line).",
       "Stats > Projected: removed \"Rest of season\" (Season pace already covers it). Quarterbacks' Season pace on player pages now includes interceptions.",

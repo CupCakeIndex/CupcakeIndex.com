@@ -264,6 +264,147 @@ const Live = (() => {
   const CAT_NAME = { passing: "Passing", rushing: "Rushing", receiving: "Receiving", fumbles: "Fumbles", defensive: "Defense", interceptions: "Interceptions",
     kickReturns: "Kick returns", puntReturns: "Punt returns", kicking: "Kicking", punting: "Punting" };
 
+  // ---------------------------------------------------------------- live field (8-bit, Tecmo Bowl spirit)
+  // ESPN's yardLine counts from the HOME goal line: 0 = home end zone (drawn on the left), 100 = away end zone.
+  // The home team attacks to the right, the away team to the left.
+  const PIXEL_FONT = "Press Start 2P";
+  function pixelFont() {
+    if (document.getElementById("font-pixel")) return;
+    const l = document.createElement("link");
+    l.id = "font-pixel"; l.rel = "stylesheet";
+    l.href = "https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap";
+    document.head.appendChild(l);
+  }
+  // A new play replays on the field (ball carrier runs / pass arcs / kick sails, then the teams line up again);
+  // the same play on later refreshes just sits there with the players idling. tfSeen: game id -> {play, t}.
+  const tfSeen = new Map();
+  function liveField(s, comp, home, away, tc, gameId) {
+    const drives = s.drives || {};
+    const drive = drives.current || (drives.previous || []).at(-1);
+    const play = drive?.plays?.at(-1);
+    const spot = play?.end?.yardLine ?? play?.start?.yardLine;
+    if (spot == null) return "";
+    pixelFont();
+    const seen = tfSeen.get(gameId);
+    const fresh = !seen || seen.play !== String(play.id);
+    if (fresh) tfSeen.set(gameId, { play: String(play.id), t: Date.now() });
+    const since = (Date.now() - tfSeen.get(gameId).t) / 1000;
+    const at = play.end?.down ? play.end : play.start?.down ? play.start : play.end || {};
+    const possId = String(comp.competitors.find((c) => c.possession)?.team?.id || at.team?.id || drive.team?.id || "");
+    const off = String(home.team.id) === possId ? home : String(away.team.id) === possId ? away : null;
+    const dir = off === home ? 1 : off === away ? -1 : 0; // +1 = attacking right
+    const toGo = dir > 0 ? 100 - spot : spot;
+    const down = at.down || 0, dist = at.distance || 0;
+    const fd = down && dist && dist < toGo ? spot + dir * dist : null; // goal to go: no first-down line
+    const X = (yl) => 100 + yl * 10; // 10 px per yard; 10-yard end zones
+    const H = 300, col = (c) => (c === home ? tc.home : tc.away);
+    const alt = (c) => (c.team.alternateColor ? "#" + c.team.alternateColor.replace("#", "") : "#ffffff");
+    const r = (x, y, w, h, fill, extra = "") => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}"${extra}/>`;
+    const base = [];
+    // turf: 5-yard stripes in two greens, white lines, hash ticks, numbers
+    for (let i = 0; i < 20; i++) base.push(r(X(i * 5), 0, 50, H, i % 2 ? "#2f8f3e" : "#28803a"));
+    for (let yl = 0; yl <= 100; yl += 5) base.push(r(X(yl) - 1, 0, 3, H, "#ffffff", ` opacity="${yl % 50 ? 0.55 : 0.9}"`));
+    for (let yl = 1; yl < 100; yl++) if (yl % 5) base.push(r(X(yl) - 1, 96, 2, 8, "#ffffff", ' opacity=".5"') + r(X(yl) - 1, 196, 2, 8, "#ffffff", ' opacity=".5"'));
+    for (let yl = 10; yl <= 90; yl += 10) {
+      const n = yl > 50 ? 100 - yl : yl;
+      base.push(`<text x="${X(yl)}" y="40" class="tf-num">${n}</text><text x="${X(yl)}" y="276" class="tf-num">${n}</text>`);
+    }
+    // end zones in team colors, checkerboard edge, team abbreviation
+    for (const [c, x0] of [[home, 0], [away, 1100]]) {
+      base.push(r(x0, 0, 100, H, col(c)));
+      for (let y = 0; y < H; y += 20) base.push(r(x0 === 0 ? 90 : 1100, y + (y / 20 % 2 ? 10 : 0), 10, 10, "#ffffff", ' opacity=".35"'));
+      const cx = x0 + 47, rot = x0 === 0 ? -90 : 90;
+      base.push(`<text x="${cx}" y="${H / 2}" class="tf-ez" fill="${alt(c)}" transform="rotate(${rot} ${cx} ${H / 2})">${esc(c.team.abbreviation || "")}</text>`);
+    }
+    // this drive so far, in the offense's color
+    const start = drive?.start?.yardLine;
+    if (off && start != null && start !== spot) {
+      const a = Math.min(X(start), X(spot)), b = Math.max(X(start), X(spot));
+      base.push(r(a, 0, b - a, H, col(off), ' opacity=".28"'));
+    }
+
+    // replay timing (seconds): the play runs 0.3-1.6, banner 1.2-3.2, teams walk to the new line 1.9-2.6
+    const from = play.start?.yardLine ?? spot, moved = from !== spot;
+    const type = (play.type?.text || "").toLowerCase(), txt = (play.text || "").toLowerCase();
+    const anim = fresh;
+    const appear = (t) => (anim ? ` opacity="0"><animate attributeName="opacity" from="0" to="1" begin="${t}s" dur=".2s" fill="freeze"/` : "");
+    // lines: blue line of scrimmage, yellow first-down line (they show up after the replay)
+    const lines = `<g${appear(2.4)}>${r(X(spot) - 3, 0, 6, H, "#3d7bff")}${fd != null ? r(X(fd) - 3, 0, 6, H, "#ffd21f") : ""}</g>`;
+    // pixel players (idle bob, staggered): offense behind the ball, defense across it
+    let k = 0;
+    const guy = (x, y, c, flip) => {
+      const jersey = col(c), helm = alt(c);
+      return `<g class="tf-guy" style="animation-delay:${-((k++ * 0.37) % 0.8).toFixed(2)}s">`
+        + r(x - 6, y - 14, 12, 8, helm) + r(x - 8, y - 6, 16, 12, jersey) + r(x - 7, y + 6, 5, 8, "#f2f2f2") + r(x + 2, y + 6, 5, 8, "#f2f2f2")
+        + r(x + (flip ? -9 : 5), y - 4, 4, 6, "#f5c9a6") + "</g>";
+    };
+    const team = [];
+    if (off) {
+      const def = off === home ? away : home, b = (yards) => X(spot) - dir * yards * 10;
+      [[1.6, 110], [1.6, 130], [1.6, 150], [1.6, 170], [1.6, 190], [5, 150], [7.5, 132], [1.6, 40], [1.6, 262], [2.8, 222]]
+        .forEach(([yd, y]) => team.push(guy(b(yd), y, off, dir < 0)));
+      const d = (yards) => X(spot) + dir * yards * 10;
+      [[1.6, 120], [1.6, 140], [1.6, 160], [1.6, 180], [5, 110], [5, 150], [5, 190], [6, 40], [6, 262], [11, 100], [11, 200]]
+        .forEach(([yd, y]) => team.push(guy(d(yd), y, def, dir > 0)));
+    }
+    const ball = (x, y) => r(x - 9, y - 4, 18, 8, "#8b4a1f") + r(x - 6, y - 6, 12, 12, "#8b4a1f") + r(x - 4, y - 1, 8, 2, "#ffffff");
+    const bx = X(spot) - dir * 6;
+    const shift = X(from) - X(spot); // the teams start the replay lined up at the old spot
+    const lineup = `<g transform="translate(${anim && moved ? shift : 0} 0)">${anim && moved
+      ? `<animateTransform attributeName="transform" type="translate" from="${shift} 0" to="0 0" begin="1.9s" dur=".7s" fill="freeze"/>` : ""}
+      <g${appear(1.9)}>${team.join("")}${ball(bx, 150)}</g></g>`;
+
+    // the replay itself
+    let replay = "", banner = "";
+    if (anim) {
+      const pdir = String(play.start?.team?.id) === String(home.team.id) ? 1 : -1; // direction of the team that ran the play
+      const sx = X(from), ex = X(spot);
+      const carrier = play.start?.team?.id && String(play.start.team.id) === String(home.team.id) ? home : away;
+      const runner = (x) => `<g>${r(x - 6, 136, 12, 8, alt(carrier))}${r(x - 8, 144, 16, 12, col(carrier))}${r(x - 7, 156, 5, 8, "#f2f2f2")}${r(x + 2, 156, 5, 8, "#f2f2f2")}${ball(x + pdir * 10, 150)}</g>`;
+      const fade = `<animate attributeName="opacity" from="1" to="0" begin="1.8s" dur=".3s" fill="freeze"/>`;
+      if (/kickoff|punt|field goal|extra point/.test(type)) {
+        const tx = /field goal|extra point/.test(type) ? X(pdir > 0 ? 105 : -5) : ex;
+        replay = `<g opacity="0">${ball(0, 0)}<set attributeName="opacity" to="1" begin=".3s" fill="freeze"/><animateMotion path="M${sx},150 Q${(sx + tx) / 2},-60 ${tx},150" begin=".3s" dur="1.3s" fill="freeze"/>${fade}</g>`;
+      } else if (/pass/.test(type) || /\bpass\b/.test(txt)) {
+        const qb = sx - pdir * 50, land = /incomplet/.test(type + txt) ? sx + pdir * 160 : ex;
+        replay = `<g opacity="0">${ball(0, 0)}<set attributeName="opacity" to="1" begin=".3s" fill="freeze"/><animateMotion path="M${qb},150 Q${(qb + land) / 2},20 ${land},150" begin=".3s" dur="1s" fill="freeze"/>${fade}</g>`
+          + (/incomplet/.test(type + txt) ? "" : `<g opacity="0">${runner(ex)}<animate attributeName="opacity" from="0" to="1" begin="1.2s" dur=".1s" fill="freeze"/>${fade}</g>`);
+      } else if (moved) {
+        replay = `<g opacity="0">${runner(0)}<set attributeName="opacity" to="1" begin=".3s" fill="freeze"/><animateTransform attributeName="transform" type="translate" from="${sx} 0" to="${ex} 0" begin=".3s" dur="1.3s" fill="freeze"/>${fade}</g>`;
+      }
+      if (/penalty/.test(type + txt)) { // a flag floats down
+        replay += `<g opacity="0">${r(-8, -10, 16, 12, "#ffd21f")}<set attributeName="opacity" to="1" begin=".2s" fill="freeze"/>${r(-8, 2, 3, 10, "#ffd21f")}<animateMotion path="M${sx + pdir * 20},-20 L${sx + pdir * 30},170" begin=".2s" dur="1.1s" fill="freeze"/>${fade}</g>`;
+      }
+      const big = play.scoringPlay && /touchdown/.test(type + txt) ? "TOUCHDOWN!" : /field goal good/.test(type) ? "IT'S GOOD!"
+        : /interception/.test(type) ? "PICKED OFF!" : /fumble/.test(type + txt) && /recover/.test(txt) ? "FUMBLE!" : /sack/.test(type) ? "SACK!"
+          : /penalty/.test(type + txt) ? "FLAG!" : play.end?.down === 1 && (play.start?.down || 0) > 0 && moved && !/kick|punt/.test(type) ? "FIRST DOWN!" : "";
+      if (big) {
+        banner = `<g opacity="0"><rect x="300" y="105" width="600" height="90" fill="#000" opacity=".75"/>
+          <text x="600" y="152" class="tf-big">${big}</text>
+          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.1;.85;1" begin="1.2s" dur="2s" fill="freeze"/></g>`;
+      }
+    }
+
+    const teamTag = (c) => `<span class="tf-team" style="--c:${col(c)}">${img(teamLogo(c.team), "xs")}${esc(c.team.abbreviation || "")}</span>`;
+    const where = at.possessionText ? `BALL ON ${esc(at.possessionText)}` : "";
+    const ddText = down ? `${["", "1ST", "2ND", "3RD", "4TH"][down] || down + "TH"} & ${dist < toGo ? dist : "GOAL"}` : "";
+    const lastText = play?.text ? play.text.trim() : "";
+    return `<div class="card tecmo" style="--tf-font:'${PIXEL_FONT}'">
+      <div class="tf-bar">
+        <span>${off ? teamTag(off) + `<b class="tf-arrow">${dir > 0 ? "▶" : "◀"}</b>` : ""}</span>
+        <span class="tf-dd">${ddText}</span>
+        <span class="tf-where">${where}${toGo <= 20 && off ? ` <b class="tf-red">RED ZONE</b>` : ""}</span>
+      </div>
+      <svg class="tf-field" viewBox="0 0 1200 ${H}" shape-rendering="crispEdges" role="img"
+        aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, where].filter(Boolean).join(", "))}">${base.join("")}${lines}${lineup}${replay}${banner}</svg>
+      <div class="tf-clock" title="A rough play clock since the last play came in: the field updates on its own">
+        <span>NEXT SNAP</span><span class="tf-track"><i style="animation-delay:-${Math.min(since, 40).toFixed(1)}s"></i></span></div>
+      <div class="tf-key"><span><i style="background:#3d7bff"></i>Line of scrimmage</span>${fd != null ? `<span><i style="background:#ffd21f"></i>First down</span>` : ""}
+        ${drive?.description ? `<span class="muted">This drive: ${esc(drive.description)}</span>` : ""}</div>
+      ${lastText ? `<p class="tf-last"><b>LAST PLAY</b> ${esc(lastText)}</p>` : ""}
+    </div>`;
+  }
+
   async function game(id, params, refresh = false) {
     const lg = league, my = token;
     if (!refresh) loading("game");
@@ -319,7 +460,8 @@ const Live = (() => {
         ${side(home, "home")}
       </div>
       ${lineTable || st === "in" ? `<div class="card sb-under">${lineTable}
-        ${st === "in" && s.situation?.lastPlay?.text ? `<p class="note">Last play: ${esc(s.situation.lastPlay.text)}</p>` : ""}</div>` : ""}`;
+        ${st === "in" && s.situation?.lastPlay?.text ? `<p class="note">Last play: ${esc(s.situation.lastPlay.text)}</p>` : ""}</div>` : ""}
+      ${st === "in" ? liveField(s, comp, home, away, tc, String(id)) : ""}`;
 
     const col = { left: [], right: [], full: [] }; // two independent columns so short cards never leave gaps
     // highlights: official YouTube video (found by the weekly job) + ESPN's own clips (open on ESPN)
@@ -349,7 +491,7 @@ const Live = (() => {
     }
     // win probability
     const wp = s.winprobability || [];
-    if (wp.length > 2) col.right.push(`<div class="card"><h3>Win probability</h3>${wpChart(wp, away, home, tc)}</div>`);
+    if (wp.length > 2) col.right.push(`<div class="card"><h3>Win probability</h3>${wpChart(wp, away, home, tc, wpTimes(wp, s), st === "post")}</div>`);
     // head-to-head leaders (ESPN style): one row per category, away leader left, home leader right
     const colorOf = (teamId) => (String(teamId) === String(home.team.id) ? tc.home : tc.away);
     const LEAD_CATS = [["passingYards", "Passing"], ["rushingYards", "Rushing"], ["receivingYards", "Receiving"], ["totalTackles", "Tackles"], ["sacks", "Sacks"]];
@@ -428,26 +570,50 @@ const Live = (() => {
       bx.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b.dataset.bt === k));
       document.querySelectorAll("#boxscore .box-sec").forEach((sec) => sec.classList.toggle("hidden", sec.dataset.sec !== k));
     };
-    if (st === "in") poll((r) => game(id, params, r), 20000);
+    if (st === "in") poll((r) => game(id, params, r), 12000); // live: check often so new plays replay quickly
   }
 
-  function wpChart(wp, away, home, tc = {}) {
+  // Where each win-probability point falls in game time (0 = kickoff, 1 = end of regulation, more for overtime),
+  // from the play's quarter and clock. Points we can't place sit with the one before them.
+  function wpTimes(wp, s) {
+    const plays = new Map();
+    [...(s.drives?.previous || []), ...(s.drives?.current ? [s.drives.current] : [])].forEach((d) => (d.plays || []).forEach((p) => plays.set(String(p.id), p)));
+    const secs = (c) => { const [m, x] = String(c || "0:00").split(":").map(Number); return (m || 0) * 60 + (x || 0); };
+    let prev = 0, maxQ = 4;
+    const raw = wp.map((w) => {
+      const p = plays.get(String(w.playId));
+      if (p?.period?.number) {
+        const q = p.period.number;
+        maxQ = Math.max(maxQ, q);
+        prev = Math.max(prev, q <= 4 ? (q - 1) * 900 + (900 - secs(p.clock?.displayValue)) : 3600 + (q - 5) * 600 + (600 - Math.min(600, secs(p.clock?.displayValue))));
+      }
+      return prev;
+    });
+    const total = 3600 + Math.max(0, maxQ - 4) * 600;
+    return raw.map((t) => t / total);
+  }
+
+  function wpChart(wp, away, home, tc = {}, times = null, final = false) {
     const W = 600, H = 160, n = wp.length;
-    const pts = wp.map((p, i) => `${((i / (n - 1)) * W).toFixed(1)},${((1 - p.homeWinPercentage) * H).toFixed(1)}`).join(" ");
-    const last = wp[n - 1].homeWinPercentage;
+    const tx = (i) => (final && i === n - 1 ? 1 : times ? times[i] : i / (n - 1)) * W; // live: the line stops at the game clock
+    const pts = wp.map((p, i) => `${tx(i).toFixed(1)},${((1 - p.homeWinPercentage) * H).toFixed(1)}`).join(" ");
+    const last = wp[n - 1].homeWinPercentage, lastX = tx(n - 1);
     const lead = last >= 0.5 ? home : away, pct = chancePct(last >= 0.5 ? last : 1 - last, last === 0 || last === 1);
+    const flip = lastX > W * 0.8;
     return `<p class="note">${esc(lead.team.displayName)} ${pct} <span class="muted">· hover or drag across the chart</span></p>
       <div class="wp-box" id="wp-box">
         <svg viewBox="0 0 ${W} ${H}" class="wp" preserveAspectRatio="none" role="img" aria-label="Win probability over the game">
           <line x1="0" y1="${H / 2}" x2="${W}" y2="${H / 2}" class="wp-mid"/>
           <defs><clipPath id="wp-top"><rect x="0" y="0" width="${W}" height="${H / 2}"/></clipPath><clipPath id="wp-bot"><rect x="0" y="${H / 2}" width="${W}" height="${H / 2}"/></clipPath></defs>
-          <polygon points="0,${H / 2} ${pts} ${W},${H / 2}" class="wp-area" clip-path="url(#wp-top)" style="fill:${tc.home || "var(--accent)"}"/>
-          <polygon points="0,${H / 2} ${pts} ${W},${H / 2}" class="wp-area" clip-path="url(#wp-bot)" style="fill:${tc.away || "var(--accent)"}"/>
+          ${[0.25, 0.5, 0.75].map((q) => `<line x1="${q * W}" y1="0" x2="${q * W}" y2="${H}" class="wp-q"/>`).join("")}
+          <polygon points="0,${H / 2} ${pts} ${lastX},${H / 2}" class="wp-area" clip-path="url(#wp-top)" style="fill:${tc.home || "var(--accent)"}"/>
+          <polygon points="0,${H / 2} ${pts} ${lastX},${H / 2}" class="wp-area" clip-path="url(#wp-bot)" style="fill:${tc.away || "var(--accent)"}"/>
           <polyline points="${pts}" class="wp-line"/>
         </svg>
+        <div class="wp-now${flip ? " flip" : ""}" style="left:${(lastX / W) * 100}%;top:${(1 - last) * 100}%"><i style="background:${last >= 0.5 ? tc.home : tc.away}"></i><b>${esc(lead.team.abbreviation)} ${pct}</b></div>
         <div class="wp-cursor hidden"><div class="wp-vline"></div><div class="wp-dot"></div><div class="wp-tip"></div></div>
       </div>
-      <div class="wp-labels"><span><i class="sb-chip" style="--c:${tc.home}"></i>▲ ${esc(home.team.abbreviation)}</span><span><i class="sb-chip" style="--c:${tc.away}"></i>▼ ${esc(away.team.abbreviation)}</span></div>`;
+      <div class="wp-labels"><span><i class="sb-chip" style="--c:${tc.home}"></i>▲ ${esc(home.team.abbreviation)}</span><span class="muted">Q1 · Q2 · Q3 · Q4</span><span><i class="sb-chip" style="--c:${tc.away}"></i>▼ ${esc(away.team.abbreviation)}</span></div>`;
   }
 
   // Stock-chart style hover: a dot rides the line and a tooltip shows the win % and the play at that moment.
@@ -459,11 +625,15 @@ const Live = (() => {
     drives.forEach((d) => (d.plays || []).forEach((p) => plays.set(String(p.id), p)));
     const cur = box.querySelector(".wp-cursor"), dot = box.querySelector(".wp-dot"), vline = box.querySelector(".wp-vline"), tip = box.querySelector(".wp-tip");
     const A = away.team.abbreviation, Hm = home.team.abbreviation;
+    const times = wpTimes(wp, s), final = s.header?.competitions?.[0]?.status?.type?.state === "post";
+    const tf = (i) => (final && i === wp.length - 1 ? 1 : times[i]);
     const show = (clientX) => {
       const r = box.getBoundingClientRect();
-      const f = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
-      const i = Math.round(f * (wp.length - 1)), p = wp[i];
-      const x = (i / (wp.length - 1)) * r.width, y = (1 - p.homeWinPercentage) * r.height;
+      const f = Math.min(tf(wp.length - 1), Math.max(0, (clientX - r.left) / r.width));
+      let i = 0;
+      wp.forEach((_, j) => { if (Math.abs(tf(j) - f) <= Math.abs(tf(i) - f)) i = j; });
+      const p = wp[i];
+      const x = tf(i) * r.width, y = (1 - p.homeWinPercentage) * r.height;
       const hp = p.homeWinPercentage, homeLeads = hp >= 0.5;
       const pct = (hp === 0 || hp === 1 ? 100 : Math.min(99.9, Math.max(hp, 1 - hp) * 100)).toFixed(1); // 100% only once it's decided
       const play = plays.get(String(p.playId));

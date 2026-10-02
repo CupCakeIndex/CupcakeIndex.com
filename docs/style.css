@@ -1283,6 +1283,38 @@ a.mbug:hover .mb-mid b.mb-at { color: var(--accent); }
 .mb-bar { position: relative; width: 56px; height: 5px; background: var(--bar-bg); }
 .mb-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ink); }
 .mb-win b { color: var(--accent); }
+/* live field on game pages: 8-bit, Tecmo Bowl spirit (pixel font only loads during live games) */
+.tecmo { background: #0b0d10; border: 3px solid #000; box-shadow: 0 0 0 2px #3a3f47, 6px 6px 0 #000; padding: 12px; }
+.tf-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-family: var(--tf-font), monospace; font-size: 12px; color: #fff; letter-spacing: .04em; margin-bottom: 10px; }
+.tf-team { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; background: var(--c); border: 2px solid #000; box-shadow: 3px 3px 0 #000; }
+.tf-team img { image-rendering: auto; }
+.tf-arrow { margin-left: 8px; color: #ffd21f; animation: tf-blink 1s steps(2) infinite; }
+.tf-dd { font-size: 16px; color: #ffd21f; text-shadow: 3px 3px 0 #000; }
+.tf-where { color: #e8e8e8; }
+.tf-red { color: #ff4040; animation: tf-blink .8s steps(2) infinite; }
+@keyframes tf-blink { 50% { opacity: 0; } }
+.tf-field { display: block; width: 100%; height: auto; border: 3px solid #000; image-rendering: pixelated; background: #28803a; }
+.tf-num { font-family: var(--tf-font), monospace; font-size: 22px; fill: #ffffff; opacity: .8; text-anchor: middle; }
+.tf-ez { font-family: var(--tf-font), monospace; font-size: 30px; text-anchor: middle; dominant-baseline: middle; letter-spacing: 6px; paint-order: stroke; stroke: #000; stroke-width: 4px; }
+.tf-key { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 11px; color: #c9c9c9; }
+.tf-key i { display: inline-block; width: 14px; height: 6px; margin-right: 6px; vertical-align: middle; border: 1px solid #000; }
+.tf-last { margin: 10px 0 0; font-size: 12.5px; color: #e8e8e8; line-height: 1.5; }
+.wp-q { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; stroke-dasharray: 3 3; }
+.wp-now { position: absolute; width: 0; height: 0; pointer-events: none; z-index: 1; }
+.wp-now i { position: absolute; left: -7px; top: -7px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--ink); animation: wp-pulse 1.6s ease-out infinite; }
+.wp-now b { position: absolute; left: 12px; top: -12px; font-size: 12px; white-space: nowrap; background: var(--card); border: 1px solid var(--line); padding: 2px 6px; }
+.wp-now.flip b { left: auto; right: 12px; }
+@keyframes wp-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ink) 50%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
+.tf-guy { animation: tf-bob .8s steps(2) infinite; }
+@keyframes tf-bob { 50% { transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) { .tf-guy, .tf-arrow, .tf-red { animation: none; } }
+.tf-big { font-family: var(--tf-font), monospace; font-size: 40px; fill: #ffd21f; text-anchor: middle; dominant-baseline: middle; paint-order: stroke; stroke: #000; stroke-width: 6px; }
+.tf-clock { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-family: var(--tf-font), monospace; font-size: 9px; color: #9aa0a6; }
+.tf-track { flex: 1; height: 8px; background: #1b1f24; border: 2px solid #000; }
+.tf-track i { display: block; height: 100%; background: #ffd21f; transform-origin: left; animation: tf-clock 40s linear forwards; }
+@keyframes tf-clock { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.tf-last b { font-family: var(--tf-font), monospace; font-size: 10px; color: #ffd21f; margin-right: 8px; }
+@media (max-width: 560px) { .tf-bar { font-size: 10px; } .tf-dd { font-size: 13px; } .tecmo { padding: 8px; } }
 .mb-foot { flex-wrap: wrap; }
 .mb-why { flex-basis: 100%; font-size: 10.5px; color: var(--muted); line-height: 1.35; padding-bottom: 2px; }
 .why { margin: 10px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
