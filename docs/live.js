@@ -139,6 +139,40 @@ const Live = (() => {
     return m;
   }
 
+  // Where to watch: the channel's streaming service. Plain https links: on phones they open the app if it's installed.
+  const WATCH = [
+    [/espn\+/i, "ESPN+", "https://plus.espn.com/"],
+    [/peacock|\bnbc\b/i, "Peacock", "https://www.peacocktv.com/"],
+    [/paramount|\bcbs\b(?!\s*sports)/i, "Paramount+", "https://www.paramountplus.com/"],
+    [/netflix/i, "Netflix", "https://www.netflix.com/"],
+    [/\bfox\b|\bfs1\b|\bfs2\b|\bbtn\b|big ten net/i, "FOX One", "https://www.foxone.com/"],
+    [/espn|\babc\b|\bsecn?\b|sec network|\baccn\b|acc network|\blhn\b/i, "ESPN", "https://www.espn.com/watch/"],
+    [/prime|amazon/i, "Prime Video", "https://www.primevideo.com/"],
+    [/nfl\s*net|\bnfln\b/i, "NFL+", "https://www.nfl.com/plus/"],
+    [/youtube/i, "YouTube TV", "https://tv.youtube.com/"],
+    [/\btnt\b|trutv|\bmax\b/i, "HBO Max", "https://www.hbomax.com/"],
+    [/\bcw\b/i, "The CW", "https://www.cwtv.com/"],
+  ];
+  const watchFor = (ch) => { const m = WATCH.find(([re]) => re.test(ch || "")); return m ? { app: m[1], href: m[2] } : null; };
+  // the channel, plus a "▶ Peacock" button for games you can still watch (a span, so it works inside the card links)
+  const watch = (ch, st) => {
+    if (!ch) return "";
+    const w = st !== "post" && watchFor(ch);
+    return w ? `<span class="watch-ch">${esc(ch)}</span> <span class="watch" role="link" tabindex="0" data-href="${esc(w.href)}" title="Watch on ${esc(w.app)}">&#9654; ${esc(w.app)}</span>`
+      : `<span class="watch-ch">${esc(ch)}</span>`;
+  };
+  if (!window.__watchWired) {
+    window.__watchWired = true;
+    const go = (e) => {
+      const b = e.target.closest?.(".watch[data-href]");
+      if (!b || (e.type === "keydown" && e.key !== "Enter")) return;
+      e.preventDefault(); e.stopPropagation();
+      window.open(b.dataset.href, "_blank", "noopener");
+    };
+    document.addEventListener("click", go, true); // capture: beat the game-card link around it
+    document.addEventListener("keydown", go, true);
+  }
+
   function statusText(st, date) {
     const s = st?.type || {};
     if (s.state === "pre") return s.shortDetail && !/^\d/.test(s.shortDetail) ? s.shortDetail : kickoff(date);
@@ -252,7 +286,7 @@ const Live = (() => {
     const odds = c.odds?.[0];
     const p = preds.get(String(e.id));
     const model = p && chanceText(p) ? `<span${p.why ? ` title="${esc(p.why)}"` : ""}>Model: ${chanceText(p)}</span>` : "";
-    const foot = [odds?.details ? `${esc(odds.details)}${odds.overUnder ? ` · O/U ${esc(odds.overUnder)}` : ""}` : "", model, esc(c.broadcast || c.broadcasts?.[0]?.names?.[0] || "")].filter(Boolean).join(" · ");
+    const foot = [odds?.details ? `${esc(odds.details)}${odds.overUnder ? ` · O/U ${esc(odds.overUnder)}` : ""}` : "", model, watch(c.broadcast || c.broadcasts?.[0]?.names?.[0] || "", st)].filter(Boolean).join(" · ");
     return `<a class="game-card ${st}" href="${link("game", e.id)}">
       <div class="gc-status">${st === "in" ? '<span class="live-dot"></span>' : ""}${esc(statusText(e.status, e.date))}</div>
       ${teams.map(row).join("")}
@@ -785,7 +819,7 @@ const Live = (() => {
         ${side(away, "away")}
         <div class="sb-mid">
           <span class="sb-status ${st}">${st === "in" ? '<span class="live-dot"></span>' : ""}${esc(statusLabel)}</span>
-          <small>${[venue, tv].filter(Boolean).map(esc).join(" · ")}</small>
+          <small>${esc(venue || "")}${venue && tv ? " · " : ""}${tv ? watch(tv, st) : ""}</small>
           <span class="muted live-note">${liveBadge(st === "in")}</span>
         </div>
         ${side(home, "home")}
@@ -2905,7 +2939,7 @@ const Live = (() => {
       <div class="th-grid">
         ${facs.length ? `<div class="card"><h3>Factor scores</h3>${facs.map((f) => `<div class="frow" title="${esc(f.help || "")}"><span>${esc(f.label)}</span><span class="bar${f.invert ? " inv" : ""}"><i style="width:${+ours.scores[f.key] || 0}%"></i></span><b class="num">${Math.round(ours.scores[f.key])}</b></div>`).join("")}</div>` : ""}
         ${shown ? `<div class="card th-next"><h3>${next ? "Next game" : "Last game"}</h3><div class="mb-list">${bug(shown)}</div>
-          <p class="note">${[shown.competitions[0].venue?.fullName, shown.competitions[0].broadcasts?.[0]?.media?.shortName].filter(Boolean).map(esc).join(" · ")}</p></div>` : ""}
+          <p class="note">${esc(shown.competitions[0].venue?.fullName || "")}${shown.competitions[0].venue?.fullName && shown.competitions[0].broadcasts?.[0]?.media?.shortName ? " · " : ""}${watch(shown.competitions[0].broadcasts?.[0]?.media?.shortName || "", stateOf(shown))}</p></div>` : ""}
       </div>${factsCard}`;
 
     const rosterRows = (ros?.athletes || []).filter((g) => g.items?.length).map((g) => `

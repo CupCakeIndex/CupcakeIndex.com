@@ -1834,3 +1834,9 @@ html[data-theme-name="team"] #brand b { color: var(--team-alt, var(--ink)); -web
 html:not([data-theme-name="mono"]):not([data-theme-name="terminal"]):not([data-theme-name="amber"]) .gsearch .gs-gt,
 html:not([data-theme-name="mono"]):not([data-theme-name="terminal"]):not([data-theme-name="amber"]) .gsearch .gs-us { display: none; }
 html:not([data-theme-name="mono"]):not([data-theme-name="terminal"]):not([data-theme-name="amber"]) .gsearch .gs-mag { display: block; }
+/* where to watch: "▶ Peacock" button next to the channel (opens the app on phones when installed) */
+.watch { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border: 1px solid var(--accent); color: var(--accent); font-weight: 700; font-size: .92em;
+  border-radius: var(--radius-sm, 3px); cursor: pointer; white-space: nowrap; }
+.watch:hover, .watch:focus { background: var(--accent); color: var(--on-accent, #fff); outline: none; }
+.sb-mid .watch { color: #ececec; border-color: #ececec88; }
+.sb-mid .watch:hover { background: #ececec; color: #0e0f12; }
