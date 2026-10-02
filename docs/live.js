@@ -300,7 +300,10 @@ const Live = (() => {
     if (fresh) tfSeen.set(gameId, { play: String(play.id), t: Date.now() });
     const since = (Date.now() - tfSeen.get(gameId).t) / 1000;
     const at = play.end?.down ? play.end : play.start?.down ? play.start : play.end || {};
-    const possId = String(comp.competitors.find((c) => c.possession)?.team?.id || at.team?.id || drive.team?.id || "");
+    // who has the ball now: the play's own end (after a punt, kickoff or turnover it names the new offense right away);
+    // ESPN's game-level possession flag can lag a few seconds behind
+    const possId = String(play.end?.team?.id || comp.competitors.find((c) => c.possession)?.team?.id || at.team?.id || drive.team?.id || "");
+    const newDrive = !!drive?.team?.id && String(drive.team.id) !== possId; // possession just changed: the old drive is over
     const off = String(home.team.id) === possId ? home : String(away.team.id) === possId ? away : null;
     const dir = off === home ? 1 : off === away ? -1 : 0; // +1 = attacking right
     const toGo = dir > 0 ? 100 - spot : spot;
@@ -338,7 +341,7 @@ const Live = (() => {
     }
     for (const gx of [10, 1190]) base.push(r(gx - 3, 118, 6, 64, "#ffd21f") + r(gx - 6, 116, 12, 6, "#ffd21f") + r(gx - 6, 178, 12, 6, "#ffd21f"));
     // this drive so far, in the offense's color
-    const start = drive?.start?.yardLine;
+    const start = newDrive ? null : drive?.start?.yardLine;
     if (off && start != null && start !== spot) {
       const a = Math.min(X(start), X(spot)), b = Math.max(X(start), X(spot));
       base.push(r(a, 0, b - a, H, col(off), ' opacity=".28"'));
@@ -540,7 +543,7 @@ const Live = (() => {
       <div class="tf-clock" title="A rough play clock since the last play came in. It doesn't hold anything back: the field checks for a new play every 5 seconds and replays it as soon as it arrives">
         <span>PLAY CLOCK</span><span class="tf-track"><i style="animation-delay:-${Math.min(since, 40).toFixed(1)}s"></i></span></div>
       <div class="tf-key"><span><i style="background:#3d7bff"></i>Line of scrimmage</span>${fd != null ? `<span><i style="background:#ffd21f"></i>First down</span>` : ""}
-        ${drive?.description ? `<span class="muted">This drive: ${esc(drive.description)}</span>` : ""}</div>
+        ${drive?.description && !newDrive ? `<span class="muted">This drive: ${esc(drive.description)}</span>` : ""}</div>
       ${lastText ? `<p class="tf-last"><b>LAST PLAY</b> ${esc(lastText)}</p>` : ""}
     </div>`;
   }
