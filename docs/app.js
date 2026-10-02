@@ -239,7 +239,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "160"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "161"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -491,9 +491,9 @@ function renderCotw() {
   if (!c) return;
   const team = DATA.teams.find((t) => t.team === c.team) || {};
   const [us, them] = String(c.score_line).split("-");
-  // phones show the short name (NFL: "Jaguars"; college names are already short) so the banner stays on one line each
+  // NFL: team name only ("Jaguars"), so the banner never wraps; college names are already short
   const nick = (n) => (league === "nfl" ? String(n).split(" ").pop() : n);
-  const dual = (n) => nick(n) === n ? esc(n) : `<span class="cotw-full">${esc(n)}</span><span class="cotw-short">${esc(nick(n))}</span>`;
+  const dual = (n) => esc(nick(n)); // team name only, no city (Jaguars, Patriots), on every screen
   const oppTag = c.fcs ? `<span class="prof-badge prof-walk">FCS</span>` : `<span class="muted">#${esc(c.opp_rank)}</span>`;
   $("#cotw").innerHTML = `
     <div class="cotw-tag"><span>Cupcake</span><span>Bully of the Week</span><small>Week ${esc(c.week)}</small></div>
