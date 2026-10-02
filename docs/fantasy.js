@@ -226,7 +226,7 @@ const Fantasy = (() => {
   function save() {
     const e = enc();
     store.set(KEY, e);
-    history.replaceState(null, "", link("fantasy", null, e ? { team: e } : {}));
+    history.replaceState(history.state, "", link("fantasy", null, e ? { team: e } : {}));
   }
   const has = (id) => team.s.includes(id) || team.b.includes(id);
   function add(id) {
@@ -335,7 +335,7 @@ const Fantasy = (() => {
     }
     team.s = team.s.map((id, i) => (id != null && cur.players.has(id) && fits(i, cur.players.get(id)) ? id : null));
     team.b = team.b.filter((id) => cur.players.has(id));
-    if (!params.has("team") && enc()) history.replaceState(null, "", link("fantasy", null, { team: enc() }));
+    if (!params.has("team") && enc()) history.replaceState(history.state, "", link("fantasy", null, { team: enc() }));
     const anyProj = [...cur.players.values()].some((p) => p.proj != null);
 
     root.innerHTML = `<div class="card ft-card">

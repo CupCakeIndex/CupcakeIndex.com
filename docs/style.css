@@ -510,7 +510,8 @@ body.drawer-open { overflow: hidden; }
   .sb-team img.xl { width: 40px; height: 40px; }
   .sb-name, .sb-name a { max-width: 100%; min-width: 0; }
   .sb-name b { font-size: 14px; max-width: 100%; }
-  .sb-name small, .sb-name em { display: none; }
+  .sb-name small, .sb-our { display: none; }
+  .sb-name em { margin-top: 2px; font-size: 12px; opacity: .9; }   /* record (3-1) stays under the team on phones */
   .sb-score { font-size: 40px; }
   .sb-mid { min-width: 0; padding: 8px 4px; }
   .sb-status { font-size: 13px; padding: 3px 8px 2px; }
@@ -1647,3 +1648,28 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 [data-theme-name="varsity"] .tab, [data-theme-name="varsity"] .more-btn { font: 600 15px/1.2 var(--font-head); letter-spacing: .08em; }
 [data-theme-name="varsity"] .tname { font-family: var(--font-head); font-weight: 600; font-size: 16px; text-transform: uppercase; letter-spacing: .02em; }
 [data-theme-name="varsity"] .rank { font-family: var(--font-head); font-weight: 400; font-size: 22px !important; }
+/* game leaders: Takeaways row (INT / fumble recoveries, ties all listed) */
+.tk-pics { display: flex; flex: none; }
+.tk-pics .leadshot + .leadshot { margin-left: -18px; }
+.lside.home .tk-pics { flex-direction: row-reverse; }
+.lside.home .tk-pics .leadshot + .leadshot { margin-left: 0; margin-right: -18px; }
+.tk-list { gap: 2px; }
+.tk-one { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tk-one a { color: var(--ink); }
+.tk-one small { display: inline !important; font-weight: 400; color: var(--muted); font-size: 12px; }
+@media (max-width: 640px) {
+  .lside.tk.away { grid-template-columns: auto 1fr; }
+  .lside.tk.home { grid-template-columns: 1fr auto; }
+  .lside.tk .tk-pics { grid-area: pic; }
+  .tk-pics .leadshot + .leadshot { margin-left: -22px; }
+  .lside.home .tk-pics .leadshot + .leadshot { margin-left: 0; margin-right: -22px; }
+  .tk-one { font-size: 12px; white-space: normal; }
+}
+/* back button: phones only, bottom-left (desktop browsers have their own) */
+.back-fab { display: none; }
+@media (max-width: 760px) {
+  .back-fab { display: flex; position: fixed; left: 14px; bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 59; align-items: center; gap: 6px;
+    padding: 9px 14px; border: 1px solid var(--accent); border-radius: 999px; background: var(--card); color: var(--ink);
+    font: 600 13px/1 "JetBrains Mono", monospace; box-shadow: 0 4px 14px rgba(0,0,0,.45); cursor: pointer; }
+  .back-fab.hidden { display: none; }
+}

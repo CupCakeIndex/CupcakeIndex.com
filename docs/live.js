@@ -769,7 +769,7 @@ const Live = (() => {
       const name = `<div class="sb-name">
           <a href="${link("team", c.team.id)}">${ap ? `<span class="sb-rank">${ap}</span>` : ""}<b><span class="sb-full">${esc(c.team.location || tname(c))}</span><span class="sb-ab">${esc(c.team.abbreviation || "")}</span></b></a>
           <small>${esc(c.team.name || "")}</small>
-          <em>${esc(c.record?.[0]?.summary || c.record?.[0]?.displayValue || "")}${ours ? ` · Cupcake Index #${ours.rank}` : ""}</em></div>`;
+          <em><span class="sb-rec">${esc(c.record?.[0]?.summary || c.record?.[0]?.displayValue || "")}</span>${ours ? `<span class="sb-our"> · Cupcake Index #${ours.rank}</span>` : ""}</em></div>`;
       const score = `<span class="sb-score">${st === "pre" ? "" : esc(c.score ?? "")}</span>`;
       return `<div class="sb-team ${which}${result}">${which === "away" ? logoImg + name + score : score + name + logoImg}</div>`;
     };
@@ -842,13 +842,43 @@ const Live = (() => {
       const pic = face(a.headshot?.href, a.displayName, "leadshot");
       return `<a class="lside ${which}" href="${link("player", a.id)}">${which === "away" ? pic + txt + num : num + txt + pic}</a>`;
     };
-    const leadRows = LEAD_CATS.map(([key, label]) => {
+    let leadRows = LEAD_CATS.map(([key, label]) => {
       const A = leaderFor(away.team.id, key), H = leaderFor(home.team.id, key);
       if (!A && !H) return "";
       const av = A?.value ?? -1, hv = H?.value ?? -1;
       const unit = (A || H).mainStat?.label || "";
       return `<div class="lrow">${lside(A, "away", av > hv)}<span class="lcat">${label}<small>${esc(unit)}</small></span>${lside(H, "home", hv > av)}</div>`;
     }).join("");
+    // takeaways: everyone with an interception or a fumble recovery (ties all listed); own-fumble recoveries don't count
+    const takeaways = (teamId) => {
+      const tp = (s.boxscore?.players || []).find((t) => String(t.team?.id) === String(teamId));
+      const by = new Map();
+      const add = (a, kind, n) => {
+        if (!(n > 0)) return;
+        const k = String(a.id), o = by.get(k) || { a, int: 0, fr: 0 };
+        o[kind] += n; by.set(k, o);
+      };
+      for (const cat of tp?.statistics || []) {
+        const col = (lab) => cat.labels?.indexOf(lab);
+        if (cat.name === "interceptions" && col("INT") >= 0) cat.athletes.forEach((x) => add(x.athlete, "int", +x.stats[col("INT")]));
+        if (cat.name === "fumbles" && col("REC") >= 0 && col("FUM") >= 0) cat.athletes.forEach((x) => { if (+x.stats[col("FUM")] === 0) add(x.athlete, "fr", +x.stats[col("REC")]); });
+      }
+      return [...by.values()].sort((x, y) => (y.int + y.fr) - (x.int + x.fr) || y.int - x.int);
+    };
+    const tside = (list, which, win) => {
+      if (!list.length) return `<span class="lside ${which} empty">–</span>`;
+      const what = (o) => [o.int ? `${o.int > 1 ? o.int + " " : ""}INT` : "", o.fr ? `${o.fr > 1 ? o.fr + " " : ""}FR` : ""].filter(Boolean).join(", ");
+      const total = list.reduce((n, o) => n + o.int + o.fr, 0);
+      const names = list.slice(0, 4).map((o) => `<span class="tk-one"><a href="${link("player", o.a.id)}">${esc(o.a.shortName || (o.a.firstName && o.a.lastName ? `${o.a.firstName[0]}. ${o.a.lastName}` : o.a.displayName))}</a> <small>${what(o)}</small></span>`).join("");
+      const pics = `<span class="tk-pics">${list.slice(0, 3).map((o) => face(o.a.headshot?.href, o.a.displayName, "leadshot")).join("")}</span>`;
+      const txt = `<span class="ltxt tk-list">${names}</span>`, num = `<span class="lbig${win ? " win" : ""}">${total}</span>`;
+      return `<span class="lside tk ${which}">${which === "away" ? pics + txt + num : num + txt + pics}</span>`;
+    };
+    if (st !== "pre") {
+      const TA = takeaways(away.team.id), TH = takeaways(home.team.id);
+      const ta = TA.reduce((n, o) => n + o.int + o.fr, 0), th = TH.reduce((n, o) => n + o.int + o.fr, 0);
+      if (ta || th) leadRows += `<div class="lrow">${tside(TA, "away", ta > th)}<span class="lcat">Takeaways<small>INT · FR</small></span>${tside(TH, "home", th > ta)}</div>`;
+    }
     const leadersStrip = leadRows ? `<div class="card h2h" style="--ac:${tc.away};--hc:${tc.home}">
         <div class="h2h-head"><span>${img(teamLogo(away.team), "sm")} ${esc(away.team.abbreviation)}</span><h3>${st === "pre" ? "Season leaders" : "Game leaders"}</h3><span>${esc(home.team.abbreviation)} ${img(teamLogo(home.team), "sm")}</span></div>
         ${leadRows}</div>` : "";
@@ -2528,7 +2558,7 @@ const Live = (() => {
     const save = () => {
       const s = encPicks(seats), p = encPicks(ids);
       store.set(seedKey, s); store.set(saveKey, p);
-      history.replaceState(null, "", link("standings", null, { show: "playoff", mode: "mine", ...(s ? { seeds: s } : {}), ...(p ? { picks: p } : {}) }));
+      history.replaceState(history.state, "", link("standings", null, { show: "playoff", mode: "mine", ...(s ? { seeds: s } : {}), ...(p ? { picks: p } : {}) }));
     };
 
     // ---- the chances box (season sims run once per visit; until they finish, sim-based numbers say "simulating…")

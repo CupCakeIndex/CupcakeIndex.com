@@ -179,7 +179,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "122"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "123"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -248,7 +248,7 @@ async function init() {
   $("#week").onchange = () => loadWeek(true);
   ["#search", "#conf", "#top25", "#profile"].forEach((s) => $(s).addEventListener("input", render));
   ["#sp-show", "#sp-conf"].forEach((s) => $(s).addEventListener("input", renderSchedules));
-  const closeDrawer = () => { $("#drawer").classList.add("hidden"); document.body.classList.remove("drawer-open"); history.replaceState(null, "", link("rankings")); };
+  const closeDrawer = () => { $("#drawer").classList.add("hidden"); document.body.classList.remove("drawer-open"); history.replaceState(history.state, "", link("rankings")); };
   $("#drawer").onclick = (e) => { if ("close" in e.target.dataset) closeDrawer(); };
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#drawer").classList.contains("hidden")) closeDrawer(); });
   $("#table tbody").onclick = (e) => {
@@ -260,7 +260,28 @@ async function init() {
   initSearch();
   initNav();
   window.addEventListener("hashchange", route);
+  initBack();
   await route();
+}
+
+// Back button (phones): shows once you've moved around inside the site; same as the browser's back
+function initBack() {
+  const btn = document.createElement("button");
+  btn.className = "back-fab hidden";
+  btn.type = "button";
+  btn.setAttribute("aria-label", "Back");
+  btn.innerHTML = "&larr; Back";
+  btn.onclick = () => history.back();
+  document.body.appendChild(btn);
+  // each history entry remembers how deep it is; a brand-new entry has no state yet
+  let depth = history.state?.cupDepth || 0;
+  history.replaceState({ ...(history.state || {}), cupDepth: depth }, "");
+  window.addEventListener("hashchange", () => {
+    if (history.state?.cupDepth == null) { depth += 1; history.replaceState({ ...(history.state || {}), cupDepth: depth }, ""); }
+    else depth = history.state.cupDepth;
+    btn.classList.toggle("hidden", depth < 1);
+  });
+  btn.classList.toggle("hidden", depth < 1);
 }
 
 function setLeague(l) {
@@ -737,7 +758,7 @@ function openTeam(name) {
     <p class="note">Tap a game for the box score or preview. Diff (difficulty) is the chance a typical ${bench} would lose this game.${nfl ? " ⚠ = a different QB than the team's usual starter." : " Beating FCS teams is close to 0%."}</p>`;
   $("#drawer").classList.remove("hidden");
   document.body.classList.add("drawer-open"); // stop the page behind from scrolling on phones
-  history.replaceState(null, "", link("rankings", null, { team: name }));
+  history.replaceState(history.state, "", link("rankings", null, { team: name }));
   Live.teamId(league, t).then((id) => {
     const a = $("#team-page-link");
     if (a && id) a.href = link("team", id); else if (a) a.remove();

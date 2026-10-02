@@ -231,7 +231,7 @@ const Pickem = (() => {
     cur.mine = true; // once you pick, these are yours
     const p = e ? { season, week: `${type}:${week}`, picks: e } : {};
     if (lg === "cfb" && all) p.all = "1";
-    history.replaceState(null, "", link("picks", null, p));
+    history.replaceState(history.state, "", link("picks", null, p));
   }
 
   function wire(root) {
