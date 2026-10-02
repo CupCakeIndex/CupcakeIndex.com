@@ -1,5 +1,7 @@
 // Pick'em: this week's games from ESPN's scoreboard. Tap a team to pick it; games lock at kickoff and are graded when final.
+// The whole week also locks at Saturday 11:59 PM Eastern, or earlier when you tap "Lock in my picks".
 // Picks are kept in this browser (per league + season + week) and in the URL, so the address bar is always a shareable link.
+// Your season record (week by week, streak, vs. our model) is kept in this browser too: pickem-log-<league>-<season>.
 // Uses helpers from app.js ($, esc, link, league, store, modelRanks, weekData, INDEX, thumb, parseHash) and live.js (Live.kit).
 const Pickem = (() => {
   let cur = null;    // what's on screen: { lg, season, type, week, events, picks, all, key }
@@ -12,7 +14,40 @@ const Pickem = (() => {
   const comp = (e) => e.competitions[0];
   const side = (e, ha) => comp(e).competitors.find((c) => c.homeAway === ha);
   const state = (e) => e.status.type.state;
-  const locked = (e) => state(e) !== "pre" || new Date(e.date) <= Date.now();
+  const kicked = (e) => state(e) !== "pre" || new Date(e.date) <= Date.now();
+  const locked = (e) => kicked(e) || !!cur?.weekLocked;
+
+  // Saturday 11:59 PM Eastern of the week this slate starts in (EDT or EST, whichever applies that night)
+  function deadline(events) {
+    if (!events.length) return null;
+    const first = new Date(Math.min(...events.map((e) => +new Date(e.date))));
+    const et = (d, o) => d.toLocaleString("en-US", { timeZone: "America/New_York", ...o });
+    const day = new Date(et(first)).getDay(), sat = new Date(+first + ((6 - day + 7) % 7) * 864e5);
+    const ymd = sat.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    const probe = new Date(`${ymd}T23:59:00Z`), edt = /EDT/.test(et(probe, { timeZoneName: "short" }));
+    return +probe + (edt ? 4 : 5) * 36e5;
+  }
+
+  // ---- season log: { "2:5": { w, l, mw, ml, seq: "WWL", done } } per league + season, kept in this browser
+  const logKey = (lg, season) => `pickem-log-${lg}-${season}`;
+  const readLog = (lg, season) => { try { return JSON.parse(store.get(logKey(lg, season)) || "{}") || {}; } catch (e) { return {}; } };
+  const writeLog = (lg, season, log) => store.set(logKey(lg, season), JSON.stringify(log));
+  // grade one week's stored picks: your record, the model's record on the same games, and the W/L sequence by kickoff
+  function gradeWeek(events, picks, preds) {
+    let w = 0, l = 0, mw = 0, ml = 0, seq = "", pending = 0;
+    events.slice().sort((a, b) => new Date(a.date) - new Date(b.date)).forEach((e) => {
+      const id = picks.get(String(e.id));
+      if (!id) return;
+      const won = state(e) === "post" && comp(e).competitors.find((c) => c.winner);
+      if (!won) { pending++; return; }
+      const right = String(won.team.id) === id;
+      right ? w++ : l++;
+      seq += right ? "W" : "L";
+      const pr = preds.get(String(e.id));
+      if (pr) ((pr.home_win_prob >= 0.5) === (won.homeAway === "home") ? mw++ : ml++);
+    });
+    return { w, l, mw, ml, seq, done: !pending && w + l > 0 };
+  }
   const tname = (lg, t) => (lg === "nfl" ? t.shortDisplayName : t.location || t.shortDisplayName);
   const apRank = (c) => { const r = c.curatedRank?.current; return r && r <= 25 ? r : null; };
 
@@ -63,12 +98,78 @@ const Pickem = (() => {
       const e = events.find((ev) => comp(ev).competitors.some((c) => String(c.team.id) === id));
       if (e) picks.set(String(e.id), id);
     });
-    cur = { lg, season, type, week, events, picks, preds, ranks, key, all: lg === "nfl" || params.get("all") === "1" };
+    const due = deadline(events), mine = !params.has("picks") || params.get("picks") === store.get(key); // a friend's link isn't your record
+    const lockedAt = +store.get(`${key}-lock`) || null;
+    cur = { lg, season, type, week, events, picks, preds, ranks, key, mine, due, lockedAt,
+      weekLocked: !!lockedAt || (due != null && Date.now() > due), all: lg === "nfl" || params.get("all") === "1" };
+    if (mine && picks.size) logWeek();
     draw();
     if (!wired) wire(root);
+    if (mine) catchUp(lg, season, type, week); // grade earlier weeks you picked but haven't opened since they finished
 
     if (events.some((e) => state(e) === "in")) K.poll(() => render(parseHash().params, true), 60000);
     else if (events.some((e) => state(e) === "pre" && new Date(e.date) - Date.now() < 3600000)) K.poll(() => render(parseHash().params, true), 120000);
+  }
+
+  function logWeek() {
+    const { lg, season, type, week, events, picks, preds } = cur;
+    const log = readLog(lg, season), g = gradeWeek(events, picks, preds);
+    if (g.w + g.l || log[`${type}:${week}`]) { log[`${type}:${week}`] = g; writeLog(lg, season, log); }
+  }
+
+  // Earlier weeks with saved picks whose games weren't all final last time: fetch that week's scoreboard and grade it
+  async function catchUp(lg, season, type, week) {
+    const K = Live.kit, log = readLog(lg, season), todo = [];
+    let n = 0;
+    try { n = localStorage.length; } catch (e) { return; } // storage blocked (private mode): nothing to catch up
+    for (let i = 0; i < n; i++) {
+      const k = localStorage.key(i), m = k && k.match(new RegExp(`^pickem-${lg}-${season}-(\\d+)-(\\d+)$`));
+      if (m && !(+m[1] === type && +m[2] === week) && !log[`${m[1]}:${m[2]}`]?.done) todo.push([+m[1], +m[2], k]);
+    }
+    for (const [t, w, k] of todo.slice(0, 6)) {
+      try {
+        const q = new URLSearchParams({ seasontype: t, week: w, dates: season });
+        if (lg === "cfb") { q.set("groups", "80"); q.set("limit", "300"); }
+        const sb = await K.api(`${K.SITE(lg)}/scoreboard?${q}`, 600000);
+        const ids = dec(store.get(k)), picks = new Map();
+        ids.forEach((id) => { const e = (sb.events || []).find((ev) => comp(ev).competitors.some((c) => String(c.team.id) === id)); if (e) picks.set(String(e.id), id); });
+        const preds = new Map();
+        if (t === 2 && INDEX.leagues[lg].seasons[season]?.weeks.includes(w - 1)) {
+          ((await weekData(lg, season, w - 1).catch(() => null))?.predictions || []).forEach((p) => preds.set(String(p.espn_id), p));
+        }
+        const g = gradeWeek(sb.events || [], picks, preds);
+        if (g.w + g.l) { log[`${t}:${w}`] = g; writeLog(lg, season, log); }
+      } catch (e) { /* ESPN hiccup: try again next visit */ }
+    }
+    if (todo.length && cur && cur.lg === lg && cur.season === season) draw();
+  }
+
+  // Your season so far, from the log: record, win %, week-by-week, best week, streak, vs. our model
+  function seasonPanel() {
+    const { lg, season, type, week } = cur, log = readLog(lg, season);
+    const weeks = Object.entries(log).filter(([, g]) => g.w + g.l).sort(([a], [b]) => {
+      const [ta, wa] = a.split(":").map(Number), [tb, wb] = b.split(":").map(Number);
+      return ta - tb || wa - wb;
+    });
+    if (!weeks.length) return `<div class="pk-season muted">Your season record shows up here once your first picked game is final. It's kept in this browser.</div>`;
+    const W = weeks.reduce((n, [, g]) => n + g.w, 0), L = weeks.reduce((n, [, g]) => n + g.l, 0);
+    const MW = weeks.reduce((n, [, g]) => n + g.mw, 0), ML = weeks.reduce((n, [, g]) => n + g.ml, 0);
+    const seq = weeks.map(([, g]) => g.seq || "").join(""), streakChar = seq.at(-1);
+    const streak = streakChar ? seq.length - seq.replace(new RegExp(`${streakChar}+$`), "").length : 0;
+    const best = weeks.filter(([, g]) => g.done).sort(([, a], [, b]) => b.w / (b.w + b.l) - a.w / (a.w + a.l) || b.w - a.w)[0];
+    const wkName = (k) => { const [t, w] = k.split(":"); return t === "2" ? `Wk ${w}` : t === "3" ? (lg === "nfl" ? `Playoffs ${w}` : `Bowls`) : `Wk ${w}`; };
+    const pct = (w, l) => (w + l ? Math.round((100 * w) / (w + l)) : 0);
+    const beatModel = MW + ML ? (W > MW ? "you're ahead of our model" : W < MW ? "our model is ahead of you" : "dead even with our model") : "";
+    return `<div class="pk-season">
+      <div class="pk-big"><b>${W}-${L}</b><small>your ${season} season · ${pct(W, L)}%</small></div>
+      <div class="pk-facts">
+        ${streak > 1 ? `<span><b>${streak}</b> ${streakChar === "W" ? "right" : "wrong"} in a row</span>` : ""}
+        ${best ? `<span>Best week: <b>${wkName(best[0])}</b> ${best[1].w}-${best[1].l}</span>` : ""}
+        ${MW + ML ? `<span title="Our model's record picking the same games you picked">Our model on your games: <b>${MW}-${ML}</b> · ${beatModel}</span>` : ""}
+      </div>
+      <div class="pk-weeks">${weeks.map(([k, g]) => `<span class="pk-wk${k === `${type}:${week}` ? " now" : ""}${g.done ? "" : " open"}" title="${g.done ? "Final" : "Games still to play"}">
+        <i style="--p:${pct(g.w, g.l)}%"></i><small>${wkName(k)}</small><b>${g.w}-${g.l}</b></span>`).join("")}</div>
+    </div>`;
   }
 
   // CFB slate: games with an AP Top 25 team or one of our top 25 (plus any game you've picked); "All FBS games" shows the rest
@@ -83,8 +184,13 @@ const Pickem = (() => {
   function draw() {
     const K = Live.kit, { lg, events, picks, preds, ranks } = cur, root = $("#view-picks");
     const list = slate(), [w, l] = record(events, picks), open = list.filter((e) => !locked(e)).length;
+    const { due, lockedAt, weekLocked } = cur;
+    const when = (t) => new Date(t).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" }) + " ET";
+    const lockTxt = lockedAt ? `🔒 Locked in ${when(lockedAt)}` : weekLocked ? "🔒 Picks closed (Saturday 11:59 PM ET deadline)"
+      : due ? `Picks lock ${when(due)}, or at kickoff` : "";
     const status = (w + l ? `<b class="pk-rec">You're ${w}-${l} this week</b> · ` : "")
-      + `${picks.size} of ${list.length} game${list.length === 1 ? "" : "s"} picked` + (open ? "" : " · all games have kicked off");
+      + `${picks.size} of ${list.length} game${list.length === 1 ? "" : "s"} picked` + (open || weekLocked ? "" : " · all games have kicked off")
+      + (lockTxt ? ` · <span class="pk-lock${weekLocked ? " on" : ""}">${lockTxt}</span>` : "");
     const team = (e, c) => {
       const t = c.team, id = String(t.id), on = picks.get(String(e.id)) === id, st = state(e), ours = K.ourTeam(ranks, lg, t);
       const mark = on && st === "post" && comp(e).competitors.some((x) => x.winner) ? (c.winner ? `<b class="pk-mark W">✓</b>` : `<b class="pk-mark L">✗</b>`) : "";
@@ -108,10 +214,13 @@ const Pickem = (() => {
       `<button data-show="${v}" class="${!v === !cur.all ? "on" : ""}">${t}</button>`).join("")}</div>` : "";
     root.innerHTML = `<div class="card pk-card">
       <h2>Pick'em · ${esc(weekName())} <span class="muted">${esc(LEAGUE_NAME[lg] || lg)}</span></h2>
+      ${cur.mine ? seasonPanel() : `<div class="pk-season muted">These are a friend's picks from a shared link. Make your own picks to start your record.</div>`}
       <p class="pk-status">${status}</p>
-      <div class="br-tools pk-tools">${toggle}<button data-act="clear"${picks.size ? "" : " disabled"}>Clear picks</button>${Share.menuHtml()}</div>
+      <div class="br-tools pk-tools">${toggle}<button data-act="clear"${picks.size && !weekLocked ? "" : " disabled"}>Clear picks</button>
+        ${cur.mine && !weekLocked ? `<button data-act="lock" class="pk-lockbtn"${picks.size ? "" : " disabled"}>🔒 Lock in my picks</button>` : ""}${Share.menuHtml()}</div>
       ${list.length ? `<div class="pk-grid">${list.map(game).join("")}</div>` : `<p class="muted">No games this week.</p>`}
-      <p class="note">Tap a team to pick it; tap again to undo. Games lock at kickoff, and your picks get a ✓ or ✗ when the game is final.
+      <p class="note">Tap a team to pick it; tap again to undo. Each game locks at kickoff, and the whole week locks Saturday at 11:59 PM Eastern (or as soon as you tap Lock in).
+        Your picks get a ✓ or ✗ when the game is final and add to your season record, which stays in this browser unless you clear its data.
         Picks are saved in this browser and in the page link, so Share › Copy Link sends your slate to a friend. "model" = our ratings' win chance for the team they favor. Just for fun.</p></div>`;
   }
 
@@ -119,6 +228,7 @@ const Pickem = (() => {
   function save() {
     const { lg, season, type, week, picks, key, all } = cur, e = enc(picks);
     store.set(key, e);
+    cur.mine = true; // once you pick, these are yours
     const p = e ? { season, week: `${type}:${week}`, picks: e } : {};
     if (lg === "cfb" && all) p.all = "1";
     history.replaceState(null, "", link("picks", null, p));
@@ -136,6 +246,12 @@ const Pickem = (() => {
       }
       const show = e.target.closest("[data-show]");
       if (show) { cur.all = show.dataset.show === "1"; save(); return draw(); }
+      if (e.target.closest('[data-act="lock"]')) {
+        if (!confirm("Lock in your picks for this week? You won't be able to change them.")) return;
+        store.set(`${cur.key}-lock`, String(Date.now()));
+        cur.lockedAt = Date.now(); cur.weekLocked = true;
+        return draw();
+      }
       if (e.target.closest('[data-act="clear"]')) {
         // games that already kicked off keep their picks (they're locked)
         [...cur.picks.keys()].forEach((gid) => { const ev = cur.events.find((x) => String(x.id) === gid); if (ev && !locked(ev)) cur.picks.delete(gid); });
@@ -156,7 +272,10 @@ const Pickem = (() => {
     const n = games.length, cols = n <= 4 ? 2 : n <= 9 ? 3 : n <= 20 ? 4 : n <= 40 ? 5 : 6, rows = Math.ceil(n / cols);
     const blob = await Share.png({
       title: `MY ${weekName().toUpperCase()} PICKS · ${LEAGUE_NAME[lg] || lg.toUpperCase()}`,
-      sub: (w + l ? `${w}-${l} so far · ` : "") + `${n} pick${n === 1 ? "" : "s"}`,
+      sub: (w + l ? `${w}-${l} this week · ` : "") + `${n} pick${n === 1 ? "" : "s"}` + (() => {
+        const lg2 = readLog(lg, season), W = Object.values(lg2).reduce((a, g) => a + g.w, 0), L = Object.values(lg2).reduce((a, g) => a + g.l, 0);
+        return W + L ? ` · ${W}-${L} on the season` : "";
+      })(),
       logoUrls,
       paint: ({ x, text, F, C, W, H, logos }) => {
         const ax = 48, ay = 150, aw = W - 96, ah = H - 80 - ay - 20;
