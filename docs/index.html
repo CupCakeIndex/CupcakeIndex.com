@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://a.espncdn.com">
 <meta name="theme-color" content="#0f1216">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=158">
+<link rel="stylesheet" href="style.css?v=159">
 <script>
 // Appearance (Dark / Light / System) + theme from the Settings page, applied before first paint so the page never flashes.
 // html[data-theme] = "dark" | "light" (System is resolved here and follows the device live); html[data-theme-name] = theme key.
@@ -36,7 +36,7 @@ window.CIT = (function () {
     document.head.appendChild(l);
   }
   // --- Team theme: Varsity's look in your favorite team's colors (profile saved by Settings / first sign-in) ---
-  var TEAM_VARS = ["--bg", "--card", "--ink", "--muted", "--line", "--accent", "--accent-soft", "--on-accent", "--bar", "--bar-bg", "--team-logo", "--team-alt"];
+  var TEAM_VARS = ["--bg", "--card", "--ink", "--muted", "--line", "--accent", "--accent-soft", "--on-accent", "--bar", "--bar-bg", "--team-logo", "--team-alt", "--accent-fill"];
   function rgb(h) { h = (h || "").replace("#", ""); return h.length === 6 ? [0, 2, 4].map(function (i) { return parseInt(h.substr(i, 2), 16); }) : null; }
   function hex(c) { return "#" + c.map(function (v) { return ("0" + Math.round(Math.max(0, Math.min(255, v))).toString(16)).slice(-2); }).join(""); }
   function mix(a, b, t) { return a.map(function (v, i) { return v + (b[i] - v) * t; }); }
@@ -84,9 +84,13 @@ window.CIT = (function () {
     v["--line"] = light ? hex(mix(P, [226, 228, 232], 0.88)) : hex(mix(P, [40, 43, 50], 0.86));
     v["--accent"] = hex(acc);
     v["--accent-soft"] = hex(mix(acc, bg, 0.84));
-    var on = A && base !== A && contrast(A, acc) >= 3 ? A : lum(acc) > 0.4 ? [11, 11, 11] : [255, 255, 255];
+    // filled areas (buttons, banners, bars, the switch, the wordmark) use the team's exact official color;
+    // --accent stays the readable version for small text, brightened only when the official color is too dark to read
+    var fill = base;
+    v["--accent-fill"] = hex(fill);
+    var on = A && base !== A && contrast(A, fill) >= 3 ? A : lum(fill) > 0.4 ? [11, 11, 11] : [255, 255, 255];
     v["--on-accent"] = hex(on);
-    v["--bar"] = hex(acc);
+    v["--bar"] = hex(contrast(fill, bg) >= 1.25 ? fill : acc);
     v["--bar-bg"] = v["--line"];
     v["--team-logo"] = t.logo ? 'url("' + t.logo + '")' : "none";
     var alt = A && base !== A ? readable(A, bg, 2.6, !light) : light ? [20, 22, 26] : [255, 255, 255];
@@ -309,16 +313,16 @@ window.CIT = (function () {
   </div>
 </div>
 
-<script src="app.js?v=158"></script>
-<script src="live.js?v=158"></script>
-<script src="daily.js?v=158"></script>
-<script src="share.js?v=158"></script>
-<script src="pickem.js?v=158"></script>
-<script src="fantasy.js?v=158"></script>
-<script src="news.js?v=158"></script>
-<script src="settings.js?v=158"></script>
-<script src="firebase-config.js?v=158"></script>
-<script src="account.js?v=158"></script>
-<script src="profile.js?v=158"></script>
+<script src="app.js?v=159"></script>
+<script src="live.js?v=159"></script>
+<script src="daily.js?v=159"></script>
+<script src="share.js?v=159"></script>
+<script src="pickem.js?v=159"></script>
+<script src="fantasy.js?v=159"></script>
+<script src="news.js?v=159"></script>
+<script src="settings.js?v=159"></script>
+<script src="firebase-config.js?v=159"></script>
+<script src="account.js?v=159"></script>
+<script src="profile.js?v=159"></script>
 </body>
 </html>
