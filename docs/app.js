@@ -210,7 +210,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "162"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "163"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -862,7 +862,16 @@ function renderSchedules() {
   const focus = parseHash().params.get("team");
   const focusTeam = focus && all.find((t) => t.team === focus);
   if (focusTeam && !teams.includes(focusTeam)) teams = [...teams, focusTeam];
-  const xs = all.map((t) => t.scores.sos), ys = all.map((t) => t.scores.cupcake);
+  // NFL: most teams have no cupcakes yet, so they'd all sit on one flat row. Spread those teams out (below the
+  // "padded" line, so their profile doesn't change) by how much weaker their opponents have been than them on average.
+  const cupY = new Map(all.map((t) => [t, t.scores.cupcake]));
+  if (league === "nfl") {
+    const floor = Math.min(...all.map((t) => t.scores.cupcake));
+    const gap = (t) => { const g = t.schedule.filter((x) => x.result && x.opp_rating != null); return g.length ? g.reduce((s, x) => s + Math.max(0, t.rating - x.opp_rating), 0) / g.length : 0; };
+    const flat = all.filter((t) => t.scores.cupcake <= floor + 0.01).sort((a, b) => gap(a) - gap(b));
+    flat.forEach((t, i) => cupY.set(t, floor - 10 + (flat.length > 1 ? (i / (flat.length - 1)) : 0.5) * Math.min(20, PADDED - 3 - (floor - 10))));
+  }
+  const xs = all.map((t) => t.scores.sos), ys = all.map((t) => cupY.get(t));
   // padded domain so logos at the extremes aren't clipped or covering the corner labels
   const x0 = Math.min(...xs) - 7, x1 = Math.max(...xs) + 9;
   const y0 = Math.min(...ys) - 12, y1 = Math.max(...ys) + 10;
@@ -882,7 +891,7 @@ function renderSchedules() {
     <span class="sp-axis sp-x">Schedule: harder →</span><span class="sp-axis sp-y">Cupcake: more padded →</span>
     <div class="sp-zoom" role="group" aria-label="Zoom"><button data-z="in" aria-label="Zoom in">+</button><button data-z="out" aria-label="Zoom out">−</button><button data-z="reset">Reset</button></div>
     <div class="cc-tip"></div>
-    ${teams.map((t) => `<button class="sp-dot${t === focusTeam ? " focus" : ""}" data-team="${esc(t.team)}" data-fx="${px(t.scores.sos) / 100}" data-fy="${py(t.scores.cupcake) / 100}"
+    ${teams.map((t) => `<button class="sp-dot${t === focusTeam ? " focus" : ""}" data-team="${esc(t.team)}" data-fx="${px(t.scores.sos) / 100}" data-fy="${py(cupY.get(t)) / 100}"
         style="animation-delay:${Math.round((px(t.scores.sos) / 100) * 450)}ms" aria-label="#${t.rank} ${esc(t.team)} (${esc(t.record)}) · Schedule ${Math.round(t.scores.sos)} · Cupcake ${Math.round(t.scores.cupcake)}">
         ${safeUrl(t.logo) ? `<img src="${esc(thumb(t.logo, 26))}" alt="${esc(t.team)}" width="26" height="26" loading="lazy" decoding="async">` : `<span>${esc(t.team.slice(0, 3))}</span>`}${t === focusTeam ? `<b class="sp-flabel">${esc(t.team)}</b>` : ""}</button>`).join("")}`;
   const zoom = initZoom($("#sp-chart"), (team) => { ranked = rankTeams(DATA.teams); openTeam(team); });
