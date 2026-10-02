@@ -107,7 +107,7 @@ function leagueWipe(lg) {
     const html = document.documentElement; // the shake must never make the page scroll sideways
     main.classList.remove("lg-glitch"); void main.offsetWidth;
     html.classList.add("lg-glitching"); main.classList.add("lg-glitch");
-    setTimeout(() => { main.classList.remove("lg-glitch"); html.classList.remove("lg-glitching"); }, 420);
+    setTimeout(() => { main.classList.remove("lg-glitch"); html.classList.remove("lg-glitching"); }, 280);
   }
   if (!sw) return;
   document.querySelector(".lg-px")?.remove();
@@ -118,7 +118,7 @@ function leagueWipe(lg) {
   const g = c.getContext("2d"), css = getComputedStyle(document.documentElement);
   const cols = [css.getPropertyValue("--accent").trim() || "#ff6b2c", css.getPropertyValue("--ink").trim() || "#ececec"];
   const ox = sw.left + sw.width / 2, oy = sw.top + sw.height / 2;
-  const ps = Array.from({ length: 70 }, () => ({
+  const ps = Array.from({ length: 32 }, () => ({
     x: ox + (Math.random() - 0.5) * sw.width, y: oy + (Math.random() - 0.5) * sw.height,
     vx: dir * (2 + Math.random() * 9), vy: (Math.random() - 0.35) * 6, s: 2 + Math.floor(Math.random() * 4),
     c: cols[Math.random() < 0.75 ? 0 : 1], life: 0, max: 26 + Math.random() * 22 }));
@@ -232,7 +232,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "145"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "146"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
