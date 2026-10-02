@@ -1744,3 +1744,13 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 .privacy { max-width: 760px; }
 .boxbtn { display: inline-flex; align-items: center; padding: 8px 14px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: 600 13px/1 inherit; font-family: inherit; cursor: pointer; }
 .boxbtn:hover { border-color: var(--accent); }
+/* signed in: Google photo on the gear button + a short "Signed in as ..." toast */
+@media (min-width: 641px) { .gear { position: relative; } }   /* phones: the gear is already absolutely placed */
+.gear .gear-me { position: absolute; right: -6px; bottom: -6px; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--bg);
+  background: var(--accent); color: var(--bg); font: 700 10px/14px Inter, sans-serif; text-align: center; object-fit: cover; }
+.gear.signed-in { border-color: var(--accent); }
+.acct-toast { position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top)); transform: translate(-50%, -150%); z-index: 90; padding: 10px 16px;
+  background: var(--card); color: var(--ink); border: 1px solid var(--accent); box-shadow: 0 6px 20px rgba(0,0,0,.45); font-size: 13px; font-weight: 600;
+  transition: transform .25s ease; max-width: calc(100vw - 32px); }
+.acct-toast.on { transform: translate(-50%, 0); }
+@media (prefers-reduced-motion: reduce) { .acct-toast { transition: none; } }

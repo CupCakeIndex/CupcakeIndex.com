@@ -18,10 +18,12 @@ const Account = (() => {
       await Promise.all([load("firebase-auth-compat.js"), load("firebase-firestore-compat.js")]);
       fb = firebase.initializeApp(CFG);
       fb.auth().getRedirectResult().catch((e) => setStatus(friendly(e)));
-      fb.auth().onAuthStateChanged(async (u) => {
+      fb.auth().onAuthStateChanged((u) => {
+        const was = user;
         user = u;
-        if (u) await syncDown();
-        rerender();
+        badge();
+        rerender(); // show signed in/out right away; the first sync runs in the background
+        if (u) { if (!was) toast(`Signed in as ${u.displayName || u.email || "you"}`); syncDown(); }
       });
       // save to the account a few seconds after any synced change (picks, daily game, fantasy team)
       const orig = store.set;
@@ -78,7 +80,7 @@ const Account = (() => {
       setStatus(friendly(e));
     }
   }
-  async function signOut() { await fb.auth().signOut(); setStatus("Signed out. Your data stays on this device too."); }
+  async function signOut() { await fb.auth().signOut(); toast("Signed out"); setStatus("Signed out. Your data stays on this device too."); }
   async function deleteAccount() {
     try {
       await doc().delete();
@@ -91,6 +93,24 @@ const Account = (() => {
   const friendly = (e) => ({ "auth/popup-closed-by-user": "Sign-in window closed before finishing.", "auth/network-request-failed": "No connection. Try again.",
     "auth/unauthorized-domain": "This web address isn't allowed to sign in yet (Firebase > Authentication > Settings > Authorized domains).",
     "permission-denied": "The account database refused the save (check the Firestore rules)." }[e?.code] || `Something went wrong (${e?.code || e?.message || e}).`);
+  // signed in: your Google photo (or initial) on the gear button, so it's obvious from every page
+  function badge() {
+    const g = document.getElementById("gear");
+    if (!g) return;
+    g.classList.toggle("signed-in", !!user);
+    g.querySelector(".gear-me")?.remove();
+    if (user) g.insertAdjacentHTML("beforeend", user.photoURL
+      ? `<img class="gear-me" src="${esc(user.photoURL)}" alt="" referrerpolicy="no-referrer">`
+      : `<span class="gear-me">${esc((user.displayName || "?")[0])}</span>`);
+    g.title = user ? `Settings · signed in as ${user.displayName || user.email || "you"}` : "Settings: dark/light mode and theme";
+  }
+  function toast(msg) {
+    let t = document.getElementById("acct-toast");
+    if (!t) { t = document.createElement("div"); t.id = "acct-toast"; t.className = "acct-toast"; t.setAttribute("role", "status"); document.body.appendChild(t); }
+    t.textContent = msg;
+    t.classList.add("on");
+    clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("on"), 3500);
+  }
   function setStatus(s) { status = s; const el = document.getElementById("acct-status"); if (el) el.textContent = s; }
   function rerender() { if (!document.getElementById("view-settings").classList.contains("hidden")) Settings.render(); }
 
