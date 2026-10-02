@@ -238,12 +238,38 @@ def week_games(days=8):
     return [x for x in cur["games"] if x["hp"] is None and x["d"] and TODAY <= dt.date.fromisoformat(x["d"]) <= end]
 
 
+POWER = {"SEC", "Big Ten", "Big 12", "ACC"}
+
+
+def big_name(t, league="cfb"):
+    """How much a team moves the needle, ~0.4 (unranked Group of 6) to ~3 (top-10). Every NFL team is a big name."""
+    if not t:
+        return 0.4
+    if league == "nfl":
+        return 1.5 + (1.0 if t.get("power_rank", 99) <= 10 else 0)
+    ap = t.get("ap_rank")
+    p4 = t.get("conference") in POWER or t.get("team") == "Notre Dame"
+    s = 0.4 + (0.6 if p4 else 0) + (0.5 if t.get("power_rank", 99) <= 25 else 0)
+    if ap:
+        s += 1.5 if ap <= 10 else 1.0
+    return s
+
+
+def notable(t, league="cfb"):
+    """Worth a post on its own: ranked, high in our rankings, or a Power-4 / Notre Dame school (any NFL team)."""
+    return league == "nfl" or big_name(t, league) >= 1.0
+
+
 @stat("week_drought")
 def _():
     start = first_season()
     ts, by = subjects("cfb")
     found = []
     for x in week_games():
+        # only games people care about: a ranked team, or two Power-4 schools
+        a, h = by.get(x["a"]), by.get(x["h"])
+        if not (x["hr"] or x["ar"] or (big_name(a) >= 1.0 and big_name(h) >= 1.0)):
+            continue
         for team, opp, loc, opp_ap in ((x["a"], x["h"], "N" if x["n"] else "A", x["hr"]), (x["h"], x["a"], "N" if x["n"] else "H", x["ar"])):
             if team not in by:
                 continue
@@ -276,19 +302,22 @@ def _():
                             if dr["last"] else f"{team} is 0-{dr['since_l']} at {opp} since at least {start}.")
                     opts.append((dr, lead, f"0-{dr['since_l']} at {opp}"))
             for dr, lead, lab in opts:
-                found.append((by[team], dr, lead + " " + nxt, lab))
+                found.append((by[team], dr, lead.replace(" It's 0-", " That's 0-") + " " + nxt, lab, big_name(by[team]) * big_name(by.get(opp))))
     if not found:
         return None
-    found.sort(key=lambda f: -(f[1]["years"] + f[1]["since_l"] / 10))
-    seen, rows = set(), []
-    for t, dr, _, lab in found:  # one row per team on the card
-        if t["team"] not in seen:
-            seen.add(t["team"])
-            rows.append((t, dr["years"], lab))
-    t, dr, text, lab = found[0]
-    since = dr["last"]["d"][:4] if dr["last"] else f"{start}"
-    return fact("cfb", rows, "On the line this week", "The longest droughts this week's games could end (our data goes back to " + str(start) + ")",
-                "years since the last win", text, since, "last time it happened" if dr["last"] else "not since at least", dr["years"])
+    found.sort(key=lambda f: -((f[1]["years"] + f[1]["since_l"] / 10) * f[4]))  # long droughts between big names first
+    seen, best = set(), []
+    for f in found:  # each team's best drought, best first
+        if f[0]["team"] not in seen:
+            seen.add(f[0]["team"])
+            best.append(f)
+    out = []
+    for i, (t, dr, text, lab, w) in enumerate(best[:4]):  # several candidates, so a repeat moves to the next game
+        rows = [(r[0], r[1]["years"], r[3]) for r in [best[i]] + best[:i] + best[i + 1:]]
+        since = dr["last"]["d"][:4] if dr["last"] else f"{start}"
+        out.append(fact("cfb", rows, "On the line this week", "The longest droughts this week's games could end (our data goes back to " + str(start) + ")",
+                        "years since the last win", text, since, "last time it happened" if dr["last"] else "not since at least", dr["years"] * w))
+    return out
 
 
 @stat("soft_unbeaten")
@@ -333,7 +362,7 @@ def _():
 
     cands = []
     for t in ts:
-        if t["losses"] or t["wins"] < 4:
+        if t["losses"] or t["wins"] < 4 or not notable(t):  # unbeaten teams people care about (no UMass)
             continue
         r = resume(cur_season, t["team"], t["wins"])
         if r and r[0] + r[1]:
@@ -487,7 +516,7 @@ def _():
     for league in ("cfb", "nfl"):
         def pick(t, fs):
             f = fact_of(fs, "straight wins over cupcakes")
-            return (int(f["big"]), f"{f['big']} straight", f) if f and int(f["big"]) >= (15 if league == "cfb" else 8) else None
+            return (int(f["big"]), f"{f['big']} straight", f) if f and int(f["big"]) >= (15 if league == "cfb" else 8) and notable(t, league) else None
         rows, d = ranked_list(league, pick, lambda r: -r[1])
         def build(lead, rows_, league=league, d=d):
             t, n, lab, f = lead
@@ -531,7 +560,11 @@ def series_week(league):
         w, l = (int(x) for x in f["big"].split("-")[:2])
         if w + l < 5 or 0.25 < w / (w + l) < 0.75:
             return None
-        return (max(w, l) / (w + l) + (w + l) / 100, f"{f['big']}", f)
+        o = by_all.get(f["label"].split("vs ", 1)[1].split(" since")[0])
+        if league == "cfb" and not (t.get("ap_rank") or (o or {}).get("ap_rank") or (notable(t) and notable(o))):
+            return None  # a ranked team in it, or two Power-4 schools
+        return ((max(w, l) / (w + l) + (w + l) / 100) * big_name(t, league) * big_name(o, league), f"{f['big']}", f)
+    by_all = subjects(league)[1]
     rows, d = ranked_list(league, pick, lambda r: -r[1])
     seen, uniq = set(), []
     for r in rows:  # each matchup once (both teams have it)
@@ -621,6 +654,7 @@ def make(key, out, theme=None, draft=False):
         f = next((x for x in f if draft or not posted.seen(tweet(x["text"], "", with_link=False))), None)
     if not f:
         return None
+    f["score"] *= big_name(f["rows"][0][0], f["league"])  # the day's pick leans toward teams people care about
     theme = theme or random.choice(list(O.THEMES))
     os.makedirs(out, exist_ok=True)
     png = os.path.join(out, f"cupcake-{key}.png")
