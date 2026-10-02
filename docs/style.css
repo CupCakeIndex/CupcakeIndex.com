@@ -1777,3 +1777,5 @@ main.lg-in { animation: lgin .4s ease-out both; }
 @media (max-width: 760px) { .top .controls #league button { padding-left: 10px; padding-right: 10px; } .top .controls .rank-ctl select { padding-left: 6px; padding-right: 2px; } }
 /* phones: the CFB | NFL buttons fit inside their 38px box (the 36px tap-size minimum pushed the active one out the bottom) */
 @media (max-width: 760px) { .top .controls #league button { min-height: 0; } }
+/* team logos and player headshots open their page (initPicLinks) */
+img[src*="teamlogos"], img[src*="collegefootballdata.com/logos"], img[src*="headshots"] { cursor: pointer; }

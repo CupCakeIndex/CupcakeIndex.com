@@ -239,7 +239,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "148"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "149"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -321,9 +321,39 @@ async function init() {
   initNav();
   window.addEventListener("hashchange", route);
   initBack();
+  initPicLinks();
   // Refresh button (header): the home-screen app has no browser reload, so this reloads the page with fresh data
   $("#refresh")?.addEventListener("click", (e) => { e.currentTarget.classList.add("spin"); setTimeout(() => location.reload(), 150); });
   await route();
+}
+
+// Every team logo and player headshot opens its page, even where it isn't inside a link. The team or player comes
+// from the picture's own address (ESPN/CFBD put the id in it; NFL logos use the abbreviation).
+const NFL_ESPN = { ari: 22, atl: 1, bal: 33, buf: 2, car: 29, chi: 3, cin: 4, cle: 5, dal: 6, den: 7, det: 8, gb: 9, hou: 34, ind: 11,
+  jax: 30, kc: 12, lv: 13, lac: 24, lar: 14, mia: 15, min: 16, ne: 17, no: 18, nyg: 19, nyj: 20, phi: 21, pit: 23, sf: 25, sea: 26,
+  tb: 27, ten: 10, wsh: 28, was: 28 };
+function picTarget(src) {
+  let u = src || "";
+  try { u = decodeURIComponent(u); } catch (e) {}
+  let m = u.match(/\/i\/teamlogos\/(nfl|ncaa)\/500(?:-dark)?\/([a-z0-9]+)\.png/i);
+  if (m) {
+    const lg = m[1].toLowerCase() === "nfl" ? "nfl" : "cfb", id = lg === "nfl" ? NFL_ESPN[m[2].toLowerCase()] : m[2];
+    return id ? link("team", id, { league: lg }) : null;
+  }
+  m = u.match(/collegefootballdata\.com\/logos\/\d+\/(\d+)\.png/);
+  if (m) return link("team", m[1], { league: "cfb" });
+  m = u.match(/\/i\/headshots\/(nfl|college-football)\/players\/full\/(\d+)\.png/);
+  if (m) return link("player", m[2], { league: m[1] === "nfl" ? "nfl" : "cfb" });
+  return null;
+}
+function initPicLinks() {
+  document.addEventListener("click", (e) => {
+    const im = e.target.closest?.("img");
+    // pictures that already do something (links, buttons, the rankings row panel, the live field) keep their behavior
+    if (!im || im.closest("a, button, label, tr[data-team], .tf-field, .gear, #drawer")) return;
+    const to = picTarget(im.getAttribute("src"));
+    if (to) { e.preventDefault(); location.hash = to.slice(to.indexOf("#")); }
+  });
 }
 
 // Back button (phones, in the header): shows once you've moved around inside the site; same as the browser's back
