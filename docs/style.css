@@ -1676,3 +1676,8 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
   .top .controls #league { height: 38px; align-self: flex-end; box-sizing: border-box; }   /* same height as search / back */
   .top .controls #league button { height: 100%; padding-top: 0; padding-bottom: 0; }
 }
+/* phones: rankings Record and Score columns centered (right-aligned looked lopsided) */
+@media (max-width: 640px) {
+  #table th[data-col="record"], #table tbody td:nth-child(4), #table th.score-col { text-align: center; }
+  #table .score { justify-content: center; }
+}
