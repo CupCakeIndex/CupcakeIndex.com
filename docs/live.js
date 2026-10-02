@@ -2804,8 +2804,21 @@ const Live = (() => {
       const c = e.competitions[0], me = c.competitors.find((x) => String(x.team?.id) === String(id)), op = c.competitors.find((x) => x !== me);
       const ab = (sel, x) => { const b = el.querySelector(sel); if (b && x?.team?.abbreviation) b.textContent = x.team.abbreviation; };
       ab(".mb-tm.me .ab", me); ab(".mb-tm:not(.me) .ab", op);
-      const when = el.querySelector(".mb-when");
-      if (when && c.status?.type?.state === "pre") when.textContent = statusText(c.status, c.date);
+      const st = c.status?.type?.state, when = el.querySelector(".mb-when");
+      if (when && st === "pre") when.textContent = statusText(c.status, c.date);
+      // played since the weekly rankings file was made (e.g. Thursday night): show the real score and result
+      if (el.classList.contains("pre") && (st === "post" || st === "in")) {
+        const pts = (x) => x?.score?.displayValue ?? x?.score ?? "";
+        for (const x of [me, op]) { const sc = el.querySelector(`.mb-tm.${x?.homeAway === "home" ? "home" : "away"} .mb-sc`); if (sc) sc.textContent = pts(x); }
+        const mid = el.querySelector(".mb-mid");
+        el.querySelector(".mb-win")?.remove(); el.querySelector(".mb-why")?.remove();
+        el.classList.remove("pre"); el.classList.add(st);
+        if (st === "in") { if (mid) mid.innerHTML = `<b class="live">LIVE</b><small>${esc(statusText(c.status, c.date))}</small>`; continue; }
+        const r = me?.winner ? "W" : op?.winner ? "L" : "T";
+        el.classList.add("res-" + r);
+        if (mid) mid.innerHTML = `<b class="${r}">${r}</b><small>${esc(c.status?.type?.shortDetail || "Final")}</small>`;
+        if (r !== "T") el.querySelector(`.mb-tm.${(r === "W" ? op : me)?.homeAway === "home" ? "home" : "away"}`)?.classList.add("lose");
+      }
     }
   }
 
