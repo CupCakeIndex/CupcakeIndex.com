@@ -1,8 +1,8 @@
 name: Cupcake stat post
 
 # Cupcake stats: droughts and résumés only our model can make (src/social/cupcake_stats.py).
-# Posts on its own Wednesday 3 PM Eastern (the strongest stat) and Saturday 9:30 AM Eastern (this week's
-# droughts, before kickoff). It won't post if the game history is incomplete or nothing clears the bar,
+# Posts once a day: weekdays 3 PM Eastern (the strongest stat not posted yet), Saturday 9:30 AM (college game-day
+# droughts and series), Sunday 9:30 AM (NFL series and playoff droughts). It won't post if the game history is incomplete or nothing clears the bar,
 # and never repeats itself (data/social/posted.json).
 # Manual: Actions tab > "Cupcake stat post" > Run workflow. Leave "Post to X" unticked to only make drafts
 # (download "cupcake-drafts" from the finished run and read drafts.md).
@@ -11,15 +11,16 @@ name: Cupcake stat post
 
 on:
   schedule:
-    - cron: "0 19 * 8-12,1 3"     # Wednesday 3 PM Eastern (2 PM in winter)
-    - cron: "30 13 * 8-12,1 6"    # Saturday 9:30 AM Eastern (8:30 in winter): this week's droughts
+    - cron: "0 19 * 8-12,1 1-5"   # Monday-Friday 3 PM Eastern (2 PM in winter): the strongest stat not posted yet
+    - cron: "30 13 * 8-12,1 6"    # Saturday 9:30 AM Eastern: this week's college droughts / series, before kickoff
+    - cron: "30 13 * 8-12,1 0"    # Sunday 9:30 AM Eastern: this week's NFL series / playoff droughts, before kickoff
   workflow_dispatch:
     inputs:
       stat:
         description: "Which stat (best = the strongest one right now)"
         type: choice
         default: best
-        options: [best, bully_drought, week_drought, soft_unbeaten, top25_test, nfl_top8_test]
+        options: [best, bully_drought, week_drought, series_week, soft_unbeaten, top25_test, cupcake_streak, top10_drought, nfl_series_week, nfl_playoff_drought, nfl_night_record, nfl_top8_test]
       theme:
         description: "Card look (a site theme; random = surprise me)"
         type: choice
@@ -59,9 +60,15 @@ jobs:
           STAT: ${{ inputs.stat }}
         run: |
           python src/social/cupcake_stats.py --all --theme "$THEME" || echo "No drafts this time"
-          # scheduled Saturday run: this week's droughts first, the best of the rest if there aren't any
-          if [ -z "$STAT" ]; then [ "$(date -u +%u)" = "6" ] && STAT=week_drought || STAT=best; fi
-          python src/social/cupcake_stats.py --stat "$STAT" --theme "$THEME"             || { [ "$STAT" != best ] && python src/social/cupcake_stats.py --stat best --theme "$THEME"; }             || echo "Nothing to post"
+          # scheduled runs: Saturday = college game-day stats, Sunday = NFL game-day stats, weekdays = the best one
+          # (each list is tried in order; the first stat with something new to say posts)
+          if [ -n "$STAT" ]; then TRY="$STAT best"
+          else case "$(date -u +%u)" in
+            6) TRY="week_drought series_week top10_drought best" ;;
+            7) TRY="nfl_series_week nfl_playoff_drought nfl_night_record best" ;;
+            *) TRY="best" ;;
+          esac; fi
+          for k in $TRY; do python src/social/cupcake_stats.py --stat "$k" --theme "$THEME" && break; done || echo "Nothing to post"
       - uses: actions/upload-artifact@v4
         with:
           name: cupcake-drafts

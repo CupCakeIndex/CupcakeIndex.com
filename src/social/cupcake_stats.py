@@ -387,9 +387,196 @@ def _():
     return top_test("nfl")
 
 
+# ------------------------------------------------------------------ more stats, from the Just the Facts files
+# (docs/data/<league>/facts.json: team_facts.py / nfl_facts.py, refreshed with the weekly and cupcake runs).
+# These return several candidates (best first); the driver posts the first one that hasn't been posted yet.
+def facts(league):
+    p = Path(ROOT) / "docs" / "data" / league / "facts.json"
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def fact_of(fs, label_start):
+    return next((f for f in fs if f["label"].startswith(label_start)), None)
+
+
+def short_name(name, league):
+    return name.split(" ")[-1] if league == "nfl" else name
+
+
+def the(name, league):
+    """NFL teams read as plural ("The Lions are"), schools as singular ("Alabama is")."""
+    return (f"The {short_name(name, league)}", "are", "have") if league == "nfl" else (name, "is", "has")
+
+
+def ranked_list(league, pick, sort_key, n=5):
+    """[(team dict, value, label, fact)] for every team the picker likes, best first."""
+    d = facts(league)
+    if not d:
+        return [], None
+    ts, by = subjects(league)
+    out = []
+    for name, fs in d["teams"].items():
+        t = by.get(name)
+        if not t:
+            continue
+        got = pick(t, fs)
+        if got:
+            out.append((t,) + got)
+    out.sort(key=sort_key)
+    return out, d
+
+
+def candidates(rows, build, n=4):
+    """One fact per top row (each with that team as the card's lead), for the no-repeat picker."""
+    out = []
+    for i in range(min(n, len(rows))):
+        lead = rows[i]
+        f = build(lead, [lead] + [r for j, r in enumerate(rows) if j != i][:4])
+        if f:
+            out.append(f)
+    return out
+
+
+@stat("cupcake_streak")
+def _():
+    out = []
+    for league in ("cfb", "nfl"):
+        def pick(t, fs):
+            f = fact_of(fs, "straight wins over cupcakes")
+            return (int(f["big"]), f"{f['big']} straight", f) if f and int(f["big"]) >= (15 if league == "cfb" else 8) else None
+        rows, d = ranked_list(league, pick, lambda r: -r[1])
+        def build(lead, rows_, league=league, d=d):
+            t, n, lab, f = lead
+            who, verb, has = the(t["team"], league)
+            last = f["detail"].replace("Last loss to one: ", "")
+            tail = (f"The last cupcake to beat {'them' if league == 'nfl' else 'it'}: {last}." if "Last loss" in f["detail"]
+                    else f"No cupcake has beaten {'them' if league == 'nfl' else 'it'} since at least {d['since']}.")
+            return fact(league, [(r[0], r[1], r[2]) for r in rows_], "Cupcake streaks", "Longest active win streaks against cupcakes (our cupcake rule)",
+                        "straight wins over cupcakes", f"{who} {has} won {n} straight games against cupcakes. {tail}", str(n), "straight wins over cupcakes", n / 10)
+        out += candidates(rows, build, 3)
+    return out
+
+
+@stat("top10_drought")
+def _():
+    def pick(t, fs):
+        if not t.get("ap_rank"):
+            return None
+        f = fact_of(fs, "last win over a top-10 team")
+        if f:
+            yrs = dt.date.today().year - int(f["big"])
+            return (yrs, f"since {f['big']}", f) if yrs >= 3 else None
+        f = fact_of(fs, "vs top-10 teams")
+        return (99, f"never ({f['big']})", f) if f else None
+    rows, d = ranked_list("cfb", pick, lambda r: -r[1])
+    def build(lead, rows_):
+        t, yrs, lab, f = lead
+        body = (f"No. {t['ap_rank']} {t['team']} hasn't beaten a top-10 team since {f['detail'].split(':')[0]}. Since then: {f['detail'].rsplit('Since then: ', 1)[-1]}."
+                if f["label"].startswith("last") else f"No. {t['ap_rank']} {t['team']} hasn't beaten a top-10 team since at least {d['since']} ({f['big']}).")
+        return fact("cfb", [(r[0], min(r[1], 25), r[2]) for r in rows_], "Ranked, but untested", "AP-ranked teams, by their last win over a top-10 team",
+                    "years since beating a top-10 team", body, f["big"], "last win over a top-10 team" if f["label"].startswith("last") else "vs top-10 teams", yrs if yrs < 99 else 20)
+    return candidates(rows, build)
+
+
+def series_week(league):
+    def pick(t, fs):
+        f = next((x for x in fs if x["label"].endswith("(next opponent)")), None)
+        if not f:
+            return None
+        w, l = (int(x) for x in f["big"].split("-")[:2])
+        if w + l < 5 or 0.25 < w / (w + l) < 0.75:
+            return None
+        return (max(w, l) / (w + l) + (w + l) / 100, f"{f['big']}", f)
+    rows, d = ranked_list(league, pick, lambda r: -r[1])
+    seen, uniq = set(), []
+    for r in rows:  # each matchup once (both teams have it)
+        opp = r[3]["label"].split("vs ", 1)[1].split(" since")[0]
+        key = frozenset((r[0]["team"], opp))
+        if key not in seen:
+            seen.add(key)
+            uniq.append(r)
+    def build(lead, rows_):
+        t, s, lab, f = lead
+        opp = f["label"].split("vs ", 1)[1].split(" since")[0]
+        who, verb, has = the(t["team"], league)
+        return fact(league, [(r[0], r[1], r[2]) for r in rows_], "Lopsided this week", f"This week's matchups, by series record since {d['since']}",
+                    "series record", f"{who} {verb} {f['big']} against {'the ' if league == 'nfl' else ''}{short_name(opp, league)} since {d['since']}. {f['detail']}. They meet again this week.",
+                    f["big"], f"vs {short_name(opp, league)} since {d['since']}", s * 10)
+    return candidates(uniq, build)
+
+
+@stat("series_week")
+def _():
+    return series_week("cfb")
+
+
+@stat("nfl_series_week")
+def _():
+    return series_week("nfl")
+
+
+@stat("nfl_playoff_drought")
+def _():
+    def pick(t, fs):
+        f = fact_of(fs, "in the playoffs")
+        if not f or "Last playoff win:" not in f["detail"]:
+            return None
+        date = f["detail"].split("Last playoff win: ")[1].split(":")[0]
+        yr = int(date.split(", ")[1])
+        return (dt.date.today().year - yr, f"last won {yr}", f) if dt.date.today().year - yr >= 8 else None
+    rows, d = ranked_list("nfl", pick, lambda r: -r[1])
+    def build(lead, rows_):
+        t, yrs, lab, f = lead
+        who, verb, has = the(t["team"], "nfl")
+        last = f["detail"].split("Last playoff win: ")[1]
+        return fact("nfl", [(r[0], r[1], r[2]) for r in rows_], "Playoff droughts", "Years since each team's last playoff win (data since 1999)",
+                    "years since a playoff win", playoff_line(who, has, last, d["since"], f["big"]),
+                    last.split(", ")[1][:4], "last playoff win", yrs / 2)
+    return candidates(rows, build)
+
+
+def playoff_line(who, has, last, since, rec):
+    """'The Dolphins haven't won a playoff game since Dec 30, 2000, a 23-17 win over the Indianapolis Colts in the Wild Card round.'"""
+    import re
+    m = re.match(r"(.+?): W (\d+-\d+) (?:vs\.|at) (.+?) \(([^,)]+)", last)
+    if not m:
+        return f"{who} {have(has)} won a playoff game since {last}. Playoff record since {since}: {rec}."
+    date, score, opp, rnd = m.groups()
+    return f"{who} {have(has)} won a playoff game since {date}, a {score} win over the {opp} in the {rnd}. Playoff record since {since}: {rec}."
+
+
+def have(has):
+    return "haven't" if has == "have" else "hasn't"
+
+
+@stat("nfl_night_record")
+def _():
+    def pick(t, fs):
+        f = fact_of(fs, "in night games")
+        if not f:
+            return None
+        w, l = (int(x) for x in f["big"].split("-")[:2])
+        pct = w / (w + l) if w + l else 0.5
+        return (abs(pct - 0.5), f"{f['big']}", f) if abs(pct - 0.5) >= 0.12 and w + l >= 30 else None
+    rows, d = ranked_list("nfl", pick, lambda r: -r[1])
+    def build(lead, rows_):
+        t, dev, lab, f = lead
+        who, verb, has = the(t["team"], "nfl")
+        good = int(f["big"].split("-")[0]) > int(f["big"].split("-")[1])
+        return fact("nfl", [(r[0], r[1], r[2]) for r in rows_], "Under the lights" if good else "Lights too bright", f"Night-game records since {d['since']} (7 PM Eastern or later)",
+                    "night-game record", f"{who} {verb} {f['big']} in night games since {d['since']} ({f['detail'].split('.')[0]}). {f['detail'].split('. ', 1)[-1]}.",
+                    f["big"], "in night games since " + str(d["since"]), dev * 20)
+    return candidates(rows, build)
+
+
 # ------------------------------------------------------------------ driver
-def make(key, out, theme=None):
+def make(key, out, theme=None, draft=False):
     f = STATS[key]()
+    if isinstance(f, list):  # several candidates: the first one not posted yet (drafts: just the first)
+        f = next((x for x in f if draft or not posted.seen(tweet(x["text"], "", with_link=False))), None)
     if not f:
         return None
     theme = theme or random.choice(list(O.THEMES))
@@ -425,7 +612,7 @@ def main():
     made = []
     for key in keys:
         try:
-            m = make(key, out, None if a.theme == "random" else a.theme)
+            m = make(key, out, None if a.theme == "random" else a.theme, draft=a.all)
         except Exception as e:  # one stat failing shouldn't stop the rest
             print(f"[{key}] failed: {e!r}")
             m = None
