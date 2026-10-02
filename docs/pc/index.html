@@ -114,6 +114,9 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 .crop-dot::after { content: ""; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: var(--gold2); }
 .crop-stage .crop-loupe { position: absolute; display: none; width: 110px; height: 110px; border-radius: 50%; border: 2px solid var(--gold2); box-shadow: 0 6px 18px rgba(0,0,0,.6); pointer-events: none; }
 .crop .acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.read-btn { justify-self: center; }
+.auto-filled, label.f input.auto-filled { border-color: var(--gold2); box-shadow: 0 0 0 1px var(--gold2); }
+.checks label.auto-filled { color: var(--gold2); }
 .adj-bar { display: flex; gap: 6px; justify-content: center; margin-top: -4px; }
 /* card viewer: the card up close over a blurred page */
 .viewer { position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 56px 16px max(20px, env(safe-area-inset-bottom));
@@ -168,6 +171,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 
 <script src="../firebase-config.js"></script>
 <script src="cardcrop.js?v=1"></script>
+<script src="cardread.js?v=1"></script>
 <script>window.VAULT_SEARCH_URL = ""; // the Cloudflare Worker's address (workers/vault-search.js) once it's set up</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -268,7 +272,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     v.className = "viewer";
     v.innerHTML = `<button type="button" class="v-x" aria-label="Close">✕</button>
       <div class="v-stage"><div class="v-card" style="width:${W}px;height:${H}px;--t:${T / 2}px">${side(c.front, "front", "No photo")}${side(c.back, "back", "No back photo")}${edge}</div></div>
-      <div class="v-info"><b>${esc(c.player || "Unknown player")}</b><span>${esc([c.year, c.set, c.parallel, c.serial, c.grade].filter(Boolean).join(" · "))}</span>
+      <div class="v-info"><b>${esc(c.player || "Unknown player")}</b><span>${esc([c.year, c.set, c.number, c.parallel, c.serial, c.grade].filter(Boolean).join(" · "))}</span>
         <div class="tags">${tagsOf(c)}</div>
         <div class="v-acts"><button type="button" id="v-flip">Flip</button><button type="button" id="v-turn">Turn</button></div>
         <p class="hint">Drag to turn it in your hand · tap it to flip</p></div>`;
@@ -351,7 +355,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   // Card search (eBay listing photos) goes through a small Cloudflare Worker that holds the eBay key.
   // Empty until it's set up; then search shows up in "Add a card".
   const SEARCH = window.VAULT_SEARCH_URL || "";
-  const CC = window.CardCrop;
+  const CC = window.CardCrop, CR = window.CardRead;
   // Corner picker: the photo with 4 dots. Drag each dot onto a corner of the card (a zoom bubble shows
   // exactly where you are), then the card gets warped flat. Resolves with the 4 corners, "whole", or null (cancel).
   function cornerPicker(bmp, start) {
@@ -429,15 +433,17 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
         <button type="button" id="s-go">Search</button></div><div class="srch-res" id="s-res"></div><p class="hint" id="s-from"></p></div>
         <p class="hint">Or use your own photos:</p>` : ""}
       <div class="photos"><div class="pcell">${photo("front", "Tap to add the front")}</div><div class="pcell">${photo("back", "Tap to add the back (optional)")}</div></div>
+      <button type="button" class="adj read-btn" id="rd">Read the card</button>
       <div class="row2"><label class="f">Player<input name="player" required value="${esc(c.player)}" placeholder="C.J. Stroud"></label>
         <label class="f">Team<input name="team" list="team-list" value="${esc(c.team)}" placeholder="Houston Texans"></label>
         <datalist id="team-list">${TEAMS.map((t) => `<option value="${esc(t.name)}">`).join("")}</datalist></div>
       <div class="row2"><label class="f">Year<input name="year" inputmode="numeric" value="${esc(c.year)}" placeholder="2023"></label>
         <label class="f">Set<input name="set" value="${esc(c.set)}" placeholder="Panini Prizm"></label></div>
       <div class="row2"><label class="f">Parallel / insert<input name="parallel" value="${esc(c.parallel)}" placeholder="Silver"></label>
-        <label class="f">Serial #<input name="serial" value="${esc(c.serial)}" placeholder="/99"></label></div>
-      <div class="row2"><label class="f">Grade<input name="grade" value="${esc(c.grade)}" placeholder="PSA 10"></label>
-        <label class="f">Notes<input name="notes" value="${esc(c.notes)}" placeholder="Pulled it myself"></label></div>
+        <label class="f">Card #<input name="number" value="${esc(c.number)}" placeholder="#339"></label></div>
+      <div class="row2"><label class="f">Serial #<input name="serial" value="${esc(c.serial)}" placeholder="/99"></label>
+        <label class="f">Grade<input name="grade" value="${esc(c.grade)}" placeholder="PSA 10"></label></div>
+      <label class="f">Notes<input name="notes" value="${esc(c.notes)}" placeholder="Pulled it myself"></label>
       <div class="checks"><label><input type="checkbox" name="rookie" ${c.rookie ? "checked" : ""}> Rookie</label>
         <label><input type="checkbox" name="auto" ${c.auto ? "checked" : ""}> Auto</label>
         <label><input type="checkbox" name="grail" ${c.grail ? "checked" : ""}> My grail (featured at the top)</label></div>
@@ -473,8 +479,33 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
         if (!p.q) { st.textContent = ""; p.q = await cornerPicker(p.bmp) || "whole"; }
         else st.textContent = "Card found and straightened. Tap Corners if it's off.";
         render(k);
+        readCard();
       } catch (e) { st.textContent = "That photo couldn't be read. Try a JPEG or a screenshot."; }
     };
+    // read the card's printed text and fill in what's still blank (never anything you typed); gold = filled in by the reader
+    const form = w.querySelector("form"), autoF = new Set(), LABEL = { player: "player", team: "team", year: "year", set: "set", number: "card #", serial: "serial #", grade: "grade", rookie: "rookie", auto: "auto" };
+    form.addEventListener("input", (e) => { if (e.target.name) { autoF.delete(e.target.name); e.target.classList.remove("auto-filled"); e.target.parentElement.classList.remove("auto-filled"); } });
+    let reading = 0;
+    const readCard = async () => {
+      if (!imgs.front && !imgs.back) { st.textContent = "Add a photo of the card first."; return; }
+      const my = ++reading;
+      st.textContent = "Reading the card… (the first time takes a few seconds)";
+      try {
+        const r = await CR.read({ front: imgs.front, back: imgs.back }, TEAMS, wide.back || !!P.back.t || !P.back.bmp);
+        if (my !== reading) return;
+        if (r.backDeg && P.back.bmp && !P.back.t) { P.back.t = r.backDeg === 90 ? 1 : 3; render("back"); } // back printed sideways: turn it to read
+        const got = [];
+        for (const [k, v] of Object.entries(r.fields)) {
+          const el = form.elements[k]; if (!el) continue;
+          if (el.type === "checkbox") { if (v && !el.checked) { el.checked = true; el.parentElement.classList.add("auto-filled"); got.push(LABEL[k]); } continue; }
+          if (el.value.trim() && !autoF.has(k)) continue;
+          el.value = v; autoF.add(k); el.classList.add("auto-filled"); got.push(LABEL[k]);
+        }
+        st.textContent = got.length ? `Read off the card: ${got.join(", ")}. Double-check the gold ones.` : "Couldn't read much off this one. Add the back (backs read best) or fill it in by hand.";
+      } catch (e) { if (my === reading) st.textContent = "The card reader couldn't load (" + e.message + "). Fill it in by hand."; }
+    };
+    w.querySelector("#rd").onclick = readCard;
+    CR.warm();
     w.querySelectorAll("input[type=file]").forEach((inp) => inp.onchange = () => { const f = inp.files[0]; if (f) setPhoto(inp.dataset.k, f); });
     if (SEARCH) {
       const res = w.querySelector("#s-res"), q = w.querySelector("#s-q");
@@ -507,7 +538,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     w.querySelector("form").onsubmit = async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target), data = {};
-      for (const k of ["player", "team", "year", "set", "parallel", "serial", "grade", "notes"]) data[k] = (fd.get(k) || "").trim();
+      for (const k of ["player", "team", "year", "set", "parallel", "number", "serial", "grade", "notes"]) data[k] = (fd.get(k) || "").trim();
       data.year = data.year ? +data.year || data.year : "";
       for (const k of ["rookie", "auto", "grail"]) data[k] = !!fd.get(k);
       data.front = imgs.front; data.back = imgs.back; data.frontWide = wide.front && !!imgs.front; data.backWide = wide.back && !!imgs.back;
