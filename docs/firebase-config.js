@@ -5,7 +5,7 @@
 // These values are not secrets: every Firebase website ships them. The security rules (firestore.rules) protect the data.
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyAEoBODAU1Wr91M4zEte6mkLDvWPVhdnMk",
-  authDomain: "cupcake-index.firebaseapp.com",
+  authDomain: "cupcakeindex.com", // sign-in runs on our own domain (helper files in docs/__/auth/), so the iPhone home-screen app works
   projectId: "cupcake-index",
   storageBucket: "cupcake-index.firebasestorage.app",
   messagingSenderId: "309642475435",
