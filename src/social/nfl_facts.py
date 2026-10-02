@@ -2,10 +2,10 @@
 Written to docs/data/nfl/facts.json; NFL team pages show them, same as college (team_facts.py).
 
 The NFL has no AP poll, so the college facts get NFL stand-ins:
-  cupcakes          the NFL cupcake rule from the site (clearly bad AND 5+ points worse), with each season's
-                    ratings from that season's scores (our power rating, scores only)
+  cupcakes          the NFL cupcake rule from the site (clearly bad AND 5+ points worse), with each past season's
+                    ratings from its scores (our power rating, scores only) and the site's own ratings this season
   "ranked" teams    teams with a winning record going into the game
-  "top-10" teams    teams that made the playoffs that season
+  "top-10" teams    our top 10 by rating: that season's final ratings, or today's for this season
 plus the playoff record, prime-time record, and the series with the next opponent.
 Relocated teams are one franchise: Oakland/Las Vegas Raiders, San Diego/LA Chargers, St. Louis/LA Rams.
 
@@ -68,11 +68,23 @@ def season_ratings(rows, c):
     return out
 
 
+def site_ratings(names):
+    """This season's ratings from the site's latest rankings file: {season: {abbr: rating}} (empty if missing)."""
+    try:
+        sys.path.insert(0, str(HERE))
+        from render import latest
+        cur, _, _ = latest("nfl")
+    except Exception as e:
+        print(f"(site ratings unavailable, using scores only: {e!r})")
+        return {}
+    abbr = {n: a for a, n in names.items()}
+    return {cur["season"]: {abbr[t["team"]]: t["rating"] for t in cur["teams"] if t["team"] in abbr}}
+
+
 def team_games(rows, R, c):
     """Every finished game from each team's point of view, oldest first, with the context the facts need."""
     seasons = sorted({int(r["season"]) for r in rows})
-    playoff_teams = {s: {FRANCHISE.get(t, t) for r in rows if int(r["season"]) == s and r["game_type"] in POST
-                         for t in (r["home_team"], r["away_team"])} for s in seasons}
+    top10 = {s: set(sorted(R.get(s, {}), key=lambda t: -R[s][t])[:10]) for s in seasons}
     out, record = {}, {}
     for r in sorted(rows, key=lambda r: (r["gameday"], r["game_id"])):
         if r["home_score"] == "":
@@ -88,7 +100,7 @@ def team_games(rows, R, c):
             out.setdefault(me, []).append({
                 "season": s, "d": r["gameday"], "opp": opp, "loc": loc, "us": us, "them": them,
                 "won": us > them, "tie": us == them, "post": r["game_type"], "raw": raw,
-                "opp_winning": ow > ol, "opp_rec": rec(ow, ol, ot), "opp_playoff": opp in playoff_teams[s],
+                "opp_winning": ow > ol, "opp_rec": rec(ow, ol, ot), "opp_top10": opp in top10[s],
                 "cup": tr is not None and orr is not None and model.cupcake_weight(tr, orr, False, c) > 0,
                 "night": (r["gametime"] or "00:00") >= "19:00"})
         if r["game_type"] == "REG":
@@ -143,11 +155,11 @@ def facts_for(team, gs, names, upcoming):
         out.append({"big": str(last["season"]), "label": "last road win over a team with a winning record",
                     "detail": f"{line(last, names)} ({last['opp_rec']} going in){since(w, l)}"} if last else
                    {"big": rec(0, l), "label": "on the road vs teams with a winning record", "detail": f"No such win since at least {FIRST}"})
-    # 3. against playoff teams
-    last, w, l, n = drought(gs, lambda g: g["opp_playoff"])
+    # 3. against top-10 teams (our ratings: final for past seasons, today's for this one)
+    last, w, l, n = drought(gs, lambda g: g["opp_top10"])
     if n:
-        out.append({"big": str(last["season"]), "label": "last win over a playoff team", "detail": line(last, names) + since(w, l)} if last else
-                   {"big": rec(0, l), "label": "vs playoff teams", "detail": f"No wins over a playoff team since at least {FIRST}"})
+        out.append({"big": str(last["season"]), "label": "last win over a top-10 team", "detail": line(last, names) + since(w, l)} if last else
+                   {"big": rec(0, l), "label": "vs top-10 teams", "detail": f"No wins over a top-10 team since at least {FIRST}"})
     # 4. playoffs
     po = [g for g in gs if g["post"] in POST]
     pw, pl = sum(g["won"] for g in po), sum(not g["won"] for g in po)
@@ -184,7 +196,7 @@ def main():
     rows, abbr_name = load(a.refresh)
     names = {t: n for t, n in abbr_name.items() if t not in FRANCHISE}
     c = cfg()
-    R = season_ratings(rows, c)
+    R = {**season_ratings(rows, c), **site_ratings(names)}
     games = team_games(rows, R, c)
     today = dt.date.today().isoformat()
     upcoming = {}

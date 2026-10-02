@@ -2880,7 +2880,7 @@ const Live = (() => {
     const facts = factsAll?.teams?.[ours?.team] || [];
     const factsCard = facts.length ? `<div class="card jfacts"><h3>Just the facts <small>since ${esc(factsAll.since)} · updated ${esc(factsAll.updated)}</small></h3>
         <div class="jf-grid">${facts.map((f) => `<div class="jf"><b>${esc(f.big)}</b><span>${esc(f.label)}</span><small>${esc(f.detail)}</small></div>`).join("")}</div>
-        <p class="note">${nfl ? "Cupcake = a clearly bad team 5+ points worse, the same rule as the rankings. \"Winning record\" is going into the game; \"playoff team\" made the playoffs that season. Night games kick off at 7 PM Eastern or later. Raiders, Chargers and Rams include their Oakland, San Diego and St. Louis years."
+        <p class="note">${nfl ? "Cupcake = a clearly bad team 5+ points worse, the same rule as the rankings. \"Winning record\" is going into the game; \"top 10\" is our top 10 by rating (final ratings for past seasons, today's for this one). Night games kick off at 7 PM Eastern or later. Raiders, Chargers and Rams include their Oakland, San Diego and St. Louis years."
           : "Cupcake = an opponent far below this team's level, the same rule as the rankings. \"Ranked\" and \"top 10\" use the AP poll going into each game."}</p></div>` : "";
     const hub = `
       <div class="card thub" style="--tc:${esc(teamColor(T))}">

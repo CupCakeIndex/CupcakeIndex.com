@@ -50,6 +50,14 @@ def history():
         for f in sorted(HIST.glob("*.json")):
             d = json.loads(f.read_text(encoding="utf-8"))
             _H[d["season"]] = d
+        # this season: use the site's own ratings (they start from a preseason estimate), not scores alone,
+        # which swing wildly a few games in and would call decent teams cupcakes
+        try:
+            cur, _, _ = O.latest("cfb")
+            if cur["season"] in _H:
+                _H[cur["season"]]["ratings"] = {**dict(cur.get("fcs_ratings") or []), **{t["team"]: t["rating"] for t in cur["teams"]}}
+        except Exception as e:
+            print(f"(site ratings unavailable, using scores only: {e!r})")
     return _H
 
 
