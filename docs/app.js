@@ -201,7 +201,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "143"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "144"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
