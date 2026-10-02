@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://a.espncdn.com">
 <meta name="theme-color" content="#0f1216">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=155">
+<link rel="stylesheet" href="style.css?v=156">
 <script>
 // Appearance (Dark / Light / System) + theme from the Settings page, applied before first paint so the page never flashes.
 // html[data-theme] = "dark" | "light" (System is resolved here and follows the device live); html[data-theme-name] = theme key.
@@ -51,28 +51,43 @@ window.CIT = (function () {
     return "cfb";
   }
   function myTeam(lg) { var p = profile(); return p && (p[lg || curLeague()] || p.cfb || p.nfl) || null; }
+  // hue-preserving brighten/darken (HSL), so a dark team color becomes a rich version of itself, not a pastel
+  function toHsl(c) {
+    var r = c[0] / 255, g = c[1] / 255, b = c[2] / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, h = 0, s = 0, d = mx - mn;
+    if (d) { s = d / (1 - Math.abs(2 * l - 1)); h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; if (h < 0) h += 360; }
+    return [h, s, l];
+  }
+  function fromHsl(h, s, l) {
+    var c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2, k = Math.floor(h / 60) % 6;
+    var p = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]][k];
+    return p.map(function (v) { return (v + m) * 255; });
+  }
+  function readable(c, bg, min, lighter) {
+    var hsl = toHsl(c);
+    if (hsl[1] > 0.15) hsl[1] = Math.max(hsl[1], 0.6); // keep real colors vivid
+    for (var i = 0; i < 30 && contrast(fromHsl(hsl[0], hsl[1], hsl[2]), bg) < min; i++) hsl[2] = Math.max(0, Math.min(1, hsl[2] + (lighter ? 0.025 : -0.025)));
+    return fromHsl(hsl[0], hsl[1], hsl[2]);
+  }
   function teamVars(t, light) {
-    var P = rgb(t.color) || [11, 22, 40], A = rgb(t.alt), black = [6, 8, 11], white = [255, 255, 255], v = {};
-    var bg = light ? mix(P, white, 0.92) : mix(P, black, 0.8);
-    // highlight = the team's main color (lightened/darkened just enough to read); black/gray main colors (Steelers,
-    // Raiders) use the second color instead. The second color becomes the text on highlighted buttons when it reads.
-    var acc = sat(P) < 0.2 && A && sat(A) > 0.25 ? A : P;
-    for (var i = 0; i < 14 && contrast(acc, bg) < 3; i++) acc = mix(acc, light ? black : white, 0.12);
+    var P = rgb(t.color) || [11, 22, 40], A = rgb(t.alt), v = {};
+    // neutral base with just a hint of the team color: clean, not muddy. The team color is saved for highlights.
+    var bg = light ? mix(P, [250, 250, 251], 0.95) : mix(P, [10, 11, 14], 0.93);
+    var card = light ? [255, 255, 255] : mix(P, [19, 21, 25], 0.92);
+    var base = sat(P) < 0.2 && A && sat(A) > 0.25 ? A : P; // black/gray teams (Steelers) lead with their second color
+    var acc = readable(base, bg, light ? 4 : 3.6, !light);
     v["--bg"] = hex(bg);
-    v["--card"] = light ? "#ffffff" : hex(mix(P, black, 0.7));
-    v["--ink"] = light ? "#12151a" : "#f3f4f6";
-    v["--muted"] = light ? hex(mix([93, 101, 115], P, 0.2)) : hex(mix([160, 166, 178], P, 0.22));
-    v["--line"] = light ? hex(mix(P, white, 0.78)) : hex(mix(P, black, 0.5));
+    v["--card"] = hex(card);
+    v["--ink"] = light ? "#14161a" : "#f2f3f5";
+    v["--muted"] = light ? "#5f6672" : "#9aa1ad";
+    v["--line"] = light ? hex(mix(P, [226, 228, 232], 0.88)) : hex(mix(P, [40, 43, 50], 0.86));
     v["--accent"] = hex(acc);
-    v["--accent-soft"] = hex(mix(acc, bg, 0.78));
-    var on = A && acc !== A && contrast(A, acc) >= 3 ? A : lum(acc) > 0.4 ? [11, 11, 11] : white;
+    v["--accent-soft"] = hex(mix(acc, bg, 0.84));
+    var on = A && base !== A && contrast(A, acc) >= 3 ? A : lum(acc) > 0.4 ? [11, 11, 11] : [255, 255, 255];
     v["--on-accent"] = hex(on);
     v["--bar"] = hex(acc);
     v["--bar-bg"] = v["--line"];
     v["--team-logo"] = t.logo ? 'url("' + t.logo + '")' : "none";
-    // the second color for the letterman wordmark: the team's alt color (or white/black), readable on the page
-    var alt = A && acc !== A ? A : light ? [18, 21, 26] : white;
-    for (var j = 0; j < 10 && contrast(alt, bg) < 2.2; j++) alt = mix(alt, light ? black : white, 0.15);
+    var alt = A && base !== A ? readable(A, bg, 2.6, !light) : light ? [20, 22, 26] : [255, 255, 255];
     v["--team-alt"] = hex(alt);
     return v;
   }
@@ -292,16 +307,16 @@ window.CIT = (function () {
   </div>
 </div>
 
-<script src="app.js?v=155"></script>
-<script src="live.js?v=155"></script>
-<script src="daily.js?v=155"></script>
-<script src="share.js?v=155"></script>
-<script src="pickem.js?v=155"></script>
-<script src="fantasy.js?v=155"></script>
-<script src="news.js?v=155"></script>
-<script src="settings.js?v=155"></script>
-<script src="firebase-config.js?v=155"></script>
-<script src="account.js?v=155"></script>
-<script src="profile.js?v=155"></script>
+<script src="app.js?v=156"></script>
+<script src="live.js?v=156"></script>
+<script src="daily.js?v=156"></script>
+<script src="share.js?v=156"></script>
+<script src="pickem.js?v=156"></script>
+<script src="fantasy.js?v=156"></script>
+<script src="news.js?v=156"></script>
+<script src="settings.js?v=156"></script>
+<script src="firebase-config.js?v=156"></script>
+<script src="account.js?v=156"></script>
+<script src="profile.js?v=156"></script>
 </body>
 </html>
