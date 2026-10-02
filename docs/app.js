@@ -239,7 +239,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "153"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "154"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -267,6 +267,9 @@ async function init() {
     const l = e.target.dataset.league;
     if (!l || l === league) return;
     const { view } = parseHash();
+    // on a team page: jump to your favorite team in the other league, if you have one
+    const fav = view === "team" && typeof Profile !== "undefined" ? Profile.get()?.[l] : null;
+    if (fav) { location.hash = link("team", fav.id, { league: l }).slice(1); return; }
     // game/player/team pages belong to one league; fall back to that league's scores
     const next = ["game", "player", "team", "freeagents"].includes(view) ? "scores" : view;
     location.hash = `#/${next}?league=${l}`;

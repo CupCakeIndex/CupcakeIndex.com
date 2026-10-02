@@ -52,12 +52,6 @@ const Profile = (() => {
   async function open(first = false) {
     const all = await loadTeams(), p = get() || {};
     document.querySelector(".pf-wrap")?.remove();
-    const opts = (lg) => {
-      const groups = {};
-      for (const t of all[lg] || []) (groups[t.group || "Other"] ||= []).push(t);
-      return `<option value="">Pick a team</option>` + Object.keys(groups).sort().map((g) => `<optgroup label="${esc(g)}">${groups[g]
-        .map((t) => `<option value="${esc(t.name)}"${p[lg]?.name === t.name ? " selected" : ""}>${esc(t.name)}</option>`).join("")}</optgroup>`).join("");
-    };
     const watch = p.watch || "both";
     const first_ = (Account.user?.()?.displayName || "").split(" ")[0];
     const w = document.createElement("div");
@@ -69,12 +63,10 @@ const Profile = (() => {
       <div class="pf-row"><span>What do you watch?</span>
         <div class="seg" id="pf-watch">${[["cfb", "College"], ["nfl", "NFL"], ["both", "Both"]].map(([k, l]) =>
           `<button type="button" data-w="${k}" class="${k === watch ? "active" : ""}">${l}</button>`).join("")}</div></div>
-      <label class="pf-row pf-cfb"><span>Favorite college team</span><select id="pf-cfb">${opts("cfb")}</select></label>
-      <label class="pf-row pf-nfl"><span>Favorite NFL team</span><select id="pf-nfl">${opts("nfl")}</select></label>
+      <div class="pf-row pf-cfb"><span>Favorite college team</span><div class="pf-search" data-for="cfb"></div></div>
+      <div class="pf-row pf-nfl"><span>Favorite NFL team</span><div class="pf-search" data-for="nfl"></div></div>
       <div class="pf-row"><span>Other teams you follow <small>(optional, for quick links)</small></span>
-        <div class="pf-add"><select id="pf-extra"><option value="">Add a team</option>
-          <optgroup label="College">${(all.cfb || []).map((t) => `<option value="cfb|${esc(t.name)}">${esc(t.name)}</option>`).join("")}</optgroup>
-          <optgroup label="NFL">${(all.nfl || []).map((t) => `<option value="nfl|${esc(t.name)}">${esc(t.name)}</option>`).join("")}</optgroup></select></div>
+        <div class="pf-search" data-for="extra"></div>
         <div class="pf-chips" id="pf-chips"></div></div>
       <label class="pf-check"><input type="checkbox" id="pf-theme" ${first || CIT.name() === "team" ? "checked" : ""}> Use my team's colors for the site (Team theme)</label>
       <div class="pf-btns"><button type="submit" class="gbtn pf-save">Save</button><button type="button" class="boxbtn" id="pf-skip">${first ? "Skip for now" : "Cancel"}</button></div>
@@ -89,19 +81,54 @@ const Profile = (() => {
     const chips = () => { $w("#pf-chips").innerHTML = extras.map((f, i) => `<span class="pf-chip"><img src="${esc(thumb(f.logo, 18))}" alt="" width="18" height="18"> ${esc(f.name)}
       <button type="button" data-i="${i}" aria-label="Remove ${esc(f.name)}">×</button></span>`).join(""); };
     chips();
-    $w("#pf-extra").onchange = (e) => {
-      const [lg, n] = e.target.value.split("|"), t = (all[lg] || []).find((x) => x.name === n);
-      if (t && !extras.some((f) => f.lg === lg && f.id === t.id)) { extras.push({ ...t, lg }); chips(); }
-      e.target.value = "";
+    // typed team search (like the bracket's "> pick_" prompt): name, mascot, abbreviation or initials ("osu", "ttu")
+    const chosen = { cfb: p.cfb || null, nfl: p.nfl || null };
+    const initials = (n) => n.split(/[\s-]+/).map((x) => x[0] || "").join("").toLowerCase();
+    const matches = (q, lgs) => {
+      q = q.trim().toLowerCase();
+      if (!q) return [];
+      const out = [];
+      for (const lg of lgs) for (const t of all[lg] || []) {
+        const name = t.name.toLowerCase(), score = name.startsWith(q) ? 0 : (t.mascot || "").toLowerCase().startsWith(q) || (t.abbr || "").toLowerCase() === q ? 1
+          : initials(t.name) === q ? 1 : name.includes(q) || (t.mascot || "").toLowerCase().includes(q) ? 2 : -1;
+        if (score >= 0) out.push({ ...t, lg, score });
+      }
+      return out.sort((x, y) => x.score - y.score || x.name.localeCompare(y.name)).slice(0, 6);
     };
+    const field = (box) => {
+      const which = box.dataset.for, lgs = which === "extra" ? ["cfb", "nfl"] : [which];
+      const draw = () => {
+        const t = which === "extra" ? null : chosen[which];
+        box.innerHTML = t
+          ? `<span class="pf-picked"><img src="${esc(thumb(t.logo, 22))}" alt="" width="22" height="22"> ${esc(t.name)}<button type="button" aria-label="Change team">×</button></span>`
+          : `<label class="pf-tty"><span class="pf-gt">&gt;</span><input type="text" autocomplete="off" spellcheck="false" placeholder="${which === "extra" ? "add a team_" : "type your team_"}" aria-label="Search teams"></label><div class="pf-sug" role="listbox"></div>`;
+        if (t) { box.querySelector("button").onclick = () => { chosen[which] = null; draw(); box.querySelector("input").focus(); }; return; }
+        const inp = box.querySelector("input"), sug = box.querySelector(".pf-sug");
+        let list = [];
+        const pick = (t) => {
+          if (which === "extra") { if (!extras.some((f) => f.lg === t.lg && f.id === t.id)) { extras.push(t); chips(); } inp.value = ""; sug.innerHTML = ""; inp.focus(); }
+          else { chosen[which] = t; draw(); }
+        };
+        inp.oninput = () => {
+          list = matches(inp.value, lgs);
+          sug.innerHTML = list.map((t, i) => `<button type="button" role="option" data-i="${i}"><img src="${esc(thumb(t.logo, 20))}" alt="" width="20" height="20">
+            ${esc(t.name)} <small>${esc(which === "extra" ? (t.lg === "nfl" ? "NFL" : "CFB") : t.group || "")}</small></button>`).join("")
+            || (inp.value.trim() ? `<span class="pf-none">no match_</span>` : "");
+        };
+        inp.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); if (list[0]) pick(list[0]); } };
+        sug.onclick = (e) => { const b = e.target.closest("[data-i]"); if (b) pick(list[+b.dataset.i]); };
+      };
+      draw();
+    };
+    w.querySelectorAll(".pf-search").forEach(field);
     $w("#pf-chips").onclick = (e) => { const b = e.target.closest("[data-i]"); if (b) { extras.splice(+b.dataset.i, 1); chips(); } };
     const close = () => w.remove();
     $w("#pf-skip").onclick = () => { if (first && !get()) save({ name: $w("#pf-name").value.trim(), watch: pick }); close(); }; // don't ask again
     w.addEventListener("click", (e) => { if (e.target === w) close(); });
     $w("#pf-form").onsubmit = (e) => {
       e.preventDefault();
-      const find = (lg) => { const n = $w("#pf-" + lg).value; const t = (all[lg] || []).find((x) => x.name === n); return t && pick !== (lg === "cfb" ? "nfl" : "cfb") ? t : null; };
-      const np = { name: $w("#pf-name").value.trim(), watch: pick, cfb: find("cfb"), nfl: find("nfl"), favs: extras };
+      const find = (lg) => { const t = chosen[lg]; if (!t || pick === (lg === "cfb" ? "nfl" : "cfb")) return null; const { score, lg: _l, ...clean } = t; return clean; };
+      const np = { name: $w("#pf-name").value.trim(), watch: pick, cfb: find("cfb"), nfl: find("nfl"), favs: extras.map(({ score, ...f }) => f) };
       if ($w("#pf-theme").checked && (np.cfb || np.nfl)) CIT.save(CIT.mode(), "team");
       else if (CIT.name() === "team" && !$w("#pf-theme").checked) CIT.save(CIT.mode(), "varsity");
       save(np);

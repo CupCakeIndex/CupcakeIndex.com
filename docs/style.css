@@ -1812,3 +1812,16 @@ img[src*="teamlogos"], img[src*="collegefootballdata.com/logos"], img[src*="head
 html[data-theme-name="team"] :is(#view-rankings, #view-scores, #view-picks, #view-games, #view-settings)::before { content: ""; position: fixed;
   right: -6vmin; bottom: -6vmin; width: 46vmin; height: 46vmin; z-index: -1; pointer-events: none;
   background: var(--team-logo, none) center / contain no-repeat; opacity: .07; }
+/* profile: typed team search (terminal prompt + suggestions) */
+.pf-search { position: relative; }
+.pf-tty { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--bg); padding: 0 10px; }
+.pf-tty:focus-within { border-color: var(--accent); }
+.pf-gt { color: var(--accent); font-weight: 800; font-family: "JetBrains Mono", monospace; }
+.pf-tty input { flex: 1; min-width: 0; border: 0 !important; background: none !important; padding: 10px 0 !important; color: var(--ink); font: 16px "JetBrains Mono", monospace; outline: none; }
+.pf-sug { display: grid; }
+.pf-sug button { display: flex; align-items: center; gap: 8px; text-align: left; padding: 8px 10px; border: 1px solid var(--line); border-top: 0; background: var(--card); color: var(--ink); cursor: pointer; font: inherit; }
+.pf-sug button:hover, .pf-sug button:focus { background: var(--accent-soft); outline: none; }
+.pf-sug small { margin-left: auto; color: var(--muted); font-size: 11px; }
+.pf-none { padding: 8px 10px; color: var(--muted); font-family: "JetBrains Mono", monospace; font-size: 13px; }
+.pf-picked { display: inline-flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--accent); font-weight: 700; }
+.pf-picked button { border: 0; background: none; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px 0 6px; }
