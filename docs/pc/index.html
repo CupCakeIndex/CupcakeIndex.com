@@ -51,14 +51,12 @@ html, body { overflow-x: hidden; }
 .grail h3 { margin: 0; font: 400 clamp(30px, 5vw, 48px)/1 var(--display); text-transform: uppercase; }
 .grail p { color: var(--muted); margin: 8px 0 0; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 22px 18px; }
-/* a card: 2.5 x 3.5, flips on tap, leans with the pointer */
+/* a card: 2.5 x 3.5, leans with the pointer, opens up close on tap */
 .card { perspective: 900px; cursor: pointer; }
 .card .inner { position: relative; aspect-ratio: 5 / 7; transition: transform .75s cubic-bezier(.3, 1.4, .5, 1); transform-style: preserve-3d;
   transform: translateZ(var(--lift, 0px)) rotateZ(var(--turn, 0deg)) scale(var(--shrink, 1)) rotateY(var(--flip, 0deg)) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
-.card.flipped .inner { --flip: 180deg; }
-/* a sideways side (landscape back, horizontal card): the card turns and shrinks to fit when that side is showing */
-.card.fw:not(.flipped) .inner, .card.bw.flipped .inner { --turn: 90deg; --shrink: .714; }
-.card.spinning .inner { --lift: 60px; }   /* lifts toward you mid-spin, then settles */
+/* a horizontal card: shown sideways (turned and shrunk to fit its spot) */
+.card.fw .inner { --turn: 90deg; --shrink: .714; }
 .face { position: absolute; inset: 0; border-radius: 10px; overflow: hidden; backface-visibility: hidden; background: #1a1a20 center / cover no-repeat;
   box-shadow: 0 10px 28px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.06); }
 .face.back { transform: rotateY(180deg); }
@@ -117,6 +115,22 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 .crop-stage .crop-loupe { position: absolute; display: none; width: 110px; height: 110px; border-radius: 50%; border: 2px solid var(--gold2); box-shadow: 0 6px 18px rgba(0,0,0,.6); pointer-events: none; }
 .crop .acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 .adj-bar { display: flex; gap: 6px; justify-content: center; margin-top: -4px; }
+/* card viewer: the card up close over a blurred page */
+.viewer { position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 56px 16px max(20px, env(safe-area-inset-bottom));
+  background: rgba(5,5,8,.5); -webkit-backdrop-filter: blur(14px) saturate(.8); backdrop-filter: blur(14px) saturate(.8); opacity: 0; transition: opacity .25s; }
+.viewer.on { opacity: 1; }
+.v-stage { perspective: 1400px; touch-action: none; padding: 18px; cursor: grab; transform: scale(.7); transition: transform .35s cubic-bezier(.3,1.3,.5,1); }
+.viewer.on .v-stage { transform: none; }
+.v-card { position: relative; transform-style: preserve-3d; transition: transform .6s cubic-bezier(.3,1.2,.5,1); }
+.v-face { position: absolute; inset: 0; background: #1a1a20 center / cover no-repeat; -webkit-backface-visibility: hidden; backface-visibility: hidden; display: grid; place-items: center; color: var(--muted); font: 12px var(--mono); }
+.v-face.front { transform: translateZ(var(--t)); }
+.v-face.back { transform: rotateY(180deg) translateZ(var(--t)); }
+.v-edge { position: absolute; left: 0; top: 0; }
+.v-x { position: absolute; top: max(14px, env(safe-area-inset-top)); right: 14px; width: 42px; height: 42px; padding: 0; border-radius: 50%; font-size: 16px; }
+.v-info { display: grid; gap: 4px; justify-items: center; text-align: center; max-width: 420px; }
+.v-info b { font: 400 26px/1.1 var(--display); text-transform: uppercase; }
+.v-info span { color: var(--muted); font-size: 13px; }
+.v-acts { display: flex; gap: 8px; margin-top: 6px; }
 .hidden { display: none !important; }
 @media (max-width: 640px) {
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -149,7 +163,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     <select id="sort" aria-label="Sort"><option value="team">By team</option><option value="new">Newest added</option><option value="year">Year (newest)</option><option value="player">Player A-Z</option></select>
   </div>
   <section class="grid" id="grid"></section>
-  <footer>Tap a card to flip it. Part of <a href="../">the Cupcake Index</a>.</footer>
+  <footer>Tap a card to see it up close. Part of <a href="../">the Cupcake Index</a>.</footer>
 </div>
 
 <script src="../firebase-config.js"></script>
@@ -229,14 +243,72 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       ${cards.length ? "Try a different search or filter." : isOwner() ? "Tap <b>+ Add card</b> to put your first card in." : "Cards are on the way."}</div>`;
   }
 
-  // ---------- flip + tilt
+  // ---------- card viewer: tap a card and it comes up close over a blurred page, like holding the real thing.
+  // Drag to turn it in your hand (it has a thin card-stock edge), tap it to flip it over, Turn for sideways backs.
   document.addEventListener("click", (e) => {
     if (e.target.closest("button")) return;
-    const c = e.target.closest(".card");
-    if (c) spin(c);
+    const el = e.target.closest(".card");
+    if (el) viewer(cards.find((c) => c.id === el.dataset.id));
   });
-  function spin(c) { c.classList.add("spinning"); c.classList.toggle("flipped"); clearTimeout(c._s); c._s = setTimeout(() => c.classList.remove("spinning"), 380); }
-  document.addEventListener("keydown", (e) => { const c = e.target.closest?.(".card"); if (c && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); spin(c); } });
+  document.addEventListener("keydown", (e) => { const el = e.target.closest?.(".card"); if (el && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); viewer(cards.find((c) => c.id === el.dataset.id)); } });
+  function viewer(c) {
+    if (!c) return;
+    const W = Math.round(Math.min(innerWidth * 0.62, (innerHeight - 230) / 1.4, 400)), H = Math.round(W * 1.4), T = Math.max(3, Math.round(W * 0.012)), R = W * 0.04;
+    // the edge: thin strips around the rounded outline, each shaded by which way it faces
+    const outline = [], seg = 5;
+    for (const [cx, cy, a0] of [[W - R, R, -90], [W - R, H - R, 0], [R, H - R, 90], [R, R, 180]])
+      for (let i = 0; i <= seg; i++) { const a = (a0 + 90 * i / seg) * Math.PI / 180; outline.push([cx + R * Math.cos(a), cy + R * Math.sin(a)]); }
+    const edge = outline.map((p, i) => {
+      const q = outline[(i + 1) % outline.length], L = Math.hypot(q[0] - p[0], q[1] - p[1]) + 0.6, ang = Math.atan2(q[1] - p[1], q[0] - p[0]) * 180 / Math.PI;
+      const light = Math.round(150 + 55 * Math.cos((ang + 135) * Math.PI / 180));
+      return `<i class="v-edge" style="width:${L.toFixed(1)}px;height:${T}px;background:rgb(${light},${light - 3},${light - 10});transform:translate(${((p[0] + q[0]) / 2 - L / 2).toFixed(1)}px,${((p[1] + q[1]) / 2 - T / 2).toFixed(1)}px) rotateZ(${ang.toFixed(1)}deg) rotateX(90deg)"></i>`;
+    }).join("");
+    const side = (img, cls, label) => `<div class="v-face ${cls}" style="border-radius:${R}px;${img ? `background-image:url('${img}')` : ""}">${img ? "" : label}</div>`;
+    const v = document.createElement("div");
+    v.className = "viewer";
+    v.innerHTML = `<button type="button" class="v-x" aria-label="Close">✕</button>
+      <div class="v-stage"><div class="v-card" style="width:${W}px;height:${H}px;--t:${T / 2}px">${side(c.front, "front", "No photo")}${side(c.back, "back", "No back photo")}${edge}</div></div>
+      <div class="v-info"><b>${esc(c.player || "Unknown player")}</b><span>${esc([c.year, c.set, c.parallel, c.serial, c.grade].filter(Boolean).join(" · "))}</span>
+        <div class="tags">${tagsOf(c)}</div>
+        <div class="v-acts"><button type="button" id="v-flip">Flip</button><button type="button" id="v-turn">Turn</button></div>
+        <p class="hint">Drag to turn it in your hand · tap it to flip</p></div>`;
+    document.body.appendChild(v); document.body.style.overflow = "hidden";
+    const card = v.querySelector(".v-card"), stage = v.querySelector(".v-stage");
+    // rx/ry = tilt from dragging, turn = quarter turns (Turn button); a sideways back turns itself when it's showing
+    let rx = 0, ry = 0, turn = 0, drag = null;
+    const backUp = () => Math.round(ry / 180) % 2 !== 0;
+    const set = (anim) => {
+      const z = turn + ((backUp() ? c.backWide : c.frontWide) ? 1 : 0), wide = z % 2 !== 0;
+      card.style.transition = anim ? "" : "none";
+      card.style.transform = `scale(${wide ? Math.min(1, (innerWidth - 40) / H) : 1}) rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${z * (backUp() ? -90 : 90)}deg)`; // flipped over, a turn runs the other way in the card's own plane
+    };
+    set(false);
+    requestAnimationFrame(() => v.classList.add("on"));
+    stage.addEventListener("pointerdown", (e) => { e.preventDefault(); stage.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, rx, ry, moved: false }; });
+    stage.addEventListener("pointermove", (e) => {
+      if (!drag) return;
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      if (Math.hypot(dx, dy) > 6) drag.moved = true;
+      if (!drag.moved) return;
+      ry = drag.ry + dx * 0.6; rx = Math.max(-70, Math.min(70, drag.rx - dy * 0.5)); set(false);
+    });
+    const flip = () => { ry = Math.round(ry / 180) * 180 + 180; rx = 0; set(true); };
+    stage.addEventListener("pointerup", () => {
+      if (!drag) return;
+      const moved = drag.moved; drag = null;
+      if (!moved) return flip();
+      ry = Math.round(ry / 180) * 180; rx = 0; set(true); // let go: it settles back flat, on whichever side is facing you
+    });
+    stage.addEventListener("pointercancel", () => { drag = null; rx = 0; ry = Math.round(ry / 180) * 180; set(true); });
+    v.querySelector("#v-flip").onclick = flip;
+    v.querySelector("#v-turn").onclick = () => { turn++; set(true); };
+    const close = () => { v.classList.remove("on"); document.body.style.overflow = ""; removeEventListener("keydown", key); setTimeout(() => v.remove(), 250); };
+    const key = (e) => { if (e.key === "Escape") close(); if (e.key === " " || e.key === "Enter") { e.preventDefault(); flip(); } };
+    addEventListener("keydown", key);
+    v.querySelector(".v-x").onclick = close;
+    v.addEventListener("click", (e) => { if (e.target === v) close(); });
+  }
+  // grid cards lean toward the pointer
   document.addEventListener("pointermove", (e) => {
     const c = e.target.closest?.(".card");
     document.querySelectorAll(".card.tilt").forEach((x) => { if (x !== c) { x.classList.remove("tilt"); x.querySelector(".inner").style.removeProperty("--rx"); x.querySelector(".inner").style.removeProperty("--ry"); } });
