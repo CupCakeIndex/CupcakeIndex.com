@@ -179,7 +179,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "131"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "132"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -537,7 +537,7 @@ const PROFILES = {
   gauntlet: { badge: "GAUNTLET", name: "Gauntlet", desc: "Hard schedule, no fluff." },
   barbell: { badge: "BARBELL", name: "Barbell", desc: "Hard schedule, but padded with cupcakes too." },
   grind: { badge: "GRIND", name: "Honest Grind", desc: "Easier schedule, but no padding. They played their peers." },
-  walk: { badge: "CUPCAKE WALK", name: "Cupcake Walk", desc: "Easy schedule and padded. The records to be most skeptical of." },
+  walk: { badge: "CUPCAKE WALK", short: "WALK", name: "Cupcake Walk", desc: "Easy schedule and padded. The records to be most skeptical of." },
 };
 const HARD_SOS = 55, PADDED = 60; // score thresholds (50 = average)
 function profileOf(t) {
@@ -545,7 +545,9 @@ function profileOf(t) {
   const hard = t.scores.sos >= HARD_SOS, padded = t.scores.cupcake >= PADDED;
   return hard ? (padded ? "barbell" : "gauntlet") : padded ? "walk" : "grind";
 }
-const profileBadge = (k) => `<span class="prof-badge prof-${k}" title="Schedule profile: ${PROFILES[k].name}. ${PROFILES[k].desc}">${PROFILES[k].badge}</span>`;
+const profileBadge = (k) => `<span class="prof-badge prof-${k}" title="Schedule profile: ${PROFILES[k].name}. ${PROFILES[k].desc}">${tagText(PROFILES[k].badge, PROFILES[k].short)}</span>`;
+// tag label with an optional short version for phones (the rankings table swaps to it under 640px)
+const tagText = (full, short) => (short ? `<span class="tl-f">${full}</span><span class="tl-s">${short}</span>` : full);
 const profileIcon = (t) => {
   const k = profileOf(t);
   return k ? ` ${profileBadge(k)}` : "";
@@ -594,7 +596,7 @@ function isUntested(t) {
 }
 const bestWinText = (g) => g ? `${g.opp_rank && !g.fcs ? "#" + g.opp_rank + " " : ""}${g.opp}${g.fcs ? " (FCS)" : ""}, ${g.score}` : "none yet";
 const untestedTag = (t) => isUntested(t)
-  ? ` <span class="pill untested" title="No win over a top-${TESTED[league].quality} team yet. Best win: ${esc(bestWinText(bestWin(t)))}">Beaten Nobody</span>` : "";
+  ? ` <span class="pill untested" title="No win over a top-${TESTED[league].quality} team yet. Best win: ${esc(bestWinText(bestWin(t)))}">${tagText("Beaten Nobody", "NOBODY")}</span>` : "";
 
 // Padding meter: one small square per game played, filled = a cupcake game, plus a plain count ("2 cupcakes").
 // Half or more of the games against cupcakes = heavy padding (count shown in the accent color).
@@ -639,8 +641,8 @@ function cotwTag(t) {
 }
 
 function apTag(t) {
-  if (t.ap_rank && t.rank - t.ap_rank >= 10) return `<span class="pill over" title="AP has them ${t.rank - t.ap_rank} spots higher">Overrated</span>`;
-  if ((t.ap_rank && t.ap_rank - t.rank >= 10) || (!t.ap_rank && t.rank <= 15 && !document.body.classList.contains("no-ap"))) return `<span class="pill under" title="Model ranks them well above the AP poll">Underrated</span>`;
+  if (t.ap_rank && t.rank - t.ap_rank >= 10) return `<span class="pill over" title="AP has them ${t.rank - t.ap_rank} spots higher">${tagText("Overrated", "OVER")}</span>`;
+  if ((t.ap_rank && t.ap_rank - t.rank >= 10) || (!t.ap_rank && t.rank <= 15 && !document.body.classList.contains("no-ap"))) return `<span class="pill under" title="Model ranks them well above the AP poll">${tagText("Underrated", "UNDER")}</span>`;
   return "";
 }
 

@@ -1697,3 +1697,13 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 .scorebug .sb-mid { color: #ececec; }
 .scorebug .sb-mid small, .scorebug .live-note { color: #a3a3aa; }
 .scorebug .sb-status.pre { color: #ececec; border-color: #3a3b40; }
+/* tags: short labels on phones (WALK, NOBODY, OVER...), one tight line under the team name; the meter's count text is
+   dropped there because the filled squares already show it (tap the squares for the details) */
+.tl-s { display: none; }
+@media (max-width: 640px) {
+  .tmeta .tl-f { display: none; } .tmeta .tl-s { display: inline; }
+  .tmeta { flex-wrap: nowrap; gap: 4px; overflow: hidden; }
+  .tmeta .cupm-n { display: none; }
+  .tmeta .prof-badge, .tmeta .pill { font-size: 9px; padding: 0 4px; height: 15px; flex: none; }
+  .tmeta .pill { display: inline-flex; }
+}
