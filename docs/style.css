@@ -1680,12 +1680,12 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
   #table th[data-col="record"], #table tbody td:nth-child(4), #table th.score-col { text-align: center; }
   #table .score { justify-content: center; }
 }
-/* phones: game scoreboard score sits beside the logo, toward the middle (PIT logo 24 | FINAL | 27 CLE logo); name + record underneath */
+/* phones: game scoreboard. Logo + name + record stacked on the outside, the score beside them next to the middle (mirrored) */
 @media (max-width: 760px) {
-  .sb-team.away, .sb-team.home { display: grid; align-items: center; justify-items: center; column-gap: 10px; row-gap: 6px; }
-  .sb-team.away { grid-template-columns: auto auto; grid-template-areas: "logo score" "name name"; }
-  .sb-team.home { grid-template-columns: auto auto; grid-template-areas: "score logo" "name name"; }
+  .sb-team.away, .sb-team.home { display: grid; align-items: center; justify-items: center; column-gap: 8px; row-gap: 6px; }
+  .sb-team.away { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "logo score" "name score"; }
+  .sb-team.home { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "score logo" "score name"; }
   .sb-team img.xl, .sb-team > .logo-ph { grid-area: logo; }
-  .sb-team .sb-score { grid-area: score; order: 0 !important; margin: 0 !important; }
-  .sb-team .sb-name { grid-area: name; }
+  .sb-team .sb-score { grid-area: score; order: 0 !important; margin: 0 !important; align-self: center; }
+  .sb-team .sb-name { grid-area: name; min-width: 0; max-width: 100%; }
 }
