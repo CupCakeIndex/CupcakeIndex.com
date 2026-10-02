@@ -1,0 +1,56 @@
+name: Home screen tip post
+
+# "Put the Cupcake Index on your home screen" card for X (iPhone + Android steps) with a stat of the day.
+# Runs every 3 days at 4 PM Eastern (3 PM in winter), year-round. Run it any time: Actions tab >
+# "Home screen tip post" > Run workflow (untick "Post to X" to just make the picture).
+# No link in the post, 280 characters max. Same on/off switch as the other posts: X_POSTING_ENABLED.
+
+on:
+  schedule:
+    - cron: "0 20 */3 * *"
+  workflow_dispatch:
+    inputs:
+      theme:
+        description: "Card look (a site theme; random = surprise me)"
+        type: choice
+        default: random
+        options: [random, mono, terminal, amber, broadcast, editorial, glass, varsity]
+      post:
+        description: "Post to X (untick to only make the picture)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: social-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r src/social/requirements.txt
+      - name: Render the card
+        env:
+          THEME: ${{ inputs.theme || 'random' }}
+        run: python src/social/app_tip.py --theme "$THEME"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-tip
+          path: out/social/
+          retention-days: 14
+      - name: Post to X
+        if: (github.event_name == 'schedule' || inputs.post) && vars.X_POSTING_ENABLED == 'true'
+        env:
+          X_POSTING_ENABLED: ${{ vars.X_POSTING_ENABLED }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+        run: python src/social/post_to_x.py --meta out/social/today.json

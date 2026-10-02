@@ -179,7 +179,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "125"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "126"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -282,6 +282,11 @@ function initBack() {
     btn.classList.toggle("hidden", depth < 1);
   });
   btn.classList.toggle("hidden", depth < 1);
+  // float it at the top of the screen once the header has scrolled out of view
+  const top = document.querySelector(".top");
+  const pin = () => btn.classList.toggle("floating", !!top && top.getBoundingClientRect().bottom < 0);
+  window.addEventListener("scroll", pin, { passive: true });
+  pin();
 }
 
 function setLeague(l) {
