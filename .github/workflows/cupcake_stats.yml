@@ -1,14 +1,18 @@
-name: Cupcake stat post (draft)
+name: Cupcake stat post
 
 # Cupcake stats: droughts and résumés only our model can make (src/social/cupcake_stats.py).
-# DRAFT MODE: this never runs on its own and never posts unless you tick "Post to X".
-#   1. Actions tab > "Cupcake stat post (draft)" > Run workflow (leave "Post to X" unticked)
-#   2. Open the finished run, download "cupcake-drafts", and read drafts.md (every card + its text)
-#   3. Like one? Run it again with that stat picked and "Post to X" ticked.
+# Posts on its own Wednesday 3 PM Eastern (the strongest stat) and Saturday 9:30 AM Eastern (this week's
+# droughts, before kickoff). It won't post if the game history is incomplete or nothing clears the bar,
+# and never repeats itself (data/social/posted.json).
+# Manual: Actions tab > "Cupcake stat post" > Run workflow. Leave "Post to X" unticked to only make drafts
+# (download "cupcake-drafts" from the finished run and read drafts.md).
 # The first run also downloads college game history back to 2005 (about 60 CollegeFootballData calls,
 # once) and saves it in data/history/cfb/ so later runs only refresh the current season.
 
 on:
+  schedule:
+    - cron: "0 19 * 8-12,1 3"     # Wednesday 3 PM Eastern (2 PM in winter)
+    - cron: "30 13 * 8-12,1 6"    # Saturday 9:30 AM Eastern (8:30 in winter): this week's droughts
   workflow_dispatch:
     inputs:
       stat:
@@ -22,7 +26,7 @@ on:
         default: random
         options: [random, mono, terminal, amber, broadcast, editorial, glass, varsity]
       post:
-        description: "Post to X (leave unticked to only make drafts)"
+        description: "Post to X (untick to only make drafts)"
         type: boolean
         default: false
 
@@ -48,17 +52,20 @@ jobs:
         run: python src/social/cupcake_history.py
       - name: Make the drafts
         env:
-          THEME: ${{ inputs.theme }}
+          THEME: ${{ inputs.theme || 'random' }}
+          STAT: ${{ inputs.stat }}
         run: |
           python src/social/cupcake_stats.py --all --theme "$THEME" || echo "No drafts this time"
-          python src/social/cupcake_stats.py --stat "${{ inputs.stat }}" --theme "$THEME" || echo "Nothing to post"
+          # scheduled Saturday run: this week's droughts first, the best of the rest if there aren't any
+          if [ -z "$STAT" ]; then [ "$(date -u +%u)" = "6" ] && STAT=week_drought || STAT=best; fi
+          python src/social/cupcake_stats.py --stat "$STAT" --theme "$THEME"             || { [ "$STAT" != best ] && python src/social/cupcake_stats.py --stat best --theme "$THEME"; }             || echo "Nothing to post"
       - uses: actions/upload-artifact@v4
         with:
           name: cupcake-drafts
           path: out/social/
           retention-days: 14
       - name: Post to X
-        if: inputs.post && vars.X_POSTING_ENABLED == 'true' && hashFiles('out/social/today.json') != ''
+        if: (github.event_name == 'schedule' || inputs.post) && vars.X_POSTING_ENABLED == 'true' && hashFiles('out/social/today.json') != ''
         env:
           X_POSTING_ENABLED: ${{ vars.X_POSTING_ENABLED }}
           X_API_KEY: ${{ secrets.X_API_KEY }}

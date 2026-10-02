@@ -67,6 +67,18 @@ def first_season():
     return first
 
 
+def team_start(team, start):
+    """First season (at or after `start`) of an unbroken run of seasons this team appears in. Teams that moved up
+    to FBS or changed names aren't in the early files, so a "since at least <year>" claim starts here instead."""
+    seasons = sorted(y for y, d in history().items() if y >= start)
+    first = None
+    for y in reversed(seasons):
+        if not any(team in (x["h"], x["a"]) for x in history()[y]["games"]):
+            break
+        first = y
+    return first or start
+
+
 def is_cup(season, team, opp):
     """Was `opp` a cupcake for `team` that season (same rule as the site)?"""
     d = history()[season]
@@ -159,7 +171,8 @@ def _():
     for t in ts:
         if not (t.get("ap_rank") or t["power_rank"] <= 25):
             continue
-        gs = games_of(t["team"], since=start)
+        tstart = team_start(t["team"], start)
+        gs = games_of(t["team"], since=tstart)
         streak = 0
         for g in reversed(gs):  # consecutive wins over cupcakes, newest first (other games don't break it)
             if not g["cup"]:
@@ -167,20 +180,20 @@ def _():
             if not g["won"]:
                 break
             streak += 1
-        dr = drought(gs, lambda g: g["loc"] == "A" and g["opp_ap"], start)
+        dr = drought(gs, lambda g: g["loc"] == "A" and g["opp_ap"], tstart)
         if streak < 8 or dr["years"] < 3 * YRS or dr["since_l"] < 3:
             continue
-        cands.append((t, dr, streak))
+        cands.append((t, dr, streak, tstart))
     cands.sort(key=lambda c: (-c[1]["years"], -c[2]))
     if not cands:
         return None
-    t, dr, streak = cands[0]
+    t, dr, streak, start = cands[0]
     last = dr["last"]
     tail = (f"its last one came {when(last['d'])}, {score(last)} {where(last)}." if last
             else f"it hasn't won one since at least {start}, as far back as our data goes.")
     text = (f"{t['team']} has won {streak} straight games against cupcakes. On the road against ranked teams, it's "
             f"0-{dr['since_l']}: {tail}")
-    rows = [(c[0], c[1]["years"], f"0-{c[1]['since_l']} since {c[1]['last']['d'][:4] if c[1]['last'] else start}") for c in cands]
+    rows = [(c[0], c[1]["years"], f"0-{c[1]['since_l']} since {c[1]['last']['d'][:4] if c[1]['last'] else c[3]}") for c in cands]
     big = f"0-{dr['since_l']}"
     unit = f"on the road vs ranked teams since {last['d'][:4] if last else start}"
     return fact("cfb", rows, "Bullies at home, lost on the road", "Ranked teams that keep beating cupcakes: record in road games against ranked teams since their last win",
@@ -205,6 +218,7 @@ def _():
         for team, opp, loc, opp_ap in ((x["a"], x["h"], "N" if x["n"] else "A", x["hr"]), (x["h"], x["a"], "N" if x["n"] else "H", x["ar"])):
             if team not in by:
                 continue
+            start = team_start(team, first_season())
             gs = games_of(team, since=start)
             day = dt.date.fromisoformat(x["d"]).strftime("%A")
             nxt = f"{day}: {'at' if loc == 'A' else 'vs.'} {'No. ' + str(opp_ap) + ' ' if opp_ap else ''}{opp}."
@@ -337,11 +351,12 @@ def top_test(league):
     cands = []
     for t in ts:
         played = [s for s in t["schedule"] if s.get("result") and s.get("difficulty") is not None]
-        if len(played) < 3 or t["losses"] > 1 or not (t.get("ap_rank") or t["power_rank"] <= (25 if league == "cfb" else 10)):
+        # college: unbeaten teams only (a 3-1 team matching a top-25 team isn't much of a story); NFL: one loss is fine
+        if len(played) < 3 or t["losses"] > (0 if league == "cfb" else 1) or not (t.get("ap_rank") or t["power_rank"] <= (25 if league == "cfb" else 10)):
             continue
         p = at_least([1 - s["difficulty"] for s in played], t["wins"])
         cands.append((t, p))
-    cands = sorted([c for c in cands if c[1] >= 0.5], key=lambda c: (c[0]["losses"], -c[1]))  # unbeaten teams first
+    cands = sorted([c for c in cands if c[1] >= 0.6], key=lambda c: (c[0]["losses"], -c[1]))  # unbeaten teams first
     if not cands:
         return None
     t, p = cands[0]
@@ -394,6 +409,9 @@ def main():
     if a.stat not in STATS and a.stat != "best":
         sys.exit(f"Unknown stat '{a.stat}'. Pick one of: {', '.join(STATS)}")
     print(f"History: {sorted(history())} (claims go back to {first_season()})")
+    if not a.test and (first_season() or 9999) > 2010:
+        sys.exit("Game history is incomplete (needs every season back to at least 2010): not making a post. "
+                 "Run cupcake_history.py first (the workflow does).")
     keys = list(STATS) if (a.all or a.stat == "best") else [a.stat]
     out = os.path.join(a.out, "cupcake") if a.all else a.out
     made = []
@@ -417,6 +435,8 @@ def main():
     if not fresh:
         sys.exit("Everything we have to say was already posted.")
     best = max(fresh, key=lambda m: m["score"])
+    if a.all:  # drafts only: the post comes from a separate --stat run
+        return
     with open(os.path.join(a.out, "today.json"), "w", encoding="utf-8") as fh:
         json.dump(best, fh, indent=1, ensure_ascii=False)
 
