@@ -161,7 +161,7 @@ def card(theme, stat):
         for i, line in enumerate(wrap(d, stat["text"], sf, W - 64 - (64 + lw + 40), 2)):
             d.text((64 + lw + 40, by + 26 + i * 36), line, font=sf, fill=T["ink"])
     else:
-        d.text((64, by + 64), "> " + R.MOTTO.lower(), font=F(22, "Bold"), fill=T["muted"], anchor="lm")
+        R.draw_motto(d, 64, by + 64, 22, T["ink"], T["muted"], T["accent"], font_for=F)
     return img
 
 

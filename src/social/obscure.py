@@ -801,7 +801,7 @@ def card(f, theme):
         for i, line in enumerate(lines):
             d.text((x0 + 26, top + i * 36), line, font=qf, fill=T["ink"])
     else:
-        d.text((xr, H - 60), "> " + R.MOTTO.lower(), font=F(18), fill=T["muted"], anchor="rm")
+        R.draw_motto(d, xr, H - 60, 17, T["ink"], T["muted"], T["accent"], right=True, font_for=F)
     return img
 
 

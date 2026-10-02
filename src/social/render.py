@@ -35,7 +35,20 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 DATA = os.path.join(ROOT, "docs", "data")
 HERE = os.path.dirname(os.path.abspath(__file__))
 SITE = "https://cupcakeindex.com"
-MOTTO = "Bullying cupcakes isn't a résumé."
+MOTTO = "Cupcake (n.): an opponent far below your level, scheduled for an easy win."  # tweet text
+MOTTO_WORD, MOTTO_POS, MOTTO_DEF = "cup·cake", "n.", "an opponent far below your level, scheduled for an easy win."
+
+
+def draw_motto(d, x, y, size, ink, muted, accent, right=False, font_for=None):
+    """The site's motto on a card, dictionary style: 'cup·cake' bold, 'n.' in the accent color, the definition muted.
+    (x, y) is the left end (or the right end with right=True), vertically centered on y."""
+    f = font_for or font
+    parts = [(MOTTO_WORD + " ", f(size, "Bold"), ink), (MOTTO_POS + " ", f(size, "Bold"), accent), (MOTTO_DEF, f(size), muted)]
+    total = sum(d.textlength(t, font=ft) for t, ft, _ in parts)
+    cx = x - total if right else x
+    for t, ft, col in parts:
+        d.text((cx, y), t, font=ft, fill=col, anchor="lm")
+        cx += d.textlength(t, font=ft)
 STALE_DAYS = 10            # don't post rankings older than this (offseason / broken weekly run)
 DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 
@@ -130,7 +143,7 @@ def canvas(league, kicker, title, subtitle):
         d.text((PAD, 178), subtitle, font=font(24), fill=MUTED)
     # footer: motto bottom left, cupcake mark + cupcakeindex.com bottom right
     ff = font(22)
-    d.text((PAD, H - 62), "> " + MOTTO.lower(), font=ff, fill=(100, 100, 106))
+    draw_motto(d, PAD, H - 50, 22, INK, (110, 110, 116), ACCENT)
     url_f = font(26, "Bold")
     url = "cupcakeindex.com"
     uw = d.textlength(url, font=url_f)
