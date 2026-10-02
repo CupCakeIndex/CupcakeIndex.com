@@ -96,10 +96,23 @@ function link(view, arg = null, params = {}) {
   return `#/${view}${arg != null ? "/" + encodeURIComponent(arg) : ""}?${qs}`;
 }
 
+let lastPage = null;
+function leagueWipe(lg) {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  document.querySelector(".lg-wipe")?.remove();
+  const w = document.createElement("div");
+  w.className = "lg-wipe";
+  w.setAttribute("aria-hidden", "true");
+  w.innerHTML = `<span><b>&gt;</b> ${lg === "nfl" ? "NFL" : "CFB"}<i>_</i></span>`;
+  document.body.appendChild(w);
+  w.addEventListener("animationend", () => w.remove());
+  setTimeout(() => w.remove(), 1500); // in case the animation never ends (background tab)
+}
 async function route() {
   const r = parseHash();
   let lg = r.params.get("league");
   if (!INDEX.leagues[lg]) lg = league;
+  if (lg !== league && LG) leagueWipe(lg); // switching CFB <-> NFL: a quick wipe across the screen
   if (lg !== league || !LG) setLeague(lg);
   Live.stop();
   document.querySelectorAll(".view").forEach((s) => s.classList.toggle("hidden", s.id !== "view-" + r.view));
@@ -108,7 +121,15 @@ async function route() {
   document.querySelectorAll(".rank-ctl").forEach((el) => el.classList.toggle("hidden", !RANK_VIEWS.has(r.view)));
   $("#drawer").classList.add("hidden");
   document.body.classList.remove("drawer-open");
-  window.scrollTo(0, 0);
+  // a new page starts at the top; a tab or filter on the same page (Rushing -> Receiving) keeps your place,
+  // with the page's height held while it reloads so it can't snap upward
+  const page = r.view + "/" + (r.arg || "");
+  if (page !== lastPage) window.scrollTo(0, 0);
+  else {
+    const v = $("#view-" + r.view);
+    if (v) { v.style.minHeight = v.offsetHeight + "px"; clearTimeout(v._mh); v._mh = setTimeout(() => (v.style.minHeight = ""), 3000); }
+  }
+  lastPage = page;
   if (RANK_VIEWS.has(r.view)) {
     await loadWeek();
     const team = r.params.get("team");
@@ -179,7 +200,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "141"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "142"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -272,7 +293,7 @@ function initBack() {
   btn.className = "back-fab hidden";
   btn.type = "button";
   btn.setAttribute("aria-label", "Back");
-  btn.innerHTML = "&larr; Back";
+  btn.innerHTML = `<span aria-hidden="true">&larr;</span><span class="bk-t"> Back</span>`; // phones in the header: arrow only
   btn.onclick = () => history.back();
   (document.querySelector(".top .controls") || document.body).prepend(btn); // in the header, left of search
   // each history entry remembers how deep it is; a brand-new entry has no state yet
