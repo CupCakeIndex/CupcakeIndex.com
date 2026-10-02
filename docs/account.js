@@ -20,10 +20,17 @@ const Account = (() => {
       fb.auth().getRedirectResult().catch((e) => setStatus(friendly(e)));
       fb.auth().onAuthStateChanged((u) => {
         const was = user;
+        // leaving a guest account (signed out, or switched): put the device's main account's data back
+        if (was && (!u || u.uid !== was.uid) && guestId() === was.uid) restoreOwner();
         user = u;
         badge();
         rerender(); // show signed in/out right away; the first sync runs in the background
-        if (u) { if (!was) toast(`Signed in as ${u.displayName || u.email || "you"}`); syncDown(); }
+        if (u) {
+          if (!was) toast(`Signed in as ${u.displayName || u.email || "you"}`);
+          const owner = ownerId();
+          if (!owner || owner === u.uid) { setOwner(u.uid); syncDown(); } // the device's main account: merge
+          else { if (guestId() !== u.uid) becomeGuest(u.uid); syncDown(); } // another account: only its own data
+        }
       });
       // save to the account a few seconds after any synced change (picks, daily game, fantasy team)
       const orig = store.set;
@@ -51,11 +58,33 @@ const Account = (() => {
     return a;
   }
 
+  // Which account this device's own data belongs to: the first one to sign in here. Anyone else is a guest:
+  // the main account's data is set aside while they're signed in and comes back when they sign out.
+  const OWNER = "acct-owner", GUEST = "acct-guest", STASH = "acct-stash";
+  const ls = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const lsSet = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} };
+  const ownerId = () => ls(OWNER), guestId = () => ls(GUEST), setOwner = (id) => lsSet(OWNER, id);
+  function clearSynced() { for (const k of Object.keys(localData())) lsSet(k, null); }
+  function becomeGuest(uid) {
+    if (!ls(STASH)) lsSet(STASH, JSON.stringify(localData())); // set the main account's data aside
+    clearSynced();
+    lsSet(GUEST, uid);
+  }
+  function restoreOwner() {
+    clearSynced(); // the guest's data is safe in their account
+    let saved = {};
+    try { saved = JSON.parse(ls(STASH) || "{}"); } catch (e) {}
+    for (const [k, v] of Object.entries(saved)) lsSet(k, v);
+    lsSet(STASH, null); lsSet(GUEST, null);
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+  }
+
   async function syncDown() {
     setStatus("Syncing…");
     try {
       const snap = await doc().get();
       const remote = (snap.exists && snap.data().data) || {}, local = localData(), all = { ...remote };
+      // main account: this device's picks merge in. A guest's device copy was cleared first, so only their own data is here.
       for (const [k, v] of Object.entries(local)) all[k] = k in remote ? merge(k, v, remote[k]) : v;
       for (const [k, v] of Object.entries(all)) { try { localStorage.setItem(k, v); } catch (e) {} }
       await doc().set({ name: (user.displayName || "").split(" ")[0], data: all, updated: new Date().toISOString() });
@@ -80,11 +109,18 @@ const Account = (() => {
       setStatus(friendly(e));
     }
   }
-  async function signOut() { await fb.auth().signOut(); toast("Signed out"); setStatus("Signed out. Your data stays on this device too."); }
+  async function signOut() {
+    const guest = guestId() === user?.uid;
+    await fb.auth().signOut();
+    toast("Signed out");
+    setStatus(guest ? "Signed out. This device is back to its main account's picks." : "Signed out. Your picks stay on this device too.");
+  }
   async function deleteAccount() {
     try {
       await doc().delete();
+      const uid = user.uid;
       await user.delete();
+      if (ownerId() === uid) setOwner(null); // this device's data is no longer tied to an account
       setStatus("Account deleted. Everything we stored for you is gone (this device keeps its own copy).");
     } catch (e) {
       setStatus(e.code === "auth/requires-recent-login" ? "For safety, sign out, sign back in, then delete again." : friendly(e));
