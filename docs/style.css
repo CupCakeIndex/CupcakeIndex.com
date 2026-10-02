@@ -1689,3 +1689,11 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
   .sb-team .sb-score { grid-area: score; order: 0 !important; margin: 0 !important; align-self: center; }
   .sb-team .sb-name { grid-area: name; min-width: 0; max-width: 100%; }
 }
+/* game scoreboard: one continuous gradient (away color -> dark middle -> home color) so there's no hard edge,
+   and it stays a dark broadcast bar in light mode / every theme (the text on it is white) */
+.scorebug { --sb-dark: #0e0f12; background: linear-gradient(90deg, color-mix(in srgb, var(--ac) 92%, #000) 0%, color-mix(in srgb, var(--ac) 50%, var(--sb-dark)) 28%,
+  var(--sb-dark) 50%, color-mix(in srgb, var(--hc) 50%, var(--sb-dark)) 72%, color-mix(in srgb, var(--hc) 92%, #000) 100%); border-color: #26272c; }
+.scorebug .sb-team.away, .scorebug .sb-team.home { background: none; }
+.scorebug .sb-mid { color: #ececec; }
+.scorebug .sb-mid small, .scorebug .live-note { color: #a3a3aa; }
+.scorebug .sb-status.pre { color: #ececec; border-color: #3a3b40; }
