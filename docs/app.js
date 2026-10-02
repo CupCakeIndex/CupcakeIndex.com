@@ -98,16 +98,47 @@ function link(view, arg = null, params = {}) {
 
 let lastPage = null;
 function leagueWipe(lg) {
+  // CFB <-> NFL: a burst of pixel particles out of the switch (flying the way it moved: NFL right, CFB left)
+  // and a short glitch on the page content while the other league loads. Nothing covers the screen.
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  document.querySelector(".lg-wipe")?.remove();
-  const w = document.createElement("div");
-  // a slanted band sweeps the way the switch moves: to NFL left -> right, to CFB right -> left
-  w.className = `lg-wipe ${lg === "nfl" ? "ltr" : "rtl"}`;
-  w.setAttribute("aria-hidden", "true");
-  w.innerHTML = `<div class="lg-band"><span><b>&gt;</b> ${lg === "nfl" ? "NFL" : "CFB"}<i>_</i></span></div>`;
-  document.body.appendChild(w);
-  w.querySelector(".lg-band").addEventListener("animationend", () => w.remove());
-  setTimeout(() => w.remove(), 1500); // in case the animation never ends (background tab)
+  const dir = lg === "nfl" ? 1 : -1, sw = $("#league")?.getBoundingClientRect();
+  const main = document.querySelector("main");
+  if (main) {
+    const html = document.documentElement; // the shake must never make the page scroll sideways
+    main.classList.remove("lg-glitch"); void main.offsetWidth;
+    html.classList.add("lg-glitching"); main.classList.add("lg-glitch");
+    setTimeout(() => { main.classList.remove("lg-glitch"); html.classList.remove("lg-glitching"); }, 420);
+  }
+  if (!sw) return;
+  document.querySelector(".lg-px")?.remove();
+  const c = document.createElement("canvas"), dpr = Math.min(2, window.devicePixelRatio || 1);
+  c.className = "lg-px";
+  c.width = innerWidth * dpr; c.height = innerHeight * dpr;
+  document.body.appendChild(c);
+  const g = c.getContext("2d"), css = getComputedStyle(document.documentElement);
+  const cols = [css.getPropertyValue("--accent").trim() || "#ff6b2c", css.getPropertyValue("--ink").trim() || "#ececec"];
+  const ox = sw.left + sw.width / 2, oy = sw.top + sw.height / 2;
+  const ps = Array.from({ length: 70 }, () => ({
+    x: ox + (Math.random() - 0.5) * sw.width, y: oy + (Math.random() - 0.5) * sw.height,
+    vx: dir * (2 + Math.random() * 9), vy: (Math.random() - 0.35) * 6, s: 2 + Math.floor(Math.random() * 4),
+    c: cols[Math.random() < 0.75 ? 0 : 1], life: 0, max: 26 + Math.random() * 22 }));
+  const step = () => {
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, innerWidth, innerHeight);
+    let alive = 0;
+    for (const p of ps) {
+      if (p.life++ > p.max) continue;
+      alive++;
+      p.x += p.vx; p.y += p.vy; p.vy += 0.25; p.vx *= 0.97;
+      if (Math.random() < 0.08) p.x += dir * 12; // glitchy jump
+      g.globalAlpha = 1 - p.life / p.max;
+      g.fillStyle = p.c;
+      g.fillRect(Math.round(p.x), Math.round(p.y), p.s, p.s);
+    }
+    if (alive) requestAnimationFrame(step); else c.remove();
+  };
+  requestAnimationFrame(step);
+  setTimeout(() => c.remove(), 2000);
 }
 async function route() {
   const r = parseHash();
@@ -201,7 +232,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "144"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "145"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });

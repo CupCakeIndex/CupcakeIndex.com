@@ -1754,18 +1754,19 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
   transition: transform .25s ease; max-width: calc(100vw - 32px); }
 .acct-toast.on { transform: translate(-50%, 0); }
 @media (prefers-reduced-motion: reduce) { .acct-toast { transition: none; } }
-/* CFB <-> NFL switch: a straight accent panel sweeps across the way the switch moved
-   (to NFL left -> right, to CFB right -> left); the text rides in the middle */
-.lg-wipe { position: fixed; inset: 0; z-index: 200; pointer-events: none; overflow: hidden; }
-.lg-band { position: absolute; inset: 0; background: var(--accent); display: grid; place-items: center; animation: .7s cubic-bezier(.7, 0, .3, 1) forwards; }
-.lg-wipe.ltr .lg-band { animation-name: lgwipe-ltr; }
-.lg-wipe.rtl .lg-band { animation-name: lgwipe-rtl; }
-.lg-band span { font: 800 clamp(48px, 12vw, 120px)/1 "JetBrains Mono", monospace; color: var(--bg); letter-spacing: .02em; }
-.lg-band b { font-weight: 800; opacity: .55; }
-.lg-band i { font-style: normal; animation: lgblink .35s steps(1) infinite; }
-@keyframes lgwipe-ltr { 0% { transform: translateX(-100%); } 42%, 58% { transform: translateX(0); } 100% { transform: translateX(100%); } }
-@keyframes lgwipe-rtl { 0% { transform: translateX(100%); } 42%, 58% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
-@keyframes lgblink { 50% { opacity: 0; } }
+/* CFB <-> NFL switch: pixel particles out of the switch (canvas) + a short glitch on the page content */
+.lg-px { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 200; pointer-events: none; }
+main.lg-glitch { animation: lgglitch .42s steps(1) both; }
+@keyframes lgglitch {
+  0%   { transform: translate(0); clip-path: inset(0 0 0 0); filter: none; }
+  12%  { transform: translate(-6px, 1px); clip-path: inset(8% 0 62% 0); filter: drop-shadow(3px 0 0 var(--accent)); }
+  24%  { transform: translate(5px, -1px); clip-path: inset(40% 0 22% 0); filter: drop-shadow(-3px 0 0 var(--accent)); }
+  36%  { transform: translate(-3px, 0); clip-path: inset(0 0 0 0); opacity: .55; filter: drop-shadow(2px 0 0 var(--accent)); }
+  48%  { transform: translate(4px, 1px); clip-path: inset(70% 0 4% 0); opacity: 1; filter: none; }
+  60%  { transform: translate(-2px, 0); clip-path: inset(0 0 0 0); filter: drop-shadow(-2px 0 0 var(--accent)); }
+  76%  { transform: translate(1px, 0); filter: none; }
+  100% { transform: none; clip-path: none; filter: none; }
+}
 /* phones: Back is a compact arrow box in the header row (Rankings also has Season/Week there); the floating version keeps its label */
 @media (max-width: 760px) {
   .top .controls .back-fab:not(.floating) { width: 38px; padding: 0; justify-content: center; font-size: 16px; }
@@ -1778,3 +1779,4 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 }
 @media (max-width: 380px) { .sub { font-size: 11px; } .def i { margin: 0 2px 0 1px; } }
 @media (max-width: 760px) { .top .controls #league button { padding-left: 10px; padding-right: 10px; } .top .controls .rank-ctl select { padding-left: 6px; padding-right: 2px; } }
+html.lg-glitching, html.lg-glitching body { overflow-x: clip; }
