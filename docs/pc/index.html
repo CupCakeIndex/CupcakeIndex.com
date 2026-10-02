@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
-/* The Vault: black velvet case, gold foil type, cards that shine like holo when you tilt them */
+/* The Vault: black velvet case, gold foil type, cards that lean toward you when you hover */
 :root { --bg: #08080a; --panel: #121216; --line: #24242b; --ink: #f2f0ea; --muted: #8e8b84; --gold: #d8b45a; --gold2: #f3dc8f; --red: #ff6b5b;
   --display: Anton, "Arial Narrow", sans-serif; --body: Inter, system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, monospace; color-scheme: dark; }
 * { box-sizing: border-box; }
@@ -51,20 +51,18 @@ html, body { overflow-x: hidden; }
 .grail h3 { margin: 0; font: 400 clamp(30px, 5vw, 48px)/1 var(--display); text-transform: uppercase; }
 .grail p { color: var(--muted); margin: 8px 0 0; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 22px 18px; }
-/* a card: 2.5 x 3.5, flips on tap, holo shine follows the pointer */
+/* a card: 2.5 x 3.5, flips on tap, leans with the pointer */
 .card { perspective: 900px; cursor: pointer; }
 .card .inner { position: relative; aspect-ratio: 5 / 7; transition: transform .75s cubic-bezier(.3, 1.4, .5, 1); transform-style: preserve-3d;
-  transform: translateZ(var(--lift, 0px)) rotateY(var(--flip, 0deg)) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
+  transform: translateZ(var(--lift, 0px)) rotateZ(var(--turn, 0deg)) scale(var(--shrink, 1)) rotateY(var(--flip, 0deg)) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
 .card.flipped .inner { --flip: 180deg; }
+/* a sideways side (landscape back, horizontal card): the card turns and shrinks to fit when that side is showing */
+.card.fw:not(.flipped) .inner, .card.bw.flipped .inner { --turn: 90deg; --shrink: .714; }
 .card.spinning .inner { --lift: 60px; }   /* lifts toward you mid-spin, then settles */
 .face { position: absolute; inset: 0; border-radius: 10px; overflow: hidden; backface-visibility: hidden; background: #1a1a20 center / cover no-repeat;
   box-shadow: 0 10px 28px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.06); }
 .face.back { transform: rotateY(180deg); }
 .face.empty { display: grid; place-items: center; color: var(--muted); font: 12px var(--mono); text-align: center; padding: 10px; }
-.face::after { content: ""; position: absolute; inset: 0; pointer-events: none; mix-blend-mode: color-dodge; opacity: 0; transition: opacity .3s;
-  background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,.55), transparent 40%),
-    linear-gradient(115deg, transparent 20%, rgba(255,80,180,.25) 35%, rgba(80,220,255,.25) 50%, rgba(255,230,90,.25) 65%, transparent 80%); }
-.card:hover .face::after, .card.tilt .face::after { opacity: .7; }
 .meta { margin-top: 10px; display: grid; gap: 2px; }
 .meta b { font: 400 19px/1.1 var(--display); letter-spacing: .02em; text-transform: uppercase; }
 .meta span { color: var(--muted); font-size: 12.5px; }
@@ -91,6 +89,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 .photos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .photo { position: relative; aspect-ratio: 5 / 7; border: 1px dashed #3a3a44; border-radius: 10px; display: grid; place-items: center; text-align: center; color: var(--muted);
   font: 12px var(--mono); background: var(--bg) center / cover no-repeat; cursor: pointer; overflow: hidden; }
+.photo.wide { transform: rotate(90deg) scale(.714); }
 .photo input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .status { font: 12px var(--mono); color: var(--gold2); min-height: 1em; }
 .hint { margin: 0; color: var(--muted); font-size: 12.5px; }
@@ -191,7 +190,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   const tagsOf = (c) => [c.rookie && '<span class="tag rc">RC</span>', c.auto && '<span class="tag auto">AUTO</span>',
     c.serial && `<span class="tag num">${esc(c.serial)}</span>`, c.grade && `<span class="tag grade">${esc(c.grade)}</span>`].filter(Boolean).join("");
   const face = (img, cls, label) => img ? `<div class="face ${cls}" style="background-image:url('${img}')"></div>` : `<div class="face ${cls} empty">${label}</div>`;
-  const cardHtml = (c) => `<article class="card" data-id="${esc(c.id)}" tabindex="0" aria-label="${esc([c.year, c.set, c.player].filter(Boolean).join(" "))}">
+  const cardHtml = (c) => `<article class="card${c.frontWide ? " fw" : ""}${c.backWide ? " bw" : ""}" data-id="${esc(c.id)}" tabindex="0" aria-label="${esc([c.year, c.set, c.player].filter(Boolean).join(" "))}">
       <div class="inner">${face(c.front, "front", "No photo")}${face(c.back, "back", "No back photo")}</div>
       <div class="meta"><b>${esc(c.player || "Unknown player")}</b><span>${esc([c.year, c.set, c.parallel].filter(Boolean).join(" · "))}${c.team && $("#sort").value !== "team" ? " · " + esc(c.team) : ""}</span>
         <div class="tags">${tagsOf(c)}</div>
@@ -230,7 +229,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       ${cards.length ? "Try a different search or filter." : isOwner() ? "Tap <b>+ Add card</b> to put your first card in." : "Cards are on the way."}</div>`;
   }
 
-  // ---------- flip + holo tilt
+  // ---------- flip + tilt
   document.addEventListener("click", (e) => {
     if (e.target.closest("button")) return;
     const c = e.target.closest(".card");
@@ -248,7 +247,6 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     c.classList.add("tilt");
     inner.style.setProperty("--rx", ((0.5 - y) * 14).toFixed(1) + "deg");
     inner.style.setProperty("--ry", ((x - 0.5) * 16).toFixed(1) + "deg");
-    c.querySelectorAll(".face").forEach((f) => { f.style.setProperty("--mx", x * 100 + "%"); f.style.setProperty("--my", y * 100 + "%"); });
   });
   $("#q").oninput = draw;
   $("#sort").onchange = draw;
@@ -376,19 +374,22 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     document.body.appendChild(w);
     const imgs = { front: c.front || "", back: c.back || "" }, st = w.querySelector("#st");
     // automatic: find the card's corners, warp it flat and upright, done. "Corners" lets you place the 4 corners
-    // yourself (also works on a card that's already saved), "Rotate" spins it 180 degrees.
-    const P = { front: {}, back: {} }; // per photo: bmp (the photo), q (its corners or "whole"), t (half-turns)
-    const render = (k) => { const p = P[k]; imgs[k] = p.q === "whole" ? CC.whole(p.bmp, p.t) : CC.warp(p.bmp, p.q, p.t); show(k); };
+    // yourself (also works on a card that's already saved), "Rotate" turns it a quarter turn per tap.
+    // per photo: bmp (the photo), q (its corners or "whole"), t (quarter-turns). An odd t = a sideways (landscape)
+    // side: the photo is saved as the card itself and the card turns sideways to show it.
+    const P = { front: {}, back: {} }, wide = { front: !!c.frontWide, back: !!c.backWide };
+    const render = (k) => { const p = P[k], h = p.t >= 2 ? 1 : 0; imgs[k] = p.q === "whole" ? CC.whole(p.bmp, h) : CC.warp(p.bmp, p.q, h); wide[k] = p.t % 2 === 1; show(k); };
     const show = (k) => {
       const ph = w.querySelector("#ph-" + k); ph.style.backgroundImage = imgs[k] ? `url('${imgs[k]}')` : ""; if (imgs[k]) ph.querySelector("span").textContent = "";
+      ph.classList.toggle("wide", wide[k]);
       if (!imgs[k] || w.querySelector("#adj-" + k)) return;
       const bar = document.createElement("div"); bar.className = "adj-bar"; bar.id = "adj-" + k;
       bar.innerHTML = `<button type="button" class="adj">Corners</button><button type="button" class="adj">Rotate</button>`;
       ph.after(bar);
       const [cb, rb] = bar.querySelectorAll("button");
-      const ready = async () => { const p = P[k]; if (!p.bmp) { p.bmp = await CC.bitmapOf(imgs[k]); p.t = 0; } return p; }; // saved card: start from its photo
+      const ready = async () => { const p = P[k]; if (!p.bmp) { p.bmp = await CC.bitmapOf(imgs[k]); p.t = wide[k] ? 1 : 0; } return p; }; // saved card: start from its photo
       cb.onclick = async () => { const p = await ready(), v = await cornerPicker(p.bmp, Array.isArray(p.q) ? p.q : null); if (v) { p.q = v; render(k); } };
-      rb.onclick = async () => { const p = await ready(); if (!p.q) p.q = "whole"; p.t = (p.t + 1) % 2; render(k); };
+      rb.onclick = async () => { const p = await ready(); if (!p.q) p.q = "whole"; p.t = (p.t + 1) % 4; render(k); };
     };
     show("front"); show("back");
     const setPhoto = async (k, src) => {
@@ -437,7 +438,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       for (const k of ["player", "team", "year", "set", "parallel", "serial", "grade", "notes"]) data[k] = (fd.get(k) || "").trim();
       data.year = data.year ? +data.year || data.year : "";
       for (const k of ["rookie", "auto", "grail"]) data[k] = !!fd.get(k);
-      data.front = imgs.front; data.back = imgs.back;
+      data.front = imgs.front; data.back = imgs.back; data.frontWide = wide.front && !!imgs.front; data.backWide = wide.back && !!imgs.back;
       if (!data.front) { st.textContent = "Add a photo of the front first."; return; }
       st.textContent = "Saving…";
       try {
