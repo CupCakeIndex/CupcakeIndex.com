@@ -1775,3 +1775,5 @@ main.lg-in { animation: lgin .4s ease-out both; }
 }
 @media (max-width: 380px) { .sub { font-size: 11px; } .def i { margin: 0 2px 0 1px; } }
 @media (max-width: 760px) { .top .controls #league button { padding-left: 10px; padding-right: 10px; } .top .controls .rank-ctl select { padding-left: 6px; padding-right: 2px; } }
+/* phones: the CFB | NFL buttons fit inside their 38px box (the 36px tap-size minimum pushed the active one out the bottom) */
+@media (max-width: 760px) { .top .controls #league button { min-height: 0; } }
