@@ -33,7 +33,10 @@ import obscure as O  # noqa: E402  (card + site themes + latest rankings file)
 from render import ROOT, tweet, x_len  # noqa: E402
 import model  # noqa: E402
 import posted  # noqa: E402
-from cupcake_history import OUT as HIST, cfg as cfb_cfg  # noqa: E402
+from cupcake_history import OUT as HIST, cfg as _read_cfg  # noqa: E402
+import functools  # noqa: E402
+
+cfb_cfg = functools.lru_cache(maxsize=1)(_read_cfg)  # the model settings, read once (not once per game)
 
 TODAY = dt.date.today()
 ALLOW_PARTIAL = False  # --test: also use seasons built without every piece (local checks only, never for posting)
@@ -101,22 +104,39 @@ def is_cup(season, team, opp):
     return model.cupcake_weight(tr, orr, low, cfb_cfg()) > 0
 
 
+_BY_TEAM = {}
+
+
+def _index():
+    """Every team's games (all seasons), built once: {team: [(season, game), ...]} in date order."""
+    if not _BY_TEAM:
+        for season, d in history().items():
+            for x in d["games"]:
+                for t in (x["h"], x["a"]):
+                    _BY_TEAM.setdefault(t, []).append((season, x))
+    return _BY_TEAM
+
+
+_GAMES = {}
+
+
 def games_of(team, since=None, done=True):
-    """A team's games, oldest first, from its point of view."""
+    """A team's games, oldest first, from its point of view (cached: the stats ask for the same team many times)."""
+    key = (team, since, done)
+    if key in _GAMES:
+        return _GAMES[key]
     out = []
-    for season, d in history().items():
-        if since and season < since:
+    for season, x in _index().get(team, []):
+        if (since and season < since) or (done and x["hp"] is None):
             continue
-        for x in d["games"]:
-            if team not in (x["h"], x["a"]) or (done and x["hp"] is None):
-                continue
-            home = x["h"] == team
-            us, them = (x["hp"], x["ap"]) if home else (x["ap"], x["hp"])
-            opp = x["a"] if home else x["h"]
-            out.append({"season": season, "d": x["d"], "opp": opp, "loc": "N" if x["n"] else ("H" if home else "A"),
-                        "us": us, "them": them, "won": us is not None and us > them, "post": x["p"],
-                        "opp_ap": x["ar"] if home else x["hr"], "our_ap": x["hr"] if home else x["ar"],
-                        "cup": is_cup(season, team, opp) if us is not None else None})
+        home = x["h"] == team
+        us, them = (x["hp"], x["ap"]) if home else (x["ap"], x["hp"])
+        opp = x["a"] if home else x["h"]
+        out.append({"season": season, "d": x["d"], "opp": opp, "loc": "N" if x["n"] else ("H" if home else "A"),
+                    "us": us, "them": them, "won": us is not None and us > them, "post": x["p"],
+                    "opp_ap": x["ar"] if home else x["hr"], "our_ap": x["hr"] if home else x["ar"],
+                    "cup": is_cup(season, team, opp) if us is not None else None})
+    _GAMES[key] = out
     return out
 
 
@@ -280,9 +300,13 @@ def _():
     cur_season = max(hs)
     ts, by = subjects("cfb")
 
+    rec_cache = {}
+
     def records(season, upto):
-        """Every team's W-L in games on or before `upto` that season."""
-        rec = {}
+        """Every team's W-L in games on or before `upto` that season (cached: many teams share a date)."""
+        if (season, upto) in rec_cache:
+            return rec_cache[(season, upto)]
+        rec = rec_cache[(season, upto)] = {}
         for x in hs[season]["games"]:
             if x["hp"] is None or x["d"] > upto:
                 continue

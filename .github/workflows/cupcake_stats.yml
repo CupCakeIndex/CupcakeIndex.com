@@ -59,7 +59,8 @@ jobs:
           THEME: ${{ inputs.theme || 'random' }}
           STAT: ${{ inputs.stat }}
         run: |
-          python src/social/cupcake_stats.py --all --theme "$THEME" || echo "No drafts this time"
+          # drafts (every stat, for previewing) only on manual runs; scheduled runs go straight to the post
+          if [ "${{ github.event_name }}" != "schedule" ]; then python src/social/cupcake_stats.py --all --theme "$THEME" || echo "No drafts this time"; fi
           # scheduled runs: Saturday = college game-day stats, Sunday = NFL game-day stats, weekdays = the best one
           # (each list is tried in order; the first stat with something new to say posts)
           if [ -n "$STAT" ]; then TRY="$STAT best"
