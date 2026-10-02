@@ -24,6 +24,7 @@ import requests
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import posted
 import render as R
 from render import DATA, ROOT, hex_rgb, latest, load, ranked, short, tweet
 
@@ -736,7 +737,7 @@ def card(f, theme):
     x0, xr = PW + 40, W - 64
     tag_f = F(20, "Bold")
     x = x0
-    for label, solid in ((f["league"].upper(), False), ("HOT TAKE" if f["hot"] else "BY THE NUMBERS", True)):
+    for label, solid in ((f["league"].upper(), False), (f.get("tag") or ("HOT TAKE" if f["hot"] else "BY THE NUMBERS"), True)):
         tw = d.textlength(label, font=tag_f)
         if solid:
             d.rectangle((x, 44, x + tw + 28, 80), fill=T["accent"])
@@ -849,7 +850,10 @@ def main():
     if a.all:
         keys = list(STATS)
     elif a.stat == "rotate":
-        keys = rotation()
+        # skip anything posted in the last 14 days, so a stat that falls through to the next one in line
+        # doesn't get posted again on the next run (that's how repeats happened)
+        recent = posted.recent_stats(14)
+        keys = [k for k in rotation() if k not in recent] or rotation()
     elif a.stat in pools:
         keys = random.sample(pools[a.stat], len(pools[a.stat]))
     else:
@@ -861,6 +865,10 @@ def main():
         except Exception as e:  # one broken data source shouldn't stop the post
             print(f"[{key}] failed: {e!r}")
             m = None
+        if m and not a.all and posted.seen(m["text"]):
+            print(f"[{key}] already posted this exact text; trying the next one")
+            m = None
+            continue
         if m:
             print(f"[{key}] {m['theme']} {m['image']} ({len(m['text'])} chars)\n   {m['text']}")
             if not a.all:

@@ -45,6 +45,10 @@ def main():
     if meta.get("skip"):
         print(f"Not posting today: {meta.get('reason') or 'nothing fresh'}.")
         return
+    import posted
+    if posted.seen(meta["text"]):
+        print("Not posting: this exact text was already posted (see data/social/posted.json).")
+        return
 
     import requests
     from requests_oauthlib import OAuth1
@@ -66,6 +70,7 @@ def main():
     if r.status_code >= 300:
         sys.exit(f"Posting failed ({r.status_code}): {r.text[:500]}")
     print("Posted: https://x.com/i/web/status/" + r.json()["data"]["id"])
+    posted.add(meta)  # the workflow commits this so the next run knows
 
 
 if __name__ == "__main__":

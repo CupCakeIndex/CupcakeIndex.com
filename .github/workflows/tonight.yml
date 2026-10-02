@@ -1,20 +1,18 @@
-name: Home screen tip post
+name: Weeknight game-day post
 
-# "Put the Cupcake Index on your home screen" card for X (iPhone + Android steps) with a stat of the day.
-# Runs every 3 days at 4 PM Eastern (3 PM in winter), year-round. Run it any time: Actions tab >
-# "Home screen tip post" > Run workflow (untick "Post to X" to just make the picture).
-# No link in the post, 280 characters max. Same on/off switch as the other posts: X_POSTING_ENABLED.
+# Monday-Friday game days (Monday/Thursday night NFL, weeknight college games): a "tonight" card with our
+# model's win chances, posted at 5:30 PM Eastern (4:30 in winter). Skips days with no games. Aug-Jan.
+# Run it any time: Actions tab > "Weeknight game-day post" > Run workflow (untick "Post to X" to only make the picture).
+# No link, 280 characters max, win chances only (no lines). Same on/off switch as the other posts.
 
 on:
   schedule:
-    - cron: "0 20 */3 * *"
+    - cron: "30 21 * 8-12,1 1-5"
   workflow_dispatch:
     inputs:
-      theme:
-        description: "Card look (a site theme; random = surprise me)"
-        type: choice
-        default: random
-        options: [random, mono, terminal, amber, broadcast, editorial, glass, varsity]
+      date:
+        description: "Pretend it's this date (YYYY-MM-DD, blank = today)"
+        required: false
       post:
         description: "Post to X (untick to only make the picture)"
         type: boolean
@@ -36,15 +34,17 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r src/social/requirements.txt
-      - name: Render the card
+      - name: Render tonight's card
         env:
-          THEME: ${{ inputs.theme || 'random' }}
-        run: python src/social/app_tip.py --theme "$THEME"
+          DATE: ${{ inputs.date }}
+        run: |
+          if [ -n "$DATE" ]; then python src/social/tonight.py --date "$DATE"; else python src/social/tonight.py; fi
       - uses: actions/upload-artifact@v4
         with:
-          name: app-tip
+          name: tonight
           path: out/social/
           retention-days: 14
+          if-no-files-found: ignore
       - name: Post to X
         if: (github.event_name == 'schedule' || inputs.post) && vars.X_POSTING_ENABLED == 'true'
         env:

@@ -1,0 +1,78 @@
+name: Cupcake stat post (draft)
+
+# Cupcake stats: droughts and résumés only our model can make (src/social/cupcake_stats.py).
+# DRAFT MODE: this never runs on its own and never posts unless you tick "Post to X".
+#   1. Actions tab > "Cupcake stat post (draft)" > Run workflow (leave "Post to X" unticked)
+#   2. Open the finished run, download "cupcake-drafts", and read drafts.md (every card + its text)
+#   3. Like one? Run it again with that stat picked and "Post to X" ticked.
+# The first run also downloads college game history back to 2005 (about 60 CollegeFootballData calls,
+# once) and saves it in data/history/cfb/ so later runs only refresh the current season.
+
+on:
+  workflow_dispatch:
+    inputs:
+      stat:
+        description: "Which stat (best = the strongest one right now)"
+        type: choice
+        default: best
+        options: [best, bully_drought, week_drought, soft_unbeaten, top25_test, nfl_top8_test]
+      theme:
+        description: "Card look (a site theme; random = surprise me)"
+        type: choice
+        default: random
+        options: [random, mono, terminal, amber, broadcast, editorial, glass, varsity]
+      post:
+        description: "Post to X (leave unticked to only make drafts)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # saves the game history and the posting log
+
+concurrency:
+  group: social-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt -r src/social/requirements.txt
+      - name: Update the game history
+        env:
+          CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+        run: python src/social/cupcake_history.py
+      - name: Make the drafts
+        env:
+          THEME: ${{ inputs.theme }}
+        run: |
+          python src/social/cupcake_stats.py --all --theme "$THEME" || echo "No drafts this time"
+          python src/social/cupcake_stats.py --stat "${{ inputs.stat }}" --theme "$THEME" || echo "Nothing to post"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cupcake-drafts
+          path: out/social/
+          retention-days: 14
+      - name: Post to X
+        if: inputs.post && vars.X_POSTING_ENABLED == 'true' && hashFiles('out/social/today.json') != ''
+        env:
+          X_POSTING_ENABLED: ${{ vars.X_POSTING_ENABLED }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+        run: python src/social/post_to_x.py --meta out/social/today.json
+      - name: Save the history and posting log
+        if: success()
+        run: |
+          git config user.name "rankings-bot"
+          git config user.email "rankings-bot@users.noreply.github.com"
+          git add data/history data/social/posted.json 2>/dev/null || git add data/history
+          git diff --cached --quiet && echo "Nothing new" && exit 0
+          git commit -m "Cupcake stats: history / posting log $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase
+          git push

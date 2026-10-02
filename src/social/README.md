@@ -13,6 +13,18 @@ data and, **only if you turn it on**, posts it to the Cupcake Index X account.
 | Sat | CFB game day: the week's biggest games with win odds |
 | Sun | NFL game day: the slate with win odds |
 
+Other posts (each has its own workflow, same on/off switch, no links, 280 characters max):
+
+| Workflow | Post |
+|----------|------|
+| `obscure.yml` | Stat / hot-take card, 1 PM and 7 PM Eastern |
+| `tonight.yml` | Weeknight game day (Monday/Thursday night NFL, weeknight college), 5:30 PM Eastern, only on days with games |
+| `app_tip.yml` | "Put the Cupcake Index on your home screen" + stat of the day, every 3 days |
+| `cupcake_stats.yml` | Cupcake stats (droughts, softest unbeaten starts). **Draft mode:** only runs when you click Run workflow, and only posts if you tick "Post to X" |
+
+No repeats: `post_to_x.py` records every post in `data/social/posted.json` and won't post the same text twice;
+the stat posts also skip any stat used in the last 14 days (cupcake stats: 3 days).
+
 Files:
 - `render.py` makes the picture (`out/social/<day>.png`) and tweet text (`<day>.txt`). It never talks to X.
 - `post_to_x.py` posts it. It does nothing unless posting is switched on (below).
