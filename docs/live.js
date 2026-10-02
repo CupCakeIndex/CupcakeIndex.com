@@ -276,6 +276,40 @@ const Live = (() => {
     l.href = "https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap";
     document.head.appendChild(l);
   }
+  // Who's who on the live field: each team's roster (names, numbers, headshots) and depth chart (who starts where).
+  // ESPN doesn't say which 22 are on the field each snap, so spots get the listed starter ("likely"); the players
+  // named in the play text (passer, receiver, runner, tacklers...) are matched to the roster and shown for sure.
+  const peopleCache = new Map();
+  async function teamPeople(lg, teamId, season) {
+    const key = `${lg}-${teamId}-${season}`;
+    if (peopleCache.has(key)) return peopleCache.get(key);
+    const job = (async () => {
+      const coreLg = lg === "nfl" ? "nfl" : "college-football";
+      const [ro, dc] = await Promise.all([
+        api(`${SITE(lg)}/teams/${encodeURIComponent(teamId)}/roster`, 3600000).catch(() => null),
+        api(`https://sports.core.api.espn.com/v2/sports/football/leagues/${coreLg}/seasons/${season}/teams/${encodeURIComponent(teamId)}/depthcharts`, 3600000).catch(() => null),
+      ]);
+      const byId = new Map(), byName = new Map();
+      const groups = ro?.athletes || [];
+      (groups[0]?.items ? groups.flatMap((g) => g.items || []) : groups).forEach((a) => {
+        const full = a.fullName || a.displayName || "", parts = full.replace(/\s+(jr|sr|ii|iii|iv)\.?$/i, "").split(" ");
+        const pl = { id: String(a.id), name: full, num: a.jersey || "", pos: a.position?.abbreviation || "", pic: a.headshot?.href || "" };
+        byId.set(pl.id, pl);
+        byName.set(full.toLowerCase(), pl);
+        if (parts.length > 1) byName.set(`${parts[0][0]}.${parts.slice(1).join(" ")}`.toLowerCase(), pl); // "D.Metcalf"
+      });
+      const depth = {};
+      (dc?.items || []).forEach((it) => Object.entries(it.positions || {}).forEach(([k, v]) => {
+        if (!depth[k]) depth[k] = (v.athletes || []).sort((a, b) => (a.rank || a.slot) - (b.rank || b.slot))
+          .map((x) => (/athletes\/(\d+)/.exec(x.athlete?.$ref || "") || [])[1]).filter(Boolean);
+      }));
+      return { byId, byName, depth };
+    })();
+    peopleCache.set(key, job);
+    job.catch(() => peopleCache.delete(key));
+    return job;
+  }
+
   // A new play replays on the field (ball carrier runs / pass arcs / kick sails, then the teams line up again);
   // the same play on later refreshes just sits there with the players idling. tfSeen: game id -> {play, t}.
   const tfSeen = new Map();
@@ -288,7 +322,7 @@ const Live = (() => {
     const is = (c) => [c.team.abbreviation, ABBR_ALIAS[c.team.abbreviation]].filter(Boolean).map((x) => x.toUpperCase()).includes(side);
     return is(away) ? 100 - +n : is(home) ? +n : null;
   }
-  function liveField(s, comp, home, away, tc, gameId) {
+  function liveField(s, comp, home, away, tc, gameId, people = null) {
     const drives = s.drives || {};
     const drive = drives.current || (drives.previous || []).at(-1);
     const play = drive?.plays?.at(-1);
@@ -355,17 +389,57 @@ const Live = (() => {
     // replay timing (seconds): the play runs 0.3-1.6, banner 1.2-3.2, teams walk to the new line 1.9-2.6
     const from = play.start?.yardLine ?? spot, moved = from !== spot;
     const anim = fresh;
-    const appear = (t) => (anim && t ? ` opacity="0"><animate attributeName="opacity" from="0" to="1" begin="${t}s" dur=".2s" fill="freeze"/` : "");
+    const appear = (t) => (anim && t ? ` opacity="0" visibility="hidden"><set attributeName="visibility" to="visible" begin="${t}s" fill="freeze"/><animate attributeName="opacity" from="0" to="1" begin="${t}s" dur=".2s" fill="freeze"/` : "");
     // lines: blue line of scrimmage, yellow first-down line (they show up after the replay)
     const lines = isTD ? "" : `<g${appear(2.5)}>${r(X(spot) - 3, 0, 6, H, "#3d7bff")}${fd != null ? r(X(fd) - 3, 0, 6, H, "#ffd21f") : ""}</g>`;
     // pixel players (idle bob, staggered): offense behind the ball, defense across it
     let k = 0;
-    const guy = (x, y, c, flip) => {
+    // who: { name, num, pos, pic, sure } -> hover/tap label (see the field's pointer handler in game())
+    const guy = (x, y, c, flip, who) => {
       const jersey = col(c), helm = alt(c);
-      return `<g class="tf-guy" style="animation-delay:${-((k++ * 0.37) % 0.8).toFixed(2)}s">`
+      const tag = who ? ` data-name="${esc(who.name)}" data-num="${esc(who.num || "")}" data-pos="${esc(who.pos || "")}" data-pic="${esc(who.pic || "")}"`
+        + ` data-team="${esc(c.team.abbreviation || "")}" data-sure="${who.sure ? 1 : 0}"` : ` data-team="${esc(c.team.abbreviation || "")}"`;
+      return `<g class="tf-guy"${tag} style="animation-delay:${-((k++ * 0.37) % 0.8).toFixed(2)}s">`
         + r(x - 6, y - 14, 12, 8, helm) + r(x - 8, y - 6, 16, 12, jersey) + r(x - 7, y + 6, 5, 8, "#f2f2f2") + r(x + 2, y + 6, 5, 8, "#f2f2f2")
         + r(x + (flip ? -9 : 5), y - 4, 4, 6, "#f5c9a6") + "</g>";
     };
+    // casting: depth-chart starters for each formation spot, plus the players named in the play
+    const P = (c) => people?.[c === home ? "home" : "away"];
+    const pick = (c, keys, n = 0) => {
+      const d = P(c)?.depth || {}, ids = [];
+      keys.forEach((k) => (d[k] || []).forEach((id, i) => { if (i === 0 || keys.length === 1) ids.push(id); }));
+      const pl = P(c)?.byId.get(ids[n]);
+      return pl ? { ...pl, sure: false } : null;
+    };
+    const OFF_KEYS = [["lt"], ["lg"], ["c"], ["rg"], ["rt"], ["qb"], ["rb"], ["wr", 0], ["wr", 1], ["te"]];
+    const castOff = (c) => OFF_KEYS.map(([k, n]) => pick(c, [k], n || 0));
+    const castDef = (c) => {
+      const d = P(c)?.depth || {}, have = (ks) => ks.filter((k) => d[k]?.length);
+      const dl = have(["lde", "ldt", "nt", "rdt", "rde", "de", "dt"]), lb = have(["wlb", "lilb", "mlb", "rilb", "slb", "lb", "olb"]);
+      const one = (k) => pick(c, [k]);
+      return [...[0, 1, 2, 3].map((i) => (dl[i] ? one(dl[i]) : null)), ...[0, 1, 2].map((i) => (lb[i] ? one(lb[i]) : null)),
+        one("lcb") || pick(c, ["cb"]), one("rcb") || pick(c, ["cb"], 1), one("ss"), one("fs")];
+    };
+    // names in the play text: "A.Rodgers pass short middle to R.Wilson ... (G.Delpit; C.Schwesinger)"
+    const named = (c, nm) => { const pl = nm && P(c)?.byName.get(nm.trim().replace(/[.,]$/, "").toLowerCase()); return pl ? { ...pl, sure: true } : null; };
+    const NM = "([A-Z][A-Za-z'.-]*(?:\\s[A-Z][A-Za-z'.-]+)?)";
+    const ptxt = (play.text || "").replace(/^\([^)]*\)\s*/, "");
+    const grab = (re) => (new RegExp(re).exec(ptxt) || [])[1];
+    const inPlay = {
+      qb: grab(`^${NM} (?:pass|sacked|scrambles|kneels|spiked)`), wr: grab(` pass .*?to ${NM}`),
+      rb: /\bpass\b|sacked|kneels|spike|punts|kicks/.test(ptxt) ? null : grab(`^${NM} (?:left|right|up|middle|runs?|rush)`),
+      cb: grab(`INTERCEPTED by ${NM}`), sack: grab(`sacked .*?\\(${NM}`),
+      tacklers: ((/\(([^()]*)\)\.?\s*$/.exec(ptxt) || [])[1] || "").split(/[;,]/).map((x) => x.trim()).filter((x) => /^[A-Z]/.test(x)),
+    };
+    const castPlay = (o, d) => {
+      const offC = castOff(o), defC = castDef(d);
+      const put = (arr, i, c, nm) => { const pl = named(c, nm); if (pl) arr[i] = pl; };
+      put(offC, 5, o, inPlay.qb); put(offC, 6, o, inPlay.rb); put(offC, 7, o, inPlay.wr);
+      put(defC, 7, d, inPlay.cb); put(defC, 1, d, inPlay.sack);
+      inPlay.tacklers.forEach((t, i) => put(defC, [5, 9, 4][i] ?? 6, d, t));
+      return [offC, defC];
+    };
+
     // formations: [role, yards off the ball, y]. Offense behind the ball, defense across it.
     const OFF_SET = [["ol", 1.6, 110], ["ol", 1.6, 130], ["c", 1.6, 150], ["ol", 1.6, 170], ["ol", 1.6, 190], ["qb", 5, 150], ["rb", 7.5, 132],
       ["wr", 1.6, 40], ["wr2", 1.6, 262], ["te", 2.8, 222]];
@@ -381,10 +455,11 @@ const Live = (() => {
     };
     const ball = (x, y) => `<g class="tf-sh">${r(x - 9, y - 4, 18, 8, "#8b4a1f") + r(x - 6, y - 6, 12, 12, "#8b4a1f") + r(x - 4, y - 1, 8, 2, "#ffffff")}</g>`;
     // one formation at yard line `at`; odir = the offense's direction; moves(role, x, y) -> keyframes [[t, dx, dy], ...]
-    const formation = (at, o, odir, moves = () => null, len = D, begin = 0) => {
+    const formation = (at, o, odir, moves = () => null, len = D, begin = 0, cast = null) => {
+      const [offC, defC] = cast || [castOff(o), castDef(o === home ? away : home)];
       const d = o === home ? away : home, out = [];
-      OFF_SET.forEach(([role, yd, y]) => { const x = X(at) - odir * yd * 10; out.push(`<g>${motion(moves(role, x, y, true), len, begin)}${guy(x, y, o, odir < 0)}</g>`); });
-      DEF_SET.forEach(([role, yd, y]) => { const x = X(at) + odir * yd * 10; out.push(`<g>${motion(moves(role, x, y, false), len, begin)}${guy(x, y, d, odir > 0)}</g>`); });
+      OFF_SET.forEach(([role, yd, y], i) => { const x = X(at) - odir * yd * 10; out.push(`<g>${motion(moves(role, x, y, true), len, begin)}${guy(x, y, o, odir < 0, offC[i])}</g>`); });
+      DEF_SET.forEach(([role, yd, y], i) => { const x = X(at) + odir * yd * 10; out.push(`<g>${motion(moves(role, x, y, false), len, begin)}${guy(x, y, d, odir > 0, defC[i])}</g>`); });
       return out.join("");
     };
     const bx = X(spot) - dir * 6;
@@ -399,7 +474,7 @@ const Live = (() => {
           <animateTransform attributeName="transform" type="translate" values="0 0;${(i % 3 - 1) * 30} ${H + 24}" dur="${d}s" begin="${b}s" repeatCount="2" fill="freeze"/></rect>`;
       }).join("");
       const sx0 = ez + 50;
-      const scorer = `<g opacity="0"><set attributeName="opacity" to="1" begin="${t}s"/><g>${guy(sx0, 150, team, !right)}${ball(sx0 + 2, 120)}
+      const scorer = `<g opacity="0"><set attributeName="opacity" to="1" begin="${t}s"/><g>${guy(sx0, 150, team, !right, named(team, inPlay.wr || inPlay.rb || inPlay.cb))}${ball(sx0 + 2, 120)}
         <animateTransform attributeName="transform" type="translate" values="0 0;0 -18;0 0" dur=".45s" begin="${t}s" repeatCount="5"/></g>
         <animate attributeName="opacity" from="1" to="0" begin="${t + 2.4}s" dur=".4s" fill="freeze"/></g>`;
       return flash + scorer + confetti;
@@ -409,10 +484,10 @@ const Live = (() => {
     const kickoffSet = (k) => {
       const kd = k === home ? 1 : -1, K = k === home ? 35 : 65, recv = otherTeam(k), out = [];
       [30, 55, 80, 105, 130, 170, 195, 220, 245, 270].forEach((y) => out.push(guy(X(K) - kd * 12, y, k, kd < 0)));
-      out.push(guy(X(K) - kd * 70, 150, k, kd < 0)); // the kicker
+      out.push(guy(X(K) - kd * 70, 150, k, kd < 0, pick(k, ["pk"]))); // the kicker
       [60, 105, 150, 195, 240].forEach((y) => out.push(guy(X(K + kd * 15), y, recv, kd > 0)));
       [90, 150, 210].forEach((y) => out.push(guy(X(K + kd * 35), y, recv, kd > 0)));
-      [120, 180].forEach((y) => out.push(guy(X(kd > 0 ? 95 : 5), y, recv, kd > 0)));
+      [120, 180].forEach((y, i) => out.push(guy(X(kd > 0 ? 95 : 5), y, recv, kd > 0, pick(recv, ["kr"], i))));
       return out.join("") + r(X(K) - 3, 156, 6, 6, "#ff8c1a") + ball(X(K), 150); // ball on a tee
     };
     const party = isTD && tdTeam ? celebrate(tdTeam, fresh ? 2.3 : 0) : "";
@@ -511,9 +586,9 @@ const Live = (() => {
         return [...k, [3.6, last[1], last[2]], [4.9, last[1] + (isOff ? -pdir : pdir) * 30, (endY < 150 ? -40 : H + 40) - y]];
       };
       replay = isTD
-        ? `<g>${formation(from, pteam, pdir, offField, exitLen)}<g>${pig}<animate attributeName="opacity" from="1" to="0" begin="${D}s" dur=".2s" fill="freeze"/></g>
-            <animate attributeName="opacity" from="1" to="0" begin="${exitLen}s" dur=".2s" fill="freeze"/></g>`
-        : `<g>${formation(from, pteam, pdir, moves)}${pig}<animate attributeName="opacity" from="1" to="0" begin="${D}s" dur=".2s" fill="freeze"/></g>`;
+        ? `<g>${formation(from, pteam, pdir, offField, exitLen, 0, castPlay(pteam, dteam))}<g>${pig}<animate attributeName="opacity" from="1" to="0" begin="${D}s" dur=".2s" fill="freeze"/><set attributeName="visibility" to="hidden" begin="${D + 0.2}s" fill="freeze"/></g>
+            <animate attributeName="opacity" from="1" to="0" begin="${exitLen}s" dur=".2s" fill="freeze"/><set attributeName="visibility" to="hidden" begin="${exitLen + 0.2}s" fill="freeze"/></g>`
+        : `<g>${formation(from, pteam, pdir, moves, D, 0, castPlay(pteam, dteam))}${pig}<animate attributeName="opacity" from="1" to="0" begin="${D}s" dur=".2s" fill="freeze"/><set attributeName="visibility" to="hidden" begin="${D + 0.2}s" fill="freeze"/></g>`;
       if (isFlag) { // a striped ref steps up at the sideline and tosses a fluttering flag to the spot
         const rx = Math.max(130, Math.min(1070, sx + pdir * 40)), land = sx + pdir * 18;
         replay += `<g opacity="0"><set attributeName="opacity" to="1" begin="0s" fill="freeze"/>${refSprite(rx, 30, true)}
@@ -550,8 +625,8 @@ const Live = (() => {
             ? `<g transform="translate(${lx} 150)"><g>${ball(0, 0)}${motion([[0.8, -sd * 50, 0]], 0.9, t0)}<set attributeName="opacity" to="0" begin="${t0 + 0.9}s" fill="freeze"/></g></g>`
               + flying(t0 + 0.9, 0.55, `M${lx - sd * 50},150 Q${(lx + inEZ) / 2},40 ${pat.good ? inEZ : inEZ + sd * 20},${pat.good ? 100 : 160}`)
             : `<g transform="translate(${lx} 150)"><g>${ball(0, 0)}${motion([[0.6, -sd * 30, 0], [1.4, (pat.good ? inEZ : lx + sd * 5) - lx + sd * 10, 0]], 1.5, t0)}</g></g>`;
-        replay += `<g opacity="0"><set attributeName="opacity" to="1" begin="${t0}s" fill="freeze"/>${formation(los, scorer, sd, patMoves, PAT_LEN, t0)}${pball}
-          <animate attributeName="opacity" from="1" to="0" begin="${t0 + PAT_LEN}s" dur=".2s" fill="freeze"/></g>`;
+        replay += `<g opacity="0" visibility="hidden"><set attributeName="visibility" to="visible" begin="${t0}s" fill="freeze"/><set attributeName="opacity" to="1" begin="${t0}s" fill="freeze"/>${formation(los, scorer, sd, patMoves, PAT_LEN, t0)}${pball}
+          <animate attributeName="opacity" from="1" to="0" begin="${t0 + PAT_LEN}s" dur=".2s" fill="freeze"/><set attributeName="visibility" to="hidden" begin="${t0 + PAT_LEN + 0.2}s" fill="freeze"/></g>`;
         const word = pat.kind === "xp" ? (pat.good ? "IT'S GOOD!" : "NO GOOD!") : pat.good ? "2 PT GOOD!" : "2 PT FAILS";
         banner += `<g opacity="0"><rect x="300" y="105" width="600" height="90" fill="#000" opacity=".78"/><text x="600" y="152" class="tf-big">${word}</text>
           <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.1;.85;1" begin="${t0 + 1.4}s" dur="1.5s" fill="freeze"/></g>`;
@@ -568,8 +643,9 @@ const Live = (() => {
         <span class="tf-dd">${ddText}</span>
         <span class="tf-where">${where}${toGo <= 20 && off && !isTD ? ` <b class="tf-red">RED ZONE</b>` : ""}</span>
       </div>
+      <div class="tf-wrap"><div class="tf-tip hidden"></div>
       <svg class="tf-field" viewBox="0 0 1200 ${H}" shape-rendering="crispEdges" role="img"
-        aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, where].filter(Boolean).join(", "))}">${base.join("")}${lines}${lineup}${anim ? "" : flagOnField}${replay}${banner}</svg>
+        aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, where].filter(Boolean).join(", "))}">${base.join("")}${lines}${lineup}${anim ? "" : flagOnField}${replay}${banner}</svg></div>
       <div class="tf-clock" title="A rough play clock since the last play came in. It doesn't hold anything back: the field checks for a new play every 5 seconds and replays it as soon as it arrives">
         <span>PLAY CLOCK</span><span class="tf-track"><i style="animation-delay:-${Math.min(since, 40).toFixed(1)}s"></i></span></div>
       <div class="tf-key"><span><i style="background:#3d7bff"></i>Line of scrimmage</span>${fd != null ? `<span><i style="background:#ffd21f"></i>First down</span>` : ""}
@@ -610,6 +686,35 @@ const Live = (() => {
       : { team: lp.team, start: lp.drive?.start, description: lp.drive?.description, plays: [play] };
   }
 
+  // hover (or tap) a pixel player: highlight him and show number, name, position, headshot
+  let fieldTipsWired = false;
+  function wireFieldTips() {
+    if (fieldTipsWired) return;
+    fieldTipsWired = true;
+    const root = view("game");
+    let on = null;
+    const show = (g, ev) => {
+      const wrap = g.closest(".tf-wrap"), tip = wrap?.querySelector(".tf-tip");
+      if (!tip) return;
+      if (on && on !== g) on.classList.remove("on");
+      on = g; g.classList.add("on");
+      const d = g.dataset;
+      tip.innerHTML = d.name
+        ? `${d.pic ? `<img src="${esc(d.pic)}" alt="" width="40" height="40">` : ""}<div><b>${d.num ? `#${esc(d.num)} ` : ""}${esc(d.name)}</b>
+           <small>${esc([d.pos, d.team].filter(Boolean).join(" · "))}${d.sure === "1" ? " · in this play" : " · likely (depth chart)"}</small></div>`
+        : `<div><b>${esc(d.team)}</b><small>No name for this spot</small></div>`;
+      const r = wrap.getBoundingClientRect(), b = g.getBoundingClientRect();
+      tip.style.left = `${Math.min(r.width - 10, Math.max(10, b.left - r.left + b.width / 2))}px`;
+      tip.style.top = `${b.top - r.top}px`;
+      tip.classList.toggle("flip", b.left - r.left > r.width * 0.6);
+      tip.classList.remove("hidden");
+    };
+    const hide = () => { if (on) on.classList.remove("on"); on = null; root.querySelectorAll(".tf-tip").forEach((t) => t.classList.add("hidden")); };
+    root.addEventListener("pointerover", (ev) => { const g = ev.target.closest?.(".tf-field .tf-guy"); if (g) show(g, ev); });
+    root.addEventListener("pointerout", (ev) => { const g = ev.target.closest?.(".tf-field .tf-guy"); if (g && !g.contains(ev.relatedTarget)) hide(); });
+    root.addEventListener("click", (ev) => { const g = ev.target.closest?.(".tf-field .tf-guy"); if (g) show(g, ev); else if (!ev.target.closest(".tf-tip")) hide(); });
+  }
+
   async function game(id, params, refresh = false) {
     const lg = league, my = token;
     if (!refresh) loading("game");
@@ -640,6 +745,14 @@ const Live = (() => {
 
     // broadcast scorebug in team colors
     const tc = { away: teamColor(away.team), home: teamColor(home.team) };
+    let people = null;
+    if (st === "in") {
+      const yr = s.header?.season?.year;
+      const [ph, pa] = await Promise.all([teamPeople(lg, home.team.id, yr).catch(() => null), teamPeople(lg, away.team.id, yr).catch(() => null)]);
+      if (my !== token) return;
+      people = { home: ph, away: pa };
+      wireFieldTips();
+    }
     const side = (c, which) => {
       const ours = ourTeam(ranks, lg, c.team);
       const ap = c.rank && c.rank <= 25 ? c.rank : null;
@@ -671,7 +784,7 @@ const Live = (() => {
       </div>
       ${lineTable || st === "in" ? `<div class="card sb-under">${lineTable}
         ${st === "in" && s.situation?.lastPlay?.text ? `<p class="note">Last play: ${esc(s.situation.lastPlay.text)}</p>` : ""}</div>` : ""}
-      ${st === "in" ? liveField(s, comp, home, away, tc, String(id)) : ""}`;
+      ${st === "in" ? liveField(s, comp, home, away, tc, String(id), people) : ""}`;
 
     const col = { left: [], right: [], full: [] }; // two independent columns so short cards never leave gaps
     // highlights: official YouTube video (found by the weekly job) + ESPN's own clips (open on ESPN)

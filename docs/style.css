@@ -1323,6 +1323,15 @@ a.mbug:hover .mb-mid b.mb-at { color: var(--accent); }
 .wp-now.flip b { left: auto; right: 12px; }
 @keyframes wp-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ink) 50%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
 .tf-guy { animation: tf-bob .8s steps(2) infinite; }
+.tf-wrap { position: relative; }
+.tf-field .tf-guy { cursor: pointer; }
+.tf-field .tf-guy.on { filter: drop-shadow(0 0 0 #fff) drop-shadow(0 0 4px #fff) brightness(1.25); animation-play-state: paused; }
+.tf-tip { position: absolute; z-index: 5; transform: translate(-50%, calc(-100% - 10px)); display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 6px;
+  background: #0b0d10; border: 2px solid #000; box-shadow: 0 0 0 2px #ffd21f, 4px 4px 0 #000; color: #fff; white-space: nowrap; pointer-events: none; }
+.tf-tip.flip { transform: translate(-90%, calc(-100% - 10px)); }
+.tf-tip img { width: 40px; height: 40px; object-fit: cover; background: #1b1f24; image-rendering: auto; }
+.tf-tip b { display: block; font-family: var(--tf-font), monospace; font-size: 10px; color: #ffd21f; margin-bottom: 3px; }
+.tf-tip small { font-size: 11px; color: #c9c9c9; }
 .tf-guy, .tf-sh { filter: drop-shadow(3px 3px 0 rgba(0, 0, 0, .45)); } /* hard pixel drop shadow */
 @keyframes tf-bob { 50% { transform: translateY(-3px); } }
 @media (prefers-reduced-motion: reduce) { .tf-guy, .tf-arrow, .tf-red { animation: none; } }
