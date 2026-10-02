@@ -40,16 +40,18 @@ const News = (() => {
     const dated = c.releases.filter((r) => !r.tba), up = dated.filter((r) => r.date >= today), past = dated.filter((r) => r.date < today).reverse();
     const tba = c.releases.filter((r) => r.tba);
     const day = (d) => new Date(d + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    const short = (d) => new Date(d + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
     const next = up[0], same = next ? up.filter((r) => r.date === next.date) : [];
-    const row = (r, when) => `<li><span class="cr-when">${when}</span><b>${esc(r.set)}</b>${r.brand ? ` <small>${esc(r.brand)}</small>` : ""}</li>`;
+    const row = (r, when) => `<li><span class="cr-when">${when}</span><span class="cr-set"><b>${esc(r.set)}</b>${r.brand ? `<small>${esc(r.brand)}</small>` : ""}</span></li>`;
     const html = `<div class="card cr">
       <div class="cr-head"><h2>Card releases <small>football</small></h2>
         ${next ? `<div class="cr-next"><small>Next drop</small><b>${same.map((r) => esc(r.set)).join(" + ")}</b>
           <span class="cr-count" id="cr-count" data-at="${esc(next.date)}T00:00:00"></span><small>${day(next.date)}</small></div>` : ""}</div>
-      ${past.length ? `<h4>Just dropped</h4><ul class="cr-list">${past.slice(0, 3).map((r) => row(r, day(r.date))).join("")}</ul>` : ""}
-      ${up.length > same.length ? `<h4>Coming up</h4><ul class="cr-list">${up.slice(same.length, same.length + 6).map((r) => row(r, day(r.date))).join("")}</ul>` : ""}
+      ${past.length ? `<h4>Just dropped</h4><ul class="cr-list">${past.slice(0, 3).map((r) => row(r, short(r.date))).join("")}</ul>` : ""}
+      ${up.length > same.length ? `<h4>Coming up</h4><ul class="cr-list">${up.slice(same.length, same.length + 6).map((r) => row(r, short(r.date))).join("")}</ul>` : ""}
       ${tba.length ? `<h4>Date to be announced</h4><ul class="cr-list">${tba.map((r) => row(r, "TBA")).join("")}</ul>` : ""}
-      <p class="note">From the <a href="${esc(c.source)}" target="_blank" rel="noopener">${esc(c.source_name)}</a>, checked daily. Dates can move.</p></div>`;
+      <p class="note">From the <a href="${esc(c.source)}" target="_blank" rel="noopener">${esc(c.source_name)}</a>, checked daily. Dates can move.
+        <a class="cr-pc" href="pc/">Wanna see my PC? →</a></p></div>`;
     setTimeout(() => {
       const el = document.getElementById("cr-count");
       if (!el) return;

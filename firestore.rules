@@ -1,10 +1,22 @@
 rules_version = '2';
-// Cupcake Index accounts: each signed-in person can read and write ONLY their own document (users/<their uid>).
-// Paste this into Firebase console > Firestore Database > Rules, then Publish.
+// Cupcake Index. Paste this whole thing into Firebase console > Firestore Database > Rules, then Publish.
 service cloud.firestore {
   match /databases/{database}/documents {
+    // accounts: each signed-in person can read and write ONLY their own document (users/<their uid>)
     match /users/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+    // card PC (cupcakeindex.com/pc): anyone can look; only the owner can add, edit or delete
+    match /pc/{card} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && exists(/databases/$(database)/documents/pcmeta/owner)
+        && get(/databases/$(database)/documents/pcmeta/owner).data.uid == request.auth.uid;
+    }
+    // the owner: claimed once, by the first account to sign in on the PC page; it can never be changed or taken
+    match /pcmeta/owner {
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
     }
   }
 }

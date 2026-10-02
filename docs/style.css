@@ -1860,7 +1860,9 @@ html:not([data-theme-name="mono"]):not([data-theme-name="terminal"]):not([data-t
 .cr-count i { font-style: normal; color: var(--ink); }
 .cr h4 { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
 .cr-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.cr-list li { display: flex; gap: 10px; align-items: baseline; min-width: 0; font-size: 14px; }
-.cr-list small { color: var(--muted); }
-.cr-when { flex: none; width: 92px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-@media (max-width: 640px) { .cr-next { text-align: left; } .cr-when { width: 78px; } }
+.cr-list li { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 10px; align-items: baseline; font-size: 14px; }
+.cr-set { display: grid; min-width: 0; line-height: 1.3; }
+.cr-set small { color: var(--muted); font-size: 12px; }
+.cr-when { color: var(--muted); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cr-pc { display: inline-block; margin-left: 8px; font-weight: 700; }
+@media (max-width: 640px) { .cr-next { text-align: left; } }
