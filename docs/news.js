@@ -31,6 +31,41 @@ const News = (() => {
       </div></article>`;
   };
 
+  // Football card releases (src/cards.py, daily): countdown to the next drop, what's coming, what just dropped
+  let tick = null;
+  function cardReleases(c) {
+    clearInterval(tick);
+    if (!c?.releases?.length) return "";
+    const today = new Date().toISOString().slice(0, 10);
+    const dated = c.releases.filter((r) => !r.tba), up = dated.filter((r) => r.date >= today), past = dated.filter((r) => r.date < today).reverse();
+    const tba = c.releases.filter((r) => r.tba);
+    const day = (d) => new Date(d + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    const next = up[0], same = next ? up.filter((r) => r.date === next.date) : [];
+    const row = (r, when) => `<li><span class="cr-when">${when}</span><b>${esc(r.set)}</b>${r.brand ? ` <small>${esc(r.brand)}</small>` : ""}</li>`;
+    const html = `<div class="card cr">
+      <div class="cr-head"><h2>Card releases <small>football</small></h2>
+        ${next ? `<div class="cr-next"><small>Next drop</small><b>${same.map((r) => esc(r.set)).join(" + ")}</b>
+          <span class="cr-count" id="cr-count" data-at="${esc(next.date)}T00:00:00"></span><small>${day(next.date)}</small></div>` : ""}</div>
+      ${past.length ? `<h4>Just dropped</h4><ul class="cr-list">${past.slice(0, 3).map((r) => row(r, day(r.date))).join("")}</ul>` : ""}
+      ${up.length > same.length ? `<h4>Coming up</h4><ul class="cr-list">${up.slice(same.length, same.length + 6).map((r) => row(r, day(r.date))).join("")}</ul>` : ""}
+      ${tba.length ? `<h4>Date to be announced</h4><ul class="cr-list">${tba.map((r) => row(r, "TBA")).join("")}</ul>` : ""}
+      <p class="note">From the <a href="${esc(c.source)}" target="_blank" rel="noopener">${esc(c.source_name)}</a>, checked daily. Dates can move.</p></div>`;
+    setTimeout(() => {
+      const el = document.getElementById("cr-count");
+      if (!el) return;
+      const at = new Date(el.dataset.at).getTime();
+      const draw = () => {
+        const ms = at - Date.now();
+        if (ms <= 0) { el.textContent = "Out today"; clearInterval(tick); return; }
+        const d = Math.floor(ms / 864e5), h = Math.floor(ms / 36e5) % 24, m = Math.floor(ms / 6e4) % 60, sec = Math.floor(ms / 1e3) % 60;
+        el.innerHTML = `<i>${d}</i>d <i>${h}</i>h <i>${m}</i>m <i>${String(sec).padStart(2, "0")}</i>s`;
+      };
+      draw();
+      tick = setInterval(() => { if (!document.body.contains(el)) return clearInterval(tick); draw(); }, 1000);
+    }, 0);
+    return html;
+  }
+
   async function render(params) {
     const el = $("#view-news");
     const lg = params.get("all") === "1" ? "all" : league;
@@ -43,7 +78,8 @@ const News = (() => {
     const sources = [...new Set(pool.map((it) => it.source))].sort();
     if (st.source && !sources.includes(st.source)) st.source = "";
     const lgBtn = (v, label) => `<a class="nw-lg${v === lg ? " on" : ""}" href="#/news?league=${v === "all" ? league : v}${v === "all" ? "&all=1" : ""}">${label}</a>`;
-    el.innerHTML = `<div class="card">
+    const cards = await getJSON("data/cards.json").catch(() => null);
+    el.innerHTML = cardReleases(cards) + `<div class="card">
       <div class="sc-bar"><h2>News</h2>
         <div class="presets" id="nw-league">${lgBtn("cfb", "CFB")}${lgBtn("nfl", "NFL")}${lgBtn("all", "All")}</div>
         <select id="nw-source" aria-label="Source"><option value="">All sources</option>${sources.map((s) => `<option${s === st.source ? " selected" : ""}>${esc(s)}</option>`).join("")}</select>

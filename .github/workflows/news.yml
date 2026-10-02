@@ -28,11 +28,14 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Fetch headlines
         run: python src/news.py
+      - name: Football card releases (once a day, the 12:00 UTC run)
+        run: |
+          if [ "$(date -u +%H)" = "12" ] || [ ! -f docs/data/cards.json ]; then python src/cards.py || echo "Card calendar unavailable"; fi
       - name: Publish
         run: |
           git config user.name "rankings-bot"
           git config user.email "rankings-bot@users.noreply.github.com"
-          git add docs/data/news.json
+          git add docs/data/news.json docs/data/cards.json
           git diff --cached --quiet && echo "No changes" && exit 0
           git commit -m "News update $(date -u +%Y-%m-%dT%H:%MZ)"
           git pull --rebase

@@ -1850,3 +1850,17 @@ html:not([data-theme-name="mono"]):not([data-theme-name="terminal"]):not([data-t
   .cotw-team { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cotw-sub { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
+/* News: football card releases with a countdown to the next drop */
+.cr-head { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; }
+.cr-head h2 { margin: 0; } .cr-head h2 small { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 6px; }
+.cr-next { display: grid; gap: 2px; text-align: right; }
+.cr-next small { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+.cr-next b { font-size: 14px; }
+.cr-count { font: 700 26px/1.1 "Barlow Condensed", var(--font-head, sans-serif); color: var(--accent); font-variant-numeric: tabular-nums; }
+.cr-count i { font-style: normal; color: var(--ink); }
+.cr h4 { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.cr-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.cr-list li { display: flex; gap: 10px; align-items: baseline; min-width: 0; font-size: 14px; }
+.cr-list small { color: var(--muted); }
+.cr-when { flex: none; width: 92px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .cr-next { text-align: left; } .cr-when { width: 78px; } }
