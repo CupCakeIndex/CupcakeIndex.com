@@ -279,6 +279,15 @@ const Live = (() => {
   // A new play replays on the field (ball carrier runs / pass arcs / kick sails, then the teams line up again);
   // the same play on later refreshes just sits there with the players idling. tfSeen: game id -> {play, t}.
   const tfSeen = new Map();
+  // "CLV 44" -> yard line from the home goal (0-100). ESPN's play text sometimes uses its own nicknames.
+  const ABBR_ALIAS = { CLV: "CLE", ARZ: "ARI", BLT: "BAL", HST: "HOU", LA: "LAR", WSH: "WAS", JAC: "JAX" };
+  function textSpot(t, home, away) {
+    if (!t) return null;
+    if (t === "50") return 50;
+    const [ab, n] = t.trim().split(/\s+/), side = (ABBR_ALIAS[ab.toUpperCase()] || ab.toUpperCase());
+    const is = (c) => [c.team.abbreviation, ABBR_ALIAS[c.team.abbreviation]].filter(Boolean).map((x) => x.toUpperCase()).includes(side);
+    return is(away) ? 100 - +n : is(home) ? +n : null;
+  }
   function liveField(s, comp, home, away, tc, gameId) {
     const drives = s.drives || {};
     const drive = drives.current || (drives.previous || []).at(-1);
@@ -413,8 +422,10 @@ const Live = (() => {
       const isInt = isPass && /intercept/.test(type + txt), incomplete = isPass && !isInt && /incomplet/.test(type + txt);
       const isRun = !isKick && !isPass && !isSack && !isKneel && !isSpike && moved && !/penalty/.test(type);
       const qbx = sx - pdir * 50, drop = qbx - pdir * 30, rbx = sx - pdir * 75;
-      // where the ball is caught: the end spot on a completion, ~15 yds downfield on an incompletion or a pick
-      const catchX = incomplete || isInt ? sx + pdir * 150 : ex, catchY = 100;
+      // where the ball is caught: the end spot on a completion; on a pick, the spot in the text
+      // ("INTERCEPTED by D.Ward at CLV 44"); ~15 yds downfield on an incompletion
+      const intAt = isInt ? textSpot((play.text || "").match(/intercepted by .*? at ([A-Z]{2,4} \d{1,2}|50)/i)?.[1], home, away) : null;
+      const catchX = isInt && intAt != null ? X(intAt) : incomplete || isInt ? sx + pdir * 150 : ex, catchY = 100;
       const postX = pdir > 0 ? 1190 : 10; // goalposts at the back of the end zone being attacked
       const kickFrom = isFG ? sx - pdir * 70 : isPunt ? sx - pdir * 140 : sx;
       const kickTo = isFG ? postX : isKO && /touchback/.test(txt) ? X(pdir > 0 ? 105 : -5) : ex;
