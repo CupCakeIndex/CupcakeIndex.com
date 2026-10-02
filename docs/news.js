@@ -44,7 +44,7 @@ const News = (() => {
     const next = up[0], same = next ? up.filter((r) => r.date === next.date) : [];
     const row = (r, when) => `<li><span class="cr-when">${when}</span><span class="cr-set"><b>${esc(r.set)}</b>${r.brand ? `<small>${esc(r.brand)}</small>` : ""}</span></li>`;
     const html = `<div class="card cr">
-      <div class="cr-head"><h2>Card releases <small>football</small></h2>
+      <div class="cr-head"><h2>Football card releases</h2>
         ${next ? `<div class="cr-next"><small>Next drop</small><b>${same.map((r) => esc(r.set)).join(" + ")}</b>
           <span class="cr-count" id="cr-count" data-at="${esc(next.date)}T00:00:00"></span><small>${day(next.date)}</small></div>` : ""}</div>
       ${past.length ? `<h4>Just dropped</h4><ul class="cr-list">${past.slice(0, 3).map((r) => row(r, short(r.date))).join("")}</ul>` : ""}
@@ -80,10 +80,18 @@ const News = (() => {
     const sources = [...new Set(pool.map((it) => it.source))].sort();
     if (st.source && !sources.includes(st.source)) st.source = "";
     const lgBtn = (v, label) => `<a class="nw-lg${v === lg ? " on" : ""}" href="#/news?league=${v === "all" ? league : v}${v === "all" ? "&all=1" : ""}">${label}</a>`;
-    const cards = await getJSON("data/cards.json").catch(() => null);
-    el.innerHTML = cardReleases(cards) + `<div class="card">
+    // Cards tab: the card release calendar (and the PC link) instead of headlines
+    const lgBtn0 = (v, label, on) => `<a class="nw-lg${on ? " on" : ""}" href="#/news?league=${league}${v ? `&${v}=1` : ""}">${label}</a>`;
+    if (params.get("cards") === "1") {
+      const cards = await getJSON("data/cards.json").catch(() => null);
+      el.innerHTML = `<div class="card"><div class="sc-bar"><h2>News</h2><div class="presets" id="nw-league">
+          <a class="nw-lg" href="#/news?league=cfb">CFB</a><a class="nw-lg" href="#/news?league=nfl">NFL</a>${lgBtn0("all", "All", false)}${lgBtn0("cards", "Cards", true)}</div></div></div>`
+        + (cardReleases(cards) || `<div class="card muted">No card releases on the calendar right now.</div>`);
+      return;
+    }
+    el.innerHTML = `<div class="card">
       <div class="sc-bar"><h2>News</h2>
-        <div class="presets" id="nw-league">${lgBtn("cfb", "CFB")}${lgBtn("nfl", "NFL")}${lgBtn("all", "All")}</div>
+        <div class="presets" id="nw-league">${lgBtn("cfb", "CFB")}${lgBtn("nfl", "NFL")}${lgBtn("all", "All")}${lgBtn0("cards", "Cards", false)}</div>
         <select id="nw-source" aria-label="Source"><option value="">All sources</option>${sources.map((s) => `<option${s === st.source ? " selected" : ""}>${esc(s)}</option>`).join("")}</select>
         <input id="nw-q" type="search" placeholder="Filter by team…" aria-label="Filter by team" value="${esc(st.q)}">
         <span class="muted live-note" id="nw-count"></span></div>
