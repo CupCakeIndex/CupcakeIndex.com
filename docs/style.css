@@ -1357,6 +1357,15 @@ a.mbug:hover .mb-mid b.mb-at { color: var(--accent); }
 .tf-track { flex: 1; height: 8px; background: #1b1f24; border: 2px solid #000; }
 .tf-track i { display: block; height: 100%; background: #ffd21f; transform-origin: left; animation: tf-clock 40s linear forwards; }
 @keyframes tf-clock { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+/* play clock label: "PLAY CLOCK" until it runs out, then a blinking "WAITING ON NEXT PLAY" (--d = seconds left) */
+.tf-clabel { display: grid; }
+.tf-clabel b { grid-area: 1 / 1; font-weight: inherit; white-space: nowrap; }
+.tf-clabel b:first-child:not(:only-child) { animation: tf-gone 0s linear var(--d, 40s) forwards; }
+.tf-wait { visibility: hidden; color: #ffd21f; animation: tf-vis 0s linear var(--d, 40s) forwards, tf-blink 1s steps(2) var(--d, 40s) infinite; }
+@keyframes tf-gone { to { visibility: hidden; } }
+@keyframes tf-vis { to { visibility: visible; } }
+.tf-track i.off { animation: none; transform: scaleX(0); }
+@media (prefers-reduced-motion: reduce) { .tf-wait { animation: tf-vis 0s linear var(--d, 40s) forwards; } }
 .tf-last b { font-family: var(--tf-font), monospace; font-size: 10px; color: #ffd21f; margin-right: 8px; }
 @media (max-width: 560px) { .tf-bar { font-size: 10px; } .tf-dd { font-size: 13px; } .tecmo { padding: 8px; } }
 .mb-foot { flex-wrap: wrap; }

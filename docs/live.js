@@ -347,6 +347,7 @@ const Live = (() => {
   // A new play replays on the field (ball carrier runs / pass arcs / kick sails, then the teams line up again);
   // the same play on later refreshes just sits there with the players idling. tfSeen: game id -> {play, t}.
   const tfSeen = new Map();
+  const playNum = (x) => { try { return BigInt(x); } catch (e) { return -1n; } }; // ESPN play ids count up through the game
   // "CLV 44" -> yard line from the home goal (0-100). ESPN's play text sometimes uses its own nicknames.
   const ABBR_ALIAS = { CLV: "CLE", ARZ: "ARI", BLT: "BAL", HST: "HOU", LA: "LAR", WSH: "WAS", JAC: "JAX" };
   function textSpot(t, home, away) {
@@ -364,7 +365,9 @@ const Live = (() => {
     if (spot == null) return "";
     pixelFont();
     const seen = tfSeen.get(gameId);
-    const fresh = !seen || seen.play !== String(play.id);
+    // never step back: if a slow feed hands us an older play than one already shown, it isn't a new play (no clock reset)
+    const older = seen && playNum(seen.play) > playNum(play.id);
+    const fresh = !seen || (!older && seen.play !== String(play.id));
     if (fresh) tfSeen.set(gameId, { play: String(play.id), t: Date.now() });
     const since = (Date.now() - tfSeen.get(gameId).t) / 1000;
     const at = play.end?.down ? play.end : play.start?.down ? play.start : play.end || {};
@@ -679,6 +682,8 @@ const Live = (() => {
     const where = kicker ? `${esc(kicker.team.abbreviation || "")} KICKS OFF` : at.possessionText ? `BALL ON ${esc(at.possessionText)}` : "";
     const ddText = isTD ? "TOUCHDOWN!" : down ? `${["", "1ST", "2ND", "3RD", "4TH"][down]} & ${dist < toGo ? dist : "GOAL"}` : "";
     const lastText = play?.text ? play.text.trim() : "";
+    // between quarters and at halftime there's no play clock: say so instead of a bar that runs out
+    const stName = comp?.status?.type?.name, brk = stName === "STATUS_HALFTIME" ? "HALFTIME" : stName === "STATUS_END_PERIOD" ? (comp.status.type.shortDetail || "END OF QUARTER").toUpperCase() : "";
     return `<div class="card tecmo" data-play="${esc(play.id)}" style="--tf-font:'${PIXEL_FONT}'">
       <div class="tf-bar">
         <span>${off ? teamTag(off) + `<b class="tf-arrow">${dir > 0 ? "▶" : "◀"}</b>` : ""}</span>
@@ -688,8 +693,9 @@ const Live = (() => {
       <div class="tf-wrap"><div class="tf-tip hidden"></div>
       <svg class="tf-field" viewBox="${vbX.toFixed(0)} 0 ${vbW.toFixed(0)} ${H}" shape-rendering="crispEdges" role="img"
         aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, where].filter(Boolean).join(", "))}">${base.join("")}${lines}${lineup}${anim ? "" : flagOnField}${replay}${banner.replace(/@BX0@/g, (vbX + vbW / 2 - Math.min(700, vbW - 40) / 2).toFixed(0)).replace(/@BW@/g, Math.min(700, vbW - 40).toFixed(0)).replace(/@BXC@/g, (vbX + vbW / 2).toFixed(0))}</svg></div>
-      <div class="tf-clock" title="A rough play clock since the last play came in. It doesn't hold anything back: the field checks for a new play every 5 seconds and replays it as soon as it arrives">
-        <span>PLAY CLOCK</span><span class="tf-track"><i style="animation-delay:-${Math.min(since, 40).toFixed(1)}s"></i></span></div>
+      ${brk ? `<div class="tf-clock"><span class="tf-clabel"><b>${esc(brk)}</b></span><span class="tf-track"><i class="off"></i></span></div>`
+        : `<div class="tf-clock" title="A rough 40-second play clock from when the last play reached us. ESPN's feed often runs 30+ seconds behind the stadium, so it can run out before the next play shows up. The field checks for a new play every 5 seconds and replays it as soon as it arrives">
+        <span class="tf-clabel" style="--d:${Math.max(0, 40 - since).toFixed(1)}s"><b>PLAY CLOCK</b><b class="tf-wait">WAITING ON NEXT PLAY</b></span><span class="tf-track"><i style="animation-delay:-${Math.min(since, 40).toFixed(1)}s"></i></span></div>`}
       <div class="tf-key"><span><i style="background:#3d7bff"></i>Line of scrimmage</span>${fd != null ? `<span><i style="background:#ffd21f"></i>First down</span>` : ""}
         ${drive?.description && !newDrive ? `<span class="muted">This drive: ${esc(drive.description)}</span>` : ""}</div>
       ${lastText ? `<p class="tf-last"><b>LAST PLAY</b> ${esc(lastText)}</p>` : ""}
@@ -700,9 +706,14 @@ const Live = (() => {
   // and the scoreboard (refreshes every ~4 s, often a play ahead). Whichever has the newer play wins.
   // College uses the game's own conference scoreboard (the all-FBS one is ~1 MB).
   const sbGroup = new Map(); // game id -> conference id, learned on the first load
+  // game id -> the scoreboard entry with the newest play seen so far. A late, stale or failed scoreboard check reuses it,
+  // so the field never jumps back a play (that used to replay the old play and reset the play clock)
+  const sbLast = new Map();
   function mergeScoreboard(s, sb, id) {
-    const ev = (sb?.events || []).find((e) => String(e.id) === String(id));
-    const sc = ev?.competitions?.[0], comp = s.header?.competitions?.[0];
+    let sc = (sb?.events || []).find((e) => String(e.id) === String(id))?.competitions?.[0];
+    const kept = sbLast.get(String(id)), comp = s.header?.competitions?.[0];
+    if (!sc || (kept && playNum(kept.situation?.lastPlay?.id) > playNum(sc.situation?.lastPlay?.id))) sc = kept;
+    else sbLast.set(String(id), sc);
     if (!sc || !comp) return;
     const sit = sc.situation, lp = sit?.lastPlay;
     const drives = (s.drives ||= {});
@@ -771,7 +782,7 @@ const Live = (() => {
     const comp = s.header?.competitions?.[0];
     if (!comp) return fail("game", new Error("no game data"));
     if (comp.groups?.id) sbGroup.set(String(id), comp.groups.id);
-    if (sb) mergeScoreboard(s, sb, id);
+    if (refresh) mergeScoreboard(s, sb, id);
     const st = comp.status?.type?.state;
     const away = comp.competitors.find((c) => c.homeAway === "away"), home = comp.competitors.find((c) => c.homeAway === "home");
     const tname = (c) => c.team.displayName || c.team.location;
@@ -961,6 +972,8 @@ const Live = (() => {
     if (oldField && newField && oldField.dataset.play === newField.dataset.play) {
       newField.replaceWith(oldField);
       oldField.querySelector(".tf-last")?.replaceWith(newField.querySelector(".tf-last") || "");
+      // moving the field restarts its CSS animations, so swap in the new play clock (it's timed from when the play arrived)
+      oldField.querySelector(".tf-clock")?.replaceWith(newField.querySelector(".tf-clock") || "");
     }
     if (wp.length > 2) initWp(wp, s, away, home);
     const bx = $("#boxscore .box-tabs");
