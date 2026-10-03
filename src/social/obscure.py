@@ -18,10 +18,11 @@ import io
 import json
 import os
 import random
+import re
 import sys
 
 import requests
-from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageStat
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import posted
@@ -339,13 +340,13 @@ def _():
     return fact("cfb", "team", r, "The AP loves them. We don't.", "AP Top 25 teams we rank furthest below their poll spot",
                 "spots lower in our rankings",
                 f"{t['team']} ({t['record']}) is #{t['ap_rank']} in the AP poll. We have them #{t['power_rank']}.",
-                "Who's wrong, us or the voters?", hot=True)
+                "Who's wrong, us or the voters?", hot=True) | {"big": str(r[0][1])}  # the gap is the headline; both ranks are in the line above
 
 
 @stat("hot_cfb_ap_snub")
 def _():
     ts, by, wk = teams("cfb")
-    r = sorted(((t, (t.get("ap_rank") or 40) - t["power_rank"], f"us #{t['power_rank']} · AP " + (f"#{t['ap_rank']}" if t.get("ap_rank") else "unranked"))
+    r = sorted(((t, (t.get("ap_rank") or 40) - t["power_rank"], f"us #{t['power_rank']} · AP " + (f"#{t['ap_rank']}" if t.get("ap_rank") else "NR"))
                 for t in ts[:25]), key=lambda x: -x[1])[:5]
     if len(r) < 3:
         return None
@@ -354,7 +355,7 @@ def _():
                 "spots higher in our rankings",
                 f"We have {t['team']} ({t['record']}) at #{t['power_rank']}. The AP has them "
                 + (f"at #{t['ap_rank']}." if t.get("ap_rank") else "unranked."),
-                "Who's wrong, us or the voters?", hot=True)
+                "Who's wrong, us or the voters?", hot=True) | ({"big": str(r[0][1])} if t.get("ap_rank") else {"big": "Unranked", "big_unit": f"in the AP poll (we have them #{t['power_rank']})"})
 
 
 @stat("hot_nfl_record_lies")
@@ -677,6 +678,14 @@ def mix(a, b, t):
     return tuple(round(x + (y - x) * t) for x, y in zip(a, b))
 
 
+def dark_logo(im):
+    """True when a logo is mostly near-black (it would disappear on the card's dark panel)."""
+    small = im.copy()
+    small.thumbnail((64, 64))
+    solid = small.getchannel("A").point(lambda v: 255 if v > 128 else 0)
+    return bool(solid.getbbox()) and ImageStat.Stat(small.convert("L"), solid).mean[0] < 60
+
+
 def card(f, theme):
     T = {k: hex_rgb(v) for k, v in THEMES[theme].items() if isinstance(v, str) and v.startswith("#")}
     F = lambda size, weight="Regular": font_for(theme, size, weight)
@@ -698,6 +707,10 @@ def card(f, theme):
     ImageDraw.Draw(mask).polygon([(0, 0), (PW, 0), (PW - slant, H), (0, H)], fill=255)
     img.paste(grad, (0, 0), mask)
     logo = image(lead.get("logo"))
+    if logo and dark_logo(logo):  # a black logo (Iowa, Pitt...) vanishes on the dark panel: use ESPN's version made for dark backgrounds
+        u = lead.get("logo") or ""
+        cfbd = re.search(r"collegefootballdata\.com/logos/\d+/(\d+)\.png", u)  # college logos: same team id at ESPN
+        logo = image(f"https://a.espncdn.com/i/teamlogos/ncaa/500-dark/{cfbd[1]}.png" if cfbd else u.replace("/500/", "/500-dark/")) or logo
     pic = image(lead.get("pic")) if f["kind"] == "player" else None
     if logo:
         wm = logo.copy()
