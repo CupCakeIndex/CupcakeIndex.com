@@ -682,8 +682,15 @@ const Live = (() => {
     const where = kicker ? `${esc(kicker.team.abbreviation || "")} KICKS OFF` : at.possessionText ? `BALL ON ${esc(at.possessionText)}` : "";
     const ddText = isTD ? "TOUCHDOWN!" : down ? `${["", "1ST", "2ND", "3RD", "4TH"][down]} & ${dist < toGo ? dist : "GOAL"}` : "";
     const lastText = play?.text ? play.text.trim() : "";
-    // between quarters and at halftime there's no play clock: say so instead of a bar that runs out
-    const stName = comp?.status?.type?.name, brk = stName === "STATUS_HALFTIME" ? "HALFTIME" : stName === "STATUS_END_PERIOD" ? (comp.status.type.shortDetail || "END OF QUARTER").toUpperCase() : "";
+    // the play clock isn't running during a timeout, the two-minute warning, between quarters or at halftime:
+    // when the latest entry in the feed is one of those, stop the bar and say why (until the next real play comes in)
+    const stName = comp?.status?.type?.name, tId = String(play?.type?.id || ""), stopTxt = play?.text || "";
+    const to = stopTxt.match(/Timeout #(\d+) by ([A-Za-z]{2,4})/), toTeam = to && (ABBR_ALIAS[to[2].toUpperCase()] || to[2].toUpperCase());
+    const brk = stName === "STATUS_HALFTIME" || tId === "65" ? "HALFTIME"
+      : stName === "STATUS_END_PERIOD" || tId === "2" ? (stName === "STATUS_END_PERIOD" && comp.status.type.shortDetail || "END OF QUARTER").toUpperCase()
+      : tId === "21" ? (to ? `TIMEOUT · ${toTeam} (#${to[1]})` : "TIMEOUT")
+      : tId === "74" ? (/injur/i.test(stopTxt) ? "INJURY TIMEOUT" : "OFFICIAL TIMEOUT")
+      : tId === "75" ? "TWO-MINUTE WARNING" : "";
     return `<div class="card tecmo" data-play="${esc(play.id)}" style="--tf-font:'${PIXEL_FONT}'">
       <div class="tf-bar">
         <span>${off ? teamTag(off) + `<b class="tf-arrow">${dir > 0 ? "▶" : "◀"}</b>` : ""}</span>
@@ -693,7 +700,7 @@ const Live = (() => {
       <div class="tf-wrap"><div class="tf-tip hidden"></div>
       <svg class="tf-field" viewBox="${vbX.toFixed(0)} 0 ${vbW.toFixed(0)} ${H}" shape-rendering="crispEdges" role="img"
         aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, where].filter(Boolean).join(", "))}">${base.join("")}${lines}${lineup}${anim ? "" : flagOnField}${replay}${banner.replace(/@BX0@/g, (vbX + vbW / 2 - Math.min(700, vbW - 40) / 2).toFixed(0)).replace(/@BW@/g, Math.min(700, vbW - 40).toFixed(0)).replace(/@BXC@/g, (vbX + vbW / 2).toFixed(0))}</svg></div>
-      ${brk ? `<div class="tf-clock"><span class="tf-clabel"><b>${esc(brk)}</b></span><span class="tf-track"><i class="off"></i></span></div>`
+      ${brk ? `<div class="tf-clock" title="The play clock is stopped"><span class="tf-clabel"><b class="tf-stop">${esc(brk)}</b></span><span class="tf-track"><i class="stop"></i></span></div>`
         : `<div class="tf-clock" title="A rough 40-second play clock from when the last play reached us. ESPN's feed often runs 30+ seconds behind the stadium, so it can run out before the next play shows up. The field checks for a new play every 5 seconds and replays it as soon as it arrives">
         <span class="tf-clabel" style="--d:${Math.max(0, 40 - since).toFixed(1)}s"><b>PLAY CLOCK</b><b class="tf-wait">WAITING ON NEXT PLAY</b></span><span class="tf-track"><i style="animation-delay:-${Math.min(since, 40).toFixed(1)}s"></i></span></div>`}
       <div class="tf-key"><span><i style="background:#3d7bff"></i>Line of scrimmage</span>${fd != null ? `<span><i style="background:#ffd21f"></i>First down</span>` : ""}

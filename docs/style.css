@@ -1364,7 +1364,8 @@ a.mbug:hover .mb-mid b.mb-at { color: var(--accent); }
 .tf-wait { visibility: hidden; color: #ffd21f; animation: tf-vis 0s linear var(--d, 40s) forwards, tf-blink 1s steps(2) var(--d, 40s) infinite; }
 @keyframes tf-gone { to { visibility: hidden; } }
 @keyframes tf-vis { to { visibility: visible; } }
-.tf-track i.off { animation: none; transform: scaleX(0); }
+.tf-track i.stop { animation: none; transform: none; opacity: .35; } /* clock stopped: full, dimmed */
+.tf-stop { color: #ffd21f; }
 @media (prefers-reduced-motion: reduce) { .tf-wait { animation: tf-vis 0s linear var(--d, 40s) forwards; } }
 .tf-last b { font-family: var(--tf-font), monospace; font-size: 10px; color: #ffd21f; margin-right: 8px; }
 @media (max-width: 560px) { .tf-bar { font-size: 10px; } .tf-dd { font-size: 13px; } .tecmo { padding: 8px; } }
