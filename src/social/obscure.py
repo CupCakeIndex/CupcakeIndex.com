@@ -666,6 +666,9 @@ INJ_POS_W = {"QB": 10, "OT": 3, "T": 3, "G": 2, "OG": 2, "C": 2, "WR": 3, "TE": 
              "LB": 2, "OLB": 2.5, "ILB": 2, "MLB": 2, "CB": 3, "S": 2, "SS": 2, "FS": 2, "DB": 2, "PK": 1, "K": 1, "P": 0.5}
 
 
+INJ_STARTS = 5  # starts (last season + this one) that make an injured player a key player
+
+
 def inj_hit(st):
     st = (st or "").lower()
     return 1 if re.search(r"out|injured reserve|suspen|physically unable|non-football", st) else 0.75 if "doubtful" in st \
@@ -680,12 +683,21 @@ def nfl_health():
         return _cache["health"]
     site = "https://site.api.espn.com/apis/site/v2/sports/football/nfl"
     rep = _session.get(f"{site}/injuries", timeout=30).json()
+    sp = os.path.join(DATA, "nfl_starts.json")  # games started since last season (src/nfl_starts.py)
+    starts = load(sp)["players"] if os.path.exists(sp) else {}
     yr = (rep.get("season") or {}).get("year") or dt.date.today().year
     out = []
     for t in rep.get("injuries", []):
         dc = _session.get(f"https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/{yr}/teams/{t['id']}/depthcharts", timeout=30).json()
-        idof = lambda i: (re.search(r"/id/(\d+)", " ".join(l.get("href", "") for l in (i.get("athlete") or {}).get("links", []))) or [None, ""])[1]
+        idof = lambda i: i.get("pid") or (re.search(r"/id/(\d+)", " ".join(l.get("href", "") for l in (i.get("athlete") or {}).get("links", []))) or [None, ""])[1]
         missing = {idof(i) for i in t.get("injuries", []) if inj_hit(i.get("status")) >= 0.75} - {""}
+        # the league report leaves out long-term injured reserve (Trey Amos, Laremy Tunsil...): the team roster has them
+        reported = {idof(i) for i in t.get("injuries", [])}
+        ro = _session.get(f"{site}/teams/{t['id']}/roster", timeout=30).json().get("athletes", [])
+        extra = [{"athlete": {"displayName": a.get("fullName", ""), "position": a.get("position") or {}}, "pid": str(a["id"]),
+                  "status": (a.get("injuries") or [{}])[0].get("status", "")}
+                 for g in ro for a in (g.get("items") or []) if str(a["id"]) not in reported and inj_hit((a.get("injuries") or [{}])[0].get("status"))]
+        missing |= {x["pid"] for x in extra if inj_hit(x["status"]) >= 0.75}
         slot, seen, total = {}, set(), 0.0
         for it in dc.get("items", []):
             for k, v in (it.get("positions") or {}).items():
@@ -709,18 +721,20 @@ def nfl_health():
                         if not old or (is_key and not old[2]) or (not old[2] and depth < old[1]):
                             slot[aid] = (k, depth, is_key)
         hurt = []
-        for i in t.get("injuries", []):
+        for i in t.get("injuries", []) + extra:
             h = inj_hit(i.get("status"))
             if not h:
                 continue
-            s = slot.get(idof(i))
-            w = INJ_W[s[0]] * (1 if s[2] else 0.15 if s[1] == 2 else 0.05) if s else INJ_POS_W.get(((i.get("athlete") or {}).get("position") or {}).get("abbreviation", ""), 1) * 0.3
-            hurt.append({"name": (i.get("athlete") or {}).get("displayName", ""), "key": bool(s and s[2]), "lost": w * h, "w": w})
+            s, pos = slot.get(idof(i)), ((i.get("athlete") or {}).get("position") or {}).get("abbreviation", "")
+            regular = starts.get(idof(i), 0) >= INJ_STARTS  # a regular starter is key even if ESPN dropped him from the depth chart (IR)
+            key = bool(s and s[2]) or regular
+            w = (INJ_W[s[0]] if key else INJ_W[s[0]] * (0.15 if s[1] == 2 else 0.05)) if s else INJ_POS_W.get(pos, 2) * (1 if key else 0.3)
+            hurt.append({"name": (i.get("athlete") or {}).get("displayName", ""), "key": key, "lost": w * h, "w": w})
         hurt.sort(key=lambda x: -x["lost"])
         lost = sum(x["lost"] for x in hurt)
         keyed = [x for x in hurt if x["key"] and x["lost"] >= 0.75 * x["w"]]
         out.append({"name": t.get("displayName", ""), "health": max(0.0, min(100.0, 100 * (1 - lost / total))) if total else 100.0,
-                    "key_out": len(keyed), "total": len(hurt), "key_names": [x["name"].split()[-1] for x in keyed]})
+                    "key_out": len(keyed), "total": len(hurt), "key_names": [re.sub(r"\s+(Jr|Sr|II|III|IV)\.?$", "", x["name"]).split()[-1] for x in keyed]})
     out.sort(key=lambda x: x["health"])
     _cache["health"] = out
     return out
