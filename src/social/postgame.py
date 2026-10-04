@@ -3,8 +3,8 @@ gets a card with an action shot from that game and his line, and one post.
 
 What counts: a monster line, e.g. 400 passing yards (450 in college), 175 rushing or receiving (college 225 / 200),
 3+ total TDs (college 4), 3 sacks, 2 picks. Only the best one per run; each player/game posts once.
-Action shot: a still from one of the game's ESPN highlight clips that names the player; else a recap photo whose
-caption names him; else his headshot.
+Action shot (required): a recap photo whose caption names him, or a still from a highlight clip of one of his plays.
+A big game with no action shot is skipped for the next best one that has one.
 
     python src/social/postgame.py                       # games that finished in the last 9 hours, both leagues
     python src/social/postgame.py --league nfl --hours 72 --out DIR   # test on older games
@@ -90,10 +90,10 @@ def tiles(s):
     """The stat boxes on the card, by role: [(label, value)]."""
     f = lambda v: f"{v:,.0f}" if v == int(v) else f"{v:.1f}"
     if s.get("pass_yds", 0) >= 100:
-        t = [("C/ATT", s.get("cmp_att", "")), ("YDS", f(s["pass_yds"])), ("TD", f(s.get("pass_td", 0))), ("INT", f(s.get("int_thrown", 0)))]
-        if s.get("rush_yds", 0) >= 40 or s.get("rush_td", 0):
-            t.append(("RUSH", f"{f(s['rush_yds'])}" + (f" · {f(s['rush_td'])} TD" if s.get("rush_td") else "")))
-        return t
+        if s.get("rush_yds", 0) >= 40 or s.get("rush_td", 0):  # dual threat: passing and rushing, one number per box
+            return [("C/ATT", s.get("cmp_att", "")), ("PASS YDS", f(s["pass_yds"])), ("PASS TD", f(s.get("pass_td", 0))),
+                    ("RUSH YDS", f(s["rush_yds"])), ("RUSH TD", f(s.get("rush_td", 0)))]
+        return [("C/ATT", s.get("cmp_att", "")), ("YDS", f(s["pass_yds"])), ("TD", f(s.get("pass_td", 0))), ("INT", f(s.get("int_thrown", 0)))]
     if s.get("sacks", 0) >= 2 or s.get("def_int", 0) >= 2 or s.get("tackles", 0) >= 12:
         return [(k, f(s.get(x, 0))) for k, x in (("TACKLES", "tackles"), ("SACKS", "sacks"), ("INT", "def_int"), ("DEF TD", "def_td"))]
     if s.get("rush_yds", 0) >= s.get("rec_yds", 0):
@@ -125,17 +125,44 @@ def phrase(s):
     return ", ".join([n(s.get("rec", 0), "catch", "catches"), f"{s['rec_yds']:,.0f} yards", n(s.get("rec_td", 0), "TD", "TDs")])
 
 
+def his_plays(summary, last):
+    """His plays in the scoring plays / play-by-play: [(yardages, other surnames in the play text)]."""
+    texts = [x.get("text", "") for x in summary.get("scoringPlays") or []]
+    texts += [pl.get("text", "") for dr in (summary.get("drives") or {}).get("previous", []) for pl in dr.get("plays", [])]
+    out = []
+    for t in texts:
+        if not re.search(rf"\b{re.escape(last)}\b", t, re.I):
+            continue
+        yds = {int(n) for n in re.findall(r"(\d+)[- ](?:yd|yds|yard|yards)\b", t, re.I) if 3 <= int(n) <= 100}
+        names = {w for w in re.findall(r"[A-Z][a-z][A-Za-z'-]+", re.sub(r"\b[A-Z]\.", "", t)) if w.lower() != last.lower() and len(w) > 3}
+        if yds:
+            out.append((yds, names))
+    return out
+
+
 def action_shot(summary, p):
-    """A photo of him from this game: a recap photo whose caption names him (real game photography), else a still
-    from a highlight clip that names him (bottom trimmed: TV tickers live there), else None (headshot card)."""
-    last = re.escape(p["last"] or p["name"].split()[-1])
+    """A photo of HIM from this game, or None:
+    1. a recap/news photo whose caption names him (real game photography)
+    2. a highlight clip that names him
+    3. a clip of one of his plays that doesn't name him ("Caden Veltkamp connects for 55-yard TD pass" = his 55-yard
+       catch): same yardage as one of his plays, plus another name from that play
+    Clip stills get their bottom trimmed (TV tickers live there)."""
+    last_raw = p["last"] or p["name"].split()[-1]
+    last = re.escape(last_raw)
     named = lambda t: bool(re.search(rf"\b{last}\b", t or "", re.I))
-    vids = [v for v in summary.get("videos") or [] if named(v.get("headline")) and v.get("thumbnail")]
-    vids.sort(key=lambda v: not re.search(r"touchdown|td\b|score", v.get("headline", ""), re.I))  # a scoring play first
+    vids = [v for v in summary.get("videos") or [] if v.get("thumbnail")]
+    mine = [v for v in vids if named(v.get("headline"))]
+    mine.sort(key=lambda v: not re.search(r"touchdown|td\b|score", v.get("headline", ""), re.I))  # a scoring play first
+    plays = his_plays(summary, last_raw)
+
+    def his_clip(h):
+        nums = {int(n) for n in re.findall(r"(\d+)[- ]?(?:yd|yard)", h or "", re.I)}
+        return any(nums & yds and any(re.search(rf"\b{re.escape(nm)}\b", h) for nm in names) for yds, names in plays)
+    linked = [v for v in vids if v not in mine and his_clip(v.get("headline"))]
     pics = []
     for a in [summary.get("article") or {}, *((summary.get("news") or {}).get("articles") or [])]:
         pics += [(i["url"], False) for i in a.get("images", []) if i.get("url") and named(i.get("caption"))]
-    pics += [(v["thumbnail"], True) for v in vids]
+    pics += [(v["thumbnail"], True) for v in mine + linked]
     for u, still in pics:
         im = O.image(u)
         if im and im.width >= 500:
@@ -320,7 +347,10 @@ def card(lg, p, top, comp, photo, theme):
     cw = (xr - x0) / len(ts)
     for i, (lab_, val) in enumerate(ts):
         cx = x0 + cw * i + cw / 2
-        d.text((cx, sy + 48), str(val), font=fnt("BarlowCondensed-Bold.ttf", 60 if len(str(val)) <= 6 else 42), fill=(255, 255, 255), anchor="mm")
+        vs = 60  # shrink until it fits its box with room to spare
+        while vs > 30 and d.textlength(str(val), font=fnt("BarlowCondensed-Bold.ttf", vs)) > cw - 26:
+            vs -= 2
+        d.text((cx, sy + 48), str(val), font=fnt("BarlowCondensed-Bold.ttf", vs), fill=(255, 255, 255), anchor="mm")
         d.text((cx, sy + 94), lab_, font=fnt("Inter.ttf", 15, 700), fill=(150, 150, 158), anchor="mm")
         if i:
             d.line((x0 + cw * i, sy + 20, x0 + cw * i, sy + 108), fill=(70, 70, 76), width=1)
@@ -345,7 +375,7 @@ def card(lg, p, top, comp, photo, theme):
     return img
 
 
-def make(pick, out, theme=None):
+def make(pick, out, theme=None, photo=None):
     sc, lg, p, top, comp, s, key = pick
     me = next(c for c in comp["competitors"] if str(c["team"]["id"]) == p["tid"])
     opp = next(c for c in comp["competitors"] if c is not me)
@@ -355,7 +385,7 @@ def make(pick, out, theme=None):
     theme = theme or O.random.choice(list(O.THEMES))
     os.makedirs(out, exist_ok=True)
     png = os.path.join(out, f"postgame-{lg}-{p['id']}.png")
-    card(lg, p, top, comp, action_shot(s, p), theme).convert("RGB").save(png, optimize=True)
+    card(lg, p, top, comp, photo, theme).convert("RGB").save(png, optimize=True)
     return {"day": "postgame", "stat": key, "theme": theme, "image": png, "text": tweet(text, "", with_link=False), "skip": False, "reason": ""}
 
 
@@ -371,12 +401,23 @@ def main():
     if not picks:
         print("No big games this time. Nothing to post.")
         return
-    for i, pk in enumerate(picks[:a.top]):
-        m = make(pk, a.out, None if a.theme == "random" else a.theme)
+    # every card needs an action shot of him: a big game without one gives way to the next best that has one
+    made = 0
+    for pk in picks:
+        photo = action_shot(pk[5], pk[2])
+        if not photo:
+            print(f"[{pk[1]} {pk[0]:.2f}] {pk[2]['name']}: no action shot, skipping")
+            continue
+        m = make(pk, a.out, None if a.theme == "random" else a.theme, photo)
         print(f"[{pk[1]} {pk[0]:.2f}] {m['image']} ({len(m['text'])} chars)\n   {m['text']}")
-        if i == 0:
+        if not made:
             with open(os.path.join(a.out, "today.json"), "w", encoding="utf-8") as fh:
                 json.dump(m, fh, indent=1, ensure_ascii=False)
+        made += 1
+        if made >= a.top:
+            break
+    if not made:
+        print("No big game with an action shot this time. Nothing to post.")
 
 
 if __name__ == "__main__":
