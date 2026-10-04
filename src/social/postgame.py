@@ -18,7 +18,7 @@ import os
 import re
 import sys
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import obscure as O
@@ -173,81 +173,175 @@ def best(leagues, hours):
     return picks
 
 
+FONTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
+_f = {}
+
+
+def fnt(name, size, weight=700):
+    """Display fonts for the card: Oswald (names), Barlow Condensed (numbers), Inter (small text)."""
+    key = (name, size, weight)
+    if key not in _f:
+        f = ImageFont.truetype(os.path.join(FONTS, name), size)
+        try:
+            f.set_variation_by_axes([min(max(weight, a["minimum"]), a["maximum"]) if a["name"] == b"Weight" else a["default"] for a in f.get_variation_axes()])
+        except Exception:
+            pass
+        _f[key] = f
+    return _f[key]
+
+
+def bright(rgb, floor=150):
+    """A team color that still pops on black (navy and maroon get lifted)."""
+    m = max(rgb)
+    return rgb if m >= floor else tuple(min(255, round(c * floor / max(1, m))) for c in rgb)
+
+
+def ink_on(rgb):
+    return (0, 0, 0) if 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2] > 150 else (255, 255, 255)
+
+
 def card(lg, p, top, comp, photo, theme):
+    """Broadcast-style card: the action shot full-bleed, a team-color slash, a giant ghost number, the line."""
     T = {k: hex_rgb(v) for k, v in O.THEMES[theme].items() if isinstance(v, str) and v.startswith("#")}
-    F = lambda size, weight="Regular": O.font_for(theme, size, weight)
     me = next(c for c in comp["competitors"] if str(c["team"]["id"]) == p["tid"])
     opp = next(c for c in comp["competitors"] if c is not me)
-    team_col = hex_rgb("#" + (me["team"].get("color") or "555555"), (90, 90, 96))
-    img = Image.new("RGBA", (W, H), T["bg"] + (255,))
-    # the action shot fills the left side and fades into the background under the stats
+    tc = hex_rgb("#" + (me["team"].get("color") or "555555"), (90, 90, 96))
+    alt = hex_rgb("#" + (me["team"].get("alternateColor") or "ffffff"), (255, 255, 255))
+    colorful = max(tc) - min(tc) > 40
+    hot = bright(tc) if colorful else T["accent"]  # black/gray/white teams use the theme accent
+    img = Image.new("RGBA", (W, H), (8, 8, 10, 255))
+
+    # 1. the photo, full bleed, pushed left so the player sits in the open part of the card
     if photo:
-        ph = photo.convert("RGBA")
-        sc = max(1060 / ph.width, H / ph.height)
+        ph = ImageEnhance.Contrast(ImageEnhance.Color(photo.convert("RGB")).enhance(1.15)).enhance(1.08).convert("RGBA")
+        sc = max(W / ph.width, H / ph.height) * 1.18
         ph = ph.resize((round(ph.width * sc), round(ph.height * sc)), Image.LANCZOS)
-        ph = ph.crop(((ph.width - 1060) // 2, (ph.height - H) // 2, (ph.width - 1060) // 2 + 1060, (ph.height - H) // 2 + H))
-        fade = Image.new("L", (1060, H), 255)
-        fd = ImageDraw.Draw(fade)
-        for x in range(700, 1060):
-            fd.line((x, 0, x, H), fill=round(255 * (1 - (x - 700) / 360) ** 1.6))
-        ph.putalpha(fade)
-        img.alpha_composite(ph, (0, 0))
-        tint = Image.new("RGBA", (W, 160), (0, 0, 0, 0))  # dark band at the top so the brand reads on any photo
-        td = ImageDraw.Draw(tint)
-        for y in range(160):
-            td.line((0, y, 1060, y), fill=(0, 0, 0, round(150 * (1 - y / 160))))
-        img.alpha_composite(tint, (0, 0))
-    else:
+        left = min(max(0, ph.width // 2 - 470), ph.width - W)
+        top_ = round((ph.height - H) * 0.3)
+        img.alpha_composite(ph.crop((left, top_, left + W, top_ + H)))
+    else:  # no action shot: big headshot over a team-color field
+        bg = Image.new("RGBA", (W, H), tc + (255,))
+        bg.putalpha(Image.linear_gradient("L").rotate(90).resize((W, H)).point(lambda v: round(v * 0.8)))
+        img.alpha_composite(bg)
         head = O.image(p.get("pic"))
-        ImageDraw.Draw(img).rectangle((0, 0, 700, H), fill=O.mix(team_col, T["bg"], 0.5))
         if head:
-            head.thumbnail((640, 640), Image.LANCZOS)
-            img.alpha_composite(head, ((700 - head.width) // 2, H - head.height))
+            sc = 820 / head.height
+            head = head.resize((round(head.width * sc), 820), Image.LANCZOS)
+            img.alpha_composite(head, (max(0, 430 - head.width // 2), H - 820))
+
+    # 2. shading: dark right side for the text, dark floor and top, team color wash from the bottom left
+    shade = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(shade)
+    for x in range(560, W):
+        sd.line((x, 0, x, H), fill=(6, 6, 9, round(250 * min(1.0, (x - 560) / 420) ** 1.3)))
+    img.alpha_composite(shade)
+    top_band = Image.new("RGBA", (W, H), (0, 0, 0, 0))  # its own layer: lines drawn on the same layer replace each other
+    tb = ImageDraw.Draw(top_band)
+    for y in range(600, H):
+        tb.line((0, y, W, y), fill=(0, 0, 0, round(170 * ((y - 600) / 300) ** 1.6)))
+    for y in range(150):
+        tb.line((0, y, 900, y), fill=(0, 0, 0, round(150 * (1 - y / 150))))
+    img.alpha_composite(top_band)
+    wash = Image.new("RGBA", (W, H), tc + (0,))
+    ramp = Image.linear_gradient("L").resize((W, H))  # 0 at the top, 255 at the bottom
+    wash.putalpha(ramp.point(lambda v: round(max(0, v - 170) * 0.75)))  # a hint of team color low down, not a tint
+    img.alpha_composite(wash)
+
+    # 3. team-color slash with an accent edge
+    slash = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    sl = ImageDraw.Draw(slash)
+    sl.polygon([(905, 0), (975, 0), (795, H), (725, H)], fill=tc + (240,))
+    sl.polygon([(985, 0), (997, 0), (817, H), (805, H)], fill=hot + (255,))
+    sl.polygon([(1007, 0), (1011, 0), (831, H), (827, H)], fill=alt + (170,))
+    img.alpha_composite(slash)
+
+    # 4. giant ghost number behind the text
+    big = f"{p['s'][top]:,.0f}" if p["s"][top] == int(p["s"][top]) else f"{p['s'][top]:.1f}"
+    ghost = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(ghost).text((W + 40, H // 2 + 30), big, font=fnt("BarlowCondensed-Bold.ttf", 600), anchor="rm",
+                               fill=(0, 0, 0, 0), stroke_width=3, stroke_fill=hot + (60,))
+    img.alpha_composite(ghost)
+
     d = ImageDraw.Draw(img)
-    d.rectangle((0, H - 10, 1060, H), fill=team_col)
-    bf = F(26, "Bold")
+    bf = O.font_for("mono", 26, "Bold")  # brand, top left over the photo
     d.text((48, 40), ">", font=bf, fill=T["accent"])
     d.text((76, 40), "CUPCAKE", font=bf, fill=(255, 255, 255))
     d.text((76 + d.textlength("CUPCAKE", font=bf), 40), "_INDEX", font=bf, fill=T["accent"])
-    d.text((48, 76), "cupcakeindex.com", font=F(18), fill=(225, 225, 225))
+    d.text((48, 76), "cupcakeindex.com", font=O.font_for("mono", 18), fill=(230, 230, 230))
 
-    x0, xr = 900, W - 60
-    tag_f = F(20, "Bold")
+    x0, xr = 1030, W - 56
+    bfnt = fnt("Inter.ttf", 19, 800)
     x = x0
-    for label, solid in ((lg.upper(), False), ("BIG GAME", True)):
-        tw = d.textlength(label, font=tag_f)
+    for label, solid in (("BIG GAME", True), (lg.upper(), False)):
+        tw = d.textlength(label, font=bfnt)
         if solid:
-            d.rectangle((x, 44, x + tw + 28, 80), fill=T["accent"])
-            d.text((x + 14, 49), label, font=tag_f, fill=T["bg"])
+            d.rectangle((x, 52, x + tw + 30, 88), fill=hot)
+            d.text((x + 15, 70), label, font=bfnt, fill=ink_on(hot), anchor="lm")
         else:
-            d.rectangle((x, 44, x + tw + 28, 80), outline=T["accent"], width=2)
-            d.text((x + 14, 49), label, font=tag_f, fill=T["accent"])
-        x += tw + 40
-    y = 110
-    nf = F(54, "ExtraBold")
-    for ln in O.wrap(d, p["name"], nf, xr - x0, 2):
-        d.text((x0, y), ln, font=nf, fill=T["ink"])
-        y = d.textbbox((x0, y), ln, font=nf)[3] + 10
-    d.text((x0, y + 4), f"{me['team'].get('abbreviation', '')}", font=F(22, "Bold"), fill=T["muted"])
-    y += 44
-    won = me.get("winner")
-    final = f"{'W' if won else 'L'} {me.get('score')}-{opp.get('score')} {'vs' if me.get('homeAway') == 'home' else '@'} {opp['team'].get('abbreviation', '')} · FINAL"
-    d.text((x0, y), final, font=F(22, "Bold"), fill=T["accent"] if won else T["muted"])
-    y += 64
-    big = f"{p['s'][top]:,.0f}" if p["s"][top] == int(p["s"][top]) else f"{p['s'][top]:.1f}"
-    bigf = F(150, "ExtraBold")
-    d.text((x0, y), big, font=bigf, fill=T["accent"])
-    by = d.textbbox((x0, y), big, font=bigf)[3]
-    d.text((x0, by + 12), HEAD[top], font=F(22, "Bold"), fill=T["muted"])
-    y = by + 70
+            d.rectangle((x, 52, x + tw + 30, 88), outline=(255, 255, 255), width=2)
+            d.text((x + 15, 70), label, font=bfnt, fill=(255, 255, 255), anchor="lm")
+        x += tw + 44
+    # name: first small, LAST huge
+    parts = p["name"].split(" ", 1)
+    first, last = (parts[0], parts[1]) if len(parts) > 1 else ("", parts[0])
+    d.text((x0, 112), first.upper(), font=fnt("Oswald.ttf", 42, 500), fill=(205, 205, 210))
+    size = 132
+    while size > 60 and d.textlength(last.upper(), font=fnt("Oswald.ttf", size, 700)) > xr - x0:
+        size -= 4
+    lf = fnt("Oswald.ttf", size, 700)
+    d.text((x0 - 4, 160), last.upper(), font=lf, fill=(255, 255, 255))
+    ty = d.textbbox((x0, 160), last.upper(), font=lf)[3] + 20
+    # team line with logo
+    logo = O.image(((me["team"].get("logos") or [{}])[0]).get("href") or me["team"].get("logo"))
+    tx = x0
+    if logo:
+        logo.thumbnail((40, 40), Image.LANCZOS)
+        img.alpha_composite(logo, (x0, ty))
+        tx += 52
+    d.text((tx, ty + 20), (me["team"].get("displayName") or me["team"].get("abbreviation", "")).upper(), font=fnt("Inter.ttf", 20, 700), fill=(190, 190, 196), anchor="lm")
+    # the headline number, glowing, with its label beside it
+    ny = ty + 50
+    nf = fnt("BarlowCondensed-Bold.ttf", 240)
+    glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(glow).text((x0 - 8, ny), big, font=nf, fill=hot + (210,))
+    img.alpha_composite(glow.filter(ImageFilter.GaussianBlur(20)))
+    d = ImageDraw.Draw(img)
+    d.text((x0 - 8, ny), big, font=nf, fill=hot)
+    nb = d.textbbox((x0 - 8, ny), big, font=nf)
+    w1, w2 = (HEAD[top].split(" ", 1) + [""])[:2]
+    lab = fnt("Oswald.ttf", 36, 600)
+    d.text((nb[2] + 24, nb[3] - 48), w1, font=lab, fill=(255, 255, 255), anchor="ls")
+    d.text((nb[2] + 24, nb[3] - 4), w2, font=lab, fill=(255, 255, 255), anchor="ls")
+
+    # 5. stat strip
     ts = tiles(p["s"])
-    tw = (xr - x0 - 12 * (len(ts) - 1)) / len(ts)
-    for i, (lab, val) in enumerate(ts):
-        tx = x0 + i * (tw + 12)
-        d.rectangle((tx, y, tx + tw, y + 104), fill=T["panel"], outline=T["line"], width=2)
-        d.text((tx + tw / 2, y + 40), R.fit(d, str(val), F(36, "ExtraBold"), tw - 16), font=F(36, "ExtraBold"), fill=T["ink"], anchor="mm")
-        d.text((tx + tw / 2, y + 80), lab, font=F(16, "Bold"), fill=T["muted"], anchor="mm")
-    R.draw_motto(d, xr, H - 60, 17, T["ink"], T["muted"], T["accent"], right=True, font_for=F)
+    sy = 690
+    d.line((x0, sy, xr, sy), fill=(90, 90, 96), width=1)
+    cw = (xr - x0) / len(ts)
+    for i, (lab_, val) in enumerate(ts):
+        cx = x0 + cw * i + cw / 2
+        d.text((cx, sy + 48), str(val), font=fnt("BarlowCondensed-Bold.ttf", 60 if len(str(val)) <= 6 else 42), fill=(255, 255, 255), anchor="mm")
+        d.text((cx, sy + 94), lab_, font=fnt("Inter.ttf", 15, 700), fill=(150, 150, 158), anchor="mm")
+        if i:
+            d.line((x0 + cw * i, sy + 20, x0 + cw * i, sy + 108), fill=(70, 70, 76), width=1)
+    # 6. final score chip
+    won, cy = me.get("winner"), 840
+    chip_txt = f"{me.get('score')}-{opp.get('score')}  {'VS' if me.get('homeAway') == 'home' else '@'} {(opp['team'].get('abbreviation') or '').upper()}"
+    d.rectangle((x0, cy - 22, x0 + 44, cy + 22), fill=hot if won else (70, 70, 76))
+    d.text((x0 + 22, cy), "W" if won else "L", font=fnt("Oswald.ttf", 26, 700), fill=ink_on(hot) if won else (255, 255, 255), anchor="mm")
+    cf = fnt("Oswald.ttf", 28, 600)
+    d.text((x0 + 60, cy), chip_txt, font=cf, fill=(255, 255, 255), anchor="lm")
+    ol = O.image(((opp["team"].get("logos") or [{}])[0]).get("href") or opp["team"].get("logo"))
+    if ol:
+        ol.thumbnail((34, 34), Image.LANCZOS)
+        img.alpha_composite(ol, (round(x0 + 74 + d.textlength(chip_txt, font=cf)), cy - 17))
+    d.text((xr, cy), "FINAL", font=fnt("Inter.ttf", 18, 800), fill=(150, 150, 158), anchor="rm")
+
+    # 7. a little film grain so it doesn't look flat
+    grain = Image.effect_noise((W, H), 40).point(lambda v: round(abs(v - 128) * 0.22))
+    gl = Image.new("RGBA", (W, H), (255, 255, 255, 0))
+    gl.putalpha(grain)
+    img.alpha_composite(gl)
     return img
 
 
