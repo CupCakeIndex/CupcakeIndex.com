@@ -1416,7 +1416,15 @@ const Live = (() => {
   // Season pace: real totals so far + our projection for each remaining game (src/cfb_projections.py season_pace)
   let cfbPaceP = null;
   const cfbPace = () => (cfbPaceP ||= getJSON(`data/cfb/${INDEX.leagues.cfb.latest.season}/pace.json`).catch(() => { cfbPaceP = null; return null; }));
-  const PACE_HOW = `Season pace = what he has actually done so far, plus our projection for every game left on his team's regular-season schedule. Each remaining game uses that opponent's defense, home or away, and our model's expected game flow, so a soft back half pushes the pace up and a tough one pulls it down. It assumes he stays healthy and keeps his role.`;
+  const PACE_HOW = `Season pace = his per-game average so far times his team's regular-season games: where he ends up if he keeps doing exactly what he's doing. Hover a number for our projection too: what he has done so far plus our model for every game left, using each opponent's defense, home or away, and expected game flow (big favorites run more and rest starters late). It assumes he stays healthy and keeps his role.`;
+  // straight-line pace (per game so far x total games); our model's projected finish is kept as r.model
+  const PACE_KEYS = ["py", "ptd", "int", "ry", "rtd", "rec", "recy", "rectd"];
+  const straightPace = (r) => {
+    const n = r.g + r.gl, f = r.g ? n / r.g : 0, out = { ...r, model: r };
+    PACE_KEYS.forEach((k) => { out[k] = (r.so[k] || 0) * f; });
+    out.pts = (r.spts || 0) * f;
+    return out;
+  };
   const cfbTm = (id, ab) => `<a href="${link("team", id)}"><span class="tm">${img(`https://a.espncdn.com/i/teamlogos/ncaa/500/${encodeURIComponent(id)}.png`, "xs")} ${esc(ab)}</span></a>`;
   const pjFmt = (v, label) => (!v || v < 0.05 ? `<span class="muted">–</span>` : /yds/.test(label) ? Math.round(v).toLocaleString() : v.toFixed(1));
 
@@ -1424,8 +1432,9 @@ const Live = (() => {
     const my = token;
     view("stats").innerHTML = stSubStats("projected") + `<div class="card muted">Loading…</div>`;
     const pace = params.get("when") === "pace";
-    const data = await (pace ? cfbPace() : cfbProj());
+    let data = await (pace ? cfbPace() : cfbProj());
     if (my !== token) return;
+    if (pace && data?.players) data = { ...data, players: data.players.map(straightPace) };
     if (!data?.players?.length) {
       view("stats").innerHTML = stSubStats("projected") + `<div class="card">No college projections yet: they're built with each weekly rankings update. <a href="${link("stats", null, { show: "projected", league: "nfl" })}">See NFL projections →</a></div>`;
       return;
@@ -1443,7 +1452,7 @@ const Live = (() => {
     const all = data.players.filter((r) => !pos || r.pos === pos)
       .sort((a, b) => (dir === "desc" ? 1 : -1) * (val(b, sort) - val(a, sort)) || b.pts - a.pts);
     const th = (key, label, title) => `<th class="num sortable${key === sort ? " on" : ""}" data-sort="${key}" title="${esc(title)}">${esc(label)}${key === sort ? (dir === "desc" ? " ▼" : " ▲") : ""}</th>`;
-    const soFar = (r, k) => (pace ? ` title="${esc(String(Math.round(r.so[CFB_PJ[k]] || 0)))} so far"` : "");
+    const soFar = (r, k) => (pace ? ` title="${esc(`${Math.round(r.so[CFB_PJ[k]] || 0).toLocaleString()} so far · our projection ${Math.round(r.model[CFB_PJ[k]] || 0).toLocaleString()}`)}"` : "");
     const row = (r, i) => `<tr><td class="num muted">${i + 1}</td>
         <td><div class="team">${face(`https://a.espncdn.com/i/headshots/college-football/players/full/${encodeURIComponent(r.id)}.png`, r.n, "hs")}<div><a href="${link("player", r.id)}"><b>${esc(r.n)}</b></a><small class="muted">${esc(r.pos)}</small></div></div></td>
         <td>${cfbTm(r.t, r.ta)}</td>${pace ? `<td class="num">${r.g}<small class="muted"> +${r.gl}</small></td>` : `<td class="pj-opp"><small class="muted">${r.h ? "vs" : "@"}</small> ${cfbTm(r.o, r.oa)}</td>`}
@@ -1460,7 +1469,7 @@ const Live = (() => {
         <div class="presets" id="pj-pos">${[["", "All"], ...["QB", "RB", "WR", "TE"].map((p) => [p, p])].map(([v, l]) => `<button data-pos="${v}" class="${v === pos ? "on" : ""}">${l}</button>`).join("")}</div>
         <input id="pj-search" type="search" placeholder="Find a player or team…">
       </div>
-      <p class="fr-how">${pace ? `<b>Season pace</b>: where each player's ${esc(data.season)} regular-season totals are headed (our model). Hover a number to see his total so far.`
+      <p class="fr-how">${pace ? `<b>Season pace</b>: each player's per-game average so far over his team's full ${esc(data.season)} regular season. Hover a number to see his total so far and our model's projected finish.`
         : `Cupcake Index projections for <b>week ${esc(data.week)}</b> (our model).`} Our own estimates, for fun: not betting lines.</p>
       <div class="table-wrap"><table id="pj-table"><thead><tr><th class="num">#</th><th>Player</th><th>Team</th>${pace ? `<th class="num" title="Games played + games left">G</th>` : "<th>Opp</th>"}
         ${PJ_COLS.map(([l, k, t]) => th(k, l, t)).join("")}${th("pts", "PPR pts", "Projected fantasy points, PPR scoring (1 per catch)")}</tr></thead>
@@ -1523,10 +1532,11 @@ const Live = (() => {
       const pts = (o) => Object.keys(PPR_PTS).reduce((s, k) => s + PPR_PTS[k] * (o[k] || 0), 0);
       r = { ...r, ...tot, so, g: L.n, gl: r.gl - extra, pts: pts(tot), spts: pts(so) };
     }
-    const main = PACE_MAIN[r.pos] || [];
+    const main = PACE_MAIN[r.pos] || [], sp = straightPace(r);
+    const sub = (so, m, d = 0) => `${soLine(so, d)} · ours ${(+m || 0).toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d })}`;
     return { k: "pace", tab: "Season pace",
-      cells: [...PJ_COLS.filter(([, k]) => main.includes(k)).map(([l, k]) => [l, paceFmt(r[CFB_PJ[k]]), soLine(r.so[CFB_PJ[k]])]), ["PPR pts", r.pts.toFixed(1), soLine(r.spts, 1)]],
-      note: `${r.g + r.gl} games, ${r.gl} left: what he's done so far plus our projection for each game left, adjusted for those defenses. <a href="${link("stats", null, { show: "projected", league: "cfb", when: "pace", pos: r.pos })}">Full list →</a>` };
+      cells: [...PJ_COLS.filter(([, k]) => main.includes(k)).map(([l, k]) => [l, paceFmt(sp[CFB_PJ[k]]), sub(r.so[CFB_PJ[k]], Math.round(r[CFB_PJ[k]] || 0))]), ["PPR pts", sp.pts.toFixed(1), sub(r.spts, r.pts, 1)]],
+      note: `${r.g + r.gl} games, ${r.gl} left. Big number: his per-game average so far over the full season. "Ours": what he's done plus our projection for each game left, adjusted for those defenses and expected blowouts. <a href="${link("stats", null, { show: "projected", league: "cfb", when: "pace", pos: r.pos })}">Full list →</a>` };
   }
   async function nflPanes(id) {
     const d = await pjPlayers(), r = d?.list?.find((p) => String(p.id) === String(id));
