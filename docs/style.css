@@ -1896,3 +1896,27 @@ html:not([data-theme-name="mono"]):not([data-theme-name="terminal"]):not([data-t
 .cr-when { color: var(--muted); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cr-pc { display: inline-block; margin-left: 8px; font-weight: 700; }
 @media (max-width: 640px) { .cr-next { text-align: left; } }
+
+/* ---------- Stats > Injuries: every NFL team's "% healthy" as a bar chart, tap a team for its report */
+:root { --inj-good: #3ecf8e; --inj-mid: #f5c542; --inj-bad: #ff5a4f; }
+.inj-head { display: flex; align-items: center; gap: 14px; margin: 6px 0 16px; }
+.inj-head img.lg { width: 56px; height: 56px; }
+.inj-head b { display: block; font-size: 15px; }
+.inj-big { display: block; font-size: 30px; font-weight: 800; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.inj-chart { display: flex; flex-direction: column; gap: 3px; }
+.inj-row { display: grid; grid-template-columns: 26px 74px 1fr 46px 112px; align-items: center; gap: 8px; width: 100%; padding: 4px 6px; background: none; border: 1px solid transparent; color: var(--ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.inj-row:hover { background: var(--accent-soft); }
+.inj-row.on { border-color: var(--accent); background: var(--accent-soft); }
+.inj-rk { color: var(--muted); font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+.inj-bar { position: relative; height: 14px; background: var(--bar-bg, var(--line)); }
+.inj-bar i { position: absolute; left: 0; top: 0; bottom: 0; }
+.inj-bar em { position: absolute; top: -3px; bottom: -3px; border-left: 2px dashed var(--ink); opacity: .55; }
+.inj-pct { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.inj-so { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.inj-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px 18px; }
+.inj-list li { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--line); }
+.inj-note { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; line-height: 1.35; }
+.inj-st { font-size: 11px; font-weight: 700; padding: 1px 6px; border: 1px solid currentColor; }
+.inj-st.out { color: var(--inj-bad); } .inj-st.dbt { color: #ff9a3c; } .inj-st.q { color: var(--inj-mid); }
+.inj-starter { font-size: 10px; font-weight: 800; letter-spacing: .04em; padding: 1px 5px; background: var(--ink); color: var(--bg); }
+@media (max-width: 560px) { .inj-row { grid-template-columns: 22px 62px 1fr 40px; } .inj-so { display: none; } .inj-big { font-size: 24px; } }

@@ -1244,6 +1244,7 @@ const Live = (() => {
   async function stats(_, params, refresh = false) {
     if (params.get("show") === "frauds") return frauds(params);
     if (params.get("show") === "projected") return projected(params);
+    if (params.get("show") === "injuries") return injuries(params);
     const lg = league, my = token;
     const cat = STAT_CATS.find((c) => c.key === params.get("cat")) || STAT_CATS[0];
     const sort = params.get("sort") || cat.sort, dir = params.get("dir") || "desc";
@@ -1308,7 +1309,7 @@ const Live = (() => {
   // Every week ESPN's fantasy feed sets a projection ("line") for each player: passing yards, TDs, catches...
   // A player's fraud score compares what they actually did with their lines in the games they played,
   // stat by stat for their position, as a weighted % below expectation. Over-achievers are the same list flipped.
-  const stSubStats = (on) => `<div class="subtabs">` + [["leaders", "Leaders", {}], ["frauds", "Frauds", { show: "frauds" }], ["projected", "Projected", { show: "projected" }]]
+  const stSubStats = (on) => `<div class="subtabs">` + [["leaders", "Leaders", {}], ["frauds", "Frauds", { show: "frauds" }], ["projected", "Projected", { show: "projected" }], ["injuries", "Injuries", { show: "injuries" }]]
     .map(([k, l, q]) => `<a class="subtab${k === on ? " on" : ""}" href="${link("stats", null, q)}">${l}</a>`).join("") + `</div>`;
   const FR_POS = { 1: "QB", 2: "RB", 3: "WR", 4: "TE" };
   // [label, ESPN fantasy stat ids (summed), weight, minimum expected per game to count, higher is worse]
@@ -1409,6 +1410,93 @@ const Live = (() => {
     $("#fr-over").onclick = () => { frState.over = !frState.over; frauds(params); };
     $("#fr-inj").onclick = (e) => { frState.injured = !frState.injured; e.currentTarget.classList.toggle("on", frState.injured); draw(); };
     draw();
+  }
+
+  // ---------------------------------------------------------------- Injuries (a sub-view of Stats, NFL)
+  // Every team's injury load as "% healthy": ESPN's league injury report, weighted by who the player is.
+  // Starter = #1 at his spot on ESPN's depth chart (top 3 WRs, nickel back too). Position weights: a QB counts
+  // far more than a punter. Status: Out / IR / suspended = all of it, Doubtful 3/4, Questionable 1/4.
+  // Backups count a little; a player not on the depth chart (often a starter already moved to IR) counts 30%.
+  const INJ_W = { qb: 10, lt: 3, rt: 3, lg: 2, c: 2, rg: 2, wr: 3, te: 2, rb: 2, fb: 0.5, lde: 3, rde: 3, de: 3, ldt: 2.5, rdt: 2.5, nt: 2.5, dt: 2.5,
+    wlb: 2, slb: 2, olb: 2.5, lilb: 2, rilb: 2, mlb: 2, lb: 2, lcb: 3, rcb: 3, cb: 3, nb: 1.5, ss: 2, fs: 2, s: 2, pk: 1, p: 0.5 };
+  const INJ_POS_W = { QB: 10, OT: 3, T: 3, G: 2, OG: 2, C: 2, WR: 3, TE: 2, RB: 2, FB: 0.5, DE: 3, EDGE: 3, DT: 2.5, NT: 2.5, LB: 2, OLB: 2.5, ILB: 2,
+    MLB: 2, CB: 3, S: 2, SS: 2, FS: 2, DB: 2, PK: 1, K: 1, P: 0.5 };
+  const INJ_HIT = (st) => (/out|injured reserve|suspen|physically unable|non-football/i.test(st) ? 1 : /doubtful/i.test(st) ? 0.75 : /questionable|day-to-day/i.test(st) ? 0.25 : 0);
+  let injP = null;
+  const injData = () => (injP ||= (async () => {
+    const [rep, stand] = await Promise.all([api(`${SITE("nfl")}/injuries`, 900000),
+      api(`${STAND("nfl")}/standings?level=3`, 86400000).catch(() => null)]);
+    const tm = new Map(stand ? groupsOf(stand).flatMap((g) => g.entries).map((e) => [String(e.team.id), e.team]) : []);
+    const yr = rep.season?.year || new Date().getFullYear();
+    const teams = await Promise.all((rep.injuries || []).map(async (t) => {
+      const dc = await api(`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${yr}/teams/${t.id}/depthcharts`, 3600000).catch(() => null);
+      const slot = new Map(); // athlete id -> { key, rank, starter }
+      let total = 0;
+      (dc?.items || []).forEach((it) => Object.entries(it.positions || {}).forEach(([k, v]) => {
+        if (!(k in INJ_W)) return;
+        const n = k === "wr" ? 3 : 1;
+        (v.athletes || []).forEach((a) => {
+          const id = (/athletes\/(\d+)/.exec(a.athlete?.$ref || "") || [])[1], r = a.rank || a.slot || 99;
+          if (!id) return;
+          const starter = r <= n, old = slot.get(id);
+          if (starter && !(old?.starter)) total += INJ_W[k];
+          if (!old || (starter && !old.starter) || (!old.starter && r < old.rank)) slot.set(id, { key: k, rank: r, starter });
+        });
+      }));
+      const hurt = (t.injuries || []).filter((i) => INJ_HIT(i.status) > 0).map((i) => {
+        const a = i.athlete || {}, id = (/\/id\/(\d+)/.exec((a.links || []).map((l) => l.href).join(" ")) || [])[1] || "";
+        const s = slot.get(id), pos = a.position?.abbreviation || "";
+        const w = s ? INJ_W[s.key] * (s.starter ? 1 : s.rank === 2 || (s.key === "wr" && s.rank <= 5) ? 0.15 : 0.05) : (INJ_POS_W[pos] || 1) * 0.3;
+        return { id, name: a.displayName || "", pos, status: i.status, starter: !!s?.starter, onChart: !!s, lost: w * INJ_HIT(i.status),
+          note: i.shortComment || "", pic: a.headshot?.href || "" };
+      }).sort((a, b) => b.lost - a.lost);
+      const lost = hurt.reduce((s, h) => s + h.lost, 0);
+      const info = tm.get(String(t.id)) || { id: t.id, displayName: t.displayName, abbreviation: t.displayName };
+      return { id: String(t.id), team: info, hurt, health: total ? Math.max(0, Math.min(100, 100 * (1 - lost / total))) : 100,
+        startersOut: hurt.filter((h) => h.starter && INJ_HIT(h.status) >= 0.75).length };
+    }));
+    return teams.sort((a, b) => a.health - b.health);
+  })().catch((e) => { injP = null; throw e; }));
+
+  async function injuries(params) {
+    const my = token;
+    if (league !== "nfl") {
+      view("stats").innerHTML = stSubStats("injuries") + `<div class="card">The injury report is NFL only: ESPN doesn't publish one for college. <a href="${link("stats", null, { show: "injuries", league: "nfl" })}">See NFL injuries →</a></div>`;
+      return;
+    }
+    view("stats").innerHTML = stSubStats("injuries") + `<div class="card muted">Loading every team's injury report and depth chart…</div>`;
+    let teams;
+    try { teams = await injData(); } catch (e) { return fail("stats", e); }
+    if (my !== token) return;
+    const pick = (params.get("team") || "").toUpperCase();
+    const avg = teams.reduce((s, t) => s + t.health, 0) / teams.length;
+    const col = (h) => (h >= 92 ? "var(--inj-good)" : h >= 82 ? "var(--inj-mid)" : "var(--inj-bad)");
+    const ord = (n) => n + ([11, 12, 13].includes(n % 100) ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th");
+    const focus = teams.find((t) => t.team.abbreviation === pick) || teams[0];
+    const rank = teams.indexOf(focus) + 1;
+    const chip = (st) => `<span class="inj-st ${INJ_HIT(st) >= 1 ? "out" : INJ_HIT(st) >= 0.75 ? "dbt" : "q"}">${esc(/injured reserve/i.test(st) ? "IR" : st)}</span>`;
+    const list = (t) => `<ul class="inj-list">${t.hurt.map((h) => `<li>${face(h.pic, h.name, "hs")}<div><a href="${link("player", h.id)}"><b>${esc(h.name)}</b></a>
+        <small class="muted">${esc(h.pos)}</small> ${chip(h.status)}${h.starter ? ` <span class="inj-starter">STARTER</span>` : ""}
+        ${h.note ? `<small class="inj-note">${esc(h.note)}</small>` : ""}</div></li>`).join("") || `<li class="muted">Nobody on the report.</li>`}</ul>`;
+    view("stats").innerHTML = stSubStats("injuries") + `<div class="card">
+      <div class="sc-bar"><h2>Injuries <small class="muted">NFL · how healthy is each team?</small></h2></div>
+      <div class="inj-head">${img(teamLogo(focus.team), "lg")}<div><b>${esc(focus.team.displayName || "")}</b>
+        <span class="inj-big" style="color:${col(focus.health)}">${Math.round(focus.health)}% healthy</span>
+        <small class="muted">${rank === 1 ? "The most banged-up team in the NFL" : `${ord(rank)} most banged-up of ${teams.length}`} · ${focus.startersOut} starter${focus.startersOut === 1 ? "" : "s"} out · league average ${Math.round(avg)}%</small></div></div>
+      <div class="inj-chart" id="inj-chart" role="list">${teams.map((t, i) => `<button class="inj-row${t === focus ? " on" : ""}" data-t="${esc(t.team.abbreviation)}" role="listitem"
+          title="${esc(t.team.displayName || "")}: ${Math.round(t.health)}% healthy, ${t.startersOut} starters out">
+          <span class="inj-rk">${i + 1}</span><span class="tm">${img(teamLogo(t.team), "xs")} ${esc(t.team.abbreviation)}</span>
+          <span class="inj-bar"><i style="width:${t.health.toFixed(1)}%;background:${col(t.health)}"></i><em style="left:${avg.toFixed(1)}%" title="League average"></em></span>
+          <span class="inj-pct">${Math.round(t.health)}%</span><span class="inj-so">${t.startersOut ? `${t.startersOut} starter${t.startersOut === 1 ? "" : "s"} out` : ""}</span></button>`).join("")}</div>
+      <p class="fr-how">Tap a team for its report. <b>% healthy</b> weighs who's hurt: a starting QB counts about 10x a punter, starters count fully and backups a little. Out or IR counts fully, Doubtful 3/4, Questionable 1/4. The dashed line is the league average.</p>
+      <div id="inj-detail"><h3>${esc(focus.team.displayName || "")} injury report</h3>${list(focus)}</div>
+      <p class="note">ESPN's injury report and depth charts, updated through the week. Players already moved off the depth chart (often to IR) count at 30%.</p></div>`;
+    $("#inj-chart").onclick = (e) => {
+      const b = e.target.closest("[data-t]");
+      if (!b) return;
+      const p = new URLSearchParams(params); p.set("team", b.dataset.t); p.set("show", "injuries");
+      location.hash = `#/stats?${p}`;
+    };
   }
 
   // ---------------------------------------------------------------- NFL projections (a sub-view of Stats)
