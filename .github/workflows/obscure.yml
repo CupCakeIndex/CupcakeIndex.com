@@ -10,6 +10,7 @@ on:
   schedule:
     - cron: "0 17 * 8-12,1 *"   # 1 PM Eastern (noon in winter)
     - cron: "0 23 * 8-12,1 *"   # 7 PM Eastern (6 PM in winter)
+    - cron: "30 14 * 9-12,1 6"  # Saturday 10:30 AM Eastern: NFL injury report (most banged-up teams), after Friday's final reports
   workflow_dispatch:
     inputs:
       stat:
@@ -20,6 +21,7 @@ on:
           - random
           - random-hot
           - random-stat
+          - nfl_injuries
           - hot_cfb_paper_unbeaten
           - hot_cfb_beaten_nobody
           - hot_nfl_paper_record
@@ -79,7 +81,7 @@ jobs:
       - run: pip install -r src/social/requirements.txt
       - name: Render the stat card
         env:
-          STAT: ${{ inputs.stat || 'rotate' }}
+          STAT: ${{ github.event.schedule == '30 14 * 9-12,1 6' && 'nfl_injuries' || inputs.stat || 'rotate' }}
           THEME: ${{ inputs.theme || 'random' }}
         run: python src/social/obscure.py --stat "$STAT" --theme "$THEME"
       - uses: actions/upload-artifact@v4

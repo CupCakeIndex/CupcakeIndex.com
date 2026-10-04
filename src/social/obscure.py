@@ -658,6 +658,93 @@ def _():
 
 
 # ------------------------------------------------------------------ card
+# --- injuries: the most banged-up NFL teams (same math as the site's Stats > Injuries page, docs/live.js) -----------
+INJ_W = {"qb": 10, "lt": 3, "rt": 3, "lg": 2, "c": 2, "rg": 2, "wr": 3, "te": 2, "rb": 2, "fb": 0.5, "lde": 3, "rde": 3, "de": 3, "ldt": 2.5,
+         "rdt": 2.5, "nt": 2.5, "dt": 2.5, "wlb": 2, "slb": 2, "olb": 2.5, "lilb": 2, "rilb": 2, "mlb": 2, "lb": 2, "lcb": 3, "rcb": 3, "cb": 3,
+         "nb": 1.5, "ss": 2, "fs": 2, "s": 2, "pk": 1, "p": 0.5}
+INJ_POS_W = {"QB": 10, "OT": 3, "T": 3, "G": 2, "OG": 2, "C": 2, "WR": 3, "TE": 2, "RB": 2, "FB": 0.5, "DE": 3, "EDGE": 3, "DT": 2.5, "NT": 2.5,
+             "LB": 2, "OLB": 2.5, "ILB": 2, "MLB": 2, "CB": 3, "S": 2, "SS": 2, "FS": 2, "DB": 2, "PK": 1, "K": 1, "P": 0.5}
+
+
+def inj_hit(st):
+    st = (st or "").lower()
+    return 1 if re.search(r"out|injured reserve|suspen|physically unable|non-football", st) else 0.75 if "doubtful" in st \
+        else 0.25 if re.search(r"questionable|day-to-day", st) else 0
+
+
+def nfl_health():
+    """Every NFL team's % healthy: [{name, health, key_out, total, key_names}], most banged-up first.
+    Key players = at each depth-chart spot, everyone down to the first healthy player (the starter, plus the next
+    man up when he's out). Position weights (QB ~10x a punter); Out/IR all of it, Doubtful 3/4, Questionable 1/4."""
+    if "health" in _cache:
+        return _cache["health"]
+    site = "https://site.api.espn.com/apis/site/v2/sports/football/nfl"
+    rep = _session.get(f"{site}/injuries", timeout=30).json()
+    yr = (rep.get("season") or {}).get("year") or dt.date.today().year
+    out = []
+    for t in rep.get("injuries", []):
+        dc = _session.get(f"https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/{yr}/teams/{t['id']}/depthcharts", timeout=30).json()
+        idof = lambda i: (re.search(r"/id/(\d+)", " ".join(l.get("href", "") for l in (i.get("athlete") or {}).get("links", []))) or [None, ""])[1]
+        missing = {idof(i) for i in t.get("injuries", []) if inj_hit(i.get("status")) >= 0.75} - {""}
+        slot, seen, total = {}, set(), 0.0
+        for it in dc.get("items", []):
+            for k, v in (it.get("positions") or {}).items():
+                if k not in INJ_W:
+                    continue
+                spots = {}
+                for a in v.get("athletes", []):
+                    m = re.search(r"athletes/(\d+)", (a.get("athlete") or {}).get("$ref", ""))
+                    if m:
+                        spots.setdefault(a.get("slot") or 1, []).append((a.get("rank") or 99, m[1]))
+                for sl, lst in spots.items():
+                    if (k, sl) in seen:
+                        continue
+                    seen.add((k, sl))
+                    total += INJ_W[k]
+                    filled = False
+                    for depth, (_, aid) in enumerate(sorted(lst), 1):
+                        is_key, old = not filled, slot.get(aid)
+                        if aid not in missing:
+                            filled = True
+                        if not old or (is_key and not old[2]) or (not old[2] and depth < old[1]):
+                            slot[aid] = (k, depth, is_key)
+        hurt = []
+        for i in t.get("injuries", []):
+            h = inj_hit(i.get("status"))
+            if not h:
+                continue
+            s = slot.get(idof(i))
+            w = INJ_W[s[0]] * (1 if s[2] else 0.15 if s[1] == 2 else 0.05) if s else INJ_POS_W.get(((i.get("athlete") or {}).get("position") or {}).get("abbreviation", ""), 1) * 0.3
+            hurt.append({"name": (i.get("athlete") or {}).get("displayName", ""), "key": bool(s and s[2]), "lost": w * h, "w": w})
+        hurt.sort(key=lambda x: -x["lost"])
+        lost = sum(x["lost"] for x in hurt)
+        keyed = [x for x in hurt if x["key"] and x["lost"] >= 0.75 * x["w"]]
+        out.append({"name": t.get("displayName", ""), "health": max(0.0, min(100.0, 100 * (1 - lost / total))) if total else 100.0,
+                    "key_out": len(keyed), "total": len(hurt), "key_names": [x["name"].split()[-1] for x in keyed]})
+    out.sort(key=lambda x: x["health"])
+    _cache["health"] = out
+    return out
+
+
+@stat("nfl_injuries")
+def _():
+    ts, by, wk = teams("nfl")
+    hl = nfl_health()
+    rows = [(by[h["name"]] | {"inj": h}, 100 - h["health"], f"{h['health']:.0f}%") for h in hl if h["name"] in by]
+    if len(rows) < 5:
+        return None
+    t, h = rows[0][0], rows[0][0]["inj"]
+    avg = sum(x["health"] for x in hl) / len(hl)
+    names = ", ".join(h["key_names"][:4])
+    healthiest = rows[-1][0]
+    return fact("nfl", "team", rows[:5], "Most banged-up teams", "% healthy (longer bar = more hurt). Starters and the next man up count most; a QB about 10x a punter",
+                "healthy",
+                f"Injury report: the {short(t['team'], 'nfl')} are the most banged-up team in the NFL, {h['health']:.0f}% healthy with "
+                f"{h['key_out']} key player{'s' if h['key_out'] != 1 else ''} out" + (f" ({names})" if names else "") + ". Next: " + ", ".join(f"{short(p['team'], 'nfl')} {x}" for p, _, x in rows[1:3]) + ". "
+                f"League average {avg:.0f}%. Healthiest: {short(healthiest['team'], 'nfl')} {healthiest['inj']['health']:.0f}%.") | {
+        "tag": "INJURY REPORT"}
+
+
 # --- historic pace: a player on pace for (or near) a single-season record --------------------------
 # Posted on their own after the games (.github/workflows/pace.yml): college Saturday night, NFL Sunday night.
 # Pace = season total / team games played x the regular season (12 college games, 17 NFL), the usual "on pace".
