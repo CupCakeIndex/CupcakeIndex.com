@@ -160,32 +160,6 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 .v-info b { font: 400 26px/1.1 var(--display); text-transform: uppercase; }
 .v-info span { color: var(--muted); font-size: 13px; }
 .v-acts { display: flex; gap: 8px; margin-top: 6px; }
-/* binder view: 9-pocket pages on gold rings. Swipe to turn the page (it follows your finger), tap a card to slide it out */
-.views { display: flex; gap: 6px; }
-.binder { display: grid; justify-items: center; gap: 12px; }
-.bwrap { position: relative; width: min(560px, 100%); padding-left: 26px; }
-.rings { position: absolute; left: 0; top: 0; bottom: 0; width: 40px; display: flex; flex-direction: column; justify-content: space-around; padding: 12% 0; z-index: 3; pointer-events: none; }
-.rings i { width: 38px; height: 22px; border: 5px solid var(--gold); border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.35); background: transparent; }
-.bstack { display: grid; perspective: 1800px; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
-.bpage { grid-area: 1 / 1; position: relative; transform-style: preserve-3d; transform-origin: left center; }
-.bpage.turning { z-index: 2; }
-.bface, .bback { -webkit-backface-visibility: hidden; backface-visibility: hidden; border-radius: 4px 10px 10px 4px; }
-.bface { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3.5%; padding: 6% 5% 6% 9%;
-  background: linear-gradient(90deg, rgba(0,0,0,.35), transparent 7%), linear-gradient(180deg, #17171b, #101013); border: 1px solid #2a2a31; box-shadow: 0 18px 40px rgba(0,0,0,.45); }
-.bback { position: absolute; inset: 0; transform: rotateY(180deg); background: linear-gradient(270deg, rgba(0,0,0,.35), transparent 7%), linear-gradient(180deg, #141418, #0d0d10); border: 1px solid #2a2a31; }
-/* a pocket: clear plastic with a bright opening along the top; the card sits a little below it */
-.pocket { position: relative; aspect-ratio: 5 / 7; border-radius: 3px; background: rgba(255,255,255,.025); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); cursor: pointer; }
-.pocket.empty { cursor: default; }
-.pcard { position: absolute; inset: 4% 5% 3%; border-radius: 4px; background: #1a1a20 center / cover no-repeat; box-shadow: 0 2px 6px rgba(0,0,0,.5);
-  transition: transform .42s cubic-bezier(.3,1.25,.5,1), box-shadow .42s; z-index: 1; }
-.pcard.loading { background: linear-gradient(110deg, #17171c 30%, #24242b 50%, #17171c 70%) 0 0 / 300% 100%; animation: pcb-load 1.4s linear infinite; }
-.pocket .ppl { position: absolute; inset: 0; border-radius: 3px; pointer-events: none; z-index: 2; border-top: 2px solid rgba(255,255,255,.3);
-  background: linear-gradient(118deg, transparent 35%, rgba(255,255,255,.1) 46%, transparent 58%), rgba(255,255,255,.02); }
-.pocket.out .pcard { transform: translateY(-62%); box-shadow: 0 16px 28px rgba(0,0,0,.6); z-index: 4; } /* slid up out of the top */
-.bnav { display: flex; align-items: center; gap: 14px; font: 700 12px var(--mono); letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
-.bnav button { width: 42px; height: 42px; padding: 0; border-radius: 50%; font-size: 22px; line-height: 1; }
-.bnav button:disabled { opacity: .3; cursor: default; }
-@media (prefers-reduced-motion: reduce) { .pcard { transition: none; } }
 .hidden { display: none !important; }
 @media (max-width: 640px) {
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -217,10 +191,8 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     <input type="search" id="q" placeholder="Search player, team, set…" aria-label="Search cards">
     <button class="chip" data-f="rc">RC</button><button class="chip" data-f="auto">AUTO</button><button class="chip" data-f="num">NUMBERED</button><button class="chip" data-f="graded">GRADED</button>
     <select id="sort" aria-label="Sort"><option value="team">By team</option><option value="new">Newest added</option><option value="year">Year (newest)</option><option value="player">Player A-Z</option></select>
-    <div class="views" role="group" aria-label="View"><button class="chip" data-view="grid">GRID</button><button class="chip" data-view="binder">BINDER</button></div>
   </div>
   <section class="grid" id="grid"></section>
-  <section class="binder hidden" id="binder"></section>
   <footer>Tap a card to see it up close. Part of <a href="../">the Cupcake Index</a>.</footer>
 </div>
 
@@ -284,7 +256,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     cv.width = 360; cv.height = 504; cv.getContext("2d").drawImage(b, 0, 0, 360, 504);
     return cv.toDataURL("image/jpeg", 0.72);
   }
-  const paint = (c) => document.querySelectorAll(`.card[data-id="${CSS.escape(c.id)}"] .face.front, .pocket[data-id="${CSS.escape(c.id)}"] .pcard`).forEach((f) => {
+  const paint = (c) => document.querySelectorAll(`.card[data-id="${CSS.escape(c.id)}"] .face.front`).forEach((f) => {
     f.classList.remove("loading", "empty"); f.textContent = ""; f.style.backgroundImage = c.thumb || c.front ? `url('${c.thumb || c.front}')` : "";
   });
   // cards saved before thumbnails existed: show their full front for now; when you're signed in, save a thumbnail for next time
@@ -347,9 +319,6 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       }
       html += cardHtml(c);
     }
-    document.querySelectorAll("[data-view]").forEach((b) => b.classList.toggle("on", b.dataset.view === view));
-    $("#grid").classList.toggle("hidden", view === "binder" && list.length > 0); $("#binder").classList.toggle("hidden", view !== "binder" || !list.length);
-    if (view === "binder" && list.length) drawBinder(list);
     $("#grid").innerHTML = html || `<div class="empty-state" style="grid-column:1/-1"><h3>${!loaded ? "Opening…" : cards.length ? "No matches" : "The binder is empty"}</h3>
       ${!loaded ? "Loading the cards." : cards.length ? "Try a different search or filter." : isOwner() ? "Tap <b>+ Add card</b> to put your first card in." : "Cards are on the way."}</div>`;
   }
@@ -362,7 +331,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     if (el) viewer(cards.find((c) => c.id === el.dataset.id));
   });
   document.addEventListener("keydown", (e) => { const el = e.target.closest?.(".card"); if (el && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); viewer(cards.find((c) => c.id === el.dataset.id)); } });
-  function viewer(c, onClose) {
+  function viewer(c) {
     if (!c) return;
     const W = Math.round(Math.min(innerWidth * 0.62, (innerHeight - 230) / 1.4, 400)), H = Math.round(W * 1.4), T = Math.max(3, Math.round(W * 0.012)), R = W * 0.04;
     // the edge: thin strips around the rounded outline, each shaded by which way it faces
@@ -471,7 +440,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     }, { passive: false });
     v.querySelector("#v-flip").onclick = flip;
     v.querySelector("#v-turn").onclick = () => { turn++; set(true); };
-    const close = () => { onClose?.(); v.classList.remove("on"); document.body.style.overflow = ""; removeEventListener("keydown", key); setTimeout(() => v.remove(), 250); };
+    const close = () => { v.classList.remove("on"); document.body.style.overflow = ""; removeEventListener("keydown", key); setTimeout(() => v.remove(), 250); };
     const key = (e) => { if (e.key === "Escape") close(); if (e.key === " " || e.key === "Enter") { e.preventDefault(); flip(); } };
     addEventListener("keydown", key);
     v.querySelector(".v-x").onclick = close;
@@ -493,110 +462,6 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   $("#q").oninput = draw;
   $("#sort").onchange = draw;
 
-  // ---------- binder view
-  let view = "grid";
-  try { view = localStorage.getItem("pcb-view") || "grid"; } catch (e) { /* private mode */ }
-  document.querySelectorAll("[data-view]").forEach((b) => (b.onclick = () => { view = b.dataset.view; try { localStorage.setItem("pcb-view", view); } catch (e) { /* fine */ } draw(); }));
-  const PER = 9;
-  let bList = [], bPage = 0, flipping = false;
-  const bPages = () => Math.max(1, Math.ceil(bList.length / PER));
-  const pocketHtml = (c) => {
-    if (!c) return `<div class="pocket empty"><i class="ppl"></i></div>`;
-    const img = c.thumb || c.front;
-    return `<div class="pocket" data-id="${esc(c.id)}" role="button" tabindex="0" aria-label="${esc([c.year, c.set, c.player].filter(Boolean).join(" "))}">`
-      + `<div class="pcard${img ? "" : " loading"}"${img ? ` style="background-image:url('${img}')"` : ""}></div><i class="ppl"></i></div>`;
-  };
-  const pageEl = (i) => {
-    const d = document.createElement("div");
-    d.className = "bpage";
-    d.innerHTML = `<div class="bface">${Array.from({ length: PER }, (_, k) => pocketHtml(bList[i * PER + k])).join("")}</div><div class="bback"></div>`;
-    return d;
-  };
-  function drawBinder(list) {
-    bList = list; bPage = Math.min(bPage, bPages() - 1);
-    const b = $("#binder");
-    b.innerHTML = `<div class="bwrap"><div class="rings"><i></i><i></i><i></i></div><div class="bstack"></div></div>
-      <div class="bnav"><button type="button" id="b-prev" aria-label="Previous page">‹</button><span id="b-num"></span><button type="button" id="b-next" aria-label="Next page">›</button></div>`;
-    b.querySelector(".bstack").appendChild(pageEl(bPage));
-    bNav();
-    b.querySelector("#b-prev").onclick = () => turn(-1);
-    b.querySelector("#b-next").onclick = () => turn(1);
-    wireStack(b.querySelector(".bstack"));
-  }
-  function bNav() {
-    $("#b-num").textContent = `Page ${bPage + 1} of ${bPages()}`;
-    $("#b-prev").disabled = bPage === 0; $("#b-next").disabled = bPage >= bPages() - 1;
-  }
-  // a page turn: `over` is the page that swings around the rings (angle 0 = lying on the right, -180 = turned over to the left)
-  function startTurn(stack, dir) {
-    const to = bPage + dir;
-    if (to < 0 || to >= bPages()) return null;
-    const cur = stack.querySelector(".bpage"), other = pageEl(to);
-    let over, from, end;
-    if (dir > 0) { stack.insertBefore(other, cur); over = cur; from = 0; end = -180; } // next: this page swings away, the next one is underneath
-    else { stack.appendChild(other); over = other; from = -180; end = 0; } // back: the previous page swings back over this one
-    over.classList.add("turning"); over.style.transition = "none"; over.style.transform = `rotateY(${from}deg)`;
-    return { dir, to, cur, other, over, from, end };
-  }
-  function finishTurn(stack, T, done) {
-    T.over.style.transition = "transform .5s cubic-bezier(.3,.9,.4,1)";
-    T.over.style.transform = `rotateY(${done ? T.end : T.from}deg)`;
-    let fin = false;
-    const after = () => {
-      if (fin) return; fin = true;
-      if (done) { bPage = T.to; T.cur.remove(); T.other.classList.remove("turning"); T.other.style.transform = ""; T.other.style.transition = ""; bNav(); }
-      else T.other.remove(), T.cur.classList.remove("turning"), (T.cur.style.transform = "");
-      flipping = false;
-    };
-    T.over.addEventListener("transitionend", after, { once: true }); setTimeout(after, 650);
-  }
-  function turn(dir) {
-    const stack = $("#binder .bstack");
-    if (!stack || flipping) return;
-    const T = startTurn(stack, dir);
-    if (!T) return;
-    flipping = true;
-    requestAnimationFrame(() => requestAnimationFrame(() => finishTurn(stack, T, true)));
-  }
-  function wireStack(stack) {
-    let g = null;
-    stack.addEventListener("pointerdown", (e) => { if (flipping) return; g = { x: e.clientX, y: e.clientY, t: performance.now(), T: null, id: e.pointerId, target: e.target }; });
-    stack.addEventListener("pointermove", (e) => {
-      if (!g || e.pointerId !== g.id) return;
-      const dx = e.clientX - g.x, dy = e.clientY - g.y;
-      if (!g.T) {
-        if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy)) return; // let up/down scroll the page
-        g.T = startTurn(stack, dx < 0 ? 1 : -1);
-        if (!g.T) { g = null; return; }
-        flipping = true; try { stack.setPointerCapture(e.pointerId); } catch (err) { /* fine */ }
-      }
-      const w = stack.getBoundingClientRect().width, p = Math.max(0, Math.min(1, Math.abs(dx) / w)); // how far the finger has carried the page
-      g.T.over.style.transform = `rotateY(${(g.T.from + (g.T.end - g.T.from) * p).toFixed(1)}deg)`;
-    });
-    const up = (e) => {
-      if (!g || e.pointerId !== g.id) return;
-      const dx = e.clientX - g.x, T = g.T, quick = performance.now() - g.t < 300 && Math.abs(dx) > 40;
-      const target = g.target; g = null;
-      if (T) return finishTurn(stack, T, quick || Math.abs(dx) / stack.getBoundingClientRect().width > 0.33);
-      if (Math.abs(dx) < 8) slideOut((document.elementFromPoint(e.clientX, e.clientY) || target).closest?.(".pocket[data-id]")); // the pocket under the finger
-    };
-    stack.addEventListener("pointerup", up);
-    stack.addEventListener("pointercancel", (e) => { if (g?.T) finishTurn(stack, g.T, false); g = null; });
-  }
-  // tap a card: it slides up out of the top of its pocket, then opens up close; closing slides it back in
-  function slideOut(pocket) {
-    if (!pocket) return;
-    const c = cards.find((x) => x.id === pocket.dataset.id);
-    if (!c) return;
-    pocket.classList.add("out");
-    setTimeout(() => viewer(c, () => pocket.classList.remove("out")), matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 380);
-  }
-  document.addEventListener("keydown", (e) => {
-    if (view !== "binder" || document.querySelector(".viewer, .sheet") || e.target.closest?.("input, select, textarea")) return;
-    if (e.key === "ArrowRight") turn(1);
-    if (e.key === "ArrowLeft") turn(-1);
-    if ((e.key === "Enter" || e.key === " ") && e.target.closest?.(".pocket[data-id]")) { e.preventDefault(); slideOut(e.target.closest(".pocket")); }
-  });
   document.querySelectorAll(".chip[data-f]").forEach((b) => b.onclick = () => { filters.has(b.dataset.f) ? filters.delete(b.dataset.f) : filters.add(b.dataset.f); b.classList.toggle("on"); draw(); });
 
   // ---------- sign in / claim the vault

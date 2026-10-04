@@ -1443,19 +1443,43 @@ const Live = (() => {
   // Player page: one compact "outlook" card, small sub-tabs for this week's projection and the season pace.
   // Each pane: { k, tab, cells: [[label, value, "so far" line?]], note }
   const PACE_MAIN = { QB: ["3", "4", "20", "24"], RB: ["24", "25", "42"], WR: ["42", "53", "43"], TE: ["42", "53", "43"], K: ["83", "84", "86"] };
+  // On game day ESPN's season summary (and our weekly pace/projection files) can be a game behind its game log,
+  // which updates as soon as a game ends. So season totals get added up from the log when it has more games.
+  const RATE = /pct|per|long|qbr|rating|avg/i;
+  function logSeason(gl) {
+    const stp = (gl?.seasonTypes || []).find((s) => /regular/i.test(s.displayName || "")) || gl?.seasonTypes?.[0], names = gl?.names || [];
+    if (!stp || !names.length) return null;
+    const seen = new Set(), sum = {};
+    for (const ev of (stp.categories || []).flatMap((c) => c.events || [])) {
+      if (seen.has(ev.eventId)) continue;
+      seen.add(ev.eventId);
+      names.forEach((n, i) => { const v = parseFloat(String(ev.stats?.[i] ?? "").replace(/,/g, "")); if (!RATE.test(n) && isFinite(v)) sum[n] = (sum[n] || 0) + v; });
+    }
+    return { n: seen.size, sum, weeks: [...seen].map((e) => +(gl.events?.[e]?.week || 0)) };
+  }
+  const PACE_NAME = { py: "passingYards", ptd: "passingTouchdowns", int: "interceptions", ry: "rushingYards", rtd: "rushingTouchdowns", rec: "receptions", recy: "receivingYards", rectd: "receivingTouchdowns" };
+  const PPR_PTS = { py: 0.04, ptd: 4, int: -2, ry: 0.1, rtd: 6, rec: 1, recy: 0.1, rectd: 6 }; // same as src/cfb_projections.py
   const soLine = (v, d = 0) => `${(+v || 0).toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d })} so far`;
 
-  async function cfbProjPane(id) {
+  async function cfbProjPane(id, gl) {
     const d = await cfbProj(), r = d?.players?.find((p) => p.id === String(id));
     if (!r) return null;
+    if (logSeason(gl)?.weeks.some((w) => w >= +d.week)) return null; // this week's game is already played: the projection is moot
     const keys = PJ_COLS.filter(([, k]) => (r[CFB_PJ[k]] || 0) >= 0.05 && !(k === "20" && r.pos !== "QB"));
     return { k: "week", tab: `Week ${esc(d.week)} ${r.h ? "vs" : "@"} ${esc(r.oa)}`,
       cells: [...keys.map(([l, k]) => [l, pjFmt(r[CFB_PJ[k]], l)]), ["PPR pts", r.pts.toFixed(1)]],
       note: `Our own estimate, for fun, not a betting line. <a href="${link("stats", null, { show: "projected", league: "cfb", pos: r.pos })}">How these work →</a>` };
   }
-  async function cfbPacePane(id) {
-    const r = (await cfbPace())?.players?.find((p) => p.id === String(id));
+  async function cfbPacePane(id, gl) {
+    let r = (await cfbPace())?.players?.find((p) => p.id === String(id));
     if (!r) return null;
+    const L = logSeason(gl), extra = L ? L.n - r.g : 0;
+    if (extra > 0 && r.gl >= extra) { // games played since the pace file was made: their real stats in, their projections out
+      const keep = (r.gl - extra) / r.gl, so = {}, tot = {};
+      for (const k of Object.keys(PACE_NAME)) { so[k] = L.sum[PACE_NAME[k]] ?? r.so[k] ?? 0; tot[k] = so[k] + Math.max(0, (r[k] || 0) - (r.so[k] || 0)) * keep; }
+      const pts = (o) => Object.keys(PPR_PTS).reduce((s, k) => s + PPR_PTS[k] * (o[k] || 0), 0);
+      r = { ...r, ...tot, so, g: L.n, gl: r.gl - extra, pts: pts(tot), spts: pts(so) };
+    }
     const main = PACE_MAIN[r.pos] || [];
     return { k: "pace", tab: "Season pace",
       cells: [...PJ_COLS.filter(([, k]) => main.includes(k)).map(([l, k]) => [l, paceFmt(r[CFB_PJ[k]]), soLine(r.so[CFB_PJ[k]])]), ["PPR pts", r.pts.toFixed(1), soLine(r.spts, 1)]],
@@ -1482,8 +1506,8 @@ const Live = (() => {
       ${panes.map((p) => `<div class="ol-pane${p.k === on ? "" : " hidden"}" data-k="${p.k}"><div class="ol-line">${p.cells.map(([l, v, sub]) =>
         `<span><small>${esc(l)}</small><b>${v}</b>${sub ? `<i>${sub}</i>` : ""}</span>`).join("")}</div><p class="note">${p.note}</p></div>`).join("")}</div>`;
   }
-  async function outlookInto(lg, id, slot) {
-    const html = outlookCard(lg === "cfb" ? await Promise.all([cfbProjPane(id), cfbPacePane(id)]) : await nflPanes(id));
+  async function outlookInto(lg, id, slot, gl) {
+    const html = outlookCard(lg === "cfb" ? await Promise.all([cfbProjPane(id, gl), cfbPacePane(id, gl)]) : await nflPanes(id));
     if (!html || !slot?.isConnected) return;
     slot.insertAdjacentHTML("beforebegin", html);
     const card = slot.previousElementSibling;
@@ -1872,7 +1896,22 @@ const Live = (() => {
     ].filter(Boolean);
     const inj = a.injuries?.[0];
     const fa = a.status?.type === "free-agent"; // ESPN keeps a free agent's last team on the record, so check the status
-    const summary = (a.statsSummary?.statistics || []).map((x) => `<div class="stat"><small>${esc(x.displayName)}</small><b>${esc(x.displayValue)}</b>${x.rankDisplayValue ? `<small class="muted">${esc(x.rankDisplayValue)}</small>` : ""}</div>`).join("");
+    // this season's tiles: if the game log has a game ESPN's summary hasn't counted yet, add the season up from the log
+    let sumStats = a.statsSummary?.statistics || [], caughtUp = false;
+    const L = season ? null : logSeason(gl);
+    if (L) {
+      sumStats = sumStats.map((x) => {
+        const s = L.sum[x.name], cur = parseFloat(String(x.displayValue).replace(/,/g, ""));
+        if (s == null || RATE.test(x.name) || !(s > cur)) return x;
+        caughtUp = true;
+        return { ...x, displayValue: s.toLocaleString(), rankDisplayValue: "" };
+      });
+      const per = (n, d) => (L.sum[d] ? L.sum[n] / L.sum[d] : null);
+      const fix = { yardsPerReception: per("receivingYards", "receptions"), yardsPerRushAttempt: per("rushingYards", "rushingAttempts"),
+        completionPct: L.sum.passingAttempts ? (100 * L.sum.completions) / L.sum.passingAttempts : null };
+      if (caughtUp) sumStats = sumStats.map((x) => (fix[x.name] != null ? { ...x, displayValue: fix[x.name].toFixed(1), rankDisplayValue: "" } : x));
+    }
+    const summary = sumStats.map((x) => `<div class="stat"><small>${esc(x.displayName)}</small><b>${esc(x.displayValue)}</b>${x.rankDisplayValue ? `<small class="muted">${esc(x.rankDisplayValue)}</small>` : ""}</div>`).join("");
 
     let log = "";
     if (gl?.seasonTypes?.length) {
@@ -1915,7 +1954,7 @@ const Live = (() => {
           <p class="muted">${facts.map(esc).join(" · ")}<span id="pl-exp">${exp ? " · " + esc(exp) : ""}</span></p>
         </div>
       </div>
-      ${summary ? `<div class="stats wide">${summary}</div>` : ""}
+      ${summary ? `<div class="stats wide">${summary}</div>${caughtUp ? `<p class="note muted">Added up from his game-by-game stats, so it includes his latest game. Ranks come back once the overnight totals update.</p>` : ""}` : ""}
       <div id="career-slot"><div class="card muted">Loading stats by year…</div></div>
       <div class="card"><div class="sc-bar"><h3>Game log</h3>
         <select id="pl-season"${noLogs ? ` class="hidden"` : ""}>${years.map((y) => `<option${y === shown ? " selected" : ""}>${y}</option>`).join("")}</select></div>
@@ -1924,7 +1963,7 @@ const Live = (() => {
       ${injInfo(inj) ? injCard(inj, a.id, fa ? "" : a.team?.id)
         : params.get("inj") ? `<div class="card inj-card" id="pl-inj"><h3>Injury</h3><p class="muted">ESPN has no injury details on file for this player right now.</p></div>` : ""}`;
     fillFaces(view("player"));
-    if (my === token) outlookInto(lg, id, $("#career-slot")).catch(() => {});
+    if (my === token) outlookInto(lg, id, $("#career-slot"), season ? null : gl).catch(() => {});
     const toInj = params.get("inj") && $("#pl-inj");
     if (toInj) pulse(toInj);
     $("#pl-season").onchange = (e) => { location.hash = link("player", id, { season: e.target.value }); };
