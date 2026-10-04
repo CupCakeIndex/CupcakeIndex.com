@@ -6,7 +6,8 @@ tweet text for today's slot in the weekly rotation:
     Mon  CFB power rankings top 10 + biggest movers
     Tue  NFL power rankings top 10 + biggest movers
     Wed  Most padded schedules (Cupcake score) among the CFB top 25
-    Thu  Cupcake Bully of the Week (CFB + NFL)
+    Thu  NFL Cupcake Bully of the Week
+    Sun  CFB Cupcake Bully of the Week (slot "bully_cfb", 10 AM Eastern, from Saturday's final scores), then NFL game day
     Fri  (rest day: nothing posts)
     Sat  CFB game day: the week's biggest games with model win odds
     Sun  NFL game day: the slate with model win odds
@@ -323,19 +324,62 @@ def cupcake_card(today):
     return img, text, link("schedules", "cfb"), is_stale(cur, today)
 
 
-# ------------------------------------------------------------------ Thu: Bully of the Week
-def bully_card(today):
+# ------------------------------------------------------------------ Bully of the Week (NFL Thu, CFB Sun)
+def cfb_bully_now(today):
+    """College Bully of the Week from this week's final scores (Thu-Sat), the morning after: the weekly rankings
+    don't run until Monday. Same rules as model.cupcake_of_week, using the latest ratings (through last week):
+    a 21+ point win over a cupcake for the winner (FCS, or a below-average FBS team 14+ points worse).
+    Score = margin + how far below an average FBS team the loser is."""
+    import yaml
+    cfg = yaml.safe_load(open(os.path.join(ROOT, "src", "config.yaml"), encoding="utf-8"))["cfb"]["model"]
+    cur, _, _ = latest("cfb")
+    fbs = {str(t["id"]): t for t in cur["teams"] if t.get("id")}
+    fcs = {n.lower(): r for n, r in cur.get("fcs_ratings", [])}
+    def weight(tr, orr, is_fcs):  # model.cupcake_weight
+        full, gap = cfg["cupcake_gap"] + cfg["cupcake_span"], tr - orr
+        if is_fcs:
+            return min(1.0, max(0.05, gap / full))
+        return 0.0 if orr >= cfg.get("cupcake_max_opp", 0.0) else min(1.0, max(0.0, (gap - cfg["cupcake_gap"]) / cfg["cupcake_span"]))
+    best = None
+    for back in (1, 2, 3):  # Saturday, Friday, Thursday
+        day = (today - dt.timedelta(days=back)).strftime("%Y%m%d")
+        url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={day}&groups=80&limit=400"
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=30) as r:
+            events = json.load(r).get("events", [])
+        for e in events:
+            c = e["competitions"][0]
+            if not c["status"]["type"].get("completed") or len(c["competitors"]) != 2:
+                continue
+            for me in c["competitors"]:
+                op = next(x for x in c["competitors"] if x is not me)
+                t = fbs.get(str(me["team"]["id"]))
+                us, them = int(me.get("score") or 0), int(op.get("score") or 0)
+                if not t or us - them < cfg.get("cotw_min_margin", 21):
+                    continue
+                o = fbs.get(str(op["team"]["id"]))
+                ro = o["rating"] if o else fcs.get((op["team"].get("location") or "").lower(), cfg["fcs_rating"])
+                if not weight(t["rating"], ro, not o) or t["rating"] - ro < cfg.get("cotw_min_gap", 0):
+                    continue
+                score = (us - them) - ro
+                if best is None or score > best["score"]:
+                    best = {"team": t["team"], "opp": o["team"] if o else op["team"].get("location", ""), "fcs": not o,
+                            "opp_rank": o and o.get("power_rank"), "score_line": f"{us}-{them}", "margin": us - them, "score": round(score, 1)}
+    return best
+
+
+def bully_card(today, leagues=("cfb", "nfl"), now=None):
+    """now: {league: bully} computed fresh (the CFB Sunday post); otherwise the latest rankings file's pick."""
     img, d = canvas("", "Bully of the Week", "Cupcake Bully of the Week",
                     "The biggest beating of an overmatched opponent. We see you.")
     lines, stale = [], True
-    col_w = (W - 2 * PAD - 40) // 2
-    for i, league in enumerate(("cfb", "nfl")):
+    col_w = (W - 2 * PAD - 40 * (len(leagues) - 1)) // len(leagues)
+    for i, league in enumerate(leagues):
         cur, _, _ = latest(league)
         stale = stale and is_stale(cur, today)
-        c = cur.get("cupcake_of_week")
+        c = (now or {}).get(league) if now is not None else cur.get("cupcake_of_week")
         x = PAD + i * (col_w + 40)
         d.rectangle((x, TOP, x + col_w, BOTTOM - 24), fill=PANEL, outline=LINE)
-        tag = f"{league.upper()} · WEEK {cur['week']}"
+        tag = f"{league.upper()} · WEEK {cur['week'] + (1 if now is not None else 0)}"
         d.text((x + 32, TOP + 28), tag, font=font(20, "Bold"), fill=ACCENT)
         if not c:
             d.text((x + 32, TOP + 90), "No bully this week.", font=font(30, "Bold"), fill=MUTED)
@@ -356,8 +400,10 @@ def bully_card(today):
         d.rectangle((x + 32, my, x + 32 + int((col_w - 64) * min(c["score"], 100) / 100), my + 18), fill=ACCENT)
         lines.append(f"{league.upper()}: {short(c['team'], league)} {c['score_line']} over {short(c['opp'], league)}"
                      + (" (FCS)" if c.get("fcs") else "") + ".")
+    if not lines:
+        return img, "", link("rankings", leagues[0]), True  # no bully: no post
     text = "Cupcake Bully of the Week. " + " ".join(lines) + " Congrats on the win. It's not a résumé."
-    return img, text, link("rankings", "cfb"), stale
+    return img, text, link("rankings", leagues[0]), stale
 
 
 # ------------------------------------------------------------------ Fri: model vs Vegas
@@ -416,10 +462,11 @@ SLOTS = {
     "mon": lambda today: rankings_card("cfb", today),
     "tue": lambda today: rankings_card("nfl", today),
     "wed": cupcake_card,
-    "thu": bully_card,
+    "thu": lambda today: bully_card(today, ("nfl",)),
     "fri": lambda today: (Image.new("RGB", (16, 9)), "", SITE, True),  # rest day: no post (no betting content)
     "sat": lambda today: gameday_card("cfb", today),
     "sun": lambda today: gameday_card("nfl", today),
+    "bully_cfb": lambda today: bully_card(today, ("cfb",), {"cfb": cfb_bully_now(today)}),
 }
 
 
@@ -462,14 +509,14 @@ def render(day, out, today):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--day", choices=DAYS, help="rotation slot (default: today's, US Eastern)")
+    ap.add_argument("--day", choices=list(SLOTS), help="rotation slot (default: today's, US Eastern); bully_cfb = Sunday's college Bully of the Week")
     ap.add_argument("--all", action="store_true", help="render every slot")
     ap.add_argument("--out", default=os.path.join(ROOT, "out", "social"))
     ap.add_argument("--date", help="pretend today is YYYY-MM-DD (staleness check + default slot)")
     a = ap.parse_args()
     # US Eastern date (fixed UTC-5 is close enough: the workflow runs mid-morning, nowhere near midnight)
     today = dt.date.fromisoformat(a.date) if a.date else (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=5)).date()
-    days = DAYS if a.all else [a.day or DAYS[today.weekday()]]
+    days = list(SLOTS) if a.all else [a.day or DAYS[today.weekday()]]
     for day in days:
         m = render(day, a.out, today)
         print(f"[{day}] {'SKIP ' if m['skip'] else ''}{m['image']} ({len(m['text'])} chars)")
