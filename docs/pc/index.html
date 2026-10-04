@@ -3,47 +3,52 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<title>The Vault · Football Card PC</title>
-<meta name="description" content="A personal collection of football cards, from the Cupcake Index.">
-<meta name="theme-color" content="#08080a">
+<title>PCB · Personal Card Board</title>
+<meta name="description" content="PCB, the Personal Card Board: a football card collection, from the Cupcake Index.">
+<meta name="theme-color" content="#031009">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="The Vault">
+<meta name="apple-mobile-web-app-title" content="PCB">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
-/* The Vault: black velvet case, gold foil type, cards that lean toward you when you hover */
-:root { --bg: #08080a; --panel: #121216; --line: #24242b; --ink: #f2f0ea; --muted: #8e8b84; --gold: #d8b45a; --gold2: #f3dc8f; --red: #ff6b5b;
+/* PCB (Personal Card Board): a circuit board. Dark green solder mask, copper traces, gold contact pads,
+   white silkscreen labels; each card is a part on the board (C01, C02...) and the stat tiles are chips */
+:root { --bg: #031009; --panel: #0a2116; --line: #1c4630; --ink: #eaf5ee; --muted: #86a896; --gold: #d9a74a; --gold2: #f2d488; --copper: #c8763a; --silk: #dfeee5; --red: #ff6b5b;
   --display: Anton, "Arial Narrow", sans-serif; --body: Inter, system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, monospace; color-scheme: dark; }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body); }
-body { background: radial-gradient(1200px 600px at 50% -200px, #1c1a14 0%, transparent 70%), var(--bg); min-height: 100vh; }
+body { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cg fill='none' stroke='%23164a2e' stroke-width='2'%3E%3Cpath d='M0 40h70l30 30h90l30-30h40M20 260v-60l30-30v-70M130 0v40M130 70v60l40 40h90M0 150h40l30 30v80M200 260v-40l-30-30'/%3E%3Ccircle cx='130' cy='130' r='5'/%3E%3Ccircle cx='50' cy='100' r='5'/%3E%3Ccircle cx='170' cy='190' r='5'/%3E%3Ccircle cx='130' cy='40' r='4'/%3E%3C/g%3E%3Cg fill='%23123d26'%3E%3Ccircle cx='130' cy='130' r='2'/%3E%3Ccircle cx='50' cy='100' r='2'/%3E%3Ccircle cx='170' cy='190' r='2'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 260px 260px, radial-gradient(1200px 600px at 50% -200px, #0f3a24 0%, transparent 70%), var(--bg); min-height: 100vh; }
 a { color: var(--gold); }
 .wrap { max-width: 1180px; margin: 0 auto; padding: max(18px, env(safe-area-inset-top)) 16px 60px; }
 header.top { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; justify-content: space-between; padding: 8px 0 18px; border-bottom: 1px solid var(--line); }
 .brand small { display: block; font: 700 11px var(--mono); letter-spacing: .2em; color: var(--muted); text-transform: uppercase; }
 .brand small a { color: var(--muted); text-decoration: none; } .brand small a:hover { color: var(--gold); }
-h1 { margin: 2px 0 0; font: 400 clamp(44px, 9vw, 84px)/.9 var(--display); letter-spacing: .02em; text-transform: uppercase;
+h1 { margin: 2px 0 0; font: 400 clamp(56px, 11vw, 104px)/.9 var(--display); letter-spacing: .08em; text-transform: uppercase;
   background: linear-gradient(100deg, #b98d34 0%, var(--gold2) 30%, #a87b28 55%, var(--gold2) 80%, #b98d34 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.rev { font: 700 12px var(--mono); letter-spacing: .32em; text-transform: uppercase; color: var(--silk); margin-top: 6px; }
 .who { color: var(--muted); font-size: 14px; margin-top: 6px; }
 .acts { display: flex; gap: 8px; flex-wrap: wrap; }
 button, .btn { font: 700 13px var(--body); padding: 10px 14px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; cursor: pointer; text-decoration: none; }
 button:hover, .btn:hover { border-color: var(--gold); }
 .primary { background: linear-gradient(180deg, var(--gold2), var(--gold)); color: #1a1408; border-color: transparent; }
-.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
-.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 26px; margin: 20px 10px; }
+.stat { position: relative; background: radial-gradient(circle at 11px 11px, #2b302d 3px, transparent 4px), linear-gradient(180deg, #151816, #0b0d0c);
+  border: 1px solid #262b28; border-radius: 4px; padding: 12px 14px; box-shadow: 0 6px 14px rgba(0,0,0,.45); }
+.stat::before, .stat::after { content: ""; position: absolute; top: 9px; bottom: 9px; width: 8px; background: repeating-linear-gradient(180deg, var(--gold) 0 4px, transparent 4px 10px); }
+.stat::before { left: -9px; } .stat::after { right: -9px; }
 .stat b { display: block; font: 400 34px/1 var(--display); color: var(--gold2); }
-.stat span { font: 700 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.stat span { font: 700 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--silk); opacity: .75; }
 .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 18px; }
 .tools input[type=search], .tools select { font: 16px var(--body); padding: 9px 12px; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; }
 .tools input[type=search] { flex: 1 1 220px; min-width: 0; }
 .chip { font: 700 12px var(--mono); padding: 8px 11px; border-radius: 99px; letter-spacing: .06em; }
-.chip.on { border-color: var(--gold); color: var(--gold2); background: #1f1b10; }
-.grail { display: grid; grid-template-columns: minmax(180px, 280px) 1fr; gap: 26px; align-items: center; background: linear-gradient(135deg, #17150f, #0d0d10); border: 1px solid #3a3020; border-radius: 16px; padding: 22px; margin-bottom: 26px; }
+.chip.on { border-color: var(--gold); color: #1a1408; background: linear-gradient(180deg, var(--gold2), var(--gold)); }
+.grail { display: grid; grid-template-columns: minmax(180px, 280px) 1fr; gap: 26px; align-items: center; background: linear-gradient(135deg, #0d2a1c, #061810); border: 2px solid var(--gold); box-shadow: inset 0 0 0 4px #061810, inset 0 0 0 5px rgba(217,167,74,.35); border-radius: 16px; padding: 22px; margin-bottom: 26px; }
 .grail .card .meta { display: none; }   /* the details sit beside the grail instead */
 .grail > *, .stats > *, .grid > * { min-width: 0; }
 html, body { overflow-x: hidden; }
@@ -52,15 +57,20 @@ html, body { overflow-x: hidden; }
 .grail p { color: var(--muted); margin: 8px 0 0; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 22px 18px; }
 /* a card: 2.5 x 3.5, leans with the pointer, opens up close on tap */
-.card { perspective: 900px; cursor: pointer; }
+.card { perspective: 900px; cursor: pointer; position: relative; }
+.card .inner { outline: 1px solid rgba(223,238,229,.28); outline-offset: 5px; border-radius: 10px; }
+.ref { display: block; font: 700 11px var(--mono); letter-spacing: .14em; color: var(--silk); opacity: .7; margin: 0 0 9px 2px; }
+.grail .ref { display: none; }
 .card .inner { position: relative; aspect-ratio: 5 / 7; transition: transform .75s cubic-bezier(.3, 1.4, .5, 1); transform-style: preserve-3d;
   transform: translateZ(var(--lift, 0px)) rotateZ(var(--turn, 0deg)) scale(var(--shrink, 1)) rotateY(var(--flip, 0deg)) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
 /* a horizontal card: shown sideways (turned and shrunk to fit its spot) */
 .card.fw .inner { --turn: 90deg; --shrink: .714; }
-.face { position: absolute; inset: 0; border-radius: 10px; overflow: hidden; backface-visibility: hidden; background: #1a1a20 center / cover no-repeat;
+.face { position: absolute; inset: 0; border-radius: 10px; overflow: hidden; backface-visibility: hidden; background: #0c2418 center / cover no-repeat;
   box-shadow: 0 10px 28px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.06); }
 .face.back { transform: rotateY(180deg); }
 .face.empty { display: grid; place-items: center; color: var(--muted); font: 12px var(--mono); text-align: center; padding: 10px; }
+.face.loading { background: linear-gradient(110deg, #0c2418 30%, #14382a 50%, #0c2418 70%) 0 0 / 300% 100%; animation: pcb-load 1.4s linear infinite; }
+@keyframes pcb-load { to { background-position: -150% 0; } }
 .meta { margin-top: 10px; display: grid; gap: 2px; }
 .meta b { font: 400 19px/1.1 var(--display); letter-spacing: .02em; text-transform: uppercase; }
 .meta span { color: var(--muted); font-size: 12.5px; }
@@ -68,12 +78,12 @@ html, body { overflow-x: hidden; }
 .tag { font: 700 10px var(--mono); letter-spacing: .08em; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); }
 .tag.rc { color: #7ee0a0; border-color: #2c5a3c; } .tag.auto { color: #ffb4d6; border-color: #5a2c44; } .tag.num { color: var(--gold2); border-color: #5a4a20; } .tag.grade { color: #9ec6ff; border-color: #2c3f5a; }
 .own { display: flex; gap: 6px; margin-top: 6px; } .own button { padding: 5px 9px; font-size: 11px; }
-.team-h { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; margin: 14px 0 -4px; padding-bottom: 8px; border-bottom: 1px solid var(--line);
+.team-h { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; margin: 14px 0 -4px; padding-bottom: 8px; border-bottom: 2px solid rgba(200,118,58,.55);
   font: 400 26px/1 var(--display); text-transform: uppercase; letter-spacing: .02em; }
 .team-h:first-child { margin-top: 0; }
 .team-h img { width: 34px; height: 34px; object-fit: contain; }
 .team-h small { margin-left: auto; font: 700 11px var(--mono); letter-spacing: .1em; color: var(--muted); }
-.empty-state { text-align: center; padding: 60px 16px; color: var(--muted); border: 1px dashed var(--line); border-radius: 16px; }
+.empty-state { text-align: center; padding: 60px 16px; color: var(--muted); border: 1px dashed rgba(223,238,229,.25); border-radius: 16px; }
 .empty-state h3 { font: 400 30px var(--display); color: var(--ink); margin: 0 0 6px; text-transform: uppercase; }
 footer { margin-top: 40px; color: var(--muted); font-size: 12px; text-align: center; }
 /* add / edit card */
@@ -120,7 +130,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 .adj-bar { display: flex; gap: 6px; justify-content: center; margin-top: -4px; }
 /* card viewer: the card up close over a blurred page */
 .viewer { position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 56px 16px max(20px, env(safe-area-inset-bottom));
-  background: rgba(5,5,8,.5); -webkit-backdrop-filter: blur(14px) saturate(.8); backdrop-filter: blur(14px) saturate(.8); opacity: 0; transition: opacity .25s; }
+  background: rgba(2,12,7,.55); -webkit-backdrop-filter: blur(14px) saturate(.8); backdrop-filter: blur(14px) saturate(.8); opacity: 0; transition: opacity .25s; }
 .viewer.on { opacity: 1; }
 .v-stage { perspective: 1400px; touch-action: none; padding: 18px; cursor: grab; transform: scale(.7); transition: transform .35s cubic-bezier(.3,1.3,.5,1); }
 .viewer.on .v-stage { transform: none; }
@@ -141,16 +151,17 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 12px; }
   .row2 { grid-template-columns: 1fr; }
 }
-@media (prefers-reduced-motion: reduce) { .card .inner { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .card .inner { transition: none; } .face.loading { animation: none; } }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
     <div class="brand">
-      <small><a href="../">← Cupcake Index</a> · Football card PC</small>
-      <h1>The Vault</h1>
-      <div class="who" id="who">Loading the collection…</div>
+      <small><a href="../">← Cupcake Index</a> · Football cards</small>
+      <h1>PCB</h1>
+      <div class="rev">Personal Card Board</div>
+      <div class="who" id="who">Powering up the board…</div>
     </div>
     <div class="acts">
       <button class="primary hidden" id="add">+ Add card</button>
@@ -172,12 +183,12 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 <script src="../firebase-config.js"></script>
 <script src="cardcrop.js?v=1"></script>
 <script src="cardread.js?v=1"></script>
-<script>window.VAULT_SEARCH_URL = ""; // the Cloudflare Worker's address (workers/vault-search.js) once it's set up</script>
+<script>window.VAULT_SEARCH_URL = "https://vault-search.thecupcakeindex-support.workers.dev"; // the Cloudflare Worker (workers/vault-search.js) that searches eBay</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
-// The Vault: everyone can look; only the owner (the first account to claim it, stored at pcmeta/owner) can add,
+// PCB (Personal Card Board): everyone can look; only the owner (the first account to claim it, stored at pcmeta/owner) can add,
 // edit or delete. Photos are shrunk on the phone and stored in the card's Firestore document (free plan, no storage bucket).
 (function () {
   const $ = (s) => document.querySelector(s);
@@ -186,15 +197,66 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   let cards = [], owner = null, user = null, filters = new Set();
 
   // ---------- data
+  // Anyone can look (no sign-in): read straight from Firestore's public web address, and only the light parts of each
+  // card (details + a small thumbnail). The full-size photos come down only when a card is opened.
+  const FS = `https://firestore.googleapis.com/v1/projects/${window.FIREBASE_CONFIG.projectId}/databases/(default)/documents`;
+  const LIST = ["player", "team", "year", "set", "parallel", "number", "serial", "grade", "notes", "rookie", "auto", "grail", "added", "frontWide", "backWide", "thumb"];
+  const val = (v) => !v ? undefined : "stringValue" in v ? v.stringValue : "integerValue" in v ? +v.integerValue : "doubleValue" in v ? v.doubleValue : "booleanValue" in v ? v.booleanValue : null;
+  const fromDoc = (d) => { const o = { id: d.name.split("/").pop() }; for (const [k, v] of Object.entries(d.fields || {})) o[k] = val(v); return o; };
+  let loaded = false;
+  const fullP = new Map(); // card id -> its full photos, fetched once
   async function load() {
     try {
-      const [snap, o] = await Promise.all([db.collection("pc").get(), db.collection("pcmeta").doc("owner").get()]);
-      owner = o.exists ? o.data() : null;
-      cards = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const mask = LIST.map((k) => "mask.fieldPaths=" + k).join("&");
+      const all = async () => {
+        let list = [], page = "";
+        do {
+          const r = await fetch(`${FS}/pc?pageSize=300&${mask}${page ? "&pageToken=" + encodeURIComponent(page) : ""}`);
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          const d = await r.json();
+          list = list.concat((d.documents || []).map(fromDoc)); page = d.nextPageToken || "";
+        } while (page);
+        return list;
+      };
+      const [list, o] = await Promise.all([all(), fetch(`${FS}/pcmeta/owner`).then((r) => (r.ok ? r.json() : null))]);
+      owner = o ? { uid: val(o.fields?.uid), name: val(o.fields?.name) } : null;
+      // part labels like on a real board: C01, C02... in the order the cards were added
+      list.slice().sort((x, y) => (x.added || 0) - (y.added || 0)).forEach((c, i) => (c.ref = "C" + String(i + 1).padStart(2, "0")));
+      cards = list; loaded = true; fullP.clear();
       draw();
+      thumbs();
     } catch (e) {
-      $("#who").textContent = "The collection couldn't load (" + (e.code || e.message) + ").";
+      $("#who").textContent = "The board couldn't load (" + (e.code || e.message) + "). Try refreshing.";
     }
+  }
+  const full = (c) => {
+    if (!fullP.has(c.id)) fullP.set(c.id, fetch(`${FS}/pc/${encodeURIComponent(c.id)}?mask.fieldPaths=front&mask.fieldPaths=back`)
+      .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then((d) => { const x = fromDoc(d); c.front = x.front || ""; c.back = x.back || ""; return c; })
+      .catch((e) => { fullP.delete(c.id); throw e; }));
+    return fullP.get(c.id);
+  };
+  // a small copy of the front for the grid (about 30 KB instead of 300+)
+  async function thumbOf(src) {
+    const b = await createImageBitmap(await (await fetch(src)).blob()), cv = document.createElement("canvas");
+    cv.width = 360; cv.height = 504; cv.getContext("2d").drawImage(b, 0, 0, 360, 504);
+    return cv.toDataURL("image/jpeg", 0.72);
+  }
+  const paint = (c) => document.querySelectorAll(`.card[data-id="${CSS.escape(c.id)}"] .face.front`).forEach((f) => {
+    f.classList.remove("loading", "empty"); f.textContent = ""; f.style.backgroundImage = c.thumb || c.front ? `url('${c.thumb || c.front}')` : "";
+  });
+  // cards saved before thumbnails existed: show their full front for now; when you're signed in, save a thumbnail for next time
+  let thumbing = false;
+  async function thumbs() {
+    if (thumbing) return;
+    thumbing = true;
+    const need = cards.filter((c) => !c.thumb);
+    for (let i = 0; i < need.length; i += 3) await Promise.all(need.slice(i, i + 3).map(async (c) => {
+      try { await full(c); } catch (e) { return; }
+      paint(c);
+      if (isOwner() && c.front) try { c.thumb = await thumbOf(c.front); await db.collection("pc").doc(c.id).update({ thumb: c.thumb }); } catch (e) { /* next time */ }
+    }));
+    thumbing = false;
   }
   const isOwner = () => user && owner && owner.uid === user.uid;
   let TEAMS = [];
@@ -207,24 +269,24 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   // ---------- drawing
   const tagsOf = (c) => [c.rookie && '<span class="tag rc">RC</span>', c.auto && '<span class="tag auto">AUTO</span>',
     c.serial && `<span class="tag num">${esc(c.serial)}</span>`, c.grade && `<span class="tag grade">${esc(c.grade)}</span>`].filter(Boolean).join("");
-  const face = (img, cls, label) => img ? `<div class="face ${cls}" style="background-image:url('${img}')"></div>` : `<div class="face ${cls} empty">${label}</div>`;
+  const face = (img, cls, label) => img ? `<div class="face ${cls}" style="background-image:url('${img}')"></div>` : `<div class="face ${cls} ${label ? "empty" : "loading"}">${label}</div>`;
   const cardHtml = (c) => `<article class="card${c.frontWide ? " fw" : ""}${c.backWide ? " bw" : ""}" data-id="${esc(c.id)}" tabindex="0" aria-label="${esc([c.year, c.set, c.player].filter(Boolean).join(" "))}">
-      <div class="inner">${face(c.front, "front", "No photo")}${face(c.back, "back", "No back photo")}</div>
+      <span class="ref">${esc(c.ref || "")}</span><div class="inner">${face(c.thumb || c.front, "front", "")}</div>
       <div class="meta"><b>${esc(c.player || "Unknown player")}</b><span>${esc([c.year, c.set, c.parallel].filter(Boolean).join(" · "))}${c.team && $("#sort").value !== "team" ? " · " + esc(c.team) : ""}</span>
         <div class="tags">${tagsOf(c)}</div>
         ${isOwner() ? `<div class="own"><button data-edit="${esc(c.id)}">Edit</button><button data-del="${esc(c.id)}">Delete</button></div>` : ""}</div></article>`;
 
   function draw() {
     const name = owner?.name || "My";
-    document.title = `${name === "My" ? "The Vault" : name + "'s Vault"} · Football Card PC`;
-    $("#who").textContent = cards.length ? `${name === "My" ? "A" : name + "'s"} football card collection · ${cards.length} card${cards.length === 1 ? "" : "s"}` : `${name === "My" ? "A" : name + "'s"} football card collection`;
+    document.title = `${name === "My" ? "PCB" : name + "'s PCB"} · Personal Card Board`;
+    $("#who").textContent = !loaded ? "Powering up the board…" : `${name === "My" ? "A" : name + "'s"} personal card board · ${cards.length} card${cards.length === 1 ? "" : "s"}`;
     $("#add").classList.toggle("hidden", !isOwner());
     $("#auth").textContent = user ? "Sign out" : "Sign in";
     const n = (f) => cards.filter(f).length;
     $("#stats").innerHTML = [["Cards", cards.length], ["Rookies", n((c) => c.rookie)], ["Autos", n((c) => c.auto)], ["Numbered", n((c) => c.serial)]]
       .map(([l, v]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
     const grail = cards.find((c) => c.grail);
-    $("#grail").innerHTML = grail ? `<div class="grail">${cardHtml(grail)}<div><h2>The grail</h2><h3>${esc(grail.player)}</h3>
+    $("#grail").innerHTML = grail ? `<div class="grail">${cardHtml(grail)}<div><h2>U1 · The grail</h2><h3>${esc(grail.player)}</h3>
       <p>${esc([grail.year, grail.set, grail.parallel, grail.serial, grail.grade].filter(Boolean).join(" · "))}</p>${grail.notes ? `<p>${esc(grail.notes)}</p>` : ""}</div></div>` : "";
     const q = $("#q").value.trim().toLowerCase();
     let list = cards.filter((c) => (!q || [c.player, c.team, c.set, c.parallel, c.year].join(" ").toLowerCase().includes(q))
@@ -243,8 +305,8 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       }
       html += cardHtml(c);
     }
-    $("#grid").innerHTML = html || `<div class="empty-state" style="grid-column:1/-1"><h3>${cards.length ? "No matches" : "The vault is empty"}</h3>
-      ${cards.length ? "Try a different search or filter." : isOwner() ? "Tap <b>+ Add card</b> to put your first card in." : "Cards are on the way."}</div>`;
+    $("#grid").innerHTML = html || `<div class="empty-state" style="grid-column:1/-1"><h3>${!loaded ? "Powering up…" : cards.length ? "No matches" : "No cards on the board yet"}</h3>
+      ${!loaded ? "Loading the cards." : cards.length ? "Try a different search or filter." : isOwner() ? "Tap <b>+ Add card</b> to put your first card in." : "Cards are on the way."}</div>`;
   }
 
   // ---------- card viewer: tap a card and it comes up close over a blurred page, like holding the real thing.
@@ -271,12 +333,16 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     const v = document.createElement("div");
     v.className = "viewer";
     v.innerHTML = `<button type="button" class="v-x" aria-label="Close">✕</button>
-      <div class="v-stage"><div class="v-card" style="width:${W}px;height:${H}px;--t:${T / 2}px">${side(c.front, "front", "No photo")}${side(c.back, "back", "No back photo")}${edge}</div></div>
+      <div class="v-stage"><div class="v-card" style="width:${W}px;height:${H}px;--t:${T / 2}px">${side(c.front || c.thumb, "front", "No photo")}${side(c.back, "back", c.front ? "No back photo" : "Loading…")}${edge}</div></div>
       <div class="v-info"><b>${esc(c.player || "Unknown player")}</b><span>${esc([c.year, c.set, c.number, c.parallel, c.serial, c.grade].filter(Boolean).join(" · "))}</span>
         <div class="tags">${tagsOf(c)}</div>
         <div class="v-acts"><button type="button" id="v-flip">Flip</button><button type="button" id="v-turn">Turn</button></div>
         <p class="hint">Drag to turn it in your hand · tap it to flip</p></div>`;
     document.body.appendChild(v); document.body.style.overflow = "hidden";
+    if (!c.front) full(c).then(() => {
+      const [fr, bk] = v.querySelectorAll(".v-face");
+      fr.style.backgroundImage = c.front ? `url('${c.front}')` : ""; bk.style.backgroundImage = c.back ? `url('${c.back}')` : ""; bk.textContent = c.back ? "" : "No back photo";
+    }).catch(() => {});
     const card = v.querySelector(".v-card"), stage = v.querySelector(".v-stage");
     // rx/ry = tilt from dragging, turn = quarter turns (Turn button); a sideways back turns itself when it's showing
     let rx = 0, ry = 0, turn = 0, drag = null;
@@ -348,6 +414,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       } catch (e) { /* already claimed by someone else, or rules not published yet */ }
     }
     draw();
+    if (loaded && u) thumbs();
   });
   function alertish(msg) { $("#who").textContent = msg; }
 
@@ -545,6 +612,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       if (!data.front) { st.textContent = "Add a photo of the front first."; return; }
       st.textContent = "Saving…";
       try {
+        data.thumb = await thumbOf(data.front);
         if (data.grail) for (const g of cards.filter((x) => x.grail && x.id !== c.id)) await db.collection("pc").doc(g.id).update({ grail: false }); // one grail at a time
         if (c.id) await db.collection("pc").doc(c.id).update(data);
         else await db.collection("pc").add({ ...data, added: Date.now() });
@@ -556,7 +624,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   $("#add").onclick = () => editor();
   document.addEventListener("click", async (e) => {
     const ed = e.target.closest("[data-edit]"), del = e.target.closest("[data-del]");
-    if (ed) editor(cards.find((c) => c.id === ed.dataset.edit));
+    if (ed) { const c = cards.find((x) => x.id === ed.dataset.edit); ed.textContent = "…"; try { await full(c); } catch (err) { /* edit what we have */ } ed.textContent = "Edit"; editor(c); }
     if (del) {
       if (del.dataset.sure !== "1") { del.dataset.sure = "1"; del.textContent = "Sure?"; setTimeout(() => { del.dataset.sure = ""; del.textContent = "Delete"; }, 3000); return; }
       await db.collection("pc").doc(del.dataset.del).delete().catch(() => {});
