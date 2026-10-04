@@ -1920,3 +1920,4 @@ html:not([data-theme-name="mono"]):not([data-theme-name="terminal"]):not([data-t
 .inj-st.out { color: var(--inj-bad); } .inj-st.dbt { color: #ff9a3c; } .inj-st.q { color: var(--inj-mid); }
 .inj-starter { font-size: 10px; font-weight: 800; letter-spacing: .04em; padding: 1px 5px; background: var(--ink); color: var(--bg); }
 @media (max-width: 560px) { .inj-row { grid-template-columns: 22px 62px 1fr 40px; } .inj-so { display: none; } .inj-big { font-size: 24px; } }
+.inj-live { font-size: 10px; font-weight: 800; letter-spacing: .04em; padding: 1px 5px; background: var(--inj-bad); color: #fff; }
