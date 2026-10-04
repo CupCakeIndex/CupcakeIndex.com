@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<title>PCB · Personal Card Board</title>
-<meta name="description" content="PCB, the Personal Card Board: a football card collection, from the Cupcake Index.">
-<meta name="theme-color" content="#031009">
+<title>PCB · Personal Collection Binder</title>
+<meta name="description" content="PCB, the Personal Collection Binder: a football card collection, from the Cupcake Index.">
+<meta name="theme-color" content="#08080a">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
@@ -16,13 +16,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
-/* PCB (Personal Card Board): a circuit board. Dark green solder mask, copper traces, gold contact pads,
-   white silkscreen labels; each card is a part on the board (C01, C02...) and the stat tiles are chips */
-:root { --bg: #031009; --panel: #0a2116; --line: #1c4630; --ink: #eaf5ee; --muted: #86a896; --gold: #d9a74a; --gold2: #f2d488; --copper: #c8763a; --silk: #dfeee5; --red: #ff6b5b;
+/* PCB (Personal Collection Binder): black and gold. The cards sit on a binder page (with ring holes on wider screens),
+   each one in a clear penny sleeve that catches the light when you tilt it */
+:root { --bg: #08080a; --panel: #121216; --line: #24242b; --ink: #f2f0ea; --muted: #8e8b84; --gold: #d8b45a; --gold2: #f3dc8f; --red: #ff6b5b;
   --display: Anton, "Arial Narrow", sans-serif; --body: Inter, system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, monospace; color-scheme: dark; }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body); }
-body { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cg fill='none' stroke='%23164a2e' stroke-width='2'%3E%3Cpath d='M0 40h70l30 30h90l30-30h40M20 260v-60l30-30v-70M130 0v40M130 70v60l40 40h90M0 150h40l30 30v80M200 260v-40l-30-30'/%3E%3Ccircle cx='130' cy='130' r='5'/%3E%3Ccircle cx='50' cy='100' r='5'/%3E%3Ccircle cx='170' cy='190' r='5'/%3E%3Ccircle cx='130' cy='40' r='4'/%3E%3C/g%3E%3Cg fill='%23123d26'%3E%3Ccircle cx='130' cy='130' r='2'/%3E%3Ccircle cx='50' cy='100' r='2'/%3E%3Ccircle cx='170' cy='190' r='2'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 260px 260px, radial-gradient(1200px 600px at 50% -200px, #0f3a24 0%, transparent 70%), var(--bg); min-height: 100vh; }
+body { background: radial-gradient(1200px 600px at 50% -200px, #1c1a14 0%, transparent 70%), var(--bg); min-height: 100vh; }
 a { color: var(--gold); }
 .wrap { max-width: 1180px; margin: 0 auto; padding: max(18px, env(safe-area-inset-top)) 16px 60px; }
 header.top { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; justify-content: space-between; padding: 8px 0 18px; border-bottom: 1px solid var(--line); }
@@ -30,46 +30,52 @@ header.top { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; j
 .brand small a { color: var(--muted); text-decoration: none; } .brand small a:hover { color: var(--gold); }
 h1 { margin: 2px 0 0; font: 400 clamp(56px, 11vw, 104px)/.9 var(--display); letter-spacing: .08em; text-transform: uppercase;
   background: linear-gradient(100deg, #b98d34 0%, var(--gold2) 30%, #a87b28 55%, var(--gold2) 80%, #b98d34 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.rev { font: 700 12px var(--mono); letter-spacing: .32em; text-transform: uppercase; color: var(--silk); margin-top: 6px; }
+.rev { font: 700 12px var(--mono); letter-spacing: .3em; text-transform: uppercase; color: var(--gold); opacity: .85; margin-top: 6px; }
 .who { color: var(--muted); font-size: 14px; margin-top: 6px; }
 .acts { display: flex; gap: 8px; flex-wrap: wrap; }
 button, .btn { font: 700 13px var(--body); padding: 10px 14px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; cursor: pointer; text-decoration: none; }
 button:hover, .btn:hover { border-color: var(--gold); }
 .primary { background: linear-gradient(180deg, var(--gold2), var(--gold)); color: #1a1408; border-color: transparent; }
-.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 26px; margin: 20px 10px; }
-.stat { position: relative; background: radial-gradient(circle at 11px 11px, #2b302d 3px, transparent 4px), linear-gradient(180deg, #151816, #0b0d0c);
-  border: 1px solid #262b28; border-radius: 4px; padding: 12px 14px; box-shadow: 0 6px 14px rgba(0,0,0,.45); }
-.stat::before, .stat::after { content: ""; position: absolute; top: 9px; bottom: 9px; width: 8px; background: repeating-linear-gradient(180deg, var(--gold) 0 4px, transparent 4px 10px); }
-.stat::before { left: -9px; } .stat::after { right: -9px; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
 .stat b { display: block; font: 400 34px/1 var(--display); color: var(--gold2); }
-.stat span { font: 700 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--silk); opacity: .75; }
+.stat span { font: 700 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 18px; }
 .tools input[type=search], .tools select { font: 16px var(--body); padding: 9px 12px; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; }
 .tools input[type=search] { flex: 1 1 220px; min-width: 0; }
 .chip { font: 700 12px var(--mono); padding: 8px 11px; border-radius: 99px; letter-spacing: .06em; }
-.chip.on { border-color: var(--gold); color: #1a1408; background: linear-gradient(180deg, var(--gold2), var(--gold)); }
-.grail { display: grid; grid-template-columns: minmax(180px, 280px) 1fr; gap: 26px; align-items: center; background: linear-gradient(135deg, #0d2a1c, #061810); border: 2px solid var(--gold); box-shadow: inset 0 0 0 4px #061810, inset 0 0 0 5px rgba(217,167,74,.35); border-radius: 16px; padding: 22px; margin-bottom: 26px; }
+.chip.on { border-color: var(--gold); color: var(--gold2); background: #1f1b10; }
+.grail { display: grid; grid-template-columns: minmax(180px, 280px) 1fr; gap: 26px; align-items: center; background: linear-gradient(135deg, #17150f, #0d0d10); border: 1px solid #3a3020; border-radius: 16px; padding: 22px; margin-bottom: 26px; }
 .grail .card .meta { display: none; }   /* the details sit beside the grail instead */
 .grail > *, .stats > *, .grid > * { min-width: 0; }
 html, body { overflow-x: hidden; }
 .grail h2 { margin: 0 0 4px; font: 400 14px var(--mono); letter-spacing: .25em; color: var(--gold); text-transform: uppercase; }
 .grail h3 { margin: 0; font: 400 clamp(30px, 5vw, 48px)/1 var(--display); text-transform: uppercase; }
 .grail p { color: var(--muted); margin: 8px 0 0; }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 22px 18px; }
+.grid { position: relative; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 26px 20px; padding: 22px 18px 26px;
+  background: linear-gradient(180deg, #131316, #0d0d10); border: 1px solid #25252b; border-radius: 14px; box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 18px 40px rgba(0,0,0,.35); }
+@media (min-width: 700px) {
+  .grid { padding-left: 66px; }
+  /* binder ring holes */
+  .grid::before { content: ""; position: absolute; left: 20px; top: 0; bottom: 0; width: 24px; pointer-events: none;
+    background-image: radial-gradient(circle, #050506 7px, rgba(216,180,90,.55) 8px, rgba(216,180,90,.55) 9.5px, transparent 10.5px), radial-gradient(circle, #050506 7px, rgba(216,180,90,.55) 8px, rgba(216,180,90,.55) 9.5px, transparent 10.5px), radial-gradient(circle, #050506 7px, rgba(216,180,90,.55) 8px, rgba(216,180,90,.55) 9.5px, transparent 10.5px);
+    background-size: 24px 24px; background-repeat: no-repeat; background-position: 0 14%, 0 50%, 0 86%; }
+}
 /* a card: 2.5 x 3.5, leans with the pointer, opens up close on tap */
 .card { perspective: 900px; cursor: pointer; position: relative; }
-.card .inner { outline: 1px solid rgba(223,238,229,.28); outline-offset: 5px; border-radius: 10px; }
-.ref { display: block; font: 700 11px var(--mono); letter-spacing: .14em; color: var(--silk); opacity: .7; margin: 0 0 9px 2px; }
-.grail .ref { display: none; }
+/* penny sleeve: clear plastic a little bigger than the card, open at the top, with a soft glare that follows the tilt */
+.sleeve { position: absolute; left: -3%; right: -3%; top: -4.5%; bottom: -2%; border-radius: 7px; pointer-events: none; transform: translateZ(1px); backface-visibility: hidden;
+  border: 1px solid rgba(255,255,255,.2); border-top-color: rgba(255,255,255,.34);
+  background: linear-gradient(115deg, transparent 32%, rgba(255,255,255,.17) 45%, rgba(255,255,255,.05) 52%, transparent 62%) var(--gx, 30%) var(--gy, 30%) / 260% 260% no-repeat, rgba(255,255,255,.035); }
 .card .inner { position: relative; aspect-ratio: 5 / 7; transition: transform .75s cubic-bezier(.3, 1.4, .5, 1); transform-style: preserve-3d;
   transform: translateZ(var(--lift, 0px)) rotateZ(var(--turn, 0deg)) scale(var(--shrink, 1)) rotateY(var(--flip, 0deg)) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
 /* a horizontal card: shown sideways (turned and shrunk to fit its spot) */
 .card.fw .inner { --turn: 90deg; --shrink: .714; }
-.face { position: absolute; inset: 0; border-radius: 10px; overflow: hidden; backface-visibility: hidden; background: #0c2418 center / cover no-repeat; border: 1px solid transparent; background-clip: padding-box;
+.face { position: absolute; inset: 0; border-radius: 10px; overflow: hidden; backface-visibility: hidden; background: #1a1a20 center / cover no-repeat; border: 1px solid transparent; background-clip: padding-box;
   box-shadow: 0 10px 28px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.06); }
 .face.back { transform: rotateY(180deg); }
 .face.empty { display: grid; place-items: center; color: var(--muted); font: 12px var(--mono); text-align: center; padding: 10px; }
-.face.loading { background: linear-gradient(110deg, #0c2418 30%, #14382a 50%, #0c2418 70%) 0 0 / 300% 100%; animation: pcb-load 1.4s linear infinite; }
+.face.loading { background: linear-gradient(110deg, #17171c 30%, #24242b 50%, #17171c 70%) 0 0 / 300% 100%; animation: pcb-load 1.4s linear infinite; }
 @keyframes pcb-load { to { background-position: -150% 0; } }
 .meta { margin-top: 10px; display: grid; gap: 2px; }
 .meta b { font: 400 19px/1.1 var(--display); letter-spacing: .02em; text-transform: uppercase; }
@@ -78,12 +84,12 @@ html, body { overflow-x: hidden; }
 .tag { font: 700 10px var(--mono); letter-spacing: .08em; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); }
 .tag.rc { color: #7ee0a0; border-color: #2c5a3c; } .tag.auto { color: #ffb4d6; border-color: #5a2c44; } .tag.num { color: var(--gold2); border-color: #5a4a20; } .tag.grade { color: #9ec6ff; border-color: #2c3f5a; }
 .own { display: flex; gap: 6px; margin-top: 6px; } .own button { padding: 5px 9px; font-size: 11px; }
-.team-h { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; margin: 14px 0 -4px; padding-bottom: 8px; border-bottom: 2px solid rgba(200,118,58,.55);
+.team-h { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; margin: 14px 0 -4px; padding-bottom: 8px; border-bottom: 1px solid rgba(216,180,90,.3);
   font: 400 26px/1 var(--display); text-transform: uppercase; letter-spacing: .02em; }
 .team-h:first-child { margin-top: 0; }
 .team-h img { width: 34px; height: 34px; object-fit: contain; }
 .team-h small { margin-left: auto; font: 700 11px var(--mono); letter-spacing: .1em; color: var(--muted); }
-.empty-state { text-align: center; padding: 60px 16px; color: var(--muted); border: 1px dashed rgba(223,238,229,.25); border-radius: 16px; }
+.empty-state { text-align: center; padding: 60px 16px; color: var(--muted); border: 1px dashed var(--line); border-radius: 16px; }
 .empty-state h3 { font: 400 30px var(--display); color: var(--ink); margin: 0 0 6px; text-transform: uppercase; }
 footer { margin-top: 40px; color: var(--muted); font-size: 12px; text-align: center; }
 /* add / edit card */
@@ -130,7 +136,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 .adj-bar { display: flex; gap: 6px; justify-content: center; margin-top: -4px; }
 /* card viewer: the card up close over a blurred page */
 .viewer { position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 56px 16px max(20px, env(safe-area-inset-bottom));
-  background: rgba(2,12,7,.55); -webkit-backdrop-filter: blur(14px) saturate(.8); backdrop-filter: blur(14px) saturate(.8); opacity: 0; transition: opacity .25s; }
+  background: rgba(5,5,8,.55); -webkit-backdrop-filter: blur(14px) saturate(.8); backdrop-filter: blur(14px) saturate(.8); opacity: 0; transition: opacity .25s; }
 .viewer.on { opacity: 1; }
 .v-stage { perspective: 1400px; touch-action: none; padding: 18px; cursor: grab; transform: scale(.7); transition: transform .35s cubic-bezier(.3,1.3,.5,1); }
 .viewer.on .v-stage { transform: none; }
@@ -139,6 +145,13 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 .v-face.front { transform: translateZ(var(--t)); }
 .v-face.back { transform: rotateY(180deg) translateZ(var(--t)); }
 .v-edge { position: absolute; left: 0; top: 0; }
+.v-sleeve { position: absolute; left: -2.4%; right: -2.4%; top: -3.8%; bottom: -1.7%; border-radius: 3.5% / 2.5%; pointer-events: none; -webkit-backface-visibility: hidden; backface-visibility: hidden;
+  border: 1px solid rgba(255,255,255,.22); border-top-color: rgba(255,255,255,.4);
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.2) 45%, rgba(255,255,255,.06) 52%, transparent 63%) var(--gx, 50%) var(--gy, 50%) / 260% 260% no-repeat, rgba(255,255,255,.04);
+  transition: background-position .6s cubic-bezier(.3,1.2,.5,1); }
+.v-card.live .v-sleeve { transition: none; }
+.v-sleeve.front { transform: translateZ(calc(var(--t) + 2px)); }
+.v-sleeve.back { transform: rotateY(180deg) translateZ(calc(var(--t) + 2px)); }
 .v-x { position: absolute; top: max(14px, env(safe-area-inset-top)); right: 14px; width: 42px; height: 42px; padding: 0; border-radius: 50%; font-size: 16px; }
 .v-info { display: grid; gap: 4px; justify-items: center; text-align: center; max-width: 420px; }
 .v-info b { font: 400 26px/1.1 var(--display); text-transform: uppercase; }
@@ -160,8 +173,8 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     <div class="brand">
       <small><a href="../">← Cupcake Index</a> · Football cards</small>
       <h1>PCB</h1>
-      <div class="rev">Personal Card Board</div>
-      <div class="who" id="who">Powering up the board…</div>
+      <div class="rev">Personal Collection Binder</div>
+      <div class="who" id="who">Opening the binder…</div>
     </div>
     <div class="acts">
       <button class="primary hidden" id="add">+ Add card</button>
@@ -188,7 +201,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
-// PCB (Personal Card Board): everyone can look; only the owner (the first account to claim it, stored at pcmeta/owner) can add,
+// PCB (Personal Collection Binder): everyone can look; only the owner (the first account to claim it, stored at pcmeta/owner) can add,
 // edit or delete. Photos are shrunk on the phone and stored in the card's Firestore document (free plan, no storage bucket).
 (function () {
   const $ = (s) => document.querySelector(s);
@@ -220,13 +233,11 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       };
       const [list, o] = await Promise.all([all(), fetch(`${FS}/pcmeta/owner`).then((r) => (r.ok ? r.json() : null))]);
       owner = o ? { uid: val(o.fields?.uid), name: val(o.fields?.name) } : null;
-      // part labels like on a real board: C01, C02... in the order the cards were added
-      list.slice().sort((x, y) => (x.added || 0) - (y.added || 0)).forEach((c, i) => (c.ref = "C" + String(i + 1).padStart(2, "0")));
       cards = list; loaded = true; fullP.clear();
       draw();
       thumbs();
     } catch (e) {
-      $("#who").textContent = "The board couldn't load (" + (e.code || e.message) + "). Try refreshing.";
+      $("#who").textContent = "The binder couldn't load (" + (e.code || e.message) + "). Try refreshing.";
     }
   }
   const full = (c) => {
@@ -271,22 +282,22 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     c.serial && `<span class="tag num">${esc(c.serial)}</span>`, c.grade && `<span class="tag grade">${esc(c.grade)}</span>`].filter(Boolean).join("");
   const face = (img, cls, label) => img ? `<div class="face ${cls}" style="background-image:url('${img}')"></div>` : `<div class="face ${cls} ${label ? "empty" : "loading"}">${label}</div>`;
   const cardHtml = (c) => `<article class="card${c.frontWide ? " fw" : ""}${c.backWide ? " bw" : ""}" data-id="${esc(c.id)}" tabindex="0" aria-label="${esc([c.year, c.set, c.player].filter(Boolean).join(" "))}">
-      <span class="ref">${esc(c.ref || "")}</span><div class="inner">${face(c.thumb || c.front, "front", "")}</div>
+      <div class="inner">${face(c.thumb || c.front, "front", "")}<i class="sleeve"></i></div>
       <div class="meta"><b>${esc(c.player || "Unknown player")}</b><span>${esc([c.year, c.set, c.parallel].filter(Boolean).join(" · "))}${c.team && $("#sort").value !== "team" ? " · " + esc(c.team) : ""}</span>
         <div class="tags">${tagsOf(c)}</div>
         ${isOwner() ? `<div class="own"><button data-edit="${esc(c.id)}">Edit</button><button data-del="${esc(c.id)}">Delete</button></div>` : ""}</div></article>`;
 
   function draw() {
     const name = owner?.name || "My";
-    document.title = `${name === "My" ? "PCB" : name + "'s PCB"} · Personal Card Board`;
-    $("#who").textContent = !loaded ? "Powering up the board…" : `${name === "My" ? "A" : name + "'s"} personal card board · ${cards.length} card${cards.length === 1 ? "" : "s"}`;
+    document.title = `${name === "My" ? "PCB" : name + "'s PCB"} · Personal Collection Binder`;
+    $("#who").textContent = !loaded ? "Opening the binder…" : `${name === "My" ? "A" : name + "'s"} personal collection binder · ${cards.length} card${cards.length === 1 ? "" : "s"}`;
     $("#add").classList.toggle("hidden", !isOwner());
     $("#auth").textContent = user ? "Sign out" : "Sign in";
     const n = (f) => cards.filter(f).length;
     $("#stats").innerHTML = [["Cards", cards.length], ["Rookies", n((c) => c.rookie)], ["Autos", n((c) => c.auto)], ["Numbered", n((c) => c.serial)]]
       .map(([l, v]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
     const grail = cards.find((c) => c.grail);
-    $("#grail").innerHTML = grail ? `<div class="grail">${cardHtml(grail)}<div><h2>U1 · The grail</h2><h3>${esc(grail.player)}</h3>
+    $("#grail").innerHTML = grail ? `<div class="grail">${cardHtml(grail)}<div><h2>The grail</h2><h3>${esc(grail.player)}</h3>
       <p>${esc([grail.year, grail.set, grail.parallel, grail.serial, grail.grade].filter(Boolean).join(" · "))}</p>${grail.notes ? `<p>${esc(grail.notes)}</p>` : ""}</div></div>` : "";
     const q = $("#q").value.trim().toLowerCase();
     let list = cards.filter((c) => (!q || [c.player, c.team, c.set, c.parallel, c.year].join(" ").toLowerCase().includes(q))
@@ -305,7 +316,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       }
       html += cardHtml(c);
     }
-    $("#grid").innerHTML = html || `<div class="empty-state" style="grid-column:1/-1"><h3>${!loaded ? "Powering up…" : cards.length ? "No matches" : "No cards on the board yet"}</h3>
+    $("#grid").innerHTML = html || `<div class="empty-state" style="grid-column:1/-1"><h3>${!loaded ? "Opening…" : cards.length ? "No matches" : "The binder is empty"}</h3>
       ${!loaded ? "Loading the cards." : cards.length ? "Try a different search or filter." : isOwner() ? "Tap <b>+ Add card</b> to put your first card in." : "Cards are on the way."}</div>`;
   }
 
@@ -333,11 +344,11 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     const v = document.createElement("div");
     v.className = "viewer";
     v.innerHTML = `<button type="button" class="v-x" aria-label="Close">✕</button>
-      <div class="v-stage"><div class="v-card" style="width:${W}px;height:${H}px;--t:${T / 2}px">${side(c.front || c.thumb, "front", "No photo")}${side(c.back, "back", c.front ? "No back photo" : "Loading…")}${edge}</div></div>
+      <div class="v-stage"><div class="v-card" style="width:${W}px;height:${H}px;--t:${T / 2}px">${side(c.front || c.thumb, "front", "No photo")}${side(c.back, "back", c.front ? "No back photo" : "Loading…")}${edge}<i class="v-sleeve front"></i><i class="v-sleeve back"></i></div></div>
       <div class="v-info"><b>${esc(c.player || "Unknown player")}</b><span>${esc([c.year, c.set, c.number, c.parallel, c.serial, c.grade].filter(Boolean).join(" · "))}</span>
         <div class="tags">${tagsOf(c)}</div>
         <div class="v-acts"><button type="button" id="v-flip">Flip</button><button type="button" id="v-turn">Turn</button></div>
-        <p class="hint">Drag to turn it in your hand · tap to flip · pinch to bring it closer</p></div>`;
+        <p class="hint">Drag to turn it · tap to flip · two fingers to bring it closer and move it</p></div>`;
     document.body.appendChild(v); document.body.style.overflow = "hidden";
     if (!c.front) full(c).then(() => {
       const [fr, bk] = v.querySelectorAll(".v-face");
@@ -354,9 +365,14 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     const backUp = () => Math.round(ry / 180) % 2 !== 0;
     const set = (anim) => {
       const z = turn + ((backUp() ? c.backWide : c.frontWide) ? 1 : 0), wide = z % 2 !== 0;
-      card.style.transition = anim ? "" : "none";
-      const lim = W * zoom; px = Math.max(-lim, Math.min(lim, px)); py = Math.max(-lim, Math.min(lim, py));
-      card.style.transform = `translate(${px.toFixed(1)}px, ${py.toFixed(1)}px) translateZ(${(PERSP * (1 - 1 / zoom)).toFixed(1)}px) rotateZ(${twist.toFixed(1)}deg)`
+      card.style.transition = anim ? "" : "none"; card.classList.toggle("live", !anim);
+      // moving it around happens on the stage, so it follows your fingers exactly however close the card is
+      px = Math.max(-innerWidth, Math.min(innerWidth, px)); py = Math.max(-innerHeight, Math.min(innerHeight, py));
+      stage.style.transition = anim ? "" : "transform .35s cubic-bezier(.3,1.3,.5,1)"; stage.style.translate = `${px.toFixed(1)}px ${py.toFixed(1)}px`;
+      // the sleeve's glare slides the opposite way you tilt, like light on plastic
+      const face = ((((ry - (backUp() ? 180 : 0)) % 360) + 540) % 360) - 180;
+      card.style.setProperty("--gx", (50 - face * 1.4).toFixed(1) + "%"); card.style.setProperty("--gy", (50 + rx * 1.4).toFixed(1) + "%");
+      card.style.transform = `translateZ(${(PERSP * (1 - 1 / zoom)).toFixed(1)}px) rotateZ(${twist.toFixed(1)}deg)`
         + ` scale(${wide ? Math.min(1, (innerWidth - 40) / H).toFixed(3) : 1}) rotateX(${rx.toFixed(1)}deg) rotateY(${ry.toFixed(1)}deg) rotateZ(${z * (backUp() ? -90 : 90)}deg)`; // flipped over, a turn runs the other way in the card's own plane
     };
     set(false);
@@ -367,7 +383,10 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     stage.addEventListener("pointerdown", (e) => {
       e.preventDefault(); try { stage.setPointerCapture(e.pointerId); } catch (err) { /* not a live pointer */ }
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (pts.size === 2) { const g = two(); pinch = { ...g, zoom, twist, px, py }; wheelZoom = false; drag = null; } // second finger: bring it closer
+      if (pts.size === 2) { // second finger: bring it closer, twist it, move it. Remember which spot of the card is between the fingers
+        const g = two(), r = stage.getBoundingClientRect(), C = { x: r.left + r.width / 2 - px, y: r.top + r.height / 2 - py };
+        pinch = { ...g, zoom, twist, C, ux: (g.x - C.x - px) / zoom, uy: (g.y - C.y - py) / zoom }; wheelZoom = false; drag = null;
+      }
       else if (pts.size === 1) drag = grab(pts.get(e.pointerId));
     });
     stage.addEventListener("pointermove", (e) => {
@@ -377,7 +396,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
         const g = two();
         let da = g.a - pinch.a; da = ((da + 540) % 360) - 180;
         zoom = Math.max(1, Math.min(MAXZ, pinch.zoom * g.d / pinch.d)); twist = pinch.twist + da;
-        px = pinch.px + g.x - pinch.x; py = pinch.py + g.y - pinch.y;
+        px = g.x - pinch.C.x - pinch.ux * zoom; py = g.y - pinch.C.y - pinch.uy * zoom; // that spot stays between your fingers
         set(false);
         return;
       }
@@ -420,7 +439,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   // grid cards lean toward the pointer
   document.addEventListener("pointermove", (e) => {
     const c = e.target.closest?.(".card");
-    document.querySelectorAll(".card.tilt").forEach((x) => { if (x !== c) { x.classList.remove("tilt"); x.querySelector(".inner").style.removeProperty("--rx"); x.querySelector(".inner").style.removeProperty("--ry"); } });
+    document.querySelectorAll(".card.tilt").forEach((x) => { if (x !== c) { x.classList.remove("tilt"); x.querySelector(".inner").style.removeProperty("--rx"); x.querySelector(".inner").style.removeProperty("--ry"); x.querySelector(".inner").style.removeProperty("--gx"); x.querySelector(".inner").style.removeProperty("--gy"); } });
     if (!c || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const r = c.querySelector(".inner").getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
     if (x < 0 || x > 1 || y < 0 || y > 1) return;
@@ -428,6 +447,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     c.classList.add("tilt");
     inner.style.setProperty("--rx", ((0.5 - y) * 14).toFixed(1) + "deg");
     inner.style.setProperty("--ry", ((x - 0.5) * 16).toFixed(1) + "deg");
+    inner.style.setProperty("--gx", ((1 - x) * 100).toFixed(0) + "%"); inner.style.setProperty("--gy", ((1 - y) * 100).toFixed(0) + "%");
   });
   $("#q").oninput = draw;
   $("#sort").onchange = draw;
