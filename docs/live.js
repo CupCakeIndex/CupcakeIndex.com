@@ -1555,12 +1555,12 @@ const Live = (() => {
       <div class="sc-bar"><h2>Injuries <small class="muted">NFL · how healthy is each team?</small></h2><span class="muted">${liveBadge(teams.live)}</span></div>
       <div class="inj-head">${img(teamLogo(focus.team), "lg")}<div><b>${esc(focus.team.displayName || "")}</b>
         <span class="inj-big" style="color:${col(focus.health)}">${Math.round(focus.health)}% healthy</span>
-        <small class="muted">${rank === 1 ? "The most banged-up team in the NFL" : `${ord(rank)} most banged-up of ${teams.length}`} · ${focus.keyOut} key player${focus.keyOut === 1 ? "" : "s"} out · league average ${Math.round(avg)}%</small></div></div>
+        <small class="muted">${rank === 1 ? "The most banged-up team in the NFL" : `${ord(rank)} most banged-up of ${teams.length}`} · ${focus.keyOut} key player${focus.keyOut === 1 ? "" : "s"}, ${focus.hurt.length} total on the report · league average ${Math.round(avg)}%</small></div></div>
       <div class="inj-chart" id="inj-chart" role="list">${teams.map((t, i) => `<button class="inj-row${t === focus ? " on" : ""}" data-t="${esc(t.team.abbreviation)}" role="listitem"
-          title="${esc(t.team.displayName || "")}: ${Math.round(t.health)}% healthy, ${t.keyOut} key players out">
+          title="${esc(t.team.displayName || "")}: ${Math.round(t.health)}% healthy, ${t.keyOut} key players, ${t.hurt.length} total on the report">
           <span class="inj-rk">${i + 1}</span><span class="tm">${img(teamLogo(t.team), "xs")} ${esc(t.team.abbreviation)}</span>
           <span class="inj-bar"><i style="width:${t.health.toFixed(1)}%;background:${col(t.health)}"></i><em style="left:${avg.toFixed(1)}%" title="League average"></em></span>
-          <span class="inj-pct">${Math.round(t.health)}%</span><span class="inj-so">${t.keyOut ? `${t.keyOut} key out` : ""}</span></button>`).join("")}</div>
+          <span class="inj-pct">${Math.round(t.health)}%</span><span class="inj-so">${t.keyOut} key, ${t.hurt.length} total</span></button>`).join("")}</div>
       <p class="fr-how">Tap a team for its report. <b>% healthy</b> weighs who's hurt: a starting QB counts about 10x a punter. <b>Key players</b> count fully: the starters, plus the next man up when a starter is out (with QB1 out, QB2 is the starter, so losing him hurts just as much). Other backups count a little. Out or IR counts fully, Doubtful 3/4, Questionable 1/4. The dashed line is the league average.</p>
       <div id="inj-detail"><h3>${esc(focus.team.displayName || "")} injury report</h3>${list(focus)}</div>
       <p class="note">ESPN's injury report and depth charts, plus today's games: anyone hurt during a game counts right away (from the play-by-play, marked IN-GAME) and drops off if he returns. During games this page refreshes every minute. Players already moved off the depth chart (often to IR) count at 30%.</p></div>`;
