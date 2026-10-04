@@ -1414,7 +1414,8 @@ const Live = (() => {
 
   // ---------------------------------------------------------------- Injuries (a sub-view of Stats, NFL)
   // Every team's injury load as "% healthy": ESPN's league injury report, weighted by who the player is.
-  // Starter = #1 at his spot on ESPN's depth chart (top 3 WRs, nickel back too). Position weights: a QB counts
+  // Key player = at each depth-chart spot, everyone down to the first healthy player (the starter, plus the next man up
+  // when the starter is out). Position weights: a QB counts
   // far more than a punter. Status: Out / IR / suspended = all of it, Doubtful 3/4, Questionable 1/4.
   // Backups count a little; a player not on the depth chart (often a starter already moved to IR) counts 30%.
   const INJ_W = { qb: 10, lt: 3, rt: 3, lg: 2, c: 2, rg: 2, wr: 3, te: 2, rb: 2, fb: 0.5, lde: 3, rde: 3, de: 3, ldt: 2.5, rdt: 2.5, nt: 2.5, dt: 2.5,
@@ -1469,27 +1470,42 @@ const Live = (() => {
     const yr = rep.season?.year || new Date().getFullYear();
     const teams = await Promise.all((rep.injuries || []).map(async (t) => {
       const dc = await api(`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${yr}/teams/${t.id}/depthcharts`, 3600000).catch(() => null);
-      const slot = new Map(); // athlete id -> { key, rank, starter }
+      // who's missing (Out / IR / Doubtful, or hurt in today's game and not back): decides who the next man up is
+      const idOf = (i) => (/\/id\/(\d+)/.exec((i.athlete?.links || []).map((l) => l.href).join(" ")) || [])[1] || "";
+      const missing = new Set((t.injuries || []).filter((i) => INJ_HIT(i.status) >= 0.75).map(idOf).filter(Boolean));
+      for (const [id, g] of ig.byTeam.get(String(t.id)) || []) if (g.hit >= 0.5) missing.add(id);
+      // each depth-chart spot (QB, LT, the three WR spots...) in order: KEY players are everyone down to the first
+      // healthy one, so with the QB1 out, QB2 is the starter now and counts fully too
+      const slot = new Map(), spotsSeen = new Set(); // athlete id -> { key, depth, isKey }
       let total = 0;
       (dc?.items || []).forEach((it) => Object.entries(it.positions || {}).forEach(([k, v]) => {
         if (!(k in INJ_W)) return;
-        const n = k === "wr" ? 3 : 1;
+        const spots = new Map();
         (v.athletes || []).forEach((a) => {
-          const id = (/athletes\/(\d+)/.exec(a.athlete?.$ref || "") || [])[1], r = a.rank || a.slot || 99;
-          if (!id) return;
-          const starter = r <= n, old = slot.get(id);
-          if (starter && !(old?.starter)) total += INJ_W[k];
-          if (!old || (starter && !old.starter) || (!old.starter && r < old.rank)) slot.set(id, { key: k, rank: r, starter });
+          const id = (/athletes\/(\d+)/.exec(a.athlete?.$ref || "") || [])[1];
+          if (id) { const sl = a.slot || 1; if (!spots.has(sl)) spots.set(sl, []); spots.get(sl).push({ id, r: a.rank || 99 }); }
         });
+        for (const [sl, list] of spots) {
+          if (spotsSeen.has(`${k}:${sl}`)) continue; // the same spot in another formation
+          spotsSeen.add(`${k}:${sl}`);
+          total += INJ_W[k];
+          list.sort((a, b) => a.r - b.r);
+          let filled = false;
+          list.forEach((x, i) => {
+            const isKey = !filled, old = slot.get(x.id);
+            if (!missing.has(x.id)) filled = true;
+            if (!old || (isKey && !old.isKey) || (!old.isKey && i + 1 < old.depth)) slot.set(x.id, { key: k, depth: i + 1, isKey });
+          });
+        }
       }));
       const weight = (id, pos) => {
         const s = slot.get(id);
-        return [s ? INJ_W[s.key] * (s.starter ? 1 : s.rank === 2 || (s.key === "wr" && s.rank <= 5) ? 0.15 : 0.05) : (INJ_POS_W[pos] || 1) * 0.3, s];
+        return [s ? INJ_W[s.key] * (s.isKey ? 1 : s.depth === 2 ? 0.15 : 0.05) : (INJ_POS_W[pos] || 1) * 0.3, s];
       };
       const hurt = (t.injuries || []).filter((i) => INJ_HIT(i.status) > 0).map((i) => {
-        const a = i.athlete || {}, id = (/\/id\/(\d+)/.exec((a.links || []).map((l) => l.href).join(" ")) || [])[1] || "";
+        const a = i.athlete || {}, id = idOf(i);
         const pos = a.position?.abbreviation || "", [w, s] = weight(id, pos);
-        return { id, name: a.displayName || "", pos, status: i.status, starter: !!s?.starter, onChart: !!s, w, lost: w * INJ_HIT(i.status),
+        return { id, name: a.displayName || "", pos, status: i.status, key: !!s?.isKey, onChart: !!s, w, lost: w * INJ_HIT(i.status),
           note: i.shortComment || "", pic: a.headshot?.href || "" };
       });
       // today's games: hurt in the game counts right away (or counts more, if the report had him lower)
@@ -1500,13 +1516,13 @@ const Live = (() => {
           continue;
         }
         const [w, s] = weight(id, g.pl.pos);
-        hurt.push({ id, name: g.pl.name, pos: g.pl.pos, status: st, starter: !!s?.starter, onChart: !!s, w, lost: w * g.hit, note: g.note, pic: g.pl.pic, ingame: true });
+        hurt.push({ id, name: g.pl.name, pos: g.pl.pos, status: st, key: !!s?.isKey, onChart: !!s, w, lost: w * g.hit, note: g.note, pic: g.pl.pic, ingame: true });
       }
       hurt.sort((a, b) => b.lost - a.lost);
       const lost = hurt.reduce((s, h) => s + h.lost, 0);
       const info = tm.get(String(t.id)) || { id: t.id, displayName: t.displayName, abbreviation: t.displayName };
       return { id: String(t.id), team: info, hurt, health: total ? Math.max(0, Math.min(100, 100 * (1 - lost / total))) : 100,
-        startersOut: hurt.filter((h) => h.starter && h.lost >= 0.75 * h.w).length };
+        keyOut: hurt.filter((h) => h.key && h.lost >= 0.75 * h.w).length };
     }));
     teams.sort((a, b) => a.health - b.health);
     teams.live = ig.live;
@@ -1533,19 +1549,19 @@ const Live = (() => {
     const chip = (h) => { const f = h.w ? h.lost / h.w : INJ_HIT(h.status);
       return `<span class="inj-st ${f >= 1 ? "out" : f >= 0.75 ? "dbt" : "q"}">${esc(/injured reserve/i.test(h.status) ? "IR" : h.status)}</span>`; };
     const list = (t) => `<ul class="inj-list">${t.hurt.map((h) => `<li>${face(h.pic, h.name, "hs")}<div><a href="${link("player", h.id)}"><b>${esc(h.name)}</b></a>
-        <small class="muted">${esc(h.pos)}</small> ${chip(h)}${h.starter ? ` <span class="inj-starter">STARTER</span>` : ""}${h.ingame ? ` <span class="inj-live">IN-GAME</span>` : ""}
+        <small class="muted">${esc(h.pos)}</small> ${chip(h)}${h.key ? ` <span class="inj-starter" title="A starter, or the next man up because the starter is out">KEY</span>` : ""}${h.ingame ? ` <span class="inj-live">IN-GAME</span>` : ""}
         ${h.note ? `<small class="inj-note">${esc(h.note)}</small>` : ""}</div></li>`).join("") || `<li class="muted">Nobody on the report.</li>`}</ul>`;
     view("stats").innerHTML = stSubStats("injuries") + `<div class="card">
       <div class="sc-bar"><h2>Injuries <small class="muted">NFL · how healthy is each team?</small></h2><span class="muted">${liveBadge(teams.live)}</span></div>
       <div class="inj-head">${img(teamLogo(focus.team), "lg")}<div><b>${esc(focus.team.displayName || "")}</b>
         <span class="inj-big" style="color:${col(focus.health)}">${Math.round(focus.health)}% healthy</span>
-        <small class="muted">${rank === 1 ? "The most banged-up team in the NFL" : `${ord(rank)} most banged-up of ${teams.length}`} · ${focus.startersOut} starter${focus.startersOut === 1 ? "" : "s"} out · league average ${Math.round(avg)}%</small></div></div>
+        <small class="muted">${rank === 1 ? "The most banged-up team in the NFL" : `${ord(rank)} most banged-up of ${teams.length}`} · ${focus.keyOut} key player${focus.keyOut === 1 ? "" : "s"} out · league average ${Math.round(avg)}%</small></div></div>
       <div class="inj-chart" id="inj-chart" role="list">${teams.map((t, i) => `<button class="inj-row${t === focus ? " on" : ""}" data-t="${esc(t.team.abbreviation)}" role="listitem"
-          title="${esc(t.team.displayName || "")}: ${Math.round(t.health)}% healthy, ${t.startersOut} starters out">
+          title="${esc(t.team.displayName || "")}: ${Math.round(t.health)}% healthy, ${t.keyOut} key players out">
           <span class="inj-rk">${i + 1}</span><span class="tm">${img(teamLogo(t.team), "xs")} ${esc(t.team.abbreviation)}</span>
           <span class="inj-bar"><i style="width:${t.health.toFixed(1)}%;background:${col(t.health)}"></i><em style="left:${avg.toFixed(1)}%" title="League average"></em></span>
-          <span class="inj-pct">${Math.round(t.health)}%</span><span class="inj-so">${t.startersOut ? `${t.startersOut} starter${t.startersOut === 1 ? "" : "s"} out` : ""}</span></button>`).join("")}</div>
-      <p class="fr-how">Tap a team for its report. <b>% healthy</b> weighs who's hurt: a starting QB counts about 10x a punter, starters count fully and backups a little. Out or IR counts fully, Doubtful 3/4, Questionable 1/4. The dashed line is the league average.</p>
+          <span class="inj-pct">${Math.round(t.health)}%</span><span class="inj-so">${t.keyOut ? `${t.keyOut} key out` : ""}</span></button>`).join("")}</div>
+      <p class="fr-how">Tap a team for its report. <b>% healthy</b> weighs who's hurt: a starting QB counts about 10x a punter. <b>Key players</b> count fully: the starters, plus the next man up when a starter is out (with QB1 out, QB2 is the starter, so losing him hurts just as much). Other backups count a little. Out or IR counts fully, Doubtful 3/4, Questionable 1/4. The dashed line is the league average.</p>
       <div id="inj-detail"><h3>${esc(focus.team.displayName || "")} injury report</h3>${list(focus)}</div>
       <p class="note">ESPN's injury report and depth charts, plus today's games: anyone hurt during a game counts right away (from the play-by-play, marked IN-GAME) and drops off if he returns. During games this page refreshes every minute. Players already moved off the depth chart (often to IR) count at 30%.</p></div>`;
     $("#inj-chart").onclick = (e) => {
