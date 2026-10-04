@@ -618,7 +618,12 @@ const Live = (() => {
         <animate attributeName="opacity" values="1;0;1" keyTimes="0;.5;1" dur=".24s" repeatCount="8" calcMode="discrete" fill="freeze"/></g>
       <g opacity="0">${r(x - 8, y - 8, 14, 12, "#ffd21f")}${r(x + 6, y - 8, 4, 4, "#ffffff")}${r(x - 8, y + 4, 6, 2, "#c9a400")}
         <animate attributeName="opacity" values="0;1;0" keyTimes="0;.5;1" dur=".24s" repeatCount="8" calcMode="discrete" fill="freeze"/></g></g>`;
-    const flagOnField = isFlag ? `<g>${flagSprite(X(from) + (String(play.start?.team?.id) === String(home.team.id) ? 1 : -1) * 18, 176)}</g>` : "";
+    // hover / tap the flag: what it was for. "PENALTY on PIT-M.Pittman, False Start, 5 yards, enforced at PIT 22 - No Play."
+    const flagWho = /penalty on [a-z]{2,4}-([^,]+),/i.exec(play.text || "")?.[1]?.trim();
+    const flagTag = !isFlag ? "" : ` class="tf-flag" data-flag="${esc(pm ? pm[2] : "Penalty")}" data-flagsub="${esc([pm && pm[1].toUpperCase(), flagWho && !/^team$/i.test(flagWho) ? flagWho : "",
+      pm && `${pm[3]} yards`, /declined/.test(txt) ? "declined" : /offsetting/.test(txt) ? "offsetting" : /no play/.test(txt) ? "no play" : ""].filter(Boolean).join(" · "))}"`;
+    const flagHit = (x, y) => `<rect x="${x - 22}" y="${y - 22}" width="44" height="44" fill="transparent"/>`; // easier to hit than the 16-px flag
+    const flagOnField = isFlag ? `<g${flagTag}>${flagHit(X(from) + (String(play.start?.team?.id) === String(home.team.id) ? 1 : -1) * 18, 176)}${flagSprite(X(from) + (String(play.start?.team?.id) === String(home.team.id) ? 1 : -1) * 18, 176)}</g>` : "";
 
     // the replay itself
     let replay = "", banner = "";
@@ -702,7 +707,7 @@ const Live = (() => {
         const rx = Math.max(130, Math.min(1070, sx + pdir * 40)), land = sx + pdir * 18;
         replay += `<g opacity="0"><set attributeName="opacity" to="1" begin="0s" fill="freeze"/>${refSprite(rx, 30, true)}
           <animate attributeName="opacity" from="1" to="0" begin="2.6s" dur=".3s" fill="freeze"/></g>`;
-        replay += `<g opacity="0">${flagSprite(0, 0)}<set attributeName="opacity" to="1" begin=".35s" fill="freeze"/>
+        replay += `<g opacity="0"${flagTag}>${flagHit(0, 0)}${flagSprite(0, 0)}<set attributeName="opacity" to="1" begin=".35s" fill="freeze"/>
           <animateMotion path="M${rx + 8},24 Q${(rx + land) / 2},-50 ${land},176" begin=".35s" dur=".95s" fill="freeze"/></g>`;
       }
       const big = isTD ? "TOUCHDOWN!" : isFG ? (fgGood ? "IT'S GOOD!" : /blocked/.test(type + txt) ? "BLOCKED!" : "NO GOOD!")
@@ -825,13 +830,16 @@ const Live = (() => {
     fieldTipsWired = true;
     const root = view("game");
     let on = null;
+    const PICK = ".tf-field .tf-guy, .tf-field .tf-flag";
     const show = (g, ev) => {
       const wrap = g.closest(".tf-wrap"), tip = wrap?.querySelector(".tf-tip");
       if (!tip) return;
       if (on && on !== g) on.classList.remove("on");
       on = g; g.classList.add("on");
       const d = g.dataset;
-      tip.innerHTML = d.name
+      tip.innerHTML = d.flag
+        ? `<span class="tf-tipflag"></span><div><b>FLAG · ${esc(d.flag)}</b><small>${esc(d.flagsub || "Penalty on the play")}</small></div>`
+        : d.name
         ? `${d.pic ? `<img src="${esc(d.pic)}" alt="" width="40" height="40">` : ""}<div><b>${d.num ? `#${esc(d.num)} ` : ""}${esc(d.name)}</b>
            <small>${esc([d.pos, d.team].filter(Boolean).join(" · "))}${d.sure === "1" ? " · in this play" : " · likely (depth chart)"}</small></div>`
         : `<div><b>${esc(d.team)}</b><small>No name for this spot</small></div>`;
@@ -839,12 +847,35 @@ const Live = (() => {
       tip.style.left = `${Math.min(r.width - 10, Math.max(10, b.left - r.left + b.width / 2))}px`;
       tip.style.top = `${b.top - r.top}px`;
       tip.classList.toggle("flip", b.left - r.left > r.width * 0.6);
+      tip.classList.toggle("flipl", b.left - r.left < r.width * 0.25);
       tip.classList.remove("hidden");
     };
     const hide = () => { if (on) on.classList.remove("on"); on = null; root.querySelectorAll(".tf-tip").forEach((t) => t.classList.add("hidden")); };
-    root.addEventListener("pointerover", (ev) => { const g = ev.target.closest?.(".tf-field .tf-guy"); if (g) show(g, ev); });
-    root.addEventListener("pointerout", (ev) => { const g = ev.target.closest?.(".tf-field .tf-guy"); if (g && !g.contains(ev.relatedTarget)) hide(); });
-    root.addEventListener("click", (ev) => { const g = ev.target.closest?.(".tf-field .tf-guy"); if (g) show(g, ev); else if (!ev.target.closest(".tf-tip")) hide(); });
+    // phones: the players are tiny, so a tap picks whoever is closest to the finger (within ~36 px)
+    const nearest = (ev) => {
+      const field = ev.target.closest?.(".tf-field");
+      if (!field) return null;
+      let best = null, bd = 36 * 36;
+      field.querySelectorAll(".tf-guy, .tf-flag").forEach((g) => {
+        const b = g.getBoundingClientRect();
+        if (!b.width || getComputedStyle(g).visibility === "hidden") return;
+        const dx = ev.clientX - (b.left + b.width / 2), dy = ev.clientY - (b.top + b.height / 2);
+        const dd = (dx * dx + dy * dy) * (g.classList.contains("tf-flag") ? 0.3 : 1); // the flag wins close calls
+        if (dd < bd) { bd = dd; best = g; }
+      });
+      return best;
+    };
+    let touch = false;
+    root.addEventListener("pointerdown", (ev) => { touch = ev.pointerType !== "mouse"; });
+    root.addEventListener("pointerover", (ev) => { if (ev.pointerType !== "mouse") return; const g = ev.target.closest?.(PICK); if (g) show(g, ev); });
+    root.addEventListener("pointerout", (ev) => { if (ev.pointerType !== "mouse") return; const g = ev.target.closest?.(PICK); if (g && !g.contains(ev.relatedTarget)) hide(); });
+    root.addEventListener("click", (ev) => {
+      if (ev.target.closest?.(".tf-rb, .tf-rmenu")) return;
+      const g = ev.target.closest?.(PICK) || (touch ? nearest(ev) : null);
+      if (g && g === on && touch) hide(); // tap the same one again to close
+      else if (g) show(g, ev);
+      else if (!ev.target.closest(".tf-tip")) hide();
+    });
     // replay button (bottom right of the field): pick one of the last 3 plays, or all 3 back to back
     root.addEventListener("click", (ev) => {
       const rb = ev.target.closest?.(".tf-rb"), item = ev.target.closest?.(".tf-rmenu [data-rp]");
@@ -869,7 +900,10 @@ const Live = (() => {
     let shown = live, shownBar = liveBar;
     const done = () => {
       stopReplay = null;
-      if (shown !== live) shown.replaceWith(live);
+      if (shown !== live) {
+        shown.replaceWith(live);
+        try { live.setCurrentTime(60); } catch (e) {} // put back into the page, its animations would start over: skip to the end
+      }
       if (shownBar && shownBar !== liveBar) shownBar.replaceWith(liveBar);
       wrap.querySelector(".tf-rb").textContent = "▶ REPLAY";
       wrap.querySelector(".tf-rb").classList.remove("on");
