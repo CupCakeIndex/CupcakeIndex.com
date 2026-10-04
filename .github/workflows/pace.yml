@@ -1,0 +1,79 @@
+name: Historic pace post
+
+# "On historic pace" posts for X: the player whose season pace is closest to (or past) a single-season record,
+# within 10% of it. College Saturday night after the games, NFL Sunday night after Sunday Night Football.
+# No one close to a record that week = no post. Run it any time: Actions tab > "Historic pace post" > Run workflow.
+# No link in the post, 280 characters max. Posting follows the repo variable X_POSTING_ENABLED, same as the others.
+
+on:
+  schedule:
+    - cron: "30 3 * 8-10 0"       # Saturday 11:30 PM Eastern (college), Aug-Oct
+    - cron: "30 4 * 11,12,1 0"    # Saturday 11:30 PM Eastern (college), Nov-Jan (standard time)
+    - cron: "45 3 * 9,10 1"       # Sunday 11:45 PM Eastern (NFL), Sep-Oct
+    - cron: "45 4 * 11,12,1 1"    # Sunday 11:45 PM Eastern (NFL), Nov-Jan (standard time)
+  workflow_dispatch:
+    inputs:
+      league:
+        description: "Which league"
+        type: choice
+        default: cfb
+        options: [cfb, nfl]
+      theme:
+        description: "Card look (a site theme; random = surprise me)"
+        type: choice
+        default: random
+        options: [random, mono, terminal, amber, broadcast, editorial, glass, varsity]
+      post:
+        description: "Post to X (untick to only make the picture)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write   # commits data/social/posted.json after a post
+
+concurrency:
+  group: social-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r src/social/requirements.txt
+      - name: Render the card (if anyone is on historic pace)
+        env:
+          LEAGUE: ${{ inputs.league }}
+          THEME: ${{ inputs.theme || 'random' }}
+        run: |
+          # scheduled: Sunday (UTC) = Saturday night college, Monday (UTC) = Sunday night NFL
+          if [ -z "$LEAGUE" ]; then LEAGUE=$([ "$(date -u +%u)" = "7" ] && echo cfb || echo nfl); fi
+          python src/social/obscure.py --stat "pace_${LEAGUE}_historic" --theme "$THEME" --ok-empty
+      - uses: actions/upload-artifact@v4
+        if: hashFiles('out/social/today.json') != ''
+        with:
+          name: historic-pace
+          path: out/social/
+          retention-days: 14
+      - name: Post to X
+        if: hashFiles('out/social/today.json') != '' && (github.event_name == 'schedule' || inputs.post) && vars.X_POSTING_ENABLED == 'true'
+        env:
+          X_POSTING_ENABLED: ${{ vars.X_POSTING_ENABLED }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+        run: python src/social/post_to_x.py --meta out/social/today.json
+      - name: Save the posting log
+        if: success()
+        run: |
+          git config user.name "rankings-bot"
+          git config user.email "rankings-bot@users.noreply.github.com"
+          git add data/social/posted.json 2>/dev/null || exit 0
+          git diff --cached --quiet && echo "Nothing new posted" && exit 0
+          git commit -m "Posting log update $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase
+          git push

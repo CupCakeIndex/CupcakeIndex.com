@@ -658,6 +658,87 @@ def _():
 
 
 # ------------------------------------------------------------------ card
+# --- historic pace: a player on pace for (or near) a single-season record --------------------------
+# Posted on their own after the games (.github/workflows/pace.yml): college Saturday night, NFL Sunday night.
+# Pace = season total / team games played x the regular season (12 college games, 17 NFL), the usual "on pace".
+# Records checked Oct 2026 (FBS counts bowl games since 2002; NFL is the regular season).
+RECORDS = {
+    "cfb": {"passingYards": (5967, "Bailey Zappe", "Western Kentucky", 2021), "passingTouchdowns": (62, "Bailey Zappe", "Western Kentucky", 2021),
+            "rushingYards": (2628, "Barry Sanders", "Oklahoma State", 1988), "rushingTouchdowns": (37, "Barry Sanders", "Oklahoma State", 1988),
+            "receivingYards": (2060, "Trevor Insley", "Nevada", 1999), "receptions": (158, "Zay Jones", "East Carolina", 2016),
+            "receivingTouchdowns": (27, "Troy Edwards", "Louisiana Tech", 1998)},
+    "nfl": {"passingYards": (5477, "Peyton Manning", "Broncos", 2013), "passingTouchdowns": (55, "Peyton Manning", "Broncos", 2013),
+            "rushingYards": (2105, "Eric Dickerson", "Rams", 1984), "rushingTouchdowns": (28, "LaDainian Tomlinson", "Chargers", 2006),
+            "receivingYards": (1964, "Calvin Johnson", "Lions", 2012), "receptions": (149, "Michael Thomas", "Saints", 2019),
+            "receivingTouchdowns": (23, "Randy Moss", "Patriots", 2007)},
+}
+PACE_LABEL = {"passingYards": "passing yards", "passingTouchdowns": "passing TDs", "rushingYards": "rushing yards",
+              "rushingTouchdowns": "rushing TDs", "receivingYards": "receiving yards", "receptions": "catches", "receivingTouchdowns": "receiving TDs"}
+SEASON_GAMES = {"cfb": 12, "nfl": 17}
+PACE_MIN = 0.9  # within 10% of the record (or past it) counts as historic; otherwise no post that week
+# team games before a pace counts: yards and catches settle fast, TD paces are silly until mid-season
+PACE_GAMES = {"cfb": (4, 6), "nfl": (5, 9)}  # (yards/catches, TDs)
+
+
+def team_games(league, tid):
+    """Games a team has played this regular season, from its record ("5-1", "4-1-1")."""
+    key = f"tg-{league}-{tid}"
+    if key not in _cache:
+        lg = "nfl" if league == "nfl" else "college-football"
+        t = _session.get(f"https://site.api.espn.com/apis/site/v2/sports/football/{lg}/teams/{tid}", timeout=30).json().get("team", {})
+        item = next((i for i in t.get("record", {}).get("items", []) if i.get("type") == "total"), None) or (t.get("record", {}).get("items") or [{}])[0]
+        _cache[key] = sum(int(x) for x in re.findall(r"\d+", item.get("summary", "")))
+    return _cache[key]
+
+
+def historic_pace(league):
+    lg = "nfl" if league == "nfl" else "college-football"
+    y = load(os.path.join(DATA, "index.json"))["leagues"][league]["latest"]["season"]
+    cats = _session.get(f"https://site.api.espn.com/apis/site/v3/sports/football/{lg}/leaders?season={y}&seasontype=2&limit=10",
+                        timeout=30).json().get("leaders", {}).get("categories", [])
+    n, scope = SEASON_GAMES[league], "FBS" if league == "cfb" else "NFL"
+    best = None
+    for c in cats:
+        rec_ = RECORDS[league].get(c.get("name"))
+        if not rec_:
+            continue
+        rows = []
+        for l in c.get("leaders", []):
+            a, t = l.get("athlete", {}), l.get("team") or {}
+            tg = team_games(league, t.get("id")) if t.get("id") else 0
+            if tg < PACE_GAMES[league]["Touchdowns" in c["name"]] or not l.get("value"):
+                continue
+            pace = l["value"] / tg * n
+            rows.append(({"name": a.get("displayName", ""), "pos": (a.get("position") or {}).get("abbreviation", ""), "team": t.get("abbreviation", ""),
+                          "color": "#" + (t.get("color") or "555555"), "logo": ((t.get("logos") or [{}])[0]).get("href"),
+                          "pic": (a.get("headshot") or {}).get("href"), "total": l["value"], "tg": tg}, pace, n0(pace)))
+        rows.sort(key=lambda r: -r[1])
+        if rows and (best is None or rows[0][1] / rec_[0] > best[0]):
+            best = (rows[0][1] / rec_[0], c["name"], rows, rec_)
+    if not best or best[0] < PACE_MIN:
+        return None
+    ratio, cat, rows, (rv, who, team, yr) = best
+    p, pace, s = rows[0]
+    what = PACE_LABEL[cat]
+    season = f"over a {n}-game regular season" if league == "cfb" else "over 17 games"
+    vs = (f"That would break the {scope} record of {rv:,} by {who} ({team}, {yr})." if pace > rv
+          else f"That would tie the {scope} record set by {who} ({team}, {yr})." if round(pace) == rv
+          else f"The {scope} record is {rv:,} by {who} ({team}, {yr}).")
+    return fact(league, "player", rows[:5], "On historic pace", f"{what.capitalize()} pace {season}. The {scope} record: {rv:,} ({who}, {yr})",
+                f"{what} pace", f"{p['name']} ({p['team']}) is on pace for {s} {what} {season}: {p['total']:,.0f} through {p['tg']} games. {vs}") | {
+        "tag": "HISTORIC PACE"}
+
+
+@stat("pace_cfb_historic")
+def _():
+    return historic_pace("cfb")
+
+
+@stat("pace_nfl_historic")
+def _():
+    return historic_pace("nfl")
+
+
 def wrap(d, text, f, max_w, lines=2):
     out, cur = [], ""
     for w in text.split():
@@ -838,7 +919,7 @@ def rotation(now=None):
     """Scheduled runs (twice a day): walk a fixed shuffled order of every stat, one per run, so nothing
     repeats for ~2 weeks (X rejects exact duplicate posts). Afternoon run = even slot, evening = odd."""
     now = now or dt.datetime.now(dt.timezone.utc)
-    order = sorted(STATS)
+    order = sorted(k for k in STATS if not k.startswith("pace_"))  # pace posts have their own schedule (pace.yml)
     random.Random(now.year).shuffle(order)
     slot = now.timetuple().tm_yday * 2 + (now.hour >= 20)
     return [order[(slot + i) % len(order)] for i in range(len(order))]  # next one first, the rest as fallbacks
@@ -849,15 +930,17 @@ def main():
     ap.add_argument("--stat", default="rotate", help="stat key, or rotate (default) / random / random-hot / random-stat")
     ap.add_argument("--theme", choices=["random", *THEMES], default="random", help="card look (site themes)")
     ap.add_argument("--list", action="store_true")
+    ap.add_argument("--ok-empty", action="store_true", help="no stat qualifies: exit quietly (no today.json) instead of failing")
     ap.add_argument("--all", action="store_true", help="render every stat")
     ap.add_argument("--out", default=os.path.join(ROOT, "out", "social"))
     a = ap.parse_args()
     if a.list:
         print("\n".join(STATS))
         return
-    pools = {"random": list(STATS), "random-hot": [k for k in STATS if k.startswith("hot_")],
-             "random-stat": [k for k in STATS if not k.startswith("hot_")],
-             "random-obscure": [k for k in STATS if not k.startswith("hot_")]}  # old name for random-stat
+    rot = [k for k in STATS if not k.startswith("pace_")]
+    pools = {"random": rot, "random-hot": [k for k in STATS if k.startswith("hot_")],
+             "random-stat": [k for k in rot if not k.startswith("hot_")],
+             "random-obscure": [k for k in rot if not k.startswith("hot_")]}  # old name for random-stat
     if a.stat not in STATS and a.stat not in pools and a.stat != "rotate":
         sys.exit(f"Unknown stat '{a.stat}'. Run with --list to see them.")
     if a.all:
@@ -890,6 +973,9 @@ def main():
             print(f"[{key}] not enough data yet")
     if not a.all:
         if not m:
+            if a.ok_empty:
+                print("Nothing to post this time.")
+                return
             sys.exit("No stat had enough data.")
         with open(os.path.join(a.out, "today.json"), "w", encoding="utf-8") as fh:
             json.dump(m, fh, indent=1, ensure_ascii=False)
