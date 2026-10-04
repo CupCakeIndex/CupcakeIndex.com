@@ -337,63 +337,78 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       <div class="v-info"><b>${esc(c.player || "Unknown player")}</b><span>${esc([c.year, c.set, c.number, c.parallel, c.serial, c.grade].filter(Boolean).join(" · "))}</span>
         <div class="tags">${tagsOf(c)}</div>
         <div class="v-acts"><button type="button" id="v-flip">Flip</button><button type="button" id="v-turn">Turn</button></div>
-        <p class="hint">Drag to turn it in your hand · tap to flip · pinch to zoom</p></div>`;
+        <p class="hint">Drag to turn it in your hand · tap to flip · pinch to bring it closer</p></div>`;
     document.body.appendChild(v); document.body.style.overflow = "hidden";
     if (!c.front) full(c).then(() => {
       const [fr, bk] = v.querySelectorAll(".v-face");
       fr.style.backgroundImage = c.front ? `url('${c.front}')` : ""; bk.style.backgroundImage = c.back ? `url('${c.back}')` : ""; bk.textContent = c.back ? "" : "No back photo";
     }).catch(() => {});
     const card = v.querySelector(".v-card"), stage = v.querySelector(".v-stage");
-    // rx/ry = tilt from dragging, turn = quarter turns (Turn button); a sideways back turns itself when it's showing
-    let rx = 0, ry = 0, turn = 0, drag = null, zoom = 1, px = 0, py = 0, pinch = null;
+    // Like holding the card: one finger tilts and turns it; two fingers bring it closer (pinch), twist it and move it,
+    // and lifting one of them keeps turning it up close. Let go and it springs back: flat, normal size, on whichever
+    // side is facing you. rx/ry = tilt, twist = two-finger spin, zoom = how close (pulled toward you in 3D, not just
+    // made bigger), turn = quarter turns from the Turn button (a sideways back turns itself when it's showing).
+    const PERSP = 1400, MAXZ = 3;
+    let rx = 0, ry = 0, turn = 0, twist = 0, zoom = 1, px = 0, py = 0, drag = null, pinch = null, wheelZoom = false;
     const pts = new Map(); // fingers on the card right now
-    const zoomed = () => zoom > 1.02;
     const backUp = () => Math.round(ry / 180) % 2 !== 0;
     const set = (anim) => {
       const z = turn + ((backUp() ? c.backWide : c.frontWide) ? 1 : 0), wide = z % 2 !== 0;
       card.style.transition = anim ? "" : "none";
-      const lim = (W * zoom) / 2; px = Math.max(-lim, Math.min(lim, px)); py = Math.max(-lim * 1.4, Math.min(lim * 1.4, py));
-      card.style.transform = `translate(${px.toFixed(1)}px, ${py.toFixed(1)}px) scale(${((wide ? Math.min(1, (innerWidth - 40) / H) : 1) * zoom).toFixed(3)}) rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${z * (backUp() ? -90 : 90)}deg)`; // flipped over, a turn runs the other way in the card's own plane
+      const lim = W * zoom; px = Math.max(-lim, Math.min(lim, px)); py = Math.max(-lim, Math.min(lim, py));
+      card.style.transform = `translate(${px.toFixed(1)}px, ${py.toFixed(1)}px) translateZ(${(PERSP * (1 - 1 / zoom)).toFixed(1)}px) rotateZ(${twist.toFixed(1)}deg)`
+        + ` scale(${wide ? Math.min(1, (innerWidth - 40) / H).toFixed(3) : 1}) rotateX(${rx.toFixed(1)}deg) rotateY(${ry.toFixed(1)}deg) rotateZ(${z * (backUp() ? -90 : 90)}deg)`; // flipped over, a turn runs the other way in the card's own plane
     };
     set(false);
     requestAnimationFrame(() => v.classList.add("on"));
-    const unzoom = () => { zoom = 1; px = py = 0; set(true); };
-    const two = () => { const [p, q] = [...pts.values()]; return { d: Math.hypot(p.x - q.x, p.y - q.y) || 1, x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }; };
+    const settle = () => { rx = 0; ry = Math.round(ry / 180) * 180; if (!wheelZoom) { zoom = 1; px = py = twist = 0; } set(true); };
+    const two = () => { const [p, q] = [...pts.values()]; return { d: Math.hypot(p.x - q.x, p.y - q.y) || 1, a: Math.atan2(q.y - p.y, q.x - p.x) * 180 / Math.PI, x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }; };
+    const grab = (p) => ({ x: p.x, y: p.y, rx, ry, moved: false });
     stage.addEventListener("pointerdown", (e) => {
       e.preventDefault(); try { stage.setPointerCapture(e.pointerId); } catch (err) { /* not a live pointer */ }
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (pts.size === 2) { const g = two(); pinch = { d: g.d, x: g.x, y: g.y, zoom, px, py }; drag = null; } // second finger: pinch
-      else if (pts.size === 1) drag = { x: e.clientX, y: e.clientY, rx, ry, px, py, moved: false };
+      if (pts.size === 2) { const g = two(); pinch = { ...g, zoom, twist, px, py }; wheelZoom = false; drag = null; } // second finger: bring it closer
+      else if (pts.size === 1) drag = grab(pts.get(e.pointerId));
     });
     stage.addEventListener("pointermove", (e) => {
       if (!pts.has(e.pointerId)) return;
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pinch && pts.size >= 2) {
         const g = two();
-        zoom = Math.max(1, Math.min(4, pinch.zoom * g.d / pinch.d)); px = pinch.px + g.x - pinch.x; py = pinch.py + g.y - pinch.y; set(false);
+        let da = g.a - pinch.a; da = ((da + 540) % 360) - 180;
+        zoom = Math.max(1, Math.min(MAXZ, pinch.zoom * g.d / pinch.d)); twist = pinch.twist + da;
+        px = pinch.px + g.x - pinch.x; py = pinch.py + g.y - pinch.y;
+        set(false);
         return;
       }
       if (!drag) return;
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
       if (Math.hypot(dx, dy) > 6) drag.moved = true;
       if (!drag.moved) return;
-      if (zoomed()) { px = drag.px + dx; py = drag.py + dy; } // zoomed in: move it around
-      else { ry = drag.ry + dx * 0.6; rx = Math.max(-70, Math.min(70, drag.rx - dy * 0.5)); }
-      set(false);
+      ry = drag.ry + dx * 0.6; rx = Math.max(-70, Math.min(70, drag.rx - dy * 0.5)); set(false); // tilt and turn, close up or not
     });
     const flip = () => { ry = Math.round(ry / 180) * 180 + 180; rx = 0; set(true); };
     const lift = (e) => {
       pts.delete(e.pointerId);
-      if (pinch) { if (pts.size < 2) { pinch = null; drag = null; if (!zoomed()) unzoom(); } return; } // end of a pinch is never a tap
-      if (!drag) return;
+      if (pinch) { // one finger left: keep turning it up close with that finger
+        pinch = null;
+        if (pts.size === 1) { drag = grab([...pts.values()][0]); drag.moved = true; } else { drag = null; settle(); }
+        return;
+      }
+      if (!drag || pts.size) return;
       const moved = drag.moved; drag = null;
-      if (!moved) return zoomed() ? unzoom() : flip(); // tap: zoom back out, or flip
-      if (zoomed()) return;
-      ry = Math.round(ry / 180) * 180; rx = 0; set(true); // let go: it settles back flat, on whichever side is facing you
+      if (!moved) return flip(); // a tap flips it
+      settle(); // let go: it springs back
     };
     stage.addEventListener("pointerup", lift);
-    stage.addEventListener("wheel", (e) => { e.preventDefault(); zoom = Math.max(1, Math.min(4, zoom * Math.exp(-e.deltaY * 0.0015))); if (!zoomed()) { zoom = 1; px = py = 0; } set(false); }, { passive: false });
-    stage.addEventListener("pointercancel", (e) => { pts.delete(e.pointerId); pinch = null; drag = null; rx = 0; ry = Math.round(ry / 180) * 180; set(true); });
+    stage.addEventListener("pointercancel", (e) => { pts.delete(e.pointerId); if (!pts.size) { pinch = null; drag = null; settle(); } });
+    // computer: the mouse wheel brings it closer and it stays there until you wheel back out
+    stage.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      zoom = Math.max(1, Math.min(MAXZ, zoom * Math.exp(-e.deltaY * 0.0015))); wheelZoom = zoom > 1.01;
+      if (!wheelZoom) { zoom = 1; px = py = 0; }
+      set(false);
+    }, { passive: false });
     v.querySelector("#v-flip").onclick = flip;
     v.querySelector("#v-turn").onclick = () => { turn++; set(true); };
     const close = () => { v.classList.remove("on"); document.body.style.overflow = ""; removeEventListener("keydown", key); setTimeout(() => v.remove(), 250); };
