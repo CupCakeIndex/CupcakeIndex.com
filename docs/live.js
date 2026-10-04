@@ -361,7 +361,36 @@ const Live = (() => {
     const is = (c) => [c.team.abbreviation, ABBR_ALIAS[c.team.abbreviation]].filter(Boolean).map((x) => x.toUpperCase()).includes(side);
     return is(away) ? 100 - +n : is(home) ? +n : null;
   }
-  function liveField(s, comp, home, away, tc, gameId, people = null) {
+  // Replay: the last few real plays (no timeouts / quarter breaks), and what's needed to redraw the field for one
+  const NOT_A_PLAY = new Set(["21", "74", "75", "2", "65"]);
+  const tfCtx = new Map(); // game id -> latest liveField arguments
+  const recentPlays = (s, n = 3) => [...(s.drives?.previous || []), ...(s.drives?.current ? [s.drives.current] : [])]
+    .flatMap((dr) => dr.plays || []).filter((p) => p.text && p.start?.yardLine != null && !NOT_A_PLAY.has(String(p.type?.id || ""))).slice(-n);
+  // the game as it stood right after play `pid`: drives cut off at that play, so liveField draws (and replays) it
+  function upToPlay(s, pid) {
+    const all = [...(s.drives?.previous || []), ...(s.drives?.current ? [s.drives.current] : [])], out = [];
+    for (const dr of all) {
+      const i = (dr.plays || []).findIndex((p) => String(p.id) === String(pid));
+      if (i < 0) { out.push(dr); continue; }
+      out.push({ ...dr, plays: dr.plays.slice(0, i + 1) });
+      return { ...s, drives: { previous: out } };
+    }
+    return null;
+  }
+  function replayMenu(s) {
+    const ps = recentPlays(s);
+    if (!ps.length) return "";
+    const line = (p) => {
+      const st = p.start || {}, dd = st.down >= 1 && st.down <= 4 ? `${["", "1ST", "2ND", "3RD", "4TH"][st.down]} & ${st.distance}` : "";
+      const t = (p.text || "").trim().replace(/^(\([^)]*\)\s*)+/, "");
+      return `${dd ? `<b>${dd}</b> ` : ""}${esc(t.length > 70 ? t.slice(0, 68) + "…" : t)}`;
+    };
+    return `<button class="tf-rb" type="button" aria-expanded="false">▶ REPLAY</button><div class="tf-rmenu hidden">
+      ${ps.length > 1 ? `<button type="button" data-rp="${ps.map((p) => esc(p.id)).join(",")}"><b>▶ ALL ${ps.length}</b> back to back</button>` : ""}
+      ${ps.slice().reverse().map((p) => `<button type="button" data-rp="${esc(p.id)}">${line(p)}</button>`).join("")}</div>`;
+  }
+  function liveField(s, comp, home, away, tc, gameId, people = null, replayMode = false) {
+    if (!replayMode) tfCtx.set(gameId, { s, comp, home, away, tc, people });
     const drives = s.drives || {};
     const drive = drives.current || (drives.previous || []).at(-1);
     const play = drive?.plays?.at(-1);
@@ -448,7 +477,7 @@ const Live = (() => {
     // this game; QB / RB / WR / TE / K / P go to whoever this game's play-by-play says is actually in
     const P = (c) => people?.[c === home ? "home" : "away"];
     const PLAY_POS = { QB: "qb", RB: "rb", FB: "rb", WR: "wr", TE: "te", PK: "pk", K: "pk", P: "p" };
-    const STRIP = (t) => (t || "").replace(/^(\([^)]*\)\s*)+/, "");
+    const STRIP = (t) => (t || "").trim().replace(/^(\([^)]*\)\s*)+/, "");
     const lookName = (c, nm) => nm && P(c)?.byName.get(nm.trim().replace(/^[A-Z]{2,4}-/, "").replace(/[.,]$/, "").toLowerCase()); // "WAS-M.Mariota"
     const gameIn = new Map(); // team id -> { recent: {qb: [ids, newest first]...}, hurt: Set of ids }
     const allPlays = [...(drives.previous || []), ...(drives.current ? [drives.current] : [])].flatMap((dr) => dr.plays || []);
@@ -740,7 +769,7 @@ const Live = (() => {
         <span class="tf-dd">${ddText}</span>
         <span class="tf-where">${where}${toGo <= 20 && off && !isTD ? ` <b class="tf-red">RED ZONE</b>` : ""}</span>
       </div>
-      <div class="tf-wrap"><div class="tf-tip hidden"></div>
+      <div class="tf-wrap" data-gid="${esc(gameId)}"><div class="tf-tip hidden"></div>${replayMode ? "" : replayMenu(s)}
       <svg class="tf-field" viewBox="${vbX.toFixed(0)} 0 ${vbW.toFixed(0)} ${H}" shape-rendering="crispEdges" role="img"
         aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, where].filter(Boolean).join(", "))}">${base.join("")}${lines}${lineup}${anim ? "" : flagOnField}${replay}${banner.replace(/@BX0@/g, (vbX + vbW / 2 - Math.min(700, vbW - 40) / 2).toFixed(0)).replace(/@BW@/g, Math.min(700, vbW - 40).toFixed(0)).replace(/@BXC@/g, (vbX + vbW / 2).toFixed(0))}</svg></div>
       ${brk ? `<div class="tf-clock" title="The play clock is stopped"><span class="tf-clabel"><b class="tf-stop">${esc(brk)}</b></span><span class="tf-track"><i class="stop"></i></span></div>`
@@ -816,6 +845,57 @@ const Live = (() => {
     root.addEventListener("pointerover", (ev) => { const g = ev.target.closest?.(".tf-field .tf-guy"); if (g) show(g, ev); });
     root.addEventListener("pointerout", (ev) => { const g = ev.target.closest?.(".tf-field .tf-guy"); if (g && !g.contains(ev.relatedTarget)) hide(); });
     root.addEventListener("click", (ev) => { const g = ev.target.closest?.(".tf-field .tf-guy"); if (g) show(g, ev); else if (!ev.target.closest(".tf-tip")) hide(); });
+    // replay button (bottom right of the field): pick one of the last 3 plays, or all 3 back to back
+    root.addEventListener("click", (ev) => {
+      const rb = ev.target.closest?.(".tf-rb"), item = ev.target.closest?.(".tf-rmenu [data-rp]");
+      root.querySelectorAll(".tf-rmenu").forEach((m) => { if (!rb || !m.parentNode.contains(rb)) m.classList.add("hidden"); });
+      if (rb?.classList.contains("on")) { stopReplay?.(); return; } // "■ LIVE": back to the live field now
+      if (rb) {
+        const m = rb.parentNode.querySelector(".tf-rmenu");
+        m.classList.toggle("hidden");
+        rb.setAttribute("aria-expanded", String(!m.classList.contains("hidden")));
+      } else if (item) runReplay(item.closest(".tf-wrap"), item.dataset.rp.split(","));
+    });
+  }
+  let replayRun = 0, stopReplay = null;
+  async function runReplay(wrap, ids) {
+    stopReplay?.(); // one at a time: put the live field back before starting another
+    const ctx = tfCtx.get(wrap?.dataset.gid), live = wrap?.querySelector(".tf-field");
+    if (!ctx || !live) return;
+    const run = ++replayRun, field = wrap.closest(".tecmo"), liveBar = field.querySelector(".tf-bar");
+    wrap.querySelector(".tf-rb").textContent = "■ LIVE";
+    wrap.querySelector(".tf-rb").classList.add("on");
+    field.classList.add("replaying");
+    let shown = live, shownBar = liveBar;
+    const done = () => {
+      stopReplay = null;
+      if (shown !== live) shown.replaceWith(live);
+      if (shownBar && shownBar !== liveBar) shownBar.replaceWith(liveBar);
+      wrap.querySelector(".tf-rb").textContent = "▶ REPLAY";
+      wrap.querySelector(".tf-rb").classList.remove("on");
+      field.classList.remove("replaying");
+    };
+    stopReplay = () => { replayRun++; done(); };
+    for (let i = 0; i < ids.length; i++) {
+      const p = ctx.s && upToPlay(ctx.s, ids[i]);
+      if (!p) continue;
+      const key = `${wrap.dataset.gid}#replay`;
+      tfSeen.delete(key); // so it's drawn as a new play and runs its replay
+      const t = document.createElement("template");
+      t.innerHTML = liveField(p, ctx.comp, ctx.home, ctx.away, ctx.tc, key, ctx.people, true);
+      const svg = t.content.querySelector(".tf-field");
+      if (!svg || run !== replayRun || !wrap.isConnected) return;
+      const pl = p.drives.previous.at(-1).plays.at(-1), txt = (pl.type?.text || "") + " " + (pl.text || "");
+      svg.insertAdjacentHTML("beforeend", `<text x="${svg.viewBox.baseVal.x + 14}" y="292" class="tf-rlabel">REPLAY${ids.length > 1 ? ` ${i + 1}/${ids.length}` : ""}</text>`);
+      shown.replaceWith(svg);
+      shown = svg;
+      const bar = t.content.querySelector(".tf-bar"); // the down and spot of the play being replayed
+      if (bar && shownBar) { shownBar.replaceWith(bar); shownBar = bar; }
+      // touchdowns play out the celebration and the try; everything else is done in about 4 seconds
+      await new Promise((r) => setTimeout(r, pl.scoringPlay && /touchdown/i.test(txt) ? 10500 : 4300));
+      if (run !== replayRun || !wrap.isConnected) return;
+    }
+    done();
   }
 
   async function game(id, params, refresh = false) {
