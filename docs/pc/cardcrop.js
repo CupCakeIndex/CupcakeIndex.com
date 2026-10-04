@@ -9,6 +9,7 @@
 //     by fitting a line along the card's real edge (so rounded corners come out square).
 window.CardCrop = (function () {
   const CARD_W = 700, CARD_H = 980; // saved size: a 2.5 x 3.5 card
+  const SLAB_W = 700, SLAB_H = 1130; // a graded slab (PSA's is about 3.3 x 5.35 in): taller than a card
 
   async function bitmapOf(src) {
     let blob = src;
@@ -196,7 +197,8 @@ window.CardCrop = (function () {
   }
 
   // Warp the 4 corners flat to a card. turns = how many half-turns to spin it (the Rotate button).
-  function warp(bmp, q, turns) {
+  function warp(bmp, q, turns, slab) {
+    const CW = slab ? SLAB_W : CARD_W, CH = slab ? SLAB_H : CARD_H;
     if (turns % 2) q = [q[2], q[3], q[0], q[1]];
     const cx = q.reduce((s, p) => s + p[0], 0) / 4, cy = q.reduce((s, p) => s + p[1], 0) / 4;
     q = q.map(([x, y]) => [x + (cx - x) * 0.006, y + (cy - y) * 0.006]); // a hair inside so no table shows at the edges
@@ -204,13 +206,13 @@ window.CardCrop = (function () {
     const sc = document.createElement("canvas"); sc.width = sw; sc.height = sh;
     const sg = sc.getContext("2d", { willReadFrequently: true }); sg.drawImage(bmp, 0, 0, sw, sh);
     const src = sg.getImageData(0, 0, sw, sh).data;
-    const H = homography([[0, 0], [CARD_W, 0], [CARD_W, CARD_H], [0, CARD_H]], q.map(([x, y]) => [x * S, y * S]));
-    const out = document.createElement("canvas"); out.width = CARD_W; out.height = CARD_H;
-    const og = out.getContext("2d"), img = og.createImageData(CARD_W, CARD_H), o = img.data;
-    for (let y = 0; y < CARD_H; y++) for (let x = 0; x < CARD_W; x++) {
+    const H = homography([[0, 0], [CW, 0], [CW, CH], [0, CH]], q.map(([x, y]) => [x * S, y * S]));
+    const out = document.createElement("canvas"); out.width = CW; out.height = CH;
+    const og = out.getContext("2d"), img = og.createImageData(CW, CH), o = img.data;
+    for (let y = 0; y < CH; y++) for (let x = 0; x < CW; x++) {
       const X = x + 0.5, Y = y + 0.5, z = H[6] * X + H[7] * Y + H[8], u = (H[0] * X + H[1] * Y + H[2]) / z - 0.5, v = (H[3] * X + H[4] * Y + H[5]) / z - 0.5;
       const x0 = Math.max(0, Math.min(sw - 2, Math.floor(u))), y0 = Math.max(0, Math.min(sh - 2, Math.floor(v))), fx = Math.min(1, Math.max(0, u - x0)), fy = Math.min(1, Math.max(0, v - y0));
-      const i00 = (y0 * sw + x0) * 4, i10 = i00 + 4, i01 = i00 + sw * 4, i11 = i01 + 4, k = (y * CARD_W + x) * 4;
+      const i00 = (y0 * sw + x0) * 4, i10 = i00 + 4, i01 = i00 + sw * 4, i11 = i01 + 4, k = (y * CW + x) * 4;
       for (let c = 0; c < 3; c++) o[k + c] = (src[i00 + c] * (1 - fx) + src[i10 + c] * fx) * (1 - fy) + (src[i01 + c] * (1 - fx) + src[i11 + c] * fx) * fy;
       o[k + 3] = 255;
     }
@@ -233,12 +235,13 @@ window.CardCrop = (function () {
     return B.map((v, i) => v / A[i][i]).concat(1);
   }
   // the whole photo, fit inside a card without stretching
-  function whole(bmp, turns) {
-    const cv = document.createElement("canvas"); cv.width = CARD_W; cv.height = CARD_H;
-    const g = cv.getContext("2d"); g.fillStyle = "#111"; g.fillRect(0, 0, CARD_W, CARD_H);
-    if (turns % 2) { g.translate(CARD_W, CARD_H); g.rotate(Math.PI); }
-    const k = Math.min(CARD_W / bmp.width, CARD_H / bmp.height);
-    g.drawImage(bmp, (CARD_W - bmp.width * k) / 2, (CARD_H - bmp.height * k) / 2, bmp.width * k, bmp.height * k);
+  function whole(bmp, turns, slab) {
+    const CW = slab ? SLAB_W : CARD_W, CH = slab ? SLAB_H : CARD_H;
+    const cv = document.createElement("canvas"); cv.width = CW; cv.height = CH;
+    const g = cv.getContext("2d"); g.fillStyle = "#111"; g.fillRect(0, 0, CW, CH);
+    if (turns % 2) { g.translate(CW, CH); g.rotate(Math.PI); }
+    const k = Math.min(CW / bmp.width, CH / bmp.height);
+    g.drawImage(bmp, (CW - bmp.width * k) / 2, (CH - bmp.height * k) / 2, bmp.width * k, bmp.height * k);
     return jpeg(cv);
   }
   function jpeg(cv) {
@@ -247,12 +250,22 @@ window.CardCrop = (function () {
     return url;
   }
   // a photo that's already just the card (a scan or a listing photo): same shape as a card, nothing to trim
-  const isScan = (bmp) => { const r = bmp.width / bmp.height; return Math.abs(r - 5 / 7) < 0.06 || Math.abs(r - 7 / 5) < 0.12; };
+  const isScan = (bmp) => { const r = bmp.width / bmp.height; return Math.abs(r - 5 / 7) < 0.06 || Math.abs(r - 7 / 5) < 0.12 || isSlabPhoto(bmp); };
+  // a photo cropped to just the slab (common on eBay)
+  const isSlabPhoto = (bmp) => { const r = Math.min(bmp.width, bmp.height) / Math.max(bmp.width, bmp.height); return r > 0.57 && r < 0.655; };
+  // the found outline is slab-shaped (long side / short side about 1.6 instead of 1.4)
+  const isSlabQuad = (q) => { const a = (len(q[0], q[1]) + len(q[2], q[3])) / 2, b = (len(q[1], q[2]) + len(q[3], q[0])) / 2; return Math.max(a, b) / Math.min(a, b) > 1.52; };
+  // re-shape an old slab photo that was saved squeezed into card shape (just a stretch: the squeeze was linear)
+  async function unsquish(src) {
+    const b = await bitmapOf(src), cv = document.createElement("canvas"); cv.width = SLAB_W; cv.height = SLAB_H;
+    cv.getContext("2d").drawImage(b, 0, 0, SLAB_W, SLAB_H);
+    return jpeg(cv);
+  }
   const frame = (bmp) => upright([[0, 0], [bmp.width, 0], [bmp.width, bmp.height], [0, bmp.height]]);
 
   // corners placed by hand, in any order: sort them around their middle, then stand the card up
   const order = (q) => { const cx = q.reduce((s, p) => s + p[0], 0) / 4, cy = q.reduce((s, p) => s + p[1], 0) / 4;
     return upright(q.slice().sort((a, b) => Math.atan2(a[1] - cy, a[0] - cx) - Math.atan2(b[1] - cy, b[0] - cx))); };
 
-  return { CARD_W, CARD_H, bitmapOf, findQuad, warp, whole, isScan, frame, order };
+  return { CARD_W, CARD_H, SLAB_W, SLAB_H, bitmapOf, findQuad, warp, whole, isScan, isSlabPhoto, isSlabQuad, unsquish, frame, order };
 })();

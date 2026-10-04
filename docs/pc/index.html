@@ -74,6 +74,11 @@ html, body { overflow-x: hidden; }
 .face { position: absolute; inset: 0; border-radius: 10px; overflow: hidden; backface-visibility: hidden; background: #1a1a20 center / cover no-repeat; border: 1px solid transparent; background-clip: padding-box;
   box-shadow: 0 10px 28px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.06); }
 .face.back { transform: rotateY(180deg); }
+/* graded slab: its real taller shape, a hard clear case (no penny sleeve), glare across the plastic */
+.card.slab .inner { aspect-ratio: 700 / 1130; }
+.card.slab .face { border-radius: 6px; box-shadow: 0 10px 28px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.22), inset 0 0 0 2px rgba(255,255,255,.08); }
+.slabglare { position: absolute; inset: 0; border-radius: 6px; pointer-events: none; transform: translateZ(2px); backface-visibility: hidden;
+  background: linear-gradient(115deg, transparent 32%, rgba(255,255,255,.2) 45%, rgba(255,255,255,.05) 52%, transparent 62%) var(--gx, 30%) var(--gy, 30%) / 260% 260% no-repeat; }
 .face.empty { display: grid; place-items: center; color: var(--muted); font: 12px var(--mono); text-align: center; padding: 10px; }
 .face.loading { background: linear-gradient(110deg, #17171c 30%, #24242b 50%, #17171c 70%) 0 0 / 300% 100%; animation: pcb-load 1.4s linear infinite; }
 @keyframes pcb-load { to { background-position: -150% 0; } }
@@ -117,6 +122,9 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 .srch-hit { display: grid; gap: 4px; padding: 6px; text-align: left; font: 11px/1.3 var(--body); color: var(--muted); }
 .srch-hit img { width: 100%; aspect-ratio: 5 / 7; object-fit: cover; border-radius: 6px; background: #1a1a20; }
 .srch-hit span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.srch-pics { display: flex; gap: 6px; overflow-x: auto; margin: 8px 0 4px; }
+.srch-pic { padding: 2px; border-radius: 6px; flex: none; } .srch-pic img { display: block; width: 46px; height: 64px; object-fit: cover; border-radius: 4px; }
+#s-from small { display: block; color: var(--muted); }
 /* card cropper */
 .crop-sheet { z-index: 60; overflow-x: hidden; }
 .crop { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: grid; gap: 10px; justify-items: center; max-width: 100%; }
@@ -154,6 +162,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.22) 45%, rgba(255,255,255,.07) 52%, transparent 63%) var(--gx, 50%) var(--gy, 50%) / 260% 260% no-repeat, rgba(255,255,255,.06);
   transition: background-position .6s cubic-bezier(.3,1.2,.5,1); }
 .v-card.live .v-sleeve { transition: none; }
+.v-sleeve.slabg { border: 1px solid rgba(255,255,255,.35); box-shadow: inset 0 0 0 3px rgba(255,255,255,.06), inset 0 0 24px rgba(255,255,255,.07); }
 .v-wall { background: linear-gradient(90deg, rgba(255,255,255,.22), rgba(255,255,255,.5) 50%, rgba(255,255,255,.22)); opacity: .55; }
 .v-x { position: absolute; top: max(14px, env(safe-area-inset-top)); right: 14px; width: 42px; height: 42px; padding: 0; border-radius: 50%; font-size: 16px; }
 .v-info { display: grid; gap: 4px; justify-items: center; text-align: center; max-width: 420px; }
@@ -197,8 +206,8 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 </div>
 
 <script src="../firebase-config.js"></script>
-<script src="cardcrop.js?v=1"></script>
-<script src="cardread.js?v=1"></script>
+<script src="cardcrop.js?v=2"></script>
+<script src="cardread.js?v=2"></script>
 <script>window.VAULT_SEARCH_URL = "https://vault-search.thecupcakeindex-support.workers.dev"; // the Cloudflare Worker (workers/vault-search.js) that searches eBay</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -216,7 +225,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   // Anyone can look (no sign-in): read straight from Firestore's public web address, and only the light parts of each
   // card (details + a small thumbnail). The full-size photos come down only when a card is opened.
   const FS = `https://firestore.googleapis.com/v1/projects/${window.FIREBASE_CONFIG.projectId}/databases/(default)/documents`;
-  const LIST = ["player", "team", "year", "set", "parallel", "number", "serial", "grade", "notes", "rookie", "auto", "grail", "added", "frontWide", "backWide", "thumb"];
+  const LIST = ["player", "team", "year", "set", "parallel", "number", "serial", "grade", "cert", "slab", "notes", "rookie", "auto", "grail", "added", "frontWide", "backWide", "thumb"];
   const val = (v) => !v ? undefined : "stringValue" in v ? v.stringValue : "integerValue" in v ? +v.integerValue : "doubleValue" in v ? v.doubleValue : "booleanValue" in v ? v.booleanValue : null;
   const fromDoc = (d) => { const o = { id: d.name.split("/").pop() }; for (const [k, v] of Object.entries(d.fields || {})) o[k] = val(v); return o; };
   let loaded = false;
@@ -251,9 +260,9 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     return fullP.get(c.id);
   };
   // a small copy of the front for the grid (about 30 KB instead of 300+)
-  async function thumbOf(src) {
+  async function thumbOf(src, slab) {
     const b = await createImageBitmap(await (await fetch(src)).blob()), cv = document.createElement("canvas");
-    cv.width = 360; cv.height = 504; cv.getContext("2d").drawImage(b, 0, 0, 360, 504);
+    const h = slab ? 581 : 504; cv.width = 360; cv.height = h; cv.getContext("2d").drawImage(b, 0, 0, 360, h);
     return cv.toDataURL("image/jpeg", 0.72);
   }
   const paint = (c) => document.querySelectorAll(`.card[data-id="${CSS.escape(c.id)}"] .face.front`).forEach((f) => {
@@ -268,9 +277,28 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     for (let i = 0; i < need.length; i += 3) await Promise.all(need.slice(i, i + 3).map(async (c) => {
       try { await full(c); } catch (e) { return; }
       paint(c);
-      if (isOwner() && c.front) try { c.thumb = await thumbOf(c.front); await db.collection("pc").doc(c.id).update({ thumb: c.thumb }); } catch (e) { /* next time */ }
+      if (isOwner() && c.front) try { c.thumb = await thumbOf(c.front, c.slab); await db.collection("pc").doc(c.id).update({ thumb: c.thumb }); } catch (e) { /* next time */ }
     }));
     thumbing = false;
+    fixSlabs();
+  }
+  // graded cards saved before slabs had their own shape got squeezed into card shape: stretch them back (front and back)
+  let fixing = false;
+  async function fixSlabs() {
+    if (fixing || !isOwner()) return;
+    fixing = true;
+    for (const c of cards.filter((x) => x.grade && x.slab == null)) {
+      try {
+        await full(c);
+        const up = { slab: true };
+        for (const k of ["front", "back"]) if (c[k]) up[k] = await CC.unsquish(c[k]);
+        if (up.front) up.thumb = await thumbOf(up.front, true);
+        await db.collection("pc").doc(c.id).update(up);
+        Object.assign(c, up);
+      } catch (e) { /* try again next time */ }
+    }
+    fixing = false;
+    draw();
   }
   const isOwner = () => user && owner && owner.uid === user.uid;
   let TEAMS = [];
@@ -284,8 +312,8 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   const tagsOf = (c) => [c.rookie && '<span class="tag rc">RC</span>', c.auto && '<span class="tag auto">AUTO</span>',
     c.serial && `<span class="tag num">${esc(c.serial)}</span>`, c.grade && `<span class="tag grade">${esc(c.grade)}</span>`].filter(Boolean).join("");
   const face = (img, cls, label) => img ? `<div class="face ${cls}" style="background-image:url('${img}')"></div>` : `<div class="face ${cls} ${label ? "empty" : "loading"}">${label}</div>`;
-  const cardHtml = (c) => `<article class="card${c.frontWide ? " fw" : ""}${c.backWide ? " bw" : ""}" data-id="${esc(c.id)}" tabindex="0" aria-label="${esc([c.year, c.set, c.player].filter(Boolean).join(" "))}">
-      <div class="inner">${face(c.thumb || c.front, "front", "")}<i class="sleeve"></i></div>
+  const cardHtml = (c) => `<article class="card${c.frontWide ? " fw" : ""}${c.backWide ? " bw" : ""}${c.slab ? " slab" : ""}" data-id="${esc(c.id)}" tabindex="0" aria-label="${esc([c.year, c.set, c.player].filter(Boolean).join(" "))}">
+      <div class="inner">${face(c.thumb || c.front, "front", "")}${c.slab ? `<i class="slabglare"></i>` : `<i class="sleeve"></i>`}</div>
       <div class="meta"><b>${esc(c.player || "Unknown player")}</b><span>${esc([c.year, c.set, c.parallel].filter(Boolean).join(" · "))}${c.team && $("#sort").value !== "team" ? " · " + esc(c.team) : ""}</span>
         <div class="tags">${tagsOf(c)}</div>
         ${isOwner() ? `<div class="own"><button data-edit="${esc(c.id)}">Edit</button><button data-del="${esc(c.id)}">Delete</button></div>` : ""}</div></article>`;
@@ -333,7 +361,10 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   document.addEventListener("keydown", (e) => { const el = e.target.closest?.(".card"); if (el && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); viewer(cards.find((c) => c.id === el.dataset.id)); } });
   function viewer(c) {
     if (!c) return;
-    const W = Math.round(Math.min(innerWidth * 0.62, (innerHeight - 230) / 1.4, 400)), H = Math.round(W * 1.4), T = Math.max(3, Math.round(W * 0.012)), R = W * 0.04;
+    // a slab is taller (1130 / 700), much thicker, with small corners
+    const tall = c.slab ? 1130 / 700 : 1.4;
+    const W = Math.round(Math.min(innerWidth * 0.62, (innerHeight - 230) / tall, 400)), H = Math.round(W * tall);
+    const T = c.slab ? Math.round(W * 0.055) : Math.max(3, Math.round(W * 0.012)), R = c.slab ? W * 0.025 : W * 0.04;
     // the edge: thin strips around the rounded outline, each shaded by which way it faces
     const outline = [], seg = 5;
     for (const [cx, cy, a0] of [[W - R, R, -90], [W - R, H - R, 0], [R, H - R, 90], [R, R, 180]])
@@ -341,12 +372,15 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     const edge = outline.map((p, i) => {
       const q = outline[(i + 1) % outline.length], L = Math.hypot(q[0] - p[0], q[1] - p[1]) + 0.6, ang = Math.atan2(q[1] - p[1], q[0] - p[0]) * 180 / Math.PI;
       const light = Math.round(150 + 55 * Math.cos((ang + 135) * Math.PI / 180));
+      if (c.slab) return `<i class="v-edge" style="width:${L.toFixed(1)}px;height:${T}px;background:rgba(${light + 40},${light + 45},${light + 50},.42);transform:translate(${((p[0] + q[0]) / 2 - L / 2).toFixed(1)}px,${((p[1] + q[1]) / 2 - T / 2).toFixed(1)}px) rotateZ(${ang.toFixed(1)}deg) rotateX(90deg)"></i>`; // clear plastic
       return `<i class="v-edge" style="width:${L.toFixed(1)}px;height:${T}px;background:rgb(${light},${light - 3},${light - 10});transform:translate(${((p[0] + q[0]) / 2 - L / 2).toFixed(1)}px,${((p[1] + q[1]) / 2 - T / 2).toFixed(1)}px) rotateZ(${ang.toFixed(1)}deg) rotateX(90deg)"></i>`;
     }).join("");
     // the penny sleeve around the card: a bit wider, taller at the open top; D = its thickness
     const sx0 = -0.016 * W, sx1 = W * 1.016, sy0 = -0.035 * H, sy1 = H * 1.011, D = T + 4, sw = sx1 - sx0, sh = sy1 - sy0;
     const box = `left:${sx0.toFixed(1)}px;top:${sy0.toFixed(1)}px;width:${sw.toFixed(1)}px;height:${sh.toFixed(1)}px`;
-    const sleeve = `<i class="v-sleeve" style="${box};transform:translateZ(${D / 2}px)"></i><i class="v-sleeve" style="${box};transform:rotateY(180deg) translateZ(${D / 2}px)"></i>`
+    const sleeve = c.slab // a slab: just glare on its own plastic, front and back
+      ? `<i class="v-sleeve slabg" style="left:0;top:0;width:${W}px;height:${H}px;border-radius:${R}px;transform:translateZ(${T / 2 + 0.5}px)"></i><i class="v-sleeve slabg" style="left:0;top:0;width:${W}px;height:${H}px;border-radius:${R}px;transform:rotateY(180deg) translateZ(${T / 2 + 0.5}px)"></i>`
+      : `<i class="v-sleeve" style="${box};transform:translateZ(${D / 2}px)"></i><i class="v-sleeve" style="${box};transform:rotateY(180deg) translateZ(${D / 2}px)"></i>`
       + `<i class="v-wall" style="left:${(sx0 - D / 2).toFixed(1)}px;top:${sy0.toFixed(1)}px;width:${D}px;height:${sh.toFixed(1)}px;transform:rotateY(90deg)"></i>`
       + `<i class="v-wall" style="left:${(sx1 - D / 2).toFixed(1)}px;top:${sy0.toFixed(1)}px;width:${D}px;height:${sh.toFixed(1)}px;transform:rotateY(90deg)"></i>`
       + `<i class="v-wall" style="left:${sx0.toFixed(1)}px;top:${(sy1 - D / 2).toFixed(1)}px;width:${sw.toFixed(1)}px;height:${D}px;transform:rotateX(90deg)"></i>`;
@@ -556,7 +590,8 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   function fromTitle(t) {
     const y = (t.match(/(?:^|\s)((?:19|20)\d{2})(?=[\s-])/) || [])[1];
     const serial = (t.match(/\/\s?(\d{1,4})(?!\d)/) || [])[1];
-    return { year: y || "", rookie: /\s(RC|rookie)(\s|$)/i.test(" " + t + " "), auto: /auto/i.test(t), serial: serial ? "/" + serial : "" };
+    const gr = t.match(/\b(PSA|BGS|SGC|CGC|CSG|HGA|TAG)\s*(?:GEM\s*(?:MINT|MT)\s*|MINT\s*|PRISTINE\s*)?(10|[1-9](?:\.5)?)\b/i);
+    return { grade: gr ? gr[1].toUpperCase() + " " + gr[2] : "", year: y || "", rookie: /\s(RC|rookie)(\s|$)/i.test(" " + t + " "), auto: /auto/i.test(t), serial: serial ? "/" + serial : "" };
   }
   function editor(c) {
     c = c || {};
@@ -580,8 +615,10 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
         <label class="f">Card #<input name="number" value="${esc(c.number)}" placeholder="#339"></label></div>
       <div class="row2"><label class="f">Serial #<input name="serial" value="${esc(c.serial)}" placeholder="/99"></label>
         <label class="f">Grade<input name="grade" value="${esc(c.grade)}" placeholder="PSA 10"></label></div>
-      <label class="f">Notes<input name="notes" value="${esc(c.notes)}" placeholder="Pulled it myself"></label>
-      <div class="checks"><label><input type="checkbox" name="rookie" ${c.rookie ? "checked" : ""}> Rookie</label>
+      <div class="row2"><label class="f">Cert #<input name="cert" inputmode="numeric" value="${esc(c.cert)}" placeholder="114566317"></label>
+        <label class="f">Notes<input name="notes" value="${esc(c.notes)}" placeholder="Pulled it myself"></label></div>
+      <div class="checks"><label><input type="checkbox" name="slab" ${c.slab || (c.slab == null && c.grade) ? "checked" : ""}> Graded (slab)</label>
+        <label><input type="checkbox" name="rookie" ${c.rookie ? "checked" : ""}> Rookie</label>
         <label><input type="checkbox" name="auto" ${c.auto ? "checked" : ""}> Auto</label>
         <label><input type="checkbox" name="grail" ${c.grail ? "checked" : ""}> My grail (featured at the top)</label></div>
       <div class="status" id="st"></div>
@@ -593,7 +630,8 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     // per photo: bmp (the photo), q (its corners or "whole"), t (quarter-turns). An odd t = a sideways (landscape)
     // side: the photo is saved as the card itself and the card turns sideways to show it.
     const P = { front: {}, back: {} }, wide = { front: !!c.frontWide, back: !!c.backWide };
-    const render = (k) => { const p = P[k], h = p.t >= 2 ? 1 : 0; imgs[k] = p.q === "whole" ? CC.whole(p.bmp, h) : CC.warp(p.bmp, p.q, h); wide[k] = p.t % 2 === 1; show(k); };
+    const isSlab = () => !!w.querySelector('input[name="slab"]')?.checked;
+    const render = (k) => { const p = P[k], h = p.t >= 2 ? 1 : 0; imgs[k] = p.q === "whole" ? CC.whole(p.bmp, h, isSlab()) : CC.warp(p.bmp, p.q, h, isSlab()); wide[k] = p.t % 2 === 1; show(k); };
     const show = (k) => {
       const ph = w.querySelector("#ph-" + k); ph.style.backgroundImage = imgs[k] ? `url('${imgs[k]}')` : ""; if (imgs[k]) ph.querySelector("span").textContent = "";
       ph.classList.toggle("wide", wide[k]);
@@ -607,12 +645,22 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       rb.onclick = async () => { const p = await ready(); if (!p.q) p.q = "whole"; p.t = (p.t + 1) % 4; render(k); };
     };
     show("front"); show("back");
+    // tick "Graded (slab)" (photo is slab-shaped, a grade got filled in...) and re-cut any photo already cut to card shape
+    const markSlab = (except) => {
+      const box = w.querySelector('input[name="slab"]');
+      if (!box || box.checked) return;
+      box.checked = true; box.parentElement.classList.add("auto-filled");
+      for (const k of ["front", "back"]) if (k !== except && P[k].bmp && P[k].q) render(k);
+    };
+    w.querySelector('input[name="slab"]').onchange = () => { for (const k of ["front", "back"]) if (P[k].bmp && P[k].q) render(k); };
+    w.querySelector('input[name="grade"]').addEventListener("input", (e) => { if (e.target.value.trim()) markSlab(); });
     const setPhoto = async (k, src) => {
       st.textContent = "Finding and straightening the card…";
       try {
         const p = P[k] = { bmp: await CC.bitmapOf(src), t: 0 };
         await new Promise((r) => setTimeout(r, 30)); // let the message paint before the heavy lifting
         p.q = CC.findQuad(p.bmp) || (CC.isScan(p.bmp) ? CC.frame(p.bmp) : null);
+        if (Array.isArray(p.q) && CC.isSlabQuad(p.q)) markSlab(k); // slab-shaped: it's a graded card
         if (!p.q) { st.textContent = ""; p.q = await cornerPicker(p.bmp) || "whole"; }
         else st.textContent = "Card found and straightened. Tap Corners if it's off.";
         render(k);
@@ -620,7 +668,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       } catch (e) { st.textContent = "That photo couldn't be read. Try a JPEG or a screenshot."; }
     };
     // read the card's printed text and fill in what's still blank (never anything you typed); gold = filled in by the reader
-    const form = w.querySelector("form"), autoF = new Set(), LABEL = { player: "player", team: "team", year: "year", set: "set", number: "card #", serial: "serial #", grade: "grade", rookie: "rookie", auto: "auto" };
+    const form = w.querySelector("form"), autoF = new Set(), LABEL = { player: "player", team: "team", year: "year", set: "set", number: "card #", serial: "serial #", grade: "grade", cert: "cert #", rookie: "rookie", auto: "auto" };
     form.addEventListener("input", (e) => { if (e.target.name) { autoF.delete(e.target.name); e.target.classList.remove("auto-filled"); e.target.parentElement.classList.remove("auto-filled"); } });
     let reading = 0;
     const readCard = async () => {
@@ -638,6 +686,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
           if (el.value.trim() && !autoF.has(k)) continue;
           el.value = v; autoF.add(k); el.classList.add("auto-filled"); got.push(LABEL[k]);
         }
+        if (r.fields.grade) markSlab();
         st.textContent = got.length ? `Read off the card: ${got.join(", ")}. Double-check the gold ones.` : "Couldn't read much off this one. Add the back (backs read best) or fill it in by hand.";
       } catch (e) { if (my === reading) st.textContent = "The card reader couldn't load (" + e.message + "). Fill it in by hand."; }
     };
@@ -665,9 +714,15 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
         if (t.serial && !f.serial.value) f.serial.value = t.serial;
         if (t.rookie) f.rookie.checked = true;
         if (t.auto) f.auto.checked = true;
-        w.querySelector("#s-from").textContent = "From eBay: " + it.title;
+        if (t.grade) { if (!f.grade.value) f.grade.value = t.grade; markSlab(); }
         res.innerHTML = "";
-        await setPhoto("front", SEARCH + "/img?u=" + encodeURIComponent(it.image));
+        // the listing's photos: 1st = front, 2nd = back (the usual order); the strip lets you pick a different back
+        const pics = (it.images?.length ? it.images : [it.image]).map((u) => SEARCH + "/img?u=" + encodeURIComponent(u));
+        const from = w.querySelector("#s-from");
+        from.innerHTML = `From eBay: ${esc(it.title)}${pics.length > 1 ? `<span class="srch-pics">${pics.map((u, i) => `<button type="button" class="srch-pic" data-p="${i}" title="Use as the back"><img src="${esc(u)}" alt="Listing photo ${i + 1}" loading="lazy"></button>`).join("")}</span><small>Not the back? Tap the right photo.</small>` : ""}`;
+        from.onclick = (ev) => { const p = ev.target.closest("[data-p]"); if (p) setPhoto("back", pics[+p.dataset.p]); };
+        await setPhoto("front", pics[0]);
+        if (pics[1]) await setPhoto("back", pics[1]);
       };
     }
     w.querySelector("#x").onclick = () => w.remove();
@@ -675,14 +730,15 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     w.querySelector("form").onsubmit = async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target), data = {};
-      for (const k of ["player", "team", "year", "set", "parallel", "number", "serial", "grade", "notes"]) data[k] = (fd.get(k) || "").trim();
+      for (const k of ["player", "team", "year", "set", "parallel", "number", "serial", "grade", "cert", "notes"]) data[k] = (fd.get(k) || "").trim();
+      data.slab = !!fd.get("slab");
       data.year = data.year ? +data.year || data.year : "";
       for (const k of ["rookie", "auto", "grail"]) data[k] = !!fd.get(k);
       data.front = imgs.front; data.back = imgs.back; data.frontWide = wide.front && !!imgs.front; data.backWide = wide.back && !!imgs.back;
       if (!data.front) { st.textContent = "Add a photo of the front first."; return; }
       st.textContent = "Saving…";
       try {
-        data.thumb = await thumbOf(data.front);
+        data.thumb = await thumbOf(data.front, data.slab);
         if (data.grail) for (const g of cards.filter((x) => x.grail && x.id !== c.id)) await db.collection("pc").doc(g.id).update({ grail: false }); // one grail at a time
         if (c.id) await db.collection("pc").doc(c.id).update(data);
         else await db.collection("pc").add({ ...data, added: Date.now() });

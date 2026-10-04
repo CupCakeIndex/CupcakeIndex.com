@@ -141,7 +141,29 @@ window.CardRead = (function () {
       if (m) { out.serial = "/" + m[2]; break; }
     }
     const grade = raw.match(/\b(PSA|BGS|SGC|CGC|CSG|HGA)\b[^0-9\n]{0,12}(10|[1-9](?:\.5)?)\b/i);
-    if (grade) out.grade = grade[1].toUpperCase() + " " + grade[2];
+    // slab labels say the grade in words ("GEM MT 10", "MINT 9"); the company is often just a logo, so look for its name anywhere
+    // (labels are two columns, so the number is often on the next line: "GEM MT" / "OPTIC PREVIEW 10")
+    let label = null;
+    if (!grade) {
+      const ls = raw.split("\n"), WORDS = /\b(GEM\s*M(?:IN)?T|MINT|NM-?MT|EX-?MT|PRISTINE)\b/i;
+      for (let i = 0; i < ls.length && !label; i++) {
+        if (!WORDS.test(ls[i])) continue;
+        const same = ls[i].match(/\b(?:GEM\s*M(?:IN)?T|MINT|NM-?MT|EX-?MT|PRISTINE)\s*\+?\s*(10|[1-9](?:\.5)?)\b/i);
+        const next = (ls[i + 1] || "").match(/[A-Za-z][^\n]*?\s(10|[1-9](?:\.5)?)\b/);
+        label = same || next;
+      }
+    }
+    if (label) {
+      const co = /\bPSA\b/i.test(raw) ? "PSA" : /\b(BGS|BECKETT)\b/i.test(raw) ? "BGS" : /\bSGC\b/i.test(raw) ? "SGC" : /\bCGC\b/i.test(raw) ? "CGC" : "PSA"; // PSA's label is the one that reads "GEM MT"
+      out.grade = co + " " + label[1];
+      const cert = (F?.text || raw).match(/\b(\d{8,10})\b/);
+      if (cert) out.cert = cert[1];
+    }
+    if (grade) {
+      out.grade = grade[1].toUpperCase() + " " + grade[2];
+      const cert = (F?.text || raw).match(/\b(\d{8,10})\b/); // the slab label's cert number (PSA: 8-9 digits)
+      if (cert) out.cert = cert[1];
+    }
     if (/AUTOGRAPH|SIGNATURES?\b|\bAUTO\b/.test(all)) out.auto = true;
     // team: a full team name, or an NFL nickname ("TEXANS")
     let p = await findPlayer(all, lines, out.year);

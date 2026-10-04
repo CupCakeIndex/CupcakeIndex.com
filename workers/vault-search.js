@@ -47,7 +47,9 @@ export default {
         const r = await fetch(api, { headers: { Authorization: "Bearer " + (await ebayToken(env)), "X-EBAY-C-MARKETPLACE-ID": "EBAY_US" } });
         const d = await r.json();
         const items = (d.itemSummaries || []).filter((it) => it.image?.imageUrl)
-          .map((it) => ({ title: it.title, image: big(it.image.imageUrl), url: it.itemWebUrl }));
+          .map((it) => ({ title: it.title, image: big(it.image.imageUrl), url: it.itemWebUrl,
+            // all of the listing's photos (the back is usually the 2nd)
+            images: [it.image.imageUrl, ...(it.additionalImages || []).map((x) => x.imageUrl)].filter(Boolean).slice(0, 6).map(big) }));
         return Response.json({ items }, { headers: { ...cors, "Cache-Control": "public, max-age=3600" } });
       } catch (e) {
         return Response.json({ items: [], error: String(e.message || e) }, { status: 502, headers: cors });
