@@ -313,21 +313,25 @@ const Live = (() => {
   // Who's who on the live field: each team's roster (names, numbers, headshots) and depth chart (who starts where).
   // ESPN doesn't say which 22 are on the field each snap, so spots get the listed starter ("likely"); the players
   // named in the play text (passer, receiver, runner, tacklers...) are matched to the roster and shown for sure.
+  // injuries (ESPN marks Out / IR / Doubtful on the roster) are re-read every 15 minutes
   const peopleCache = new Map();
   async function teamPeople(lg, teamId, season) {
     const key = `${lg}-${teamId}-${season}`;
-    if (peopleCache.has(key)) return peopleCache.get(key);
+    const hit = peopleCache.get(key);
+    if (hit && Date.now() - hit.t < 900000) return hit.job;
     const job = (async () => {
       const coreLg = lg === "nfl" ? "nfl" : "college-football";
       const [ro, dc] = await Promise.all([
-        api(`${SITE(lg)}/teams/${encodeURIComponent(teamId)}/roster`, 3600000).catch(() => null),
+        api(`${SITE(lg)}/teams/${encodeURIComponent(teamId)}/roster`, 900000).catch(() => null),
         api(`https://sports.core.api.espn.com/v2/sports/football/leagues/${coreLg}/seasons/${season}/teams/${encodeURIComponent(teamId)}/depthcharts`, 3600000).catch(() => null),
       ]);
       const byId = new Map(), byName = new Map();
       const groups = ro?.athletes || [];
       (groups[0]?.items ? groups.flatMap((g) => g.items || []) : groups).forEach((a) => {
         const full = a.fullName || a.displayName || "", parts = full.replace(/\s+(jr|sr|ii|iii|iv)\.?$/i, "").split(" ");
-        const pl = { id: String(a.id), name: full, num: a.jersey || "", pos: a.position?.abbreviation || "", pic: a.headshot?.href || "" };
+        const inj = (a.injuries || [])[0]?.status || "";
+        const pl = { id: String(a.id), name: full, num: a.jersey || "", pos: a.position?.abbreviation || "", pic: a.headshot?.href || "",
+          out: /^(out|injured reserve|doubtful|suspen|physically unable)/i.test(inj) };
         byId.set(pl.id, pl);
         byName.set(full.toLowerCase(), pl);
         if (parts.length > 1) byName.set(`${parts[0][0]}.${parts.slice(1).join(" ")}`.toLowerCase(), pl); // "D.Metcalf"
@@ -339,7 +343,7 @@ const Live = (() => {
       }));
       return { byId, byName, depth };
     })();
-    peopleCache.set(key, job);
+    peopleCache.set(key, { job, t: Date.now() });
     job.catch(() => peopleCache.delete(key));
     return job;
   }
@@ -440,11 +444,50 @@ const Live = (() => {
         + r(x - 6, y - 14, 12, 8, helm) + r(x - 8, y - 6, 16, 12, jersey) + r(x - 7, y + 6, 5, 8, "#f2f2f2") + r(x + 2, y + 6, 5, 8, "#f2f2f2")
         + r(x + (flip ? -9 : 5), y - 4, 4, 6, "#f5c9a6") + "</g>";
     };
-    // casting: depth-chart starters for each formation spot, plus the players named in the play
+    // casting: depth-chart starters for each formation spot, skipping anyone ESPN lists as out or who got hurt
+    // this game; QB / RB / WR / TE / K / P go to whoever this game's play-by-play says is actually in
     const P = (c) => people?.[c === home ? "home" : "away"];
+    const PLAY_POS = { QB: "qb", RB: "rb", FB: "rb", WR: "wr", TE: "te", PK: "pk", K: "pk", P: "p" };
+    const STRIP = (t) => (t || "").replace(/^(\([^)]*\)\s*)+/, "");
+    const lookName = (c, nm) => nm && P(c)?.byName.get(nm.trim().replace(/^[A-Z]{2,4}-/, "").replace(/[.,]$/, "").toLowerCase()); // "WAS-M.Mariota"
+    const gameIn = new Map(); // team id -> { recent: {qb: [ids, newest first]...}, hurt: Set of ids }
+    const allPlays = [...(drives.previous || []), ...(drives.current ? [drives.current] : [])].flatMap((dr) => dr.plays || []);
+    const NM0 = "([A-Z][A-Za-z'.-]*(?:\\s[A-Z][A-Za-z'.-]+)?)";
+    for (const pl of allPlays) {
+      const tid = String(pl.start?.team?.id || pl.team?.id || ""), c = tid === String(home.team.id) ? home : tid === String(away.team.id) ? away : null;
+      if (!c || !P(c)) continue;
+      const g = gameIn.get(tid) || { recent: {}, hurt: new Set() };
+      gameIn.set(tid, g);
+      const t = STRIP(pl.text), g1 = (re) => (new RegExp(re).exec(t) || [])[1];
+      const names = [g1(`^${NM0} (?:pass|sacked|scrambles|kneels|spiked)`), g1(` pass .*?to ${NM0}`), g1(`^${NM0} (?:left|right|up|middle|runs?|rush)`),
+        g1(`^${NM0} (?:\\d+ yard field goal|extra point|punts|kicks)`)];
+      for (const nm of names) {
+        const who = lookName(c, nm), k = who && PLAY_POS[who.pos];
+        if (!k) continue;
+        g.hurt.delete(who.id); // back on the field
+        const list = (g.recent[k] ||= []), at = list.indexOf(who.id);
+        if (at >= 0) list.splice(at, 1);
+        list.unshift(who.id);
+      }
+      // "J.Daniels was injured during the play" (either team)
+      for (const m of (pl.text || "").matchAll(new RegExp(`${NM0} (?:was|is) injured`, "g"))) {
+        for (const tc2 of [home, away]) {
+          const who = lookName(tc2, m[1]);
+          if (!who) continue;
+          const g2 = gameIn.get(String(tc2.team.id)) || { recent: {}, hurt: new Set() };
+          gameIn.set(String(tc2.team.id), g2);
+          g2.hurt.add(who.id);
+          Object.values(g2.recent).forEach((l) => { const i = l.indexOf(who.id); if (i >= 0) l.splice(i, 1); });
+        }
+      }
+    }
     const pick = (c, keys, n = 0) => {
-      const d = P(c)?.depth || {}, ids = [];
-      keys.forEach((k) => (d[k] || []).forEach((id, i) => { if (i === 0 || keys.length === 1) ids.push(id); }));
+      const d = P(c)?.depth || {}, g = gameIn.get(String(c.team.id)), ok = (id) => { const p = P(c)?.byId.get(id); return p && !p.out && !g?.hurt.has(id); };
+      const ids = [...(keys.length === 1 && g?.recent[keys[0]] || [])];
+      keys.forEach((k) => {
+        const healthy = (d[k] || []).filter(ok);
+        (keys.length === 1 ? healthy : healthy.slice(0, 1)).forEach((id) => { if (!ids.includes(id)) ids.push(id); });
+      });
       const pl = P(c)?.byId.get(ids[n]);
       return pl ? { ...pl, sure: false } : null;
     };
@@ -460,7 +503,7 @@ const Live = (() => {
     // names in the play text: "A.Rodgers pass short middle to R.Wilson ... (G.Delpit; C.Schwesinger)"
     const named = (c, nm) => { const pl = nm && P(c)?.byName.get(nm.trim().replace(/[.,]$/, "").toLowerCase()); return pl ? { ...pl, sure: true } : null; };
     const NM = "([A-Z][A-Za-z'.-]*(?:\\s[A-Z][A-Za-z'.-]+)?)";
-    const ptxt = (play.text || "").replace(/^\([^)]*\)\s*/, "");
+    const ptxt = STRIP(play.text);
     const grab = (re) => (new RegExp(re).exec(ptxt) || [])[1];
     const inPlay = {
       qb: grab(`^${NM} (?:pass|sacked|scrambles|kneels|spiked)`), wr: grab(` pass .*?to ${NM}`),
