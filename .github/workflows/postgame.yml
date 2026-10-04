@@ -1,0 +1,83 @@
+name: Big game post
+
+# Postgame "big game" posts for X: after each window of games, the single best individual stat line (if any is big
+# enough: 400+ passing, 175+ rushing/receiving, 3+ TDs... college numbers are higher) gets a card with an action shot
+# from that game. Nothing big = no post. Each player/game posts once (data/social/posted.json).
+# Run it any time: Actions tab > "Big game post" > Run workflow (untick "Post to X" to only make the picture).
+# UTC times that work in both summer and winter Eastern time:
+#   21:30 = 5:30 PM EDT / 4:30 PM EST   after the noon college games (Sat) and the 1 PM NFL games (Sun)
+#   01:00 = 9 PM EDT / 8 PM EST         after the 3:30 college games and the 4 PM NFL games
+#   05:00 = 1 AM EDT / midnight EST     after the night games (Sat college, SNF, MNF, TNF)
+
+on:
+  schedule:
+    - cron: "30 21 * 8-12,1 6,0"
+    - cron: "0 1 * 8-12,1 0,1"
+    - cron: "0 5 * 8-12,1 0,1,2,5"
+  workflow_dispatch:
+    inputs:
+      league:
+        description: "Which league"
+        type: choice
+        default: both
+        options: [both, nfl, cfb]
+      hours:
+        description: "Games that kicked off in the last N hours"
+        default: "9"
+      theme:
+        description: "Card look (a site theme; random = surprise me)"
+        type: choice
+        default: random
+        options: [random, mono, terminal, amber, broadcast, editorial, glass, varsity]
+      post:
+        description: "Post to X (untick to only make the picture)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write   # commits data/social/posted.json after a post
+
+concurrency:
+  group: social-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r src/social/requirements.txt
+      - name: Find the best stat line and make the card
+        env:
+          LEAGUE: ${{ inputs.league || 'both' }}
+          HOURS: ${{ inputs.hours || '9' }}
+          THEME: ${{ inputs.theme || 'random' }}
+        run: python src/social/postgame.py --league "$LEAGUE" --hours "$HOURS" --theme "$THEME"
+      - uses: actions/upload-artifact@v4
+        if: hashFiles('out/social/today.json') != ''
+        with:
+          name: big-game
+          path: out/social/
+          retention-days: 14
+      - name: Post to X
+        if: hashFiles('out/social/today.json') != '' && (github.event_name == 'schedule' || inputs.post) && vars.X_POSTING_ENABLED == 'true'
+        env:
+          X_POSTING_ENABLED: ${{ vars.X_POSTING_ENABLED }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+        run: python src/social/post_to_x.py --meta out/social/today.json
+      - name: Save the posting log
+        if: success()
+        run: |
+          git config user.name "rankings-bot"
+          git config user.email "rankings-bot@users.noreply.github.com"
+          git add data/social/posted.json 2>/dev/null || exit 0
+          git diff --cached --quiet && echo "Nothing new posted" && exit 0
+          git commit -m "Posting log update $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase
+          git push
