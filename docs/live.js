@@ -389,8 +389,37 @@ const Live = (() => {
       ${ps.length > 1 ? `<button type="button" data-rp="${ps.map((p) => esc(p.id)).join(",")}"><b>▶ ALL ${ps.length}</b> back to back</button>` : ""}
       ${ps.slice().reverse().map((p) => `<button type="button" data-rp="${esc(p.id)}">${line(p)}</button>`).join("")}</div>`;
   }
-  function liveField(s, comp, home, away, tc, gameId, people = null, replayMode = false) {
-    if (!replayMode) tfCtx.set(gameId, { s, comp, home, away, tc, people });
+  // After the final: the game's top plays (biggest win-chance swings, touchdowns, turnovers, long gains, long
+  // field goals), 5 to 10 of them, in the order they happened. Each gets a short label for the title card.
+  function topPlays(s) {
+    const plays = recentPlays(s, 1e4);
+    const swing = new Map();
+    let prev = null;
+    for (const w of s.winprobability || []) {
+      if (prev != null) swing.set(String(w.playId), Math.abs(w.homeWinPercentage - prev));
+      prev = w.homeWinPercentage;
+    }
+    const last = plays.filter((p) => p.scoringPlay).at(-1);
+    const sc = plays.map((p) => {
+      const t = `${p.type?.text || ""} ${p.text || ""}`.toLowerCase(), yds = +p.statYardage || 0;
+      const td = p.scoringPlay && /touchdown/.test(t), fg = p.scoringPlay && /field goal/.test(t) && !/no good|missed|blocked/.test(t);
+      const to = /intercept|fumble recovery \(opponent\)|recovered by|blocked|safety|turnover on downs/.test(t) && !/no play/.test(t);
+      const kind = td ? (/intercept|fumble|return/.test(t) && !/pass from/.test(t) ? "DEFENSIVE TOUCHDOWN" : "TOUCHDOWN")
+        : /intercept/.test(t) ? "INTERCEPTION" : /fumble/.test(t) && to ? "FUMBLE" : /safety/.test(t) ? "SAFETY"
+        : /blocked/.test(t) ? "BLOCKED KICK" : /turnover on downs/.test(t) ? "4TH DOWN STOP" : fg ? "FIELD GOAL"
+        : /sack/.test(t) ? "SACK" : yds >= 20 ? `${yds}-YARD ${/pass/.test(t) ? "PASS" : /run|rush/.test(t) ? "RUN" : "GAIN"}` : "BIG PLAY";
+      const fgYds = +(t.match(/(\d+) y(ar)?d field goal/)?.[1] || 0);
+      let score = (swing.get(String(p.id)) || 0) * 100 + (td ? 40 : 0) + (to ? 30 : 0) + Math.max(0, yds - 15)
+        + (fg && fgYds >= 50 ? 20 : 0) + (p === last ? 15 : 0);
+      if (/no play|kneel|extra point|two-point|penalty/.test(t) && !td) score = 0;
+      return { p, score, kind };
+    });
+    const n = Math.max(5, Math.min(10, sc.filter((x) => x.score >= 25).length));
+    return sc.filter((x) => x.score > 0).sort((a, b) => b.score - a.score).slice(0, n).sort((a, b) => plays.indexOf(a.p) - plays.indexOf(b.p));
+  }
+  const hlButton = (hl) => hl.length ? `<button class="tf-rb tf-hb" type="button">▶ PLAY HIGHLIGHTS</button>` : "";
+  function liveField(s, comp, home, away, tc, gameId, people = null, replayMode = false, final = null) {
+    if (!replayMode) tfCtx.set(gameId, { s, comp, home, away, tc, people, final });
     const drives = s.drives || {};
     const drive = drives.current || (drives.previous || []).at(-1);
     const play = drive?.plays?.at(-1);
@@ -774,10 +803,11 @@ const Live = (() => {
         <span class="tf-dd">${ddText}</span>
         <span class="tf-where">${where}${toGo <= 20 && off && !isTD ? ` <b class="tf-red">RED ZONE</b>` : ""}</span>
       </div>
-      <div class="tf-wrap" data-gid="${esc(gameId)}"><div class="tf-tip hidden"></div>${replayMode ? "" : replayMenu(s) + zoomButtons}<div class="tf-zm">
+      <div class="tf-wrap" data-gid="${esc(gameId)}"><div class="tf-tip hidden"></div>${replayMode ? "" : (final ? hlButton(final) : replayMenu(s)) + zoomButtons}<div class="tf-cap hidden"></div><div class="tf-zm">
       <svg class="tf-field" viewBox="${vbX.toFixed(0)} 0 ${vbW.toFixed(0)} ${H}" shape-rendering="crispEdges" role="img"
         aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, where].filter(Boolean).join(", "))}">${base.join("")}${lines}${lineup}${anim ? "" : flagOnField}${replay}${banner.replace(/@BX0@/g, (vbX + vbW / 2 - Math.min(700, vbW - 40) / 2).toFixed(0)).replace(/@BW@/g, Math.min(700, vbW - 40).toFixed(0)).replace(/@BXC@/g, (vbX + vbW / 2).toFixed(0))}</svg></div></div>
-      ${brk ? `<div class="tf-clock" title="The play clock is stopped"><span class="tf-clabel"><b class="tf-stop">${esc(brk)}</b></span><span class="tf-track"><i class="stop"></i></span></div>`
+      ${final ? `<p class="tf-hlnote"><b>FINAL</b> ${final.length ? `Tap PLAY HIGHLIGHTS to watch the game's top ${final.length} plays.` : ""}</p>`
+        : brk ? `<div class="tf-clock" title="The play clock is stopped"><span class="tf-clabel"><b class="tf-stop">${esc(brk)}</b></span><span class="tf-track"><i class="stop"></i></span></div>`
         : `<div class="tf-clock" title="A rough 40-second play clock from when the last play reached us. ESPN's feed often runs 30+ seconds behind the stadium, so it can run out before the next play shows up. The field checks for a new play every 5 seconds and replays it as soon as it arrives">
         <span class="tf-clabel" style="--d:${Math.max(0, 40 - since).toFixed(1)}s"><b>PLAY CLOCK</b><b class="tf-wait">WAITING ON NEXT PLAY</b></span><span class="tf-track"><i style="animation-delay:-${Math.min(since, 40).toFixed(1)}s"></i></span></div>`}
       <div class="tf-key"><span><i style="background:#3d7bff"></i>Line of scrimmage</span>${fd != null ? `<span><i style="background:#ffd21f"></i>First down</span>` : ""}
@@ -963,6 +993,11 @@ const Live = (() => {
       const rb = ev.target.closest?.(".tf-rb"), item = ev.target.closest?.(".tf-rmenu [data-rp]");
       root.querySelectorAll(".tf-rmenu").forEach((m) => { if (!rb || !m.parentNode.contains(rb)) m.classList.add("hidden"); });
       if (rb?.classList.contains("on")) { stopReplay?.(); return; } // "■ LIVE": back to the live field now
+      if (rb?.classList.contains("tf-hb")) { // after the final: the top plays back to back
+        const wrap = rb.closest(".tf-wrap"), hl = tfCtx.get(wrap.dataset.gid)?.final || [];
+        runReplay(wrap, hl.map((x) => x.p.id), hl);
+        return;
+      }
       if (rb) {
         const m = rb.parentNode.querySelector(".tf-rmenu");
         m.classList.toggle("hidden");
@@ -971,13 +1006,15 @@ const Live = (() => {
     });
   }
   let replayRun = 0, stopReplay = null;
-  async function runReplay(wrap, ids) {
+  // labels: highlights only, the title card shown before each play ({kind, p})
+  async function runReplay(wrap, ids, labels = null) {
     stopReplay?.(); // one at a time: put the live field back before starting another
     const ctx = tfCtx.get(wrap?.dataset.gid), live = wrap?.querySelector(".tf-field");
     if (!ctx || !live) return;
     const run = ++replayRun, field = wrap.closest(".tecmo"), liveBar = field.querySelector(".tf-bar");
-    wrap.querySelector(".tf-rb").textContent = "■ LIVE";
-    wrap.querySelector(".tf-rb").classList.add("on");
+    const btn = wrap.querySelector(".tf-rb"), btnText = btn.textContent, cap = wrap.querySelector(".tf-cap"), zm = wrap.querySelector(".tf-zm");
+    btn.textContent = labels ? "■ STOP" : "■ LIVE";
+    btn.classList.add("on");
     field.classList.add("replaying");
     let shown = live, shownBar = liveBar;
     const done = () => {
@@ -987,9 +1024,11 @@ const Live = (() => {
         try { live.setCurrentTime(60); } catch (e) {} // put back into the page, its animations would start over: skip to the end
       }
       if (shownBar && shownBar !== liveBar) shownBar.replaceWith(liveBar);
-      wrap.querySelector(".tf-rb").textContent = "▶ REPLAY";
-      wrap.querySelector(".tf-rb").classList.remove("on");
+      btn.textContent = btnText;
+      btn.classList.remove("on");
       field.classList.remove("replaying");
+      cap?.classList.add("hidden");
+      zm?.classList.remove("tf-dim");
     };
     stopReplay = () => { replayRun++; done(); };
     for (let i = 0; i < ids.length; i++) {
@@ -1002,13 +1041,31 @@ const Live = (() => {
       const svg = t.content.querySelector(".tf-field");
       if (!svg || run !== replayRun || !wrap.isConnected) return;
       const pl = p.drives.previous.at(-1).plays.at(-1), txt = (pl.type?.text || "") + " " + (pl.text || "");
-      svg.insertAdjacentHTML("beforeend", `<text x="${svg.viewBox.baseVal.x + 14}" y="292" class="tf-rlabel">REPLAY${ids.length > 1 ? ` ${i + 1}/${ids.length}` : ""}</text>`);
+      if (labels && cap) {
+        // title card between plays: the field dims, the card says what's coming, then the play runs with the card up top
+        const q = pl.period?.number, qs = q ? (q > 4 ? "OT" : `Q${q}`) : "";
+        const score = pl.awayScore != null ? `${ctx.away.team.abbreviation} ${pl.awayScore} · ${ctx.home.team.abbreviation} ${pl.homeScore}` : "";
+        const desc = (pl.text || "").trim().replace(/^(\([^)]*\)\s*)+/, "");
+        // whose play it was: the offense, except for the defense's big moments
+        const offT = String(pl.start?.team?.id || pl.team?.id || p.drives.previous.at(-1).team?.id || ""), defK = /INTERCEPTION|FUMBLE|DEFENSIVE|BLOCKED|SAFETY|STOP|SACK/.test(labels[i].kind);
+        const tm = [ctx.home, ctx.away].find((c) => (String(c.team.id) === offT) !== defK)?.team.abbreviation || "";
+        cap.innerHTML = `<div class="tf-cap-top"><b>PLAY ${i + 1} OF ${ids.length}</b><span>${esc([qs, pl.clock?.displayValue].filter(Boolean).join(" "))}</span></div>
+          <div class="tf-cap-kind">${esc(`${tm ? tm + " " : ""}${labels[i].kind}`)}</div><p>${esc(desc.length > 120 ? desc.slice(0, 118) + "…" : desc)}</p>${score ? `<small>${esc(score)}</small>` : ""}`;
+        cap.classList.remove("hidden", "mini");
+        cap.style.animation = "none"; void cap.offsetWidth; cap.style.animation = ""; // replay the wipe-in for every card
+        zm?.classList.add("tf-dim");
+        await new Promise((r) => setTimeout(r, 2200));
+        if (run !== replayRun || !wrap.isConnected) return;
+        cap.classList.add("mini");
+        zm?.classList.remove("tf-dim");
+      }
+      svg.insertAdjacentHTML("beforeend", `<text x="${svg.viewBox.baseVal.x + 14}" y="292" class="tf-rlabel">${labels ? "HIGHLIGHT" : "REPLAY"}${ids.length > 1 ? ` ${i + 1}/${ids.length}` : ""}</text>`);
       shown.replaceWith(svg);
       shown = svg;
       const bar = t.content.querySelector(".tf-bar"); // the down and spot of the play being replayed
       if (bar && shownBar) { shownBar.replaceWith(bar); shownBar = bar; }
       // touchdowns play out the celebration and the try; everything else is done in about 4 seconds
-      await new Promise((r) => setTimeout(r, pl.scoringPlay && /touchdown/i.test(txt) ? 10500 : 4300));
+      await new Promise((r) => setTimeout(r, pl.scoringPlay && /touchdown/i.test(txt) ? (labels ? 7500 : 10500) : 4300));
       if (run !== replayRun || !wrap.isConnected) return;
     }
     done();
@@ -1045,12 +1102,12 @@ const Live = (() => {
     // broadcast scorebug in team colors
     const tc = { away: teamColor(away.team), home: teamColor(home.team) };
     let people = null;
-    if (st === "in") {
+    if (st === "in" || st === "post") { // post: the highlights player uses the same field
+      wireFieldTips(); // before the rosters load, so the buttons work right away
       const yr = s.header?.season?.year;
       const [ph, pa] = await Promise.all([teamPeople(lg, home.team.id, yr).catch(() => null), teamPeople(lg, away.team.id, yr).catch(() => null)]);
       if (my !== token) return;
       people = { home: ph, away: pa };
-      wireFieldTips();
     }
     const side = (c, which) => {
       const ours = ourTeam(ranks, lg, c.team);
@@ -1083,7 +1140,8 @@ const Live = (() => {
       </div>
       ${lineTable || st === "in" ? `<div class="card sb-under">${lineTable}
         ${st === "in" && s.situation?.lastPlay?.text ? `<p class="note">Last play: ${esc(s.situation.lastPlay.text)}</p>` : ""}</div>` : ""}
-      ${st === "in" ? liveField(s, comp, home, away, tc, String(id), people) : ""}`;
+      ${st === "in" ? liveField(s, comp, home, away, tc, String(id), people)
+        : st === "post" && recentPlays(s).length ? liveField(s, comp, home, away, tc, String(id), people, false, topPlays(s)) : ""}`;
 
     const col = { left: [], right: [], full: [] }; // two independent columns so short cards never leave gaps
     // highlights: official YouTube video (found by the weekly job) + ESPN's own clips (open on ESPN)

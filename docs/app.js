@@ -210,7 +210,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "190"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "191"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -454,6 +454,55 @@ async function loadWeek(force = false) {
   renderCotw();
   render();
   if (parseHash().view === "schedules") renderSchedules();
+  liveRecords();
+}
+
+// Records count games that ended after the rankings ran (ESPN's scoreboard), so a Saturday win shows right away.
+// Rechecks every 2 minutes while any of those games is still being played.
+const SB_URL = { cfb: "https://site.web.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=80&limit=400",
+  nfl: "https://site.web.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype=2" };
+let liveRecTimer = null;
+async function liveRecords() {
+  clearTimeout(liveRecTimer);
+  const d = DATA, lg = league, lt = LG.latest || {};
+  if (!d || +$("#season").value !== +lt.season || d.week !== lt.week) return; // older weeks stay as they were
+  const want = new Map(); // ESPN game id -> [[team, schedule game], ...]
+  d.teams.forEach((t) => (t.schedule || []).forEach((g) => {
+    if (!g.upcoming || !g.espn_id) return;
+    const k = String(g.espn_id);
+    if (!want.has(k)) want.set(k, []);
+    want.get(k).push([t, g]);
+  }));
+  if (!want.size) return;
+  let sb;
+  try {
+    const r = await fetch(SB_URL[lg] + (lg === "nfl" ? `&week=${d.week + 1}` : "") + `&_=${Math.floor(Date.now() / 60000)}`); // plain GET (ESPN allows it from any site)
+    sb = await r.json();
+  } catch (e) { return; }
+  if (DATA !== d) return; // switched weeks or leagues meanwhile
+  let live = false, changed = false;
+  const names = (x) => [x.team?.location, x.team?.displayName, x.team?.shortDisplayName].filter(Boolean).map((n) => n.toLowerCase());
+  for (const e of sb.events || []) {
+    const pairs = want.get(String(e.id)), c = e.competitions?.[0], st = c?.status?.type;
+    if (!pairs || !c) continue;
+    if (st?.state === "in") live = true;
+    if (!st?.completed || c.competitors?.length !== 2) continue;
+    for (const [t, g] of pairs) {
+      t._liveIds ||= new Set();
+      if (t._liveIds.has(String(e.id))) continue;
+      const me = c.competitors.find((x) => names(x).includes(t.team.toLowerCase()))
+        || c.competitors.find((x) => x.homeAway === (g.loc === "A" ? "away" : "home"));
+      const op = c.competitors.find((x) => x !== me);
+      const [w = 0, l = 0, tie = 0] = String(t.record).split("-").map(Number);
+      const us = +me.score, them = +op.score;
+      const rec = [w + (us > them), l + (us < them), tie + (us === them)];
+      t.record = rec[2] ? rec.join("-") : rec.slice(0, 2).join("-");
+      t._liveIds.add(String(e.id));
+      changed = true;
+    }
+  }
+  if (changed) render();
+  if (live) liveRecTimer = setTimeout(() => { if (DATA === d && league === lg) liveRecords(); }, 120000);
 }
 
 // Saturday-night college Bully (bully.yml), shown on the latest week until the rankings run makes it official
@@ -765,7 +814,7 @@ function render() {
         <b class="tname" title="${esc(t.conference || "")}">${t.ap_rank ? `<span class="ap-rk" title="AP Poll rank">${esc(t.ap_rank)}</span>` : ""}${esc(t.team)}</b>
         <div class="tmeta">${cupMeter(t)}${profileIcon(t)}${cotwTag(t)}${blended ? untestedTag(t) + apTag(t) : ""}</div>
       </div></div></td>
-      <td class="num">${esc(t.record)}</td>
+      <td class="num"${t._liveIds?.size ? ` title="Includes ${t._liveIds.size === 1 ? "a game" : t._liveIds.size + " games"} played since the rankings update"` : ""}>${esc(t.record)}</td>
       <td class="num diff ${pd.diff > 0 ? "up" : pd.diff < 0 ? "down" : ""}" title="${pd.pf} scored, ${pd.pa} allowed">${pd.diff > 0 ? "+" : ""}${pd.diff}</td>
       <td class="num ap">${t.ap_rank ? esc(t.ap_rank) : '<span class="muted">–</span>'}</td>
       <td><div class="score">${shown(t).toFixed(1)}<span class="bar"><i style="width:${+shown(t) || 0}%"></i></span></div></td>
