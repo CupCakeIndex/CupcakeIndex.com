@@ -90,10 +90,34 @@ def team_start(team, start):
     return first or start
 
 
-def is_cup(season, team, opp):
-    """Was `opp` a cupcake for `team` that season (same rule as the site)?"""
+_W = {}
+
+
+def _weights(season):
+    """How many games (weighted like the power rating) each team's rating rests on that season, plus a one-game
+    floor (the ridge/prior); lower-division teams also get their prior's weight. Used to take a game back out."""
+    if season not in _W:
+        d, c = history()[season], cfb_cfg()
+        fbs, W = set(d["fbs"]), {}
+        for x in d["games"]:
+            if x["hp"] is None:
+                continue
+            w = c["fcs_game_weight"] if (x["h"] in fbs) != (x["a"] in fbs) else 1.0
+            for t in (x["h"], x["a"]):
+                W[t] = W.get(t, 1.0 if t in fbs else 1.0 + c.get("fcs_prior_games", 2.0)) + w
+        _W[season] = W
+    return _W[season]
+
+
+def is_cup(season, team, opp, x=None):
+    """Was `opp` a cupcake for `team` that season (same rule as the site)?
+
+    With the game `x`, both ratings are judged as if that game never happened: an upset can't lift the underdog
+    over the line by itself (Northern Illinois 16, No. 5 Notre Dame 14 in 2024 was what put NIU 0.2 above average),
+    and a blowout can't sink them under it. Each rating moves back by that game's share of everything it rests on,
+    which is what the least-squares fit gives when one result is removed (to first order)."""
     d = history()[season]
-    R, fbs = d["ratings"], set(d["fbs"])
+    R, fbs, c = d["ratings"], set(d["fbs"]), cfb_cfg()
     tr = R.get(team)
     if tr is None:
         return False
@@ -101,7 +125,16 @@ def is_cup(season, team, opp):
     orr = R.get(opp)
     if orr is None:
         return low  # a lower-division team with no rating: always a cupcake
-    return model.cupcake_weight(tr, orr, low, cfb_cfg()) > 0
+    if x is not None and x["hp"] is not None:
+        home = x["h"] == team
+        us, them = (x["hp"], x["ap"]) if home else (x["ap"], x["hp"])
+        v = max(-c["margin_cap"], min(c["margin_cap"], us - them)) - (0 if x["n"] else (c["home_field"] if home else -c["home_field"]))
+        res = v - (tr - orr)  # how much better than expected `team` did; the fit leaned both ratings toward this
+        w = c["fcs_game_weight"] if low != (team not in fbs) else 1.0
+        W = _weights(season)
+        tr -= res * w / W.get(team, 1.0 + w)
+        orr += res * w / W.get(opp, 1.0 + w)
+    return model.cupcake_weight(tr, orr, low, c) > 0
 
 
 _BY_TEAM = {}
@@ -135,7 +168,7 @@ def games_of(team, since=None, done=True):
         out.append({"season": season, "d": x["d"], "opp": opp, "loc": "N" if x["n"] else ("H" if home else "A"),
                     "us": us, "them": them, "won": us is not None and us > them, "post": x["p"],
                     "opp_ap": x["ar"] if home else x["hr"], "our_ap": x["hr"] if home else x["ar"],
-                    "cup": is_cup(season, team, opp) if us is not None else None})
+                    "cup": is_cup(season, team, opp, x) if us is not None else None})
     _GAMES[key] = out
     return out
 

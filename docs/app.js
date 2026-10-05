@@ -213,7 +213,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "193"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "194"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -1151,7 +1151,7 @@ function renderResume() {
     let real = 0, w = 0, l = 0;
     const cups = [];
     (t.schedule || []).filter((g) => g.result).forEach((g) => {
-      if (g.cupcake) { cups.push(g); return; }
+      if (g.cupcake && g.result === "W") { cups.push(g); return; } // a LOSS to a cupcake stays in, and hurts
       const d = g.difficulty ?? 0.5;
       if (g.result === "W") { real += d; w++; } else { real -= 1 - d; l++; }
     });
@@ -1159,7 +1159,7 @@ function renderResume() {
   });
   if (!rows.some((r) => r.games)) { tb.innerHTML = `<tr><td colspan="4" class="muted">No games played yet this season.</td></tr>`; $("#rc-callouts").innerHTML = ""; return; }
   rows.sort((a, b) => b.real - a.real || a.ours - b.ours).forEach((r, i) => { r.rank = i + 1; r.move = r.ours - r.rank; });
-  const cupWins = (r) => r.cups.filter((g) => g.result === "W").length;
+  const cupWins = (r) => r.cups.length;
   // the headline: who falls the furthest out of our top 25 (top 10 NFL), and who climbs the most into the real top 25
   const fell = rows.filter((r) => r.ours <= cut && r.move < 0 && cupWins(r)).sort((a, b) => a.move - b.move).slice(0, 4);
   const rose = rows.filter((r) => r.rank <= cut && r.move > 0).sort((a, b) => b.move - a.move).slice(0, 4);
@@ -1171,7 +1171,7 @@ function renderResume() {
     const all = nfl || $("#rc-show").value === "all";
     const list = all ? rows : rows.filter((r) => r.rank <= 25 || r.ours <= 25);
     tb.innerHTML = list.map((r) => {
-      const cw = r.cups.filter((g) => g.result === "W");
+      const cw = r.cups;
       const gone = cw.length ? `minus ${cw.length} cupcake${cw.length > 1 ? "s" : ""}: ${cw.map((g) => esc(g.opp)).join(", ")}` : "no cupcakes";
       return `<tr data-team="${esc(r.t.team)}">
       <td class="num rank">${r.rank}</td>
