@@ -1,0 +1,73 @@
+name: College Bully of the Week
+
+# Saturday night: the college Bully of the Week from that day's final scores (Thu-Sat), posted to X and
+# shown on the site's banner right away (docs/data/cfb/bully_now.json) instead of waiting for the rankings.
+# GitHub sometimes skips or delays scheduled runs by hours, so there are backup runs: whichever runs first
+# posts, the rest only refresh the site banner (later runs include the late West Coast games).
+# Minutes are off the top of the hour, when GitHub's scheduler is busiest.
+
+on:
+  schedule:
+    - cron: "41 3 * 8-10 0"     # Saturday 11:41 PM Eastern (Aug-Oct, daylight time)
+    - cron: "11 4 * 8-10 0"     # backup: 12:11 AM
+    - cron: "41 4 * 8-10 0"     # backup: 12:41 AM
+    - cron: "41 4 * 11,12,1 0"  # Saturday 11:41 PM Eastern (Nov-Jan, standard time)
+    - cron: "11 5 * 11,12,1 0"  # backup: 12:11 AM
+    - cron: "41 5 * 11,12,1 0"  # backup: 12:41 AM
+    - cron: "23 8 * 8-12,1 0"   # Sunday early morning: last backup + final scores for the banner
+    - cron: "23 13 * 8-12,1 0"  # Sunday morning: same
+  workflow_dispatch:
+    inputs:
+      post:
+        description: "Post to X (if it hasn't posted this weekend)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write   # commits the banner file + posting log
+
+concurrency:
+  group: bully
+  cancel-in-progress: false
+
+jobs:
+  bully:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r src/social/requirements.txt
+      - name: Work out the Bully (card + site banner)
+        run: python src/social/render.py --day bully_cfb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bully-post
+          path: out/social/
+          retention-days: 14
+      - name: Already posted this weekend?
+        id: done
+        run: |
+          if python -c "import sys; sys.path.insert(0, 'src/social'); import posted; sys.exit(0 if 'bully_cfb' in posted.recent_stats(2) else 1)"; then
+            echo "Already posted this weekend: just refreshing the site banner."; echo "posted=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Post to X
+        if: steps.done.outputs.posted != 'true' && (github.event_name == 'schedule' || inputs.post) && vars.X_POSTING_ENABLED == 'true'
+        env:
+          X_POSTING_ENABLED: ${{ vars.X_POSTING_ENABLED }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+        run: python src/social/post_to_x.py --meta out/social/today.json
+      - name: Save the banner file + posting log
+        if: success()
+        run: |
+          git config user.name "rankings-bot"
+          git config user.email "rankings-bot@users.noreply.github.com"
+          git add docs/data/cfb/bully_now.json data/social/posted.json 2>/dev/null || true
+          git diff --cached --quiet && echo "Nothing changed" && exit 0
+          git commit -m "College Bully of the Week $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase
+          git push

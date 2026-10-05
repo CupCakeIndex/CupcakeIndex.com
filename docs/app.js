@@ -210,7 +210,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "189"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "190"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -456,8 +456,15 @@ async function loadWeek(force = false) {
   if (parseHash().view === "schedules") renderSchedules();
 }
 
+// Saturday-night college Bully (bully.yml), shown on the latest week until the rankings run makes it official
+let BULLY_NOW = null;
+getJSON("data/cfb/bully_now.json").then((b) => { BULLY_NOW = b; if (DATA) renderCotw(); }).catch(() => {});
+
 function renderCotw() {
-  const c = DATA.cupcake_of_week;
+  let c = DATA.cupcake_of_week;
+  const b = BULLY_NOW, weeks = (LG.seasons[$("#season").value] || {}).weeks || [];
+  if (league === "cfb" && b && b.bully && +b.season === +DATA.season && +b.week === DATA.week + 1 && DATA.week === weeks[weeks.length - 1])
+    c = { ...b.bully, week: b.week };
   $("#cotw").classList.toggle("hidden", !c);
   if (!c) return;
   const team = DATA.teams.find((t) => t.team === c.team) || {};

@@ -12,8 +12,8 @@ name: Big game post
 on:
   schedule:
     - cron: "30 21 * 8-12,1 6,0"
-    - cron: "0 1 * 8-12,1 0,1"
-    - cron: "0 5 * 8-12,1 0,1,2,5"
+    - cron: "3 1 * 8-12,1 0,1"
+    - cron: "3 5 * 8-12,1 0,1,2,5"
   workflow_dispatch:
     inputs:
       league:

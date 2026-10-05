@@ -7,10 +7,9 @@ name: Daily X post
 
 on:
   schedule:
-    # Every day 15:00 UTC (11am Eastern), Aug-Jan only: after the Monday/Tuesday rankings run.
-    - cron: "0 15 * 8-12,1 *"
-    # Sundays 14:00 UTC (10am Eastern): college Bully of the Week from Saturday's final scores
-    - cron: "0 14 * 8-12,1 0"
+    # Every day 15:07 UTC (11am Eastern; off the top of the hour, when GitHub's scheduler is busiest), Aug-Jan only: after the Monday/Tuesday rankings run.
+    - cron: "7 15 * 8-12,1 *"
+    # (college Bully of the Week moved to bully.yml: Saturday night, with backup runs)
   workflow_dispatch:          # "Run workflow" button on GitHub
     inputs:
       day:
@@ -35,7 +34,7 @@ jobs:
       - run: pip install -r src/social/requirements.txt
       - name: Render today's graphic
         env:
-          DAY: ${{ github.event.schedule == '0 14 * 8-12,1 0' && 'bully_cfb' || inputs.day }}
+          DAY: ${{ inputs.day }}
           X_INCLUDE_LINK: ${{ vars.X_INCLUDE_LINK }}
         run: |
           if [[ "$DAY" =~ ^(mon|tue|wed|thu|fri|sat|sun|bully_cfb)$ ]]; then python src/social/render.py --day "$DAY"; else python src/social/render.py; fi

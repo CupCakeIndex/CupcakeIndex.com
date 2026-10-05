@@ -774,9 +774,9 @@ const Live = (() => {
         <span class="tf-dd">${ddText}</span>
         <span class="tf-where">${where}${toGo <= 20 && off && !isTD ? ` <b class="tf-red">RED ZONE</b>` : ""}</span>
       </div>
-      <div class="tf-wrap" data-gid="${esc(gameId)}"><div class="tf-tip hidden"></div>${replayMode ? "" : replayMenu(s)}
+      <div class="tf-wrap" data-gid="${esc(gameId)}"><div class="tf-tip hidden"></div>${replayMode ? "" : replayMenu(s) + zoomButtons}<div class="tf-zm">
       <svg class="tf-field" viewBox="${vbX.toFixed(0)} 0 ${vbW.toFixed(0)} ${H}" shape-rendering="crispEdges" role="img"
-        aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, where].filter(Boolean).join(", "))}">${base.join("")}${lines}${lineup}${anim ? "" : flagOnField}${replay}${banner.replace(/@BX0@/g, (vbX + vbW / 2 - Math.min(700, vbW - 40) / 2).toFixed(0)).replace(/@BW@/g, Math.min(700, vbW - 40).toFixed(0)).replace(/@BXC@/g, (vbX + vbW / 2).toFixed(0))}</svg></div>
+        aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, where].filter(Boolean).join(", "))}">${base.join("")}${lines}${lineup}${anim ? "" : flagOnField}${replay}${banner.replace(/@BX0@/g, (vbX + vbW / 2 - Math.min(700, vbW - 40) / 2).toFixed(0)).replace(/@BW@/g, Math.min(700, vbW - 40).toFixed(0)).replace(/@BXC@/g, (vbX + vbW / 2).toFixed(0))}</svg></div></div>
       ${brk ? `<div class="tf-clock" title="The play clock is stopped"><span class="tf-clabel"><b class="tf-stop">${esc(brk)}</b></span><span class="tf-track"><i class="stop"></i></span></div>`
         : `<div class="tf-clock" title="A rough 40-second play clock from when the last play reached us. ESPN's feed often runs 30+ seconds behind the stadium, so it can run out before the next play shows up. The field checks for a new play every 5 seconds and replays it as soon as it arrives">
         <span class="tf-clabel" style="--d:${Math.max(0, 40 - since).toFixed(1)}s"><b>PLAY CLOCK</b><b class="tf-wait">WAITING ON NEXT PLAY</b></span><span class="tf-track"><i style="animation-delay:-${Math.min(since, 40).toFixed(1)}s"></i></span></div>`}
@@ -821,6 +821,88 @@ const Live = (() => {
     const same = cur && String(cur.team?.id) === String(lp.team?.id) && cur.start?.yardLine === lp.drive?.start?.yardLine;
     drives.current = same ? { ...cur, description: lp.drive?.description || cur.description, plays: [...cur.plays, play] }
       : { team: lp.team, start: lp.drive?.start, description: lp.drive?.description, plays: [play] };
+  }
+
+  // zoom + pan (phones: pinch with two fingers, drag with one while zoomed; computers: the +/- buttons or a
+  // trackpad pinch). Kept per game, so a new play doesn't throw you back out.
+  const zoomButtons = `<div class="tf-zbtns"><button type="button" class="tf-zb" data-z="in" aria-label="Zoom in">+</button><button type="button" class="tf-zb" data-z="out" aria-label="Zoom out">−</button></div>`;
+  const zoomOf = new Map(); // game id -> {s, x, y}
+  function applyZoom(wrap, z) {
+    const zm = wrap?.querySelector(".tf-zm");
+    if (!zm) return;
+    if (z) {
+      const w = zm.clientWidth, h = zm.clientHeight;
+      z.s = Math.min(4, Math.max(1, z.s));
+      z.x = Math.min(0, Math.max(w - w * z.s, z.x));
+      z.y = Math.min(0, Math.max(h - h * z.s, z.y));
+      if (z.s < 1.02) Object.assign(z, { s: 1, x: 0, y: 0 });
+      zoomOf.set(wrap.dataset.gid, z);
+    }
+    z = zoomOf.get(wrap.dataset.gid) || { s: 1, x: 0, y: 0 };
+    zm.style.setProperty("--zs", z.s);
+    zm.style.setProperty("--zx", `${z.x}px`);
+    zm.style.setProperty("--zy", `${z.y}px`);
+    wrap.classList.toggle("zoomed", z.s > 1);
+  }
+  // zoom by `f` keeping the point (px, py) inside the field (in px from its top-left) where it is
+  const zoomAt = (wrap, f, px, py) => {
+    const z = { ...(zoomOf.get(wrap.dataset.gid) || { s: 1, x: 0, y: 0 }) }, s = Math.min(4, Math.max(1, z.s * f));
+    applyZoom(wrap, { s, x: px - (px - z.x) * (s / z.s), y: py - (py - z.y) * (s / z.s) });
+  };
+  let fieldZoomWired = false, zoomDragged = 0;
+  function wireFieldZoom() {
+    if (fieldZoomWired) return;
+    fieldZoomWired = true;
+    const root = view("game"), pts = new Map();
+    let g0 = null; // the gesture so far: start positions + zoom
+    const start = (wrap) => {
+      const r = wrap.querySelector(".tf-zm").getBoundingClientRect(), p = [...pts.values()];
+      const mid = { x: p.reduce((a, q) => a + q.x, 0) / p.length - r.left, y: p.reduce((a, q) => a + q.y, 0) / p.length - r.top };
+      g0 = { wrap, mid, dist: p.length > 1 ? Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) : 0,
+        z: { ...(zoomOf.get(wrap.dataset.gid) || { s: 1, x: 0, y: 0 }) }, moved: 0 };
+    };
+    root.addEventListener("click", (ev) => {
+      const b = ev.target.closest?.(".tf-zb");
+      if (!b) return;
+      const wrap = b.closest(".tf-wrap"), zm = wrap.querySelector(".tf-zm");
+      zoomAt(wrap, b.dataset.z === "in" ? 1.5 : 1 / 1.5, zm.clientWidth / 2, zm.clientHeight / 2);
+    });
+    // a drag or pinch isn't a tap: don't open a player's name card when it ends
+    root.addEventListener("click", (ev) => { if (Date.now() - zoomDragged < 300 && ev.target.closest?.(".tf-zm")) ev.stopImmediatePropagation(); }, true);
+    root.addEventListener("pointerdown", (ev) => {
+      const wrap = ev.target.closest?.(".tf-zm")?.closest(".tf-wrap");
+      if (!wrap || ev.pointerType === "mouse" && !wrap.classList.contains("zoomed")) return;
+      pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      if (pts.size > 2) return;
+      start(wrap);
+    });
+    root.addEventListener("pointermove", (ev) => {
+      if (!g0 || !pts.has(ev.pointerId)) return;
+      pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      const p = [...pts.values()], r = g0.wrap.querySelector(".tf-zm").getBoundingClientRect();
+      const mid = { x: p.reduce((a, q) => a + q.x, 0) / p.length - r.left, y: p.reduce((a, q) => a + q.y, 0) / p.length - r.top };
+      const s = p.length > 1 && g0.dist ? g0.z.s * Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) / g0.dist : g0.z.s;
+      if (p.length < 2 && g0.z.s <= 1) return; // one finger on an unzoomed field: let the page scroll
+      g0.moved = Math.max(g0.moved, Math.hypot(mid.x - g0.mid.x, mid.y - g0.mid.y), Math.abs(s - g0.z.s) * 100);
+      const k = Math.min(4, Math.max(1, s)) / g0.z.s; // the spot under the fingers stays under the fingers
+      applyZoom(g0.wrap, { s, x: mid.x - (g0.mid.x - g0.z.x) * k, y: mid.y - (g0.mid.y - g0.z.y) * k });
+    });
+    const end = (ev) => {
+      if (!pts.delete(ev.pointerId)) return;
+      if (g0 && g0.moved > 6) zoomDragged = Date.now();
+      if (pts.size && g0) start(g0.wrap); // one finger lifted: keep panning with the other
+      else g0 = null;
+    };
+    root.addEventListener("pointerup", end);
+    root.addEventListener("pointercancel", end);
+    // trackpad pinch (the browser sends it as ctrl + wheel)
+    root.addEventListener("wheel", (ev) => {
+      const zm = ev.target.closest?.(".tf-zm");
+      if (!zm || !ev.ctrlKey) return;
+      ev.preventDefault();
+      const r = zm.getBoundingClientRect();
+      zoomAt(zm.closest(".tf-wrap"), Math.exp(-ev.deltaY / 100), ev.clientX - r.left, ev.clientY - r.top);
+    }, { passive: false });
   }
 
   // hover (or tap) a pixel player: highlight him and show number, name, position, headshot
@@ -1139,6 +1221,8 @@ const Live = (() => {
       // moving the field restarts its CSS animations, so swap in the new play clock (it's timed from when the play arrived)
       oldField.querySelector(".tf-clock")?.replaceWith(newField.querySelector(".tf-clock") || "");
     }
+    const tfWrap = view("game").querySelector(".tecmo .tf-wrap");
+    if (tfWrap) { wireFieldZoom(); applyZoom(tfWrap); }
     if (wp.length > 2) initWp(wp, s, away, home);
     const bx = $("#boxscore .box-tabs");
     if (bx) bx.onclick = (e) => {

@@ -2,14 +2,21 @@ name: Weekly rankings
 
 on:
   schedule:
-    # Mondays 13:00 UTC (9am Eastern), Aug-Jan only. Tuesday run picks up late stat corrections.
-    - cron: "0 13 * 8-12,1 1"
-    - cron: "0 13 * 8-12,1 2"
+    # Sundays 11:23 UTC (7am Eastern): college only, so CFB rankings are up the morning after Saturday's games.
+    - cron: "23 11 * 8-12,1 0"
+    # Mondays 13:07 UTC (9am Eastern), Aug-Jan only. Tuesday run picks up late stat corrections.
+    # Minutes are off the top of the hour, when GitHub's scheduler is busiest (it skipped runs on Oct 4).
+    - cron: "7 13 * 8-12,1 1"
+    - cron: "7 13 * 8-12,1 2"
   workflow_dispatch:          # "Run workflow" button on GitHub
     inputs:
       season:
         description: "Season to rebuild (blank = current)"
         required: false
+      league:
+        description: "League (all, cfb or nfl)"
+        required: false
+        default: all
 
 permissions:
   contents: write
@@ -35,8 +42,10 @@ jobs:
           CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           SEASON: ${{ inputs.season }}
+          LEAGUE: ${{ github.event.schedule == '23 11 * 8-12,1 0' && 'cfb' || inputs.league || 'all' }}
         run: |
-          if [[ "$SEASON" =~ ^[0-9]{4}$ ]]; then python src/run_weekly.py --season "$SEASON"; else python src/run_weekly.py; fi
+          [[ "$LEAGUE" =~ ^(all|cfb|nfl)$ ]] || LEAGUE=all
+          if [[ "$SEASON" =~ ^[0-9]{4}$ ]]; then python src/run_weekly.py --league "$LEAGUE" --season "$SEASON"; else python src/run_weekly.py --league "$LEAGUE"; fi
       - name: Just the Facts (team pages) from the college game history
         env:
           CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}

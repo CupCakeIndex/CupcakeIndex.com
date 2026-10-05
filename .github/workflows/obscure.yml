@@ -8,8 +8,8 @@ name: Obscure stat post
 
 on:
   schedule:
-    - cron: "0 17 * 8-12,1 *"   # 1 PM Eastern (noon in winter)
-    - cron: "0 23 * 8-12,1 *"   # 7 PM Eastern (6 PM in winter)
+    - cron: "2 17 * 8-12,1 *"   # 1 PM Eastern (noon in winter)
+    - cron: "2 23 * 8-12,1 *"   # 7 PM Eastern (6 PM in winter)
     - cron: "30 14 * 9-12,1 6"  # Saturday 10:30 AM Eastern: NFL injury report (most banged-up teams), after Friday's final reports
   workflow_dispatch:
     inputs:

@@ -7,7 +7,7 @@ name: Home screen tip post
 
 on:
   schedule:
-    - cron: "0 20 */3 * *"
+    - cron: "4 20 */3 * *"
   workflow_dispatch:
     inputs:
       theme:

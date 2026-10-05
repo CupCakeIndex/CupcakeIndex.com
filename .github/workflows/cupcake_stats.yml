@@ -11,7 +11,7 @@ name: Cupcake stat post
 
 on:
   schedule:
-    - cron: "0 19 * 8-12,1 1-5"   # Monday-Friday 3 PM Eastern (2 PM in winter): the strongest stat not posted yet
+    - cron: "3 19 * 8-12,1 1-5"   # Monday-Friday 3 PM Eastern (2 PM in winter): the strongest stat not posted yet
     - cron: "30 13 * 8-12,1 6"    # Saturday 9:30 AM Eastern: this week's college droughts / series, before kickoff
     - cron: "30 13 * 8-12,1 0"    # Sunday 9:30 AM Eastern: this week's NFL series / playoff droughts, before kickoff
   workflow_dispatch:

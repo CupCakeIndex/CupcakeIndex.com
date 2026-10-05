@@ -7,7 +7,7 @@ tweet text for today's slot in the weekly rotation:
     Tue  NFL power rankings top 10 + biggest movers
     Wed  Most padded schedules (Cupcake score) among the CFB top 25
     Thu  NFL Cupcake Bully of the Week
-    Sun  CFB Cupcake Bully of the Week (slot "bully_cfb", 10 AM Eastern, from Saturday's final scores), then NFL game day
+    Sat  CFB Cupcake Bully of the Week (slot "bully_cfb", bully.yml: ~11:40 PM Eastern with retries), Sun NFL game day
     Fri  (rest day: nothing posts)
     Sat  CFB game day: the week's biggest games with model win odds
     Sun  NFL game day: the slate with model win odds
@@ -341,8 +341,9 @@ def cfb_bully_now(today):
             return min(1.0, max(0.05, gap / full))
         return 0.0 if orr >= cfg.get("cupcake_max_opp", 0.0) else min(1.0, max(0.0, (gap - cfg["cupcake_gap"]) / cfg["cupcake_span"]))
     best = None
-    for back in (1, 2, 3):  # Saturday, Friday, Thursday
-        day = (today - dt.timedelta(days=back)).strftime("%Y%m%d")
+    sat = today - dt.timedelta(days=(today.weekday() - 5) % 7)  # Saturday night (today) or Sunday (yesterday)
+    for back in (0, 1, 2):  # Saturday, Friday, Thursday
+        day = (sat - dt.timedelta(days=back)).strftime("%Y%m%d")
         url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={day}&groups=80&limit=400"
         with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=30) as r:
             events = json.load(r).get("events", [])
@@ -363,8 +364,24 @@ def cfb_bully_now(today):
                 score = (us - them) - ro
                 if best is None or score > best["score"]:
                     best = {"team": t["team"], "opp": o["team"] if o else op["team"].get("location", ""), "fcs": not o,
-                            "opp_rank": o and o.get("power_rank"), "score_line": f"{us}-{them}", "margin": us - them, "score": round(score, 1)}
+                            "opp_rank": o and o.get("power_rank"), "score_line": f"{us}-{them}", "margin": us - them, "score": round(score, 1),
+                            "espn_id": e.get("id")}
     return best
+
+
+def cfb_bully_slot(today):
+    """Saturday-night college Bully (bully.yml). Also writes docs/data/cfb/bully_now.json so the site's banner
+    shows it right away, before the rankings run makes it official. If the rankings already ran for this
+    weekend's games, their pick is used as is."""
+    cur, _, _ = latest("cfb")
+    sat = today - dt.timedelta(days=(today.weekday() - 5) % 7)
+    gen = dt.datetime.fromisoformat(cur["generated"]).date() if cur.get("generated") else None
+    if gen and gen > sat:
+        return bully_card(today, ("cfb",))
+    b = cfb_bully_now(today)
+    with open(os.path.join(DATA, "cfb", "bully_now.json"), "w", encoding="utf-8") as f:
+        json.dump({"season": cur["season"], "week": cur["week"] + 1, "date": sat.isoformat(), "bully": b}, f, ensure_ascii=False)
+    return bully_card(today, ("cfb",), {"cfb": b})
 
 
 def bully_card(today, leagues=("cfb", "nfl"), now=None):
@@ -466,7 +483,7 @@ SLOTS = {
     "fri": lambda today: (Image.new("RGB", (16, 9)), "", SITE, True),  # rest day: no post (no betting content)
     "sat": lambda today: gameday_card("cfb", today),
     "sun": lambda today: gameday_card("nfl", today),
-    "bully_cfb": lambda today: bully_card(today, ("cfb",), {"cfb": cfb_bully_now(today)}),
+    "bully_cfb": cfb_bully_slot,
 }
 
 
@@ -509,7 +526,7 @@ def render(day, out, today):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--day", choices=list(SLOTS), help="rotation slot (default: today's, US Eastern); bully_cfb = Sunday's college Bully of the Week")
+    ap.add_argument("--day", choices=list(SLOTS), help="rotation slot (default: today's, US Eastern); bully_cfb = Saturday night's college Bully of the Week")
     ap.add_argument("--all", action="store_true", help="render every slot")
     ap.add_argument("--out", default=os.path.join(ROOT, "out", "social"))
     ap.add_argument("--date", help="pretend today is YYYY-MM-DD (staleness check + default slot)")
