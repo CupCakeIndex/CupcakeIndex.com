@@ -69,3 +69,5 @@ Then double-click `preview.bat` to view it in your browser.
 | `docs/` | The website |
 | `.github/workflows/weekly.yml` | The Monday schedule |
 | `tests/make_fake_data.py` | Fake season for testing without a key |
+
+Worked on from a Windows 11 VM as of 2026-10-04 (moved from the work laptop).
