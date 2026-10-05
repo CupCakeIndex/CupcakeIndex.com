@@ -1921,3 +1921,8 @@ html:not([data-theme-name="mono"]):not([data-theme-name="terminal"]):not([data-t
 .inj-starter { font-size: 10px; font-weight: 800; letter-spacing: .04em; padding: 1px 5px; background: var(--ink); color: var(--bg); }
 @media (max-width: 560px) { .inj-row { grid-template-columns: 18px 56px 1fr 34px 96px; gap: 5px; padding: 4px 2px; } .inj-so { font-size: 11px; text-align: right; } .inj-big { font-size: 24px; } }
 .inj-live { font-size: 10px; font-weight: 800; letter-spacing: .04em; padding: 1px 5px; background: var(--inj-bad); color: #fff; }
+/* team roster: position headers, starter badge, sortable column links */
+table.roster tr.ro-pos td { padding-top: 12px; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); border-bottom: 1px solid var(--line); }
+.ro-st { font-size: 10px; font-weight: 800; padding: 0 4px; border: 1px solid var(--muted); color: var(--muted); margin-left: 4px; }
+table.roster th.sortable a { color: inherit; text-decoration: none; white-space: nowrap; }
+table.roster th.sortable.on a { color: var(--accent); }

@@ -1546,6 +1546,12 @@ const Live = (() => {
   })().catch((e) => { injP = null; throw e; }));
   };
 
+  const injChip = (h) => { const f = h.w ? h.lost / h.w : INJ_HIT(h.status);
+    return `<span class="inj-st ${f >= 1 ? "out" : f >= 0.75 ? "dbt" : "q"}">${esc(/injured reserve/i.test(h.status) ? "IR" : h.status)}</span>`; };
+  const injList = (t) => `<ul class="inj-list">${t.hurt.map((h) => `<li>${face(h.pic, h.name, "hs")}<div><a href="${link("player", h.id)}"><b>${esc(h.name)}</b></a>
+      <small class="muted">${esc(h.pos)}</small> ${injChip(h)}${h.key ? ` <span class="inj-starter" title="A starter, the next man up because the starter is out, or a regular starter (5+ starts since last season)">KEY</span>` : ""}${h.ingame ? ` <span class="inj-live">IN-GAME</span>` : ""}
+      ${h.note ? `<small class="inj-note">${esc(h.note)}</small>` : ""}</div></li>`).join("") || `<li class="muted">Nobody on the report.</li>`}</ul>`;
+
   async function injuries(params, refresh = false) {
     const my = token;
     if (league !== "nfl") {
@@ -1562,11 +1568,7 @@ const Live = (() => {
     const ord = (n) => n + ([11, 12, 13].includes(n % 100) ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th");
     const focus = teams.find((t) => t.team.abbreviation === pick) || teams[0];
     const rank = teams.indexOf(focus) + 1;
-    const chip = (h) => { const f = h.w ? h.lost / h.w : INJ_HIT(h.status);
-      return `<span class="inj-st ${f >= 1 ? "out" : f >= 0.75 ? "dbt" : "q"}">${esc(/injured reserve/i.test(h.status) ? "IR" : h.status)}</span>`; };
-    const list = (t) => `<ul class="inj-list">${t.hurt.map((h) => `<li>${face(h.pic, h.name, "hs")}<div><a href="${link("player", h.id)}"><b>${esc(h.name)}</b></a>
-        <small class="muted">${esc(h.pos)}</small> ${chip(h)}${h.key ? ` <span class="inj-starter" title="A starter, or the next man up because the starter is out">KEY</span>` : ""}${h.ingame ? ` <span class="inj-live">IN-GAME</span>` : ""}
-        ${h.note ? `<small class="inj-note">${esc(h.note)}</small>` : ""}</div></li>`).join("") || `<li class="muted">Nobody on the report.</li>`}</ul>`;
+    const list = injList;
     view("stats").innerHTML = stSubStats("injuries") + `<div class="card">
       <div class="sc-bar"><h2>Injuries <small class="muted">NFL · how healthy is each team?</small></h2><span class="muted">${liveBadge(teams.live)}</span></div>
       <div class="inj-head">${img(teamLogo(focus.team), "lg")}<div><b>${esc(focus.team.displayName || "")}</b>
@@ -3264,7 +3266,7 @@ const Live = (() => {
     const lg = league, my = token;
     store.set("lastTeam-" + lg, String(id)); // standings open on this team's conference
     const nfl = lg === "nfl";
-    const tab = ["roster", ...(nfl ? ["depth", "moves"] : [])].includes(params.get("tab")) ? params.get("tab") : "schedule";
+    const tab = ["roster", ...(nfl ? ["depth", "moves", "injuries"] : [])].includes(params.get("tab")) ? params.get("tab") : "schedule";
     loading("team");
     let sch, ros, ranks, extra;
     try {
@@ -3272,7 +3274,8 @@ const Live = (() => {
         api(`${SITE(lg)}/teams/${encodeURIComponent(id)}/schedule`, 60000),
         api(`${SITE(lg)}/teams/${encodeURIComponent(id)}/roster`, 600000).catch(() => null),
         modelRanks(lg),
-        tab === "depth" ? api(`${SITE(lg)}/teams/${encodeURIComponent(id)}/depthcharts`, 600000).catch(() => null)
+        tab === "depth" || (tab === "roster" && nfl) ? api(`${SITE(lg)}/teams/${encodeURIComponent(id)}/depthcharts`, 600000).catch(() => null)
+          : tab === "injuries" ? injData().catch(() => null)
           : tab === "moves" ? api(`${SITE(lg)}/transactions?limit=1000`, 1800000).catch(() => null) : null,
       ]);
     } catch (e) { return fail("team", e); }
@@ -3346,14 +3349,50 @@ const Live = (() => {
           <p class="note">${esc(shown.competitions[0].venue?.fullName || "")}${shown.competitions[0].venue?.fullName && shown.competitions[0].broadcasts?.[0]?.media?.shortName ? " · " : ""}${watch(shown.competitions[0].broadcasts?.[0]?.media?.shortName || "", stateOf(shown))}</p></div>` : ""}
       </div>${factsCard}`;
 
-    const rosterRows = (ros?.athletes || []).filter((g) => g.items?.length).map((g) => `
-      <h4>${esc({ offense: "Offense", defense: "Defense", specialTeam: "Special teams", injuredReserveOrOut: "Injured reserve / out", suspended: "Suspended", practiceSquad: "Practice squad" }[g.position] || g.position)}</h4>
-      <div class="table-wrap"><table class="box"><thead><tr><th class="num">#</th><th>Player</th><th>Pos</th><th>Ht</th><th>Wt</th><th>${lg === "nfl" ? "Age" : "Class"}</th><th>Status</th></tr></thead><tbody>
-      ${g.items.map((p) => `<tr data-pid="${esc(p.id)}"><td class="num muted">${esc(p.jersey || "")}</td>
-        <td><div class="team">${face(p.headshot?.href, p.displayName, "hs")}<a href="${link("player", p.id)}">${esc(p.displayName)}</a></div></td>
-        <td>${esc(p.position?.abbreviation || "")}</td><td>${esc(p.displayHeight || "")}</td><td>${esc(p.displayWeight || "")}</td>
+    // roster: offense / defense / special teams, each by position (QB, RB, WR, TE, OL... DL, LB, CB, S... K, P, LS)
+    // and depth-chart order within a position (NFL), with a small header per position. Or sort by any column.
+    const depthAt = new Map(); // athlete id -> 0 for a starter, 1 for the 2nd string...
+    (tab === "roster" ? extra?.depthchart || [] : []).forEach((f) => Object.entries(f.positions || {}).forEach(([key, P]) => !["pr", "kr", "h"].includes(key) && (P.athletes || []).forEach((a, i) => { // returners / holder aren't "starters"
+      const k = String(a.id);
+      if (!depthAt.has(k) || i < depthAt.get(k)) depthAt.set(k, i);
+    })));
+    const POS_SEQ = ["QB", "RB", "HB", "FB", "WR", "TE", "OT", "T", "OL", "G", "OG", "C", "DE", "EDGE", "DL", "DT", "NT", "LB", "OLB", "ILB", "MLB",
+      "CB", "DB", "S", "SS", "FS", "PK", "K", "P", "LS"];
+    const posAt = (p) => { const i = POS_SEQ.indexOf(p.position?.abbreviation || ""); return i < 0 ? 99 : i; };
+    const injAt = (p) => { const st = p.injuries?.[0]?.status || ""; return /out|reserve|suspen/i.test(st) ? 0 : /doubt/i.test(st) ? 1 : /quest/i.test(st) ? 2 : 3; };
+    const RS = { num: ["#", (p) => +p.jersey || 999], name: ["Player", (p) => (p.lastName || p.displayName || "").toLowerCase()], pos: ["Pos", posAt],
+      ht: ["Ht", (p) => p.height || 0], wt: ["Wt", (p) => p.weight || 0], age: [nfl ? "Age" : "Class", (p) => (nfl ? p.age : p.experience?.years) || 0], status: ["Status", injAt] };
+    const rsort = RS[params.get("sort")] ? params.get("sort") : "", rdesc = params.get("dir") === "desc";
+    const byDepth = (a, b) => posAt(a) - posAt(b) || (depthAt.get(String(a.id)) ?? 99) - (depthAt.get(String(b.id)) ?? 99) || (+a.jersey || 999) - (+b.jersey || 999);
+    const rsorter = rsort ? (a, b) => { const x = RS[rsort][1](a), y = RS[rsort][1](b); return (x < y ? -1 : x > y ? 1 : 0) * (rdesc ? -1 : 1) || byDepth(a, b); } : byDepth;
+    const rth = (k, cls = "") => { const on = rsort === k, d = on && !rdesc ? "desc" : "asc";
+      return `<th class="sortable${cls}${on ? " on" : ""}"><a href="${link("team", id, { tab: "roster", sort: k, dir: d })}" title="Sort by ${esc(RS[k][0])}">${esc(RS[k][0])}${on ? (rdesc ? " ▼" : " ▲") : ""}</a></th>`; };
+    const rosterRows = (ros?.athletes || []).filter((g) => g.items?.length).map((g) => {
+      let last = null;
+      const rows = g.items.slice().sort(rsorter).map((p) => {
+        const pos = p.position?.abbreviation || "", head = !rsort && pos !== last ? `<tr class="ro-pos"><td colspan="7">${esc(p.position?.displayName || pos)}</td></tr>` : "";
+        last = pos;
+        const d = depthAt.get(String(p.id));
+        return `${head}<tr data-pid="${esc(p.id)}"><td class="num muted">${esc(p.jersey || "")}</td>
+        <td><div class="team">${face(p.headshot?.href, p.displayName, "hs")}<a href="${link("player", p.id)}">${esc(p.displayName)}</a>${d === 0 ? ` <small class="ro-st" title="Starter on ESPN's depth chart">S</small>` : ""}</div></td>
+        <td>${esc(pos)}</td><td>${esc(p.displayHeight || "")}</td><td>${esc(p.displayWeight || "")}</td>
         <td>${esc(lg === "nfl" ? p.age ?? "" : p.experience?.abbreviation || "")}</td>
-        <td>${injTag(p.injuries?.[0], p.id, T.id)}</td></tr>`).join("")}</tbody></table></div>`).join("");
+        <td>${injTag(p.injuries?.[0], p.id, T.id)}</td></tr>`;
+      }).join("");
+      return `<h4>${esc({ offense: "Offense", defense: "Defense", specialTeam: "Special teams", injuredReserveOrOut: "Injured reserve / out", suspended: "Suspended", practiceSquad: "Practice squad" }[g.position] || g.position)}</h4>
+      <div class="table-wrap"><table class="box roster"><thead><tr>${rth("num", " num")}${rth("name")}${rth("pos")}${rth("ht")}${rth("wt")}${rth("age")}${rth("status")}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    }).join("") + (rosterRowsNote());
+    function rosterRowsNote() {
+      return `<p class="note">${rsort ? `Sorted by ${esc(RS[rsort][0])}. <a href="${link("team", id, { tab: "roster" })}">Back to position order</a>.` : `In position order${nfl ? ", starters first (depth chart order); S = starter" : ""}. Tap a column to sort by it.`}</p>`;
+    }
+    // Injuries tab (NFL): this team's "% healthy" and its full report, same math as Stats > Injuries
+    const injTeam = tab === "injuries" && Array.isArray(extra) ? extra.find((t) => String(t.id) === String(T.id)) : null;
+    const injRank = injTeam ? extra.indexOf(injTeam) + 1 : 0;
+    const injAvg = injTeam ? extra.reduce((a, t) => a + t.health, 0) / extra.length : 0;
+    const injHtml = !injTeam ? "" : `<div class="inj-head"><div><span class="inj-big" style="color:${injTeam.health >= 92 ? "var(--inj-good)" : injTeam.health >= 82 ? "var(--inj-mid)" : "var(--inj-bad)"}">Operating at ${Math.round(injTeam.health)}%</span>
+        <small class="muted">${injRank === 1 ? "The most banged-up team in the NFL" : `#${injRank} most banged-up of ${extra.length}`} · ${injTeam.keyOut} key player${injTeam.keyOut === 1 ? "" : "s"}, ${injTeam.hurt.length} total on the report · league average ${Math.round(injAvg)}%</small></div></div>
+      ${injList(injTeam)}
+      <p class="note">Starters, the next man up and regular starters count fully; a QB about 10x a punter. Out or IR counts fully, Doubtful 3/4, Questionable 1/4. <a href="${link("stats", null, { show: "injuries", team: injTeam.team.abbreviation })}">Compare every team →</a></p>`;
 
     // depth chart: offense, defense, special teams; each position shows starter, then backups (with injury tags from the roster)
     const injById = new Map((ros?.athletes || []).flatMap((g) => g.items || []).map((p) => [String(p.id), p.injuries?.[0]]));
@@ -3376,9 +3415,10 @@ const Live = (() => {
     const movesRows = moves.map((t) => `<tr><td class="muted">${esc(new Date(t.date).toLocaleDateString(undefined, { month: "short", day: "numeric" }))}</td><td>${esc(t.description)}</td></tr>`).join("");
     const tabLink = (t, label) => `<a class="subtab${tab === t ? " on" : ""}" href="${link("team", id, { tab: t })}">${label}</a>`;
     view("team").innerHTML = `${hub}
-      <div class="subtabs">${tabLink("schedule", "Schedule")}${tabLink("roster", "Roster")}${nfl ? tabLink("depth", "Depth chart") + tabLink("moves", "Transactions") : ""}</div>
+      <div class="subtabs">${tabLink("schedule", "Schedule")}${tabLink("roster", "Roster")}${nfl ? tabLink("depth", "Depth chart") + tabLink("injuries", "Injuries") + tabLink("moves", "Transactions") : ""}</div>
       <div class="card">${tab === "roster"
         ? rosterRows || `<p class="muted">Roster not available.</p>`
+        : tab === "injuries" ? injHtml || `<p class="muted">Injury report not available.</p>`
         : tab === "depth" ? depthRows || `<p class="muted">Depth chart not available.</p>`
         : tab === "moves" ? (movesRows ? `<div class="table-wrap"><table class="box moves"><tbody>${movesRows}</tbody></table></div>
             <p class="note">Signings, releases and injured-reserve moves since ${esc(new Date(extra.transactions[extra.transactions.length - 1].date).toLocaleDateString(undefined, { month: "long", day: "numeric" }))}.</p>`
