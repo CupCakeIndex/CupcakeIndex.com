@@ -1,7 +1,8 @@
 name: College Bully of the Week
 
-# Saturday night: the college Bully of the Week from that day's final scores (Thu-Sat), posted to X and
-# shown on the site's banner right away (docs/data/cfb/bully_now.json) instead of waiting for the rankings.
+# Saturday night: the college Bully of the Week, posted to X. If the Saturday-night rankings run (weekly.yml,
+# 11:27 PM Eastern) already counted the week, its pick is used; otherwise it's worked out from the final scores
+# so far and shown on the site's banner right away (docs/data/cfb/bully_now.json).
 # GitHub sometimes skips or delays scheduled runs by hours, so there are backup runs: whichever runs first
 # posts, the rest only refresh the site banner (later runs include the late West Coast games).
 # Minutes are off the top of the hour, when GitHub's scheduler is busiest.

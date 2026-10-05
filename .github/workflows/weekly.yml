@@ -2,7 +2,15 @@ name: Weekly rankings
 
 on:
   schedule:
-    # Sundays 11:23 UTC (7am Eastern): college only, so CFB rankings are up the morning after Saturday's games.
+    # College only, Saturday night alongside the Bully (11:27 PM, 12:57 AM, 2:27 AM Eastern). A week only counts
+    # once 90% of its games are final, so the later tries pick up the late West Coast games.
+    - cron: "27 3 * 8-10 0"
+    - cron: "57 4 * 8-10 0"
+    - cron: "27 6 * 8-10 0"
+    - cron: "27 4 * 11,12,1 0"
+    - cron: "57 5 * 11,12,1 0"
+    - cron: "27 7 * 11,12,1 0"
+    # Sundays 11:23 UTC (7am Eastern): college only, a final pass with every Saturday game.
     - cron: "23 11 * 8-12,1 0"
     # Mondays 13:07 UTC (9am Eastern), Aug-Jan only. Tuesday run picks up late stat corrections.
     # Minutes are off the top of the hour, when GitHub's scheduler is busiest (it skipped runs on Oct 4).
@@ -20,6 +28,10 @@ on:
 
 permissions:
   contents: write
+
+concurrency:
+  group: weekly
+  cancel-in-progress: false
 
 jobs:
   update:
@@ -42,7 +54,7 @@ jobs:
           CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           SEASON: ${{ inputs.season }}
-          LEAGUE: ${{ github.event.schedule == '23 11 * 8-12,1 0' && 'cfb' || inputs.league || 'all' }}
+          LEAGUE: ${{ github.event_name == 'schedule' && !startsWith(github.event.schedule, '7 13') && 'cfb' || inputs.league || 'all' }}
         run: |
           [[ "$LEAGUE" =~ ^(all|cfb|nfl)$ ]] || LEAGUE=all
           if [[ "$SEASON" =~ ^[0-9]{4}$ ]]; then python src/run_weekly.py --league "$LEAGUE" --season "$SEASON"; else python src/run_weekly.py --league "$LEAGUE"; fi
@@ -61,4 +73,5 @@ jobs:
           git add docs/data data/history
           git diff --cached --quiet && echo "No changes" && exit 0
           git commit -m "Rankings update $(date -u +%Y-%m-%d)"
+          git pull --rebase
           git push
