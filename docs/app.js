@@ -21,8 +21,8 @@ const BASE_PRESETS = {
 };
 const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", recent: "FORM", cupcake: "CUP", luck: "UNLK" };
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
-const RANK_VIEWS = new Set(["rankings", "schedules"]);
-const VIEWS = new Set(["rankings", "picks", "schedules", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily", "fantasy", "news", "games", "settings", "privacy"]);
+const RANK_VIEWS = new Set(["rankings", "schedules", "resume"]);
+const VIEWS = new Set(["rankings", "picks", "schedules", "resume", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily", "fantasy", "news", "games", "settings", "privacy"]);
 // Sub-pages that light up a parent tab in the nav (the Daily player game lives under Games)
 const NAV_PARENT = { daily: "games" };
 
@@ -146,6 +146,7 @@ async function route() {
     if (r.view === "rankings" && team) openTeam(team);
     if (r.view === "rankings") $("#daily-st").textContent = Daily.status();
     if (r.view === "schedules") renderSchedules();
+    if (r.view === "resume") renderResume();
   } else if (r.view === "updates") {
     renderNotes();
   } else if (r.view === "daily") {
@@ -210,7 +211,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "191"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "192"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -454,6 +455,7 @@ async function loadWeek(force = false) {
   renderCotw();
   render();
   if (parseHash().view === "schedules") renderSchedules();
+  if (parseHash().view === "resume") renderResume();
   liveRecords();
 }
 
@@ -1135,6 +1137,54 @@ function initZoom(el, onPick) {
 }
 
 // ------------------------------------------------------------------ compare vs. other systems
+// ------------------------------------------------------------------ résumé check
+// Take away every cupcake win and re-rank on what's left. A team's "real résumé" counts only games against
+// opponents that weren't cupcakes for THEM (the model's own flag), scored like the Résumé factor: a win adds how
+// hard that game would be for a top-25 team, a loss costs how winnable it was. "Ours" is the Default ranking.
+function renderResume() {
+  const tb = $("#rc-table tbody"), nfl = league === "nfl", cut = nfl ? 10 : 25;
+  if (!DATA) return;
+  const ours = composite(DATA.teams, LG.default_weights);
+  const rows = ours.map((t) => {
+    let real = 0, w = 0, l = 0;
+    const cups = [];
+    (t.schedule || []).filter((g) => g.result).forEach((g) => {
+      if (g.cupcake) { cups.push(g); return; }
+      const d = g.difficulty ?? 0.5;
+      if (g.result === "W") { real += d; w++; } else { real -= 1 - d; l++; }
+    });
+    return { t, ours: t.rank, real, rec: `${w}-${l}`, cups, games: w + l + cups.length };
+  });
+  if (!rows.some((r) => r.games)) { tb.innerHTML = `<tr><td colspan="4" class="muted">No games played yet this season.</td></tr>`; $("#rc-callouts").innerHTML = ""; return; }
+  rows.sort((a, b) => b.real - a.real || a.ours - b.ours).forEach((r, i) => { r.rank = i + 1; r.move = r.ours - r.rank; });
+  const cupWins = (r) => r.cups.filter((g) => g.result === "W").length;
+  // the headline: who falls the furthest out of our top 25 (top 10 NFL), and who climbs the most into the real top 25
+  const fell = rows.filter((r) => r.ours <= cut && r.move < 0 && cupWins(r)).sort((a, b) => a.move - b.move).slice(0, 4);
+  const rose = rows.filter((r) => r.rank <= cut && r.move > 0).sort((a, b) => b.move - a.move).slice(0, 4);
+  const item = (r, why) => `<li><a href="#" data-team="${esc(r.t.team)}">${esc(r.t.team)}</a> <span class="muted">#${r.ours} → #${r.rank} · ${why}</span></li>`;
+  $("#rc-callouts").innerHTML = `
+    <div><b>Exposed</b><small class="muted">Looked good until we took away the cupcakes</small><ul>${fell.map((r) => item(r, `${esc(r.t.record)}, but ${r.rec} vs real teams`)).join("") || '<li class="muted">Nobody this week</li>'}</ul></div>
+    <div><b>The real deal</b><small class="muted">Climb the most when only real games count</small><ul>${rose.map((r) => item(r, `${r.rec} vs real teams`)).join("") || '<li class="muted">Nobody this week</li>'}</ul></div>`;
+  const draw = () => {
+    const all = nfl || $("#rc-show").value === "all";
+    const list = all ? rows : rows.filter((r) => r.rank <= 25 || r.ours <= 25);
+    tb.innerHTML = list.map((r) => {
+      const cw = r.cups.filter((g) => g.result === "W");
+      const gone = cw.length ? `minus ${cw.length} cupcake${cw.length > 1 ? "s" : ""}: ${cw.map((g) => esc(g.opp)).join(", ")}` : "no cupcakes";
+      return `<tr data-team="${esc(r.t.team)}">
+      <td class="num rank">${r.rank}</td>
+      <td><div class="team">${logo(r.t)}<div><b>${esc(r.t.team)}</b><small class="muted">${esc(r.t.record)} · ${gone}</small></div></div></td>
+      <td class="num"><b>${r.rec}</b></td>
+      <td class="num">${r.ours}<small class="rc-mv ${r.move >= 3 ? "up" : r.move <= -3 ? "down" : "muted"}">${r.move > 0 ? "▲" + r.move : r.move < 0 ? "▼" + -r.move : "–"}</small></td></tr>`;
+    }).join("");
+  };
+  $("#rc-show").onchange = draw;
+  const open = (e) => { const a = e.target.closest("[data-team]"); if (a) { e.preventDefault(); ranked = rankTeams(DATA.teams); openTeam(a.dataset.team); } };
+  $("#rc-callouts").onclick = open;
+  tb.onclick = open;
+  draw();
+}
+
 let cmpSort = { k: "ours", dir: 1 };
 async function renderCompare() {
   const tb = $("#cmp-table tbody");

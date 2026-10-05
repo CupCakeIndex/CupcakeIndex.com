@@ -333,6 +333,10 @@ body.drawer-open { overflow: hidden; }
 .cmp-agree .stat small.muted { display: block; }
 #cmp-table tbody tr { cursor: pointer; }
 #cmp-table tbody tr:hover { background: var(--accent-soft); }
+#rc-table tbody tr { cursor: pointer; }
+#rc-table tbody tr:hover { background: var(--accent-soft); }
+#rc-table .team small { display: block; font-size: 11px; line-height: 1.35; }
+#rc-table .rc-mv { display: block; font-size: 11px; font-weight: 700; }
 .disagree { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; }
 .disagree small { display: block; }
 .disagree ul { margin: 6px 0 0; padding-left: 18px; }
