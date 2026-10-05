@@ -89,7 +89,7 @@ jobs:
         run: |
           git config user.name "rankings-bot"
           git config user.email "rankings-bot@users.noreply.github.com"
-          git add data/history docs/data/cfb/facts.json docs/data/nfl/facts.json
+          git add data/history docs/data/cfb/facts.json docs/data/cfb/shame.json docs/data/nfl/facts.json
           git add data/social/posted.json 2>/dev/null || true
           git diff --cached --quiet && echo "Nothing new" && exit 0
           git commit -m "Cupcake stats: history / posting log $(date -u +%Y-%m-%dT%H:%MZ)"

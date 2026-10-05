@@ -22,7 +22,7 @@ const BASE_PRESETS = {
 const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", recent: "FORM", cupcake: "CUP", luck: "UNLK" };
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
 const RANK_VIEWS = new Set(["rankings", "schedules", "resume"]);
-const VIEWS = new Set(["rankings", "picks", "schedules", "resume", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily", "fantasy", "news", "games", "settings", "privacy"]);
+const VIEWS = new Set(["rankings", "picks", "schedules", "resume", "shame", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily", "fantasy", "news", "games", "settings", "privacy"]);
 // Sub-pages that light up a parent tab in the nav (the Daily player game lives under Games)
 const NAV_PARENT = { daily: "games" };
 
@@ -161,6 +161,8 @@ async function route() {
     Fantasy.render(r.params);
   } else if (r.view === "compare") {
     renderCompare();
+  } else if (r.view === "shame") {
+    renderShame();
   } else if (r.view === "news") {
     News.render(r.params);
   } else if (Live[r.view]) {
@@ -211,7 +213,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "192"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "193"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -1183,6 +1185,56 @@ function renderResume() {
   $("#rc-callouts").onclick = open;
   tb.onclick = open;
   draw();
+}
+
+// ------------------------------------------------------------------ hall of shame
+// This season's cupcake collectors (both leagues, from the latest rankings), plus two all-time college boards from
+// data/cfb/shame.json (src/social/team_facts.py): who schedules the most cupcakes since 2005, and who LOST to one.
+async function renderShame() {
+  const nfl = league === "nfl", lt = LG.latest, el = (id) => $("#" + id);
+  let cur, sh = null;
+  try {
+    [cur, sh] = await Promise.all([weekData(league, lt.season, lt.week), nfl ? null : getJSON("data/cfb/shame.json").catch(() => null)]);
+  } catch {
+    el("hs-season").innerHTML = `<p class="muted">Couldn't load this week. Try refreshing.</p>`;
+    return;
+  }
+  const byName = new Map(cur.teams.map((t) => [t.team, t]));
+  const tm = (name) => byName.get(name) || { team: name };
+  const open = (e) => { const a = e.target.closest("[data-team]"); if (a && byName.has(a.dataset.team)) { e.preventDefault(); ranked = rankTeams(cur.teams); openTeam(a.dataset.team); } };
+
+  // 1. this season: most cupcake wins so far
+  const coll = cur.teams.map((t) => ({ t, cups: (t.schedule || []).filter((g) => g.cupcake && g.result === "W") }))
+    .filter((r) => r.cups.length).sort((a, b) => b.cups.length - a.cups.length || a.t.power_rank - b.t.power_rank).slice(0, 10);
+  el("hs-season-title").textContent = `${lt.season} cupcake collectors`;
+  el("hs-season").innerHTML = coll.length ? `<ol class="hs-list">${coll.map((r) => `<li data-team="${esc(r.t.team)}">${logo(r.t)}<div><b>${esc(r.t.team)}</b>
+      <small class="muted">${r.cups.map((g) => `${esc(g.opp)} ${esc(g.score || "")}`).join(" · ")}</small></div><span class="hs-n">${r.cups.length}</span></li>`).join("")}</ol>`
+    : `<p class="muted">Nobody has beaten a cupcake yet this season.${nfl ? " In the NFL that's a good thing." : ""}</p>`;
+  el("hs-season").onclick = open;
+  if (nfl || !sh) return;
+
+  // 2. all-time padders (40+ games, so a new FBS team's tiny sample can't top it)
+  const pad = sh.padded.filter((r) => r.games >= 40);
+  const avg = pad.reduce((s, r) => s + r.cups / r.games, 0) / pad.length;
+  const share = (r) => r.cups / r.games, top = Math.max(...pad.map(share));
+  const drawPad = () => {
+    const list = el("hs-pad-show").value === "all" ? pad : pad.slice(0, 15);
+    el("hs-pad").innerHTML = list.map((r, i) => `<tr data-team="${esc(r.team)}"><td class="num rank">${i + 1}</td>
+      <td><div class="team">${logo(tm(r.team))}<div><b>${esc(r.team)}</b><small class="muted"><b class="hs-pct-m">${Math.round(100 * share(r))}% · </b>${r.cups} of ${r.games} games${r.since > sh.since ? ` (FBS since ${r.since})` : ""}</small></div></div></td>
+      <td class="hs-bar-cell"><div class="score">${Math.round(100 * share(r))}%<span class="bar"><i style="width:${(100 * share(r)) / top}%"></i></span></div></td>
+      <td class="num hs-rec"><b>${r.cw}-${r.cl}</b> <small class="muted">vs cupcakes</small><b>${r.rw}-${r.rl}</b> <small class="muted">vs ranked</small></td></tr>`).join("");
+  };
+  el("hs-pad-cap").textContent = `Share of games against cupcakes since ${sh.since}. The average FBS team: ${Math.round(100 * avg)}%.`;
+  el("hs-pad-show").onchange = drawPad;
+  el("hs-pad").onclick = open;
+  drawPad();
+
+  // 3. lost to a cupcake: ranked teams first (highest ranked = most shameful), then the biggest margin
+  const day = (d) => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  el("hs-loss").innerHTML = sh.losses.slice(0, 15).map((g) => `<li data-team="${esc(g.team)}">${logo(tm(g.team))}<div>
+      <b>${g.our_ap ? `<span class="muted" title="AP rank at the time">No. ${g.our_ap}</span> ` : ""}${esc(g.team)} <span class="down">lost</span> ${esc(g.score)} ${g.loc === "A" ? "at" : "vs."} ${esc(g.opp)}</b>
+      <small class="muted">${day(g.d)}</small></div></li>`).join("");
+  el("hs-loss").onclick = open;
 }
 
 let cmpSort = { k: "ours", dir: 1 };

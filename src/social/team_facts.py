@@ -1,5 +1,6 @@
 """"Just the Facts" for every college team: plain, true stats from our game history (same data and cupcake
 rule as the cupcake stat posts). Written to docs/data/cfb/facts.json; team pages show them.
+Also writes docs/data/cfb/shame.json for the Hall of Shame page (write_shame).
 
 Each fact: {"big": short headline number, "label": what it is, "detail": the receipt (date, score, opponent)}.
 A team only gets the facts that say something (no "0 straight wins over cupcakes").
@@ -16,6 +17,7 @@ sys.path.insert(0, str(HERE))
 import cupcake_stats as C  # noqa: E402
 
 OUT = HERE.parent.parent / "docs" / "data" / "cfb" / "facts.json"
+SHAME = OUT.with_name("shame.json")
 
 
 def rec(w, l):
@@ -100,6 +102,29 @@ def facts_for(team, start, upcoming, share_avg):
     return out
 
 
+def write_shame(teams, start, today):
+    """Hall of Shame numbers: every team's cupcake share since `start` (who pads the most), and the worst losses
+    TO a cupcake (ranked teams first, then by margin). Same cupcake rule as everything else."""
+    padded, losses = [], []
+    for t in teams:
+        tstart = C.team_start(t, start)
+        gs = C.games_of(t, since=tstart)
+        if len(gs) < 8:
+            continue
+        cups = [g for g in gs if g["cup"]]
+        rk = [g for g in gs if g["opp_ap"]]
+        padded.append({"team": t, "since": tstart, "games": len(gs), "cups": len(cups),
+                       "cw": sum(g["won"] for g in cups), "cl": sum(not g["won"] for g in cups),
+                       "rw": sum(g["won"] for g in rk), "rl": sum(not g["won"] for g in rk)})
+        losses += [{"team": t, "opp": g["opp"], "d": g["d"], "season": g["season"], "score": C.score(g), "loc": g["loc"],
+                    "our_ap": g["our_ap"], "margin": g["them"] - g["us"]} for g in cups if not g["won"]]
+    padded.sort(key=lambda r: -r["cups"] / r["games"])
+    losses.sort(key=lambda g: (g["our_ap"] or 99, -g["margin"], g["d"]))
+    SHAME.write_text(json.dumps({"updated": today, "since": start, "padded": padded, "losses": losses[:40]},
+                                separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
+    print(f"Hall of Shame: {len(padded)} teams, {len(losses)} cupcake losses -> {SHAME.name}")
+
+
 def main():
     start = C.first_season()
     hs = C.history()
@@ -127,6 +152,7 @@ def main():
             out["teams"][t] = f
     OUT.write_text(json.dumps(out, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
     print(f"{len(out['teams'])} teams -> {OUT.relative_to(HERE.parent.parent)} ({OUT.stat().st_size // 1024} KB)")
+    write_shame(teams, start, today)
 
 
 if __name__ == "__main__":
