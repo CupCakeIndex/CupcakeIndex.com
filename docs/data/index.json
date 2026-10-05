@@ -127,7 +127,7 @@
     "cupcake": 5,
     "luck": 5
    },
-   "updated": "2026-10-05T04:11+00:00",
+   "updated": "2026-10-05T13:27+00:00",
    "modes": {
     "best": {
      "power": 60,
@@ -209,35 +209,36 @@
      "weeks": [
       1,
       2,
-      3
+      3,
+      4
      ],
      "accuracy": {
-      "games": 32,
-      "correct": 16,
-      "mae": 10.8,
+      "games": 47,
+      "correct": 26,
+      "mae": 9.1,
       "vegas_su": {
-       "games": 32,
-       "correct": 20
+       "games": 47,
+       "correct": 29
       },
       "model_su_lined": {
-       "games": 32,
-       "correct": 16
+       "games": 47,
+       "correct": 26
       },
       "ats": {
-       "games": 29,
-       "correct": 13
+       "games": 42,
+       "correct": 22
       },
       "ats_strong": {
-       "games": 9,
-       "correct": 3
+       "games": 10,
+       "correct": 4
       },
-      "vegas_mae": 10.0
+      "vegas_mae": 8.8
      }
     }
    },
    "latest": {
     "season": 2026,
-    "week": 3
+    "week": 4
    },
    "factors": [
     {
@@ -286,15 +287,15 @@
     "cupcake": 5,
     "luck": 5
    },
-   "updated": "2026-10-02T00:15+00:00",
+   "updated": "2026-10-05T13:28+00:00",
    "modes": {
     "best": {
-     "power": 60,
+     "power": 65,
      "resume": 0,
      "efficiency": 0,
      "sos": 0,
      "recent": 25,
-     "cupcake": 15,
+     "cupcake": 10,
      "luck": 0
     },
     "deserving": {
@@ -302,22 +303,22 @@
      "sos": 25,
      "cupcake": 15
     },
-    "games": 287,
+    "games": 302,
     "accuracy": {
-     "best": 0.6306620209059234,
-     "deserving": 0.6097560975609756,
-     "old_default": 0.6167247386759582,
-     "power_only": 0.6363636363636364
+     "best": 0.6324503311258278,
+     "deserving": 0.6059602649006622,
+     "old_default": 0.6192052980132451,
+     "power_only": 0.6378737541528239
     },
     "out_of_sample": {
      "trained_on": 2025,
      "tested_on": 2026,
-     "games": 32,
-     "best": 0.53125,
-     "old_default": 0.53125
+     "games": 47,
+     "best": 0.5531914893617021,
+     "old_default": 0.574468085106383
     }
    }
   }
  },
- "updated": "2026-10-05T04:11+00:00"
+ "updated": "2026-10-05T13:28+00:00"
 }
