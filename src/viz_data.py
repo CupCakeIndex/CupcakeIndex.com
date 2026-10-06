@@ -298,7 +298,11 @@ def check(lg, season):
         tid = key.split(":")[1]
         try:
             j = requests.get(f"https://site.api.espn.com/apis/site/v2/sports/football/{sport}/teams/{tid}/statistics?season={season}", timeout=20).json()
-            s = {x["name"]: float(str(x["value"])) for cat in j["results"]["stats"]["categories"] for x in cat["stats"] if x.get("value") is not None}
+            s = {}
+            for cat in j["results"]["stats"]["categories"]:  # the same name shows up in several groups: the first one is the team's
+                for x in cat["stats"]:
+                    if x.get("value") is not None:
+                        s.setdefault(x["name"], float(str(x["value"])))
         except Exception as e:
             print(f"  ESPN check skipped for {key}: {e}")
             continue
