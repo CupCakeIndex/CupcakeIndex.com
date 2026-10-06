@@ -22,7 +22,7 @@ import re
 import sys
 
 import requests
-from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageStat
+from PIL import Image, ImageChops, ImageEnhance, ImageDraw, ImageFilter, ImageFont, ImageStat
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import posted
@@ -814,50 +814,32 @@ def fraud_scores():
     return out, cur
 
 
-def day_job(pic, p):
-    """Fraud card meme: the player in a fast-food uniform (paper hat + a TRAINEE name tag), drawn on his headshot.
-    Generic on purpose: no real restaurant's name or logo."""
+def fraud_stamp(pic, p):
+    """Fraud card meme: his photo in black and white with a red rubber stamp across it (worn ink, double border)."""
     im = pic.convert("RGBA")
     W_, H_ = im.size
-    a = im.getchannel("A")
-    rows = [(y, [x for x in range(0, W_, 2) if a.getpixel((x, y)) > 128]) for y in range(0, H_, 2)]
-    top = next(y for y, r in rows if len(r) * 2 > W_ * 0.12)                 # top of the head (past stray hair)
-    head = next(r for y, r in rows if y >= top + int(H_ * 0.12))            # head width a bit lower down
-    hx0, hx1 = head[0], head[-1]
-    cx, hw = (hx0 + hx1) // 2, hx1 - hx0
-    d = ImageDraw.Draw(im)
-    # fast-food cap: red dome, yellow band, a curved red brim over the forehead and a burger badge
-    RED, DARK, YEL = (206, 32, 41), (150, 18, 26), (255, 199, 44)
-    base = top + int(hw * 0.42)                       # bottom of the band: low enough to sit ON the head
-    dome_w, dome_h, band = int(hw * 0.60), int(hw * 0.50), int(hw * 0.16)
-    shadow = Image.new("RGBA", im.size, (0, 0, 0, 0))
-    ImageDraw.Draw(shadow).ellipse((cx - int(hw * 0.66), base - 4, cx + int(hw * 0.66), base + int(hw * 0.2)), fill=(0, 0, 0, 110))
-    im.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(6)))
-    d = ImageDraw.Draw(im)
-    d.chord((cx - dome_w, base - band - dome_h, cx + dome_w, base - band + dome_h), 180, 360, fill=RED)
-    d.rectangle((cx - dome_w, base - band, cx + dome_w, base), fill=YEL)
-    d.chord((cx - int(hw * 0.66), base - int(hw * 0.07), cx + int(hw * 0.66), base + int(hw * 0.17)), 0, 180, fill=DARK)
-    r = int(hw * 0.11)
-    sy = base - band - int(dome_h * 0.42)
-    d.ellipse((cx - r, sy - r, cx + r, sy + r), fill=YEL)
-    q = r * 0.62  # a tiny burger on the badge: bun, patty, bun
-    d.chord((cx - q, sy - q * 0.95, cx + q, sy + q * 0.35), 180, 360, fill=(214, 128, 40))
-    d.rounded_rectangle((cx - q * 1.05, sy - q * 0.05, cx + q * 1.05, sy + q * 0.3), int(q * 0.15), fill=(92, 46, 24))
-    d.rounded_rectangle((cx - q, sy + q * 0.38, cx + q, sy + q * 0.7), int(q * 0.15), fill=(214, 128, 40))
-    # name tag on his chest (viewer's right)
-    first = (p.get("name") or "").split()[0].upper()[:10]
-    tw, th = int(W_ * 0.27), int(W_ * 0.15)
-    tag = Image.new("RGBA", (tw, th), (0, 0, 0, 0))
-    td = ImageDraw.Draw(tag)
-    td.rounded_rectangle((0, 0, tw - 1, th - 1), 8, fill=(250, 250, 246), outline=(180, 180, 175), width=2)
-    td.rounded_rectangle((0, 0, tw - 1, int(th * 0.34)), 8, fill=(206, 32, 41))
-    td.rectangle((0, int(th * 0.2), tw - 1, int(th * 0.34)), fill=(206, 32, 41))
-    td.text((tw // 2, int(th * 0.17)), "HI, I'M", font=R.font(max(10, th // 6), "Bold"), fill=(255, 255, 255), anchor="mm")
-    td.text((tw // 2, int(th * 0.55)), first, font=R.font(max(12, th // 4), "ExtraBold"), fill=(30, 30, 30), anchor="mm")
-    td.text((tw // 2, int(th * 0.83)), "TRAINEE", font=R.font(max(9, th // 7), "Bold"), fill=(206, 32, 41), anchor="mm")
-    tag = tag.rotate(-6, resample=Image.BICUBIC, expand=True)
-    tx, ty = cx - int(hw * 0.95) - tag.width // 2, int(H_ * 0.80)   # his right side (left on screen): the card's slant crops the other
-    im.alpha_composite(tag, (max(4, tx), min(ty, H_ - tag.height - 2)))
+    alpha = im.getchannel("A")
+    gray = ImageEnhance.Contrast(im.convert("L")).enhance(1.15).convert("RGBA")
+    gray.putalpha(alpha)
+    im = gray
+    # the stamp, drawn big then rotated
+    sw, sh = int(W_ * 0.54), int(W_ * 0.18)
+    st = Image.new("L", (sw, sh), 0)
+    sd = ImageDraw.Draw(st)
+    b = max(4, sh // 16)
+    sd.rounded_rectangle((0, 0, sw - 1, sh - 1), sh // 8, outline=255, width=b)
+    sd.rounded_rectangle((b * 2, b * 2, sw - 1 - b * 2, sh - 1 - b * 2), sh // 10, outline=255, width=max(2, b // 2))
+    f = R.font(int(sh * 0.62), "ExtraBold")
+    sd.text((sw // 2, sh // 2 + int(sh * 0.03)), "FRAUD", font=f, fill=255, anchor="mm")
+    # worn ink: knock random specks out of the stamp
+    noise = Image.effect_noise((sw // 3, sh // 3), 60).resize((sw, sh), Image.BICUBIC).point(lambda v: 0 if v > 200 else 255)
+    st = ImageChops.multiply(st, noise).filter(ImageFilter.GaussianBlur(0.6))
+    st = st.rotate(9, resample=Image.BICUBIC, expand=True)
+    ink = Image.new("RGBA", st.size, (214, 30, 38, 0))
+    ink.putalpha(st.point(lambda v: int(v * 0.92)))
+    bb = alpha.getbbox() or (0, 0, W_, H_)
+    # a little left of center: the card's slanted panel edge cuts off the right side of the photo
+    im.alpha_composite(ink, ((bb[0] + bb[2]) // 2 - int(W_ * 0.09) - ink.width // 2, int(H_ * 0.6) - ink.height // 2))
     return im
 
 
@@ -875,7 +857,7 @@ def _():
     return fact("nfl", "player", [(p, p["score"], f"{p['score']}% under") for p in rows[:5]], "Fraud watch",
                 "Per game vs. ESPN's weekly projections, in the stats that matter for each position",
                 "below his projections, per game", text, "Who's the biggest fraud in the league?") | {
-        "tag": "FRAUD WATCH", "big": f"-{f0['score']}%", "costume": day_job, "key": f"weekly_frauds:W{cur - 1}"}
+        "tag": "FRAUD WATCH", "big": f"-{f0['score']}%", "costume": fraud_stamp, "key": f"weekly_frauds:W{cur - 1}"}
 
 
 @stat("weekly_overachievers")
