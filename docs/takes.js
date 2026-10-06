@@ -1,9 +1,10 @@
 // Takes: every stat card, hot take and Bully of the Week we post on X, on the site too (newest first).
 // src/social/feed.py adds each post to docs/data/takes.json when it goes out, tagged with the teams and players it's about,
 // so team and player pages get a Takes tab with theirs. Betting hot takes and breaking news are left out.
+// Top-25 college teams' Takes tabs also lead with conversation starters (docs/data/starters.json, src/starters.py).
 const Takes = (() => {
   const PAGE = 20;
-  let D = null, loadedAt = 0, shown = PAGE;
+  let D = null, loadedAt = 0, shown = PAGE, S = null;
 
   async function load() {
     if (!D || Date.now() - loadedAt > 10 * 60000) {
@@ -56,5 +57,13 @@ const Takes = (() => {
     return D.items.filter((it) => (it[kind] || []).includes(key));
   }
 
-  return { render, about, list };
+  // conversation starters for a top-25 team (src/starters.py, weekly): a few debatable numbers, best first
+  async function starters(key) {
+    if (!S) S = await getJSON("data/starters.json").catch(() => ({ teams: {} }));
+    return S.teams[key] || [];
+  }
+  const startersHtml = (rows) => !rows.length ? "" : `<div class="tk-st-head"><h3>Conversation starters</h3><small class="muted">Week ${esc(S.week)} · where they stand in our top 25</small></div>
+    <div class="tk-st">${rows.map((r) => `<div class="tk-st-item"><b>${esc(r.big)}</b><small>${esc(r.label)}</small><p>${esc(r.text)}</p></div>`).join("")}</div>`;
+
+  return { render, about, list, starters, startersHtml };
 })();

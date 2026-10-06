@@ -1,0 +1,53 @@
+name: Visualize data
+
+# Game-by-game team and player stats for Stats > Visualize (src/viz_data.py -> docs/data/viz/).
+# Sunday after the college games, Tuesday after Monday Night Football. Run it any time: Actions tab > "Visualize data" > Run workflow.
+# The log ends with a check of season totals against ESPN's ("0 gap(s) over 2%" = the numbers match).
+
+on:
+  schedule:
+    - cron: "40 12 * 8-12,1 0"   # Sunday 8:40 AM Eastern
+    - cron: "40 12 * 8-12,1 2"   # Tuesday 8:40 AM Eastern
+  workflow_dispatch:
+    inputs:
+      league:
+        description: "Which league"
+        type: choice
+        default: all
+        options: [all, nfl, cfb]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: viz-data
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - uses: actions/cache@v4
+        with:
+          path: data/raw
+          key: viz-raw-${{ github.run_id }}
+          restore-keys: viz-raw-
+      - name: Build the chart data
+        env:
+          CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+          LEAGUE: ${{ inputs.league || 'all' }}
+        run: python src/viz_data.py --league "$LEAGUE"
+      - name: Publish
+        run: |
+          git config user.name "rankings-bot"
+          git config user.email "rankings-bot@users.noreply.github.com"
+          git add docs/data/viz
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "Visualize data $(date -u +%Y-%m-%dT%H:%MZ)"
+          for try in 1 2 3; do git pull --rebase -q && git push -q && exit 0; sleep 10; done
+          exit 1

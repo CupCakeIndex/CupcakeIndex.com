@@ -1,0 +1,331 @@
+"""Game-by-game team and player stats for Stats > Visualize (docs/viz.js): docs/data/viz/<league>_<season>.json.
+
+NFL: nflverse (free, no key; built from the NFL's official play-by-play): team and player stats per week, with EPA.
+College: CollegeFootballData.com (CFBD_API_KEY): team box scores, PPA (college EPA) and success rate per game
+(garbage time left out, the usual way), player box scores per game, and each player's season PPA.
+
+Every number is stored as a raw count per game ("passing yards", "pass attempts", "EPA total"), never a rate, so the
+page can add up any range of weeks and divide (yards per attempt = sum of yards / sum of attempts). check() compares
+the season totals with ESPN's, so a bad source shows up in the log.
+
+    python src/viz_data.py                    # this season, both leagues (weekly.yml)
+    python src/viz_data.py --league nfl --season 2025
+    python src/viz_data.py --check            # just compare what's on disk with ESPN
+About 3 CFBD calls per week of the season (free plan: 1,000 a month); finished seasons are built once and kept.
+"""
+import argparse
+import csv
+import io
+import json
+import os
+import sys
+from collections import defaultdict
+from datetime import date, datetime, timezone
+from pathlib import Path
+
+import requests
+
+ROOT = Path(__file__).resolve().parent.parent
+OUT = ROOT / "docs" / "data" / "viz"
+RAW = ROOT / "data" / "raw"
+NFLV = "https://github.com/nflverse/nflverse-data/releases/download"
+FIRST = {"nfl": 2022, "cfb": 2024}   # oldest season kept (history for line charts across seasons)
+
+
+def season_now():
+    t = date.today()
+    return t.year if t.month >= 8 else t.year - 1
+
+
+def n(x):
+    try:
+        v = float(x)
+        return int(v) if v.is_integer() else round(v, 2)
+    except (TypeError, ValueError):
+        return 0
+
+
+def site_teams():
+    return json.loads((ROOT / "docs" / "data" / "teams.json").read_text(encoding="utf-8"))
+
+
+def write(lg, season, d):
+    OUT.mkdir(parents=True, exist_ok=True)
+    d.update({"league": lg, "season": season, "updated": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")})
+    f = OUT / f"{lg}_{season}.json"
+    f.write_text(json.dumps(d, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
+    print(f"  {f.name}: {len(d['trows'])} team games, {len(d['prows'])} player games, {f.stat().st_size // 1024} KB")
+    index()
+
+
+def index():
+    files = sorted(OUT.glob("*_*.json"))
+    seasons = defaultdict(list)
+    for f in files:
+        lg, s = f.stem.split("_")
+        seasons[lg].append(int(s))
+    (OUT / "index.json").write_text(json.dumps({k: sorted(v) for k, v in seasons.items()}), encoding="utf-8")
+
+
+# ------------------------------------------------------------------ NFL (nflverse)
+_fresh = set()  # downloaded this run
+
+
+def nflverse_csv(path, cache):
+    f = RAW / "nfl" / cache
+    live = cache.endswith(f"{season_now()}.csv") or cache in ("games.csv", "players.csv", "teams.csv")  # still changing
+    if not f.exists() or (live and cache not in _fresh):
+        _fresh.add(cache)
+        r = requests.get(path, timeout=300)
+        r.raise_for_status()
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_bytes(r.content)
+    return list(csv.DictReader(io.StringIO(f.read_text(encoding="utf-8"))))
+
+
+TEAM_COLS_NFL = ["pts", "opp_pts", "plays", "cmp", "att", "pass_yds", "pass_td", "int", "sacked", "carries", "rush_yds", "rush_td",
+                 "pass_epa", "rush_epa", "first_downs", "fum_lost", "def_sacks", "def_int", "def_fr", "pen", "pen_yds",
+                 "opp_plays", "opp_pass_yds", "opp_rush_yds", "opp_epa", "opp_first_downs", "fg_made", "fg_att"]
+PLAYER_COLS = ["cmp", "att", "pass_yds", "pass_td", "int", "sacked", "carries", "rush_yds", "rush_td", "rec", "targets", "rec_yds",
+               "rec_td", "tackles", "def_sacks", "tfl", "qb_hits", "pd", "def_int", "fg_made", "fg_att"]
+PLAYER_COLS_NFL = PLAYER_COLS + ["pass_epa", "rush_epa", "rec_epa", "air_yds", "yac", "ppr"]
+
+
+def nfl(season):
+    teams = nflverse_csv(f"{NFLV}/stats_team/stats_team_week_{season}.csv", f"stats_team_week_{season}.csv")
+    games = [g for g in nflverse_csv("https://github.com/nflverse/nfldata/raw/master/data/games.csv", "games.csv") if g["season"] == str(season)]
+    if not teams:
+        print(f"  no NFL team stats for {season} yet")
+        return
+    # nflverse abbreviations (LA, WAS...) -> the site's teams (ESPN ids) by full name
+    nv = {r["team_abbr"]: r["team_name"] for r in nflverse_csv("https://github.com/nflverse/nflverse-pbp/raw/master/teams_colors_logos.csv", "teams.csv")}
+    by_name = {t["name"]: t for t in site_teams()["nfl"]}
+    key = {a: f"nfl:{by_name[nm]['id']}" for a, nm in nv.items() if nm in by_name}
+    tmeta = {f"nfl:{t['id']}": [t["name"], t["abbr"], t["color"], t["group"]] for t in by_name.values()}
+
+    score = {}
+    for g in games:
+        if g["home_score"] != "":
+            score[(g["game_id"], g["home_team"])] = (n(g["home_score"]), n(g["away_score"]))
+            score[(g["game_id"], g["away_team"])] = (n(g["away_score"]), n(g["home_score"]))
+    rows = {(r["game_id"], r["team"]): r for r in teams if r["season_type"] == "REG"}  # regular season only, like ESPN's season totals
+    trows = []
+    for (gid, tm), r in rows.items():
+        o = rows.get((gid, r["opponent_team"]), {})
+        f = lambda x, k: n(x.get(k))
+        pts, opp = score.get((gid, tm), (0, 0))
+        trows.append([key.get(tm, tm), int(r["week"]), key.get(r["opponent_team"], r["opponent_team"]),
+                      pts, opp, f(r, "attempts") + f(r, "carries") + f(r, "sacks_suffered"), f(r, "completions"), f(r, "attempts"),
+                      f(r, "passing_yards"), f(r, "passing_tds"), f(r, "passing_interceptions"), f(r, "sacks_suffered"),
+                      f(r, "carries"), f(r, "rushing_yards"), f(r, "rushing_tds"), f(r, "passing_epa"), f(r, "rushing_epa"),
+                      f(r, "passing_first_downs") + f(r, "rushing_first_downs"),
+                      f(r, "sack_fumbles_lost") + f(r, "rushing_fumbles_lost") + f(r, "receiving_fumbles_lost"),
+                      f(r, "def_sacks"), f(r, "def_interceptions"), f(r, "fumble_recovery_opp"), f(r, "penalties"), f(r, "penalty_yards"),
+                      f(o, "attempts") + f(o, "carries") + f(o, "sacks_suffered"), f(o, "passing_yards"), f(o, "rushing_yards"),
+                      round(f(o, "passing_epa") + f(o, "rushing_epa"), 2), f(o, "passing_first_downs") + f(o, "rushing_first_downs"),
+                      f(r, "fg_made"), f(r, "fg_att")])
+
+    try:
+        pl = nflverse_csv(f"{NFLV}/stats_player/stats_player_week_{season}.csv", f"stats_player_week_{season}.csv")
+    except requests.HTTPError:
+        pl = []
+    espn = {r["gsis_id"]: r["espn_id"] for r in nflverse_csv(f"{NFLV}/players/players.csv", "players.csv") if r.get("espn_id")}
+    pmeta, prows = {}, []
+    for r in pl:
+        if r["season_type"] != "REG":
+            continue
+        f = lambda k: n(r.get(k))
+        vals = [f("completions"), f("attempts"), f("passing_yards"), f("passing_tds"), f("passing_interceptions"), f("sacks_suffered"),
+                f("carries"), f("rushing_yards"), f("rushing_tds"), f("receptions"), f("targets"), f("receiving_yards"), f("receiving_tds"),
+                f("def_tackles_solo") + f("def_tackle_assists"), f("def_sacks"), f("def_tackles_for_loss"), f("def_qb_hits"), f("def_pass_defended"),
+                f("def_interceptions"), f("fg_made"), f("fg_att"), f("passing_epa"), f("rushing_epa"), f("receiving_epa"),
+                f("receiving_air_yards"), f("receiving_yards_after_catch"), f("fantasy_points_ppr")]
+        if not any(vals):
+            continue
+        pid = espn.get(r["player_id"]) or r["player_id"]
+        pmeta[pid] = [r["player_display_name"], r["position"], key.get(r["team"], r["team"])]
+        prows.append([pid, int(r["week"]), key.get(r["team"], r["team"])] + vals)
+    write("nfl", season, {"teams": tmeta, "tcols": TEAM_COLS_NFL, "trows": trows, "pcols": PLAYER_COLS_NFL, "pmeta": pmeta, "prows": prows})
+
+
+# ------------------------------------------------------------------ college (CFBD)
+TEAM_COLS_CFB = ["pts", "opp_pts", "plays", "cmp", "att", "pass_yds", "pass_td", "int", "carries", "rush_yds", "rush_td", "first_downs",
+                 "fum_lost", "third_conv", "third_att", "def_sacks", "def_int", "tfl", "pen", "pen_yds", "opp_yds", "opp_pass_yds", "opp_rush_yds",
+                 "adv_plays", "epa", "succ", "pass_plays", "pass_epa", "rush_plays", "rush_epa", "def_adv_plays", "def_epa", "def_succ"]
+
+
+def cfbd(path, cache, refresh, **params):
+    sys.path.insert(0, str(ROOT / "src"))
+    from fetch_data import cached
+    return cached(params.get("year"), cache, path, refresh, **params)
+
+
+def split(s):
+    """'20-31' -> (20, 31)."""
+    try:
+        a, b = str(s).split("-")[:2]
+        return n(a), n(b)
+    except ValueError:
+        return 0, 0
+
+
+def cfb(season):
+    cur = season == season_now()
+    games = cfbd("/games", "games", cur, year=season, seasonType="regular")
+    done = [g for g in games if (g.get("homePoints") if "homePoints" in g else g.get("home_points")) is not None]
+    if not done:
+        print(f"  no college games played in {season} yet")
+        return
+    weeks = sorted({g["week"] for g in done})
+    fbs = {t["id"]: t for t in site_teams()["cfb"]}
+    tmeta = {f"cfb:{i}": [t["name"], t.get("abbr") or t["name"], t["color"], t["group"]] for i, t in fbs.items()}
+    pts = {}
+    for g in done:
+        hp, ap = g.get("homePoints", g.get("home_points")), g.get("awayPoints", g.get("away_points"))
+        hi, ai = g.get("homeId", g.get("home_id")), g.get("awayId", g.get("away_id"))
+        pts[(g["id"], hi)] = (hp, ap, ai)
+        pts[(g["id"], ai)] = (ap, hp, hi)
+    adv = {}
+    for a in cfbd("/stats/game/advanced", "advanced_games", cur, year=season, seasonType="regular", excludeGarbageTime="true"):
+        adv[(a.get("gameId") or a.get("game_id"), a["team"])] = a
+    name_id = {t["name"]: i for i, t in fbs.items()}
+    name_id.update({t["school"]: t["id"] for t in cfbd("/teams/fbs", "teams_fbs", cur, year=season) if t.get("school")})
+
+    trows, prows, pmeta = [], [], {}
+    for wk in weeks:
+        last = cur and wk >= weeks[-1] - 1  # this week and last week can still change
+        box = cfbd("/games/teams", f"games_teams_w{wk}", last, year=season, week=wk, seasonType="regular")
+        for g in box:
+            gid = g["id"]
+            sides = g["teams"]
+            for me, op in ((sides[0], sides[1]), (sides[1], sides[0])) if len(sides) == 2 else ():
+                tid = me.get("teamId", me.get("school_id"))
+                if tid not in fbs:
+                    continue
+                st = {s["category"]: s["stat"] for s in me["stats"]}
+                ost = {s["category"]: s["stat"] for s in op["stats"]}
+                cmp_, att = split(st.get("completionAttempts"))
+                pen, pen_yds = split(st.get("totalPenaltiesYards"))
+                t3, a3 = split(st.get("thirdDownEff"))
+                p, o, oid = pts.get((gid, tid), (n(me.get("points")), n(op.get("points")), op.get("teamId")))
+                school = me.get("team", me.get("school"))
+                a = adv.get((gid, school), {})
+                off, de = a.get("offense") or {}, a.get("defense") or {}
+                pp, rp = off.get("passingPlays") or {}, off.get("rushingPlays") or {}
+                plays = n(off.get("plays"))
+                trows.append([f"cfb:{tid}", wk, f"cfb:{oid}", n(p), n(o), att + n(st.get("rushingAttempts")), cmp_, att,
+                              n(st.get("netPassingYards")), n(st.get("passingTDs")), n(st.get("interceptions")), n(st.get("rushingAttempts")),
+                              n(st.get("rushingYards")), n(st.get("rushingTDs")), n(st.get("firstDowns")), n(st.get("fumblesLost")), t3, a3,
+                              n(st.get("sacks")), n(st.get("passesIntercepted")), n(st.get("tacklesForLoss")), pen, pen_yds,
+                              n(ost.get("totalYards")), n(ost.get("netPassingYards")), n(ost.get("rushingYards")),
+                              plays, round(n(off.get("totalPPA")), 2), round(n(off.get("successRate")) * plays, 2),
+                              # pass/rush play counts aren't given: their share of plays comes from totalPPA / ppa
+                              round(n(pp.get("totalPPA")) / n(pp.get("ppa")), 0) if n(pp.get("ppa")) else 0, round(n(pp.get("totalPPA")), 2),
+                              round(n(rp.get("totalPPA")) / n(rp.get("ppa")), 0) if n(rp.get("ppa")) else 0, round(n(rp.get("totalPPA")), 2),
+                              n(de.get("plays")), round(n(de.get("totalPPA")), 2), round(n(de.get("successRate")) * n(de.get("plays")), 2)])
+
+        for g in cfbd("/games/players", f"games_players_w{wk}", last, year=season, week=wk, seasonType="regular"):
+            for tm in g["teams"]:
+                tid = tm.get("teamId") or name_id.get(tm.get("team", tm.get("school")))
+                if tid not in fbs:
+                    continue
+                me = defaultdict(lambda: [0] * len(PLAYER_COLS))
+                for c in tm["categories"]:
+                    for ty in c["types"]:
+                        for at in ty["athletes"]:
+                            pid = str(at["id"])
+                            if not pid or pid.startswith("-"):  # team totals
+                                continue
+                            pmeta.setdefault(pid, [at["name"], "", f"cfb:{tid}"])
+                            v, s = me[pid], at["stat"]
+                            k = (c["name"], ty["name"])
+                            if k == ("passing", "C/ATT"):
+                                v[0], v[1] = split(s)
+                            elif k == ("passing", "YDS"): v[2] = n(s)
+                            elif k == ("passing", "TD"): v[3] = n(s)
+                            elif k == ("passing", "INT"): v[4] = n(s)
+                            elif k == ("rushing", "CAR"): v[6] = n(s)
+                            elif k == ("rushing", "YDS"): v[7] = n(s)
+                            elif k == ("rushing", "TD"): v[8] = n(s)
+                            elif k == ("receiving", "REC"): v[9] = n(s)
+                            elif k == ("receiving", "YDS"): v[11] = n(s)
+                            elif k == ("receiving", "TD"): v[12] = n(s)
+                            elif k == ("defensive", "TOT"): v[13] = n(s)
+                            elif k == ("defensive", "SACKS"): v[14] = n(s)
+                            elif k == ("defensive", "TFL"): v[15] = n(s)
+                            elif k == ("defensive", "QB HUR"): v[16] = n(s)
+                            elif k == ("defensive", "PD"): v[17] = n(s)
+                            elif k == ("interceptions", "INT"): v[18] = n(s)
+                            elif k == ("kicking", "FG"):
+                                v[19], v[20] = split(str(s).replace("/", "-"))
+                for pid, v in me.items():
+                    if any(v):
+                        prows.append([pid, wk, f"cfb:{tid}"] + v)
+
+    # season PPA per player (CFBD only gives it for a whole season): added to each player's info
+    pppa = {}
+    for r in cfbd("/ppa/players/season", "ppa_players_season", cur, year=season, excludeGarbageTime="true", threshold=0):
+        pid = str(r["id"])
+        if pid in pmeta:
+            pmeta[pid][1] = r.get("position") or ""
+            avg, tot = r.get("averagePPA") or {}, r.get("totalPPA") or {}
+            pppa[pid] = [round(n(tot.get("all")), 2), round(n(tot.get("pass")), 2), round(n(tot.get("rush")), 2), n(r.get("countablePlays"))]
+    write("cfb", season, {"teams": tmeta, "tcols": TEAM_COLS_CFB, "trows": trows, "pcols": PLAYER_COLS, "pmeta": pmeta, "prows": prows,
+                          "pseason_cols": ["epa", "pass_epa", "rush_epa", "epa_plays"], "pseason": pppa})
+
+
+# ------------------------------------------------------------------ the accuracy check
+def check(lg, season):
+    """Season totals vs ESPN's for a few teams: points, passing yards, rushing yards. Prints any gap over 2%."""
+    f = OUT / f"{lg}_{season}.json"
+    if not f.exists():
+        return
+    d = json.loads(f.read_text(encoding="utf-8"))
+    c = {k: i + 3 for i, k in enumerate(d["tcols"])}
+    sport = "nfl" if lg == "nfl" else "college-football"
+    tot = defaultdict(lambda: defaultdict(float))
+    for r in d["trows"]:
+        for k in ("pts", "pass_yds", "rush_yds"):
+            tot[r[0]][k] += r[c[k]]
+    sample = sorted(tot, key=lambda k: -tot[k]["pts"])[:8]
+    bad = 0
+    for key in sample:
+        tid = key.split(":")[1]
+        try:
+            j = requests.get(f"https://site.api.espn.com/apis/site/v2/sports/football/{sport}/teams/{tid}/statistics?season={season}", timeout=20).json()
+            s = {x["name"]: float(str(x["value"])) for cat in j["results"]["stats"]["categories"] for x in cat["stats"] if x.get("value") is not None}
+        except Exception as e:
+            print(f"  ESPN check skipped for {key}: {e}")
+            continue
+        want = {"pts": s.get("totalPoints"), "pass_yds": s.get("netPassingYards") if lg == "cfb" else s.get("passingYards"), "rush_yds": s.get("rushingYards")}
+        for k, w in want.items():
+            have = tot[key][k]
+            if w and abs(have - w) / w > 0.02:
+                bad += 1
+                print(f"  ! {d['teams'].get(key, [key])[0]} {k}: ours {have:g}, ESPN {w:g}")
+    print(f"  check {lg} {season}: {len(sample)} teams vs ESPN, {bad} gap(s) over 2%")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--league", choices=["nfl", "cfb", "all"], default="all")
+    ap.add_argument("--season", type=int)
+    ap.add_argument("--check", action="store_true")
+    a = ap.parse_args()
+    for lg in (["nfl", "cfb"] if a.league == "all" else [a.league]):
+        seasons = [a.season] if a.season else [s for s in range(FIRST[lg], season_now() + 1)
+                                                 if s == season_now() or not (OUT / f"{lg}_{s}.json").exists()]
+        for s in seasons:
+            if not a.check:
+                print(f"{lg} {s}")
+                try:
+                    (nfl if lg == "nfl" else cfb)(s)
+                except SystemExit as e:  # no CFBD key
+                    print(f"  skipped: {str(e).splitlines()[0]}")
+                    continue
+            check(lg, s)
+
+
+if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")
+    main()

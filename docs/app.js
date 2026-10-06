@@ -215,7 +215,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "204"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "205"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -949,6 +949,8 @@ function openTeam(name) {
 // ------------------------------------------------------------------ schedule profile chart
 function renderSchedules() {
   const nfl = league === "nfl";
+  const vz = $(".sp-viz"); // same chart in Visualize: college plots cupcakes up the side, the NFL win %
+  if (vz) vz.href = `#/stats?league=${league}&show=visualize&who=teams&type=scatter&stat=ci_sos&y=${nfl ? "win_pct" : "ci_cupcake"}&top=50`;
   if (!DATA || !DATA.teams.some((t) => profileOf(t))) {
     $("#sp-chart").innerHTML = `<p class="muted" style="padding:16px">No games played in this week's data, so there are no schedule profiles to show.</p>`;
     $("#sp-legend").innerHTML = "";

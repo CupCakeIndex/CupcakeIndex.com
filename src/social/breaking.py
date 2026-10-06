@@ -26,30 +26,33 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import posted
 from render import DATA, ROOT, tweet
 
-MAX_PER_DAY = 6
+MAX_PER_DAY = 3        # only big news (Terry, Oct 6: posts like "WVU releases updated depth chart" are dumb)
 FRESH_HOURS = 3        # older than this isn't breaking any more
 SOURCES = {"ESPN", "CBS Sports", "Yahoo Sports", "Pro Football Talk", "On3"}  # news desks, not opinion blogs
 
-# (kind, headline pattern). First match wins.
+# (kind, headline pattern). First match wins. kind_of() then keeps only the big ones.
 KINDS = [
     ("injury", r"\b(out for (the )?(rest of the )?season|season-ending|torn (ACL|Achilles)|tore (his |an )?(ACL|Achilles)|to IR\b|on injured reserve)"),
     ("coach", r"\b(fired|fires|parts ways|hired|hires|names .{0,40}(head coach|coordinator)|new head coach|resigns|steps down)\b"),
-    ("trade", r"\b(traded|trade for|trades? .{0,40} to the|acquire[sd]?|deal sends)\b"),
+    ("trade", r"\b(traded|trade for|trades? .{0,40}\bto\b|acquire[sd]?|deal sends)\b"),
     ("contract", r"\b(signs?|agrees?|lands?|gets?)\b.{0,60}\b(extension|contract|deal)\b|\bmega-deal\b|\brecord deal\b"),
     ("retire", r"\b(retires|retiring|announces (his )?retirement)\b"),
     ("suspended", r"\b(suspended|suspends|suspension)\b"),
-    ("released", r"\b(released|releases|waived|waives|cuts)\b"),
+    ("released", r"\b(release|released|releases|waived|waives|cuts)\b"),
 ]
+COORD = re.compile(r"\b(coordinator|OC|DC|assistant|position coach|special teams|interim)\b", re.I)  # head coaches only
+QB = re.compile(r"\b(QB|quarterback)\b")
 # a star (one of the most-rostered NFL players) hurt or back: smaller news, but it's what people want first
 STAR_INJURY = (r"\b(injur\w*|week to week|week-to-week|ruled out|won't play|will miss|to miss|carted|surgery|MRI|concussion|"
                r"hamstring|ankle|knee|groin|activated|returns? to practice|designated to return)\b")
 STARS = 80
 NOT_NEWS = re.compile(
     r"\?|\b(rumou?rs?|could|should|would|might|may|if|why|how|what|who|which|deadline|grades?|candidates?|targets?|"
-    r"ideas?|mock|rankings?|best|worst|predictions?|picks|odds|bets?|betting|fantasy|start|sit|waiver wire|"
+    r"ideas?|mock|rankings?|best|worst|predictions?|(expert|staff|our|week \d+) picks|odds|bets?|betting|fantasy|start|sit|waiver wire|"
     r"practice squad|recruit\w*|commit\w*|offer|visit|transfer portal|basketball|baseball|softball|volleyball|soccer|"
     r"hockey|podcast|takeaways|winners|losers|film|watch|live|updates?|tracker|reaction|reacts|"
-    r"jersey|number|hall of fame|anniversary|on this day|catch|here's|know)\b", re.I)
+    r"jersey|number|hall of fame|anniversary|on this day|catch|here's|know|depth chart|polls?|ratings|instead|cautionary|"
+    r"lessons?|column|opinion|analysis|notebook|observations|thoughts|explained|breakdown)\b|--", re.I)
 
 
 def star_names():
@@ -63,12 +66,20 @@ def star_names():
 
 
 def kind_of(title, stars=()):
+    """Only big news: a head coach hired or fired, or a star (or any QB) traded, hurt, cut, signed, suspended or retiring."""
     if NOT_NEWS.search(title):
         return None
+    star = any(n in title for n in stars) or bool(QB.search(title))
     k = next((k for k, pat in KINDS if re.search(pat, title, re.I)), None)
-    if not k and re.search(STAR_INJURY, title, re.I) and any(n in title for n in stars):
-        k = "star"
-    return k
+    if k == "coach":
+        return None if COORD.search(title) else k
+    if k == "trade":
+        return k if star or re.search(r"\b(first-round|blockbuster)\b", title, re.I) else None
+    if k:
+        return k if star else None
+    if re.search(STAR_INJURY, title, re.I) and any(n in title for n in stars):
+        return "star"
+    return None
 
 
 def candidates(hours=FRESH_HOURS, now=None):

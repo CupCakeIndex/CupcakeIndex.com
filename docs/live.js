@@ -1387,6 +1387,7 @@ const Live = (() => {
     if (params.get("show") === "frauds") return frauds(params);
     if (params.get("show") === "projected") return projected(params);
     if (params.get("show") === "injuries") return injuries(params);
+    if (params.get("show") === "visualize") return Viz.render(params); // viz.js
     const lg = league, my = token;
     const cat = STAT_CATS.find((c) => c.key === params.get("cat")) || STAT_CATS[0];
     const sort = params.get("sort") || cat.sort, dir = params.get("dir") || "desc";
@@ -1451,7 +1452,7 @@ const Live = (() => {
   // Every week ESPN's fantasy feed sets a projection ("line") for each player: passing yards, TDs, catches...
   // A player's fraud score compares what they actually did with their lines in the games they played,
   // stat by stat for their position, as a weighted % below expectation. Over-achievers are the same list flipped.
-  const stSubStats = (on) => `<div class="subtabs">` + [["leaders", "Leaders", {}], ["frauds", "Frauds", { show: "frauds" }], ["projected", "Projected", { show: "projected" }], ["injuries", "Injuries", { show: "injuries" }]]
+  const stSubStats = (on) => `<div class="subtabs">` + [["leaders", "Leaders", {}], ["frauds", "Frauds", { show: "frauds" }], ["projected", "Projected", { show: "projected" }], ["injuries", "Injuries", { show: "injuries" }], ["visualize", "Visualize", { show: "visualize" }]]
     .map(([k, l, q]) => `<a class="subtab${k === on ? " on" : ""}" href="${link("stats", null, q)}">${l}</a>`).join("") + `</div>`;
   const FR_POS = { 1: "QB", 2: "RB", 3: "WR", 4: "TE" };
   // [label, ESPN fantasy stat ids (summed), weight, minimum expected per game to count, higher is worse]
@@ -3419,9 +3420,9 @@ const Live = (() => {
     const nfl = lg === "nfl";
     const tab = ["roster", "takes", ...(nfl ? ["depth", "moves", "injuries"] : [])].includes(params.get("tab")) ? params.get("tab") : "schedule";
     loading("team");
-    let sch, ros, ranks, extra, takes;
+    let sch, ros, ranks, extra, takes, starters;
     try {
-      [sch, ros, ranks, extra, takes] = await Promise.all([
+      [sch, ros, ranks, extra, takes, starters] = await Promise.all([
         api(`${SITE(lg)}/teams/${encodeURIComponent(id)}/schedule`, 60000),
         api(`${SITE(lg)}/teams/${encodeURIComponent(id)}/roster`, 600000).catch(() => null),
         modelRanks(lg),
@@ -3429,11 +3430,15 @@ const Live = (() => {
           : tab === "injuries" ? injData().catch(() => null)
           : tab === "moves" ? api(`${SITE(lg)}/transactions?limit=1000`, 1800000).catch(() => null) : null,
         Takes.about("teams", `${lg}:${id}`).catch(() => []), // our X posts about this team (takes.js)
+        Takes.starters(`${lg}:${id}`).catch(() => []), // top 25: conversation starters
       ]);
     } catch (e) { return fail("team", e); }
     if (my !== token) return;
     const T = sch.team || {};
-    if (String(T.id) !== String(id)) takes = await Takes.about("teams", `${lg}:${T.id}`).catch(() => []); // opened by name, not id
+    if (String(T.id) !== String(id)) { // opened by name, not id
+      takes = await Takes.about("teams", `${lg}:${T.id}`).catch(() => []);
+      starters = await Takes.starters(`${lg}:${T.id}`).catch(() => []);
+    }
     const ours = ourTeam(ranks, lg, { id: T.id, displayName: T.displayName });
 
     // schedule: one mini scorebug per game, with our tags / difficulty / win chance from the latest rankings file
@@ -3568,8 +3573,8 @@ const Live = (() => {
     const movesRows = moves.map((t) => `<tr><td class="muted">${esc(new Date(t.date).toLocaleDateString(undefined, { month: "short", day: "numeric" }))}</td><td>${esc(t.description)}</td></tr>`).join("");
     const tabLink = (t, label) => `<a class="subtab${tab === t ? " on" : ""}" href="${link("team", id, { tab: t })}">${label}</a>`;
     view("team").innerHTML = `${hub}
-      <div class="subtabs">${tabLink("schedule", "Schedule")}${tabLink("roster", "Roster")}${nfl ? tabLink("depth", "Depth chart") + tabLink("injuries", "Injuries") + tabLink("moves", "Transactions") : ""}${takes.length ? tabLink("takes", `Takes <small>${takes.length}</small>`) : ""}</div>
-      <div class="card">${tab === "takes" ? (takes.length ? Takes.list(takes) : `<p class="muted">No takes about this team yet.</p>`)
+      <div class="subtabs">${tabLink("schedule", "Schedule")}${tabLink("roster", "Roster")}${nfl ? tabLink("depth", "Depth chart") + tabLink("injuries", "Injuries") + tabLink("moves", "Transactions") : ""}${takes.length || starters.length ? tabLink("takes", `Takes <small>${takes.length + starters.length}</small>`) : ""}</div>
+      <div class="card">${tab === "takes" ? Takes.startersHtml(starters) + (takes.length ? `${starters.length ? `<h3 class="tk-posts-h">From our X account</h3>` : ""}${Takes.list(takes)}` : starters.length ? "" : `<p class="muted">No takes about this team yet.</p>`)
         : tab === "roster"
         ? rosterRows || `<p class="muted">Roster not available.</p>`
         : tab === "injuries" ? injHtml || `<p class="muted">Injury report not available.</p>`
@@ -3609,5 +3614,5 @@ const Live = (() => {
 
   // helpers shared with pickem.js and fantasy.js: ESPN fetch + cache, logos, our-rank lookup, game status, injury tags, polling tied to the current view
   const kit = { SITE, api, img, teamLogo, ourTeam, statusText, injTag, poll, teamColor, token: () => token };
-  return { stop, teamId, scores, game, stats, player, standings, team, freeagents, searchPlayers, fillBugs, kit };
+  return { stop, teamId, scores, game, stats, player, standings, team, freeagents, searchPlayers, fillBugs, kit, statsSubtabs: (on) => stSubStats(on) };
 })();

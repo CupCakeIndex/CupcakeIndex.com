@@ -46,7 +46,7 @@ ESPN = {"nfl": "https://site.api.espn.com/apis/site/v2/sports/football/nfl",
         "cfb": "https://site.api.espn.com/apis/site/v2/sports/football/college-football"}
 ET = ZoneInfo("America/New_York")
 KEEP_DAYS = 21
-MAX_NEWS_PER_DAY = 3      # breaking news alerts: fewer than the X posts (6), a phone buzzing is more annoying than a tweet
+MAX_NEWS_PER_DAY = 3      # breaking news alerts: same as the X posts (breaking.py: big news only, 3 a day)
 FINAL_HOURS = 8           # a game that kicked off longer ago than this is old news (GitHub skipped runs)
 SOON_MIN = 20             # "Kickoff soon" when the game starts within this many minutes
 GAME_TOPICS = ("start", "score", "final")

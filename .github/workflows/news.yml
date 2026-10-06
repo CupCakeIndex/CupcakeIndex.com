@@ -3,7 +3,7 @@ name: Hourly news
 # Collects football headlines from public RSS feeds into docs/data/news.json for the News tab.
 # Browsers can't read those feeds directly (CORS), so we fetch them here and commit the result.
 # Then posts the biggest fresh headline to X, if there is one (src/social/breaking.py: season-ending injuries,
-# coaches fired/hired, trades, big contracts, star injuries; credits the source; at most 6 a day).
+# coaches fired/hired, trades, big contracts, star injuries; credits the source; big news only, at most 3 a day).
 
 on:
   schedule:
@@ -42,7 +42,7 @@ jobs:
           git commit -m "News update $(date -u +%Y-%m-%dT%H:%MZ)"
           git pull --rebase
           git push
-      - name: Breaking news post (only real news, at most 6 a day)
+      - name: Breaking news post (only real news, big news only, at most 3 a day)
         if: success()
         run: python src/social/breaking.py --out out/social
       - name: Post to X

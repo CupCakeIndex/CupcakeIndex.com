@@ -1608,6 +1608,48 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 .nw-team { margin-top: 16px; }
 .nw-team .sc-bar a { margin-left: auto; font-size: 12px; }
 .nw-team .nw-item { padding: 8px 0; }
+/* Stats > Visualize (viz.js) */
+.vz-tag { font-size: 12px; }
+.vz-ideas { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.vz-idea { border: 1px solid var(--line); background: var(--bg); color: var(--ink); padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+.vz-idea:hover { border-color: var(--accent); color: var(--accent); }
+.vz-ctl { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-end; margin-bottom: 12px; }
+.vz-ctl > label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.vz-ctl > label.vz-wide { flex: 1 1 220px; }
+.vz-ctl select, .vz-ctl input { font: inherit; font-size: 13px; text-transform: none; letter-spacing: 0; color: var(--ink); background: var(--bg); border: 1px solid var(--line); padding: 5px 6px; min-width: 0; }
+.vz-ctl select[multiple] { padding: 2px; }
+.vz-pair { display: flex; align-items: center; gap: 6px; }
+.vz-pair i { font-style: normal; text-transform: none; }
+.vz-seg { align-self: flex-start; }
+.vz-seg button { font-size: 12px; text-transform: none; letter-spacing: 0; }
+.vz-more { margin: 0 0 12px; }
+.vz-rstats { flex: 1 1 100%; font-size: 12px; }
+.vz-rstats summary { cursor: pointer; color: var(--accent); }
+.vz-rstats > div { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 8px; }
+.vz-rstats fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; min-width: 180px; }
+.vz-rstats legend { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+.vz-rstats label { display: flex; gap: 6px; align-items: center; color: var(--ink); text-transform: none; letter-spacing: 0; cursor: pointer; }
+.vz-rstats p { flex-basis: 100%; margin: 0; }
+.vz-more summary { cursor: pointer; font-size: 12px; color: var(--accent); margin-bottom: 8px; }
+.vz-picks { display: flex; flex-wrap: wrap; gap: 6px; flex-basis: 100%; }
+.vz-picks:empty { display: none; }
+.vz-picks button { border: 1px solid var(--accent); background: transparent; color: var(--accent); padding: 2px 8px; font: inherit; font-size: 12px; cursor: pointer; }
+.vz-frame { border: 1px solid var(--line); border-top: 3px solid var(--accent); padding: 12px; background: var(--card); }
+.vz-title b { display: block; font-size: 15px; color: var(--ink); }
+.vz-title small { display: block; margin-top: 2px; font-size: 11px; color: var(--muted); }
+.vz-canvas { position: relative; margin-top: 10px; }
+.vz-mark { margin-top: 8px; font-size: 10px; color: var(--muted); text-align: right; }
+.vz-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.vz-reset { margin-left: auto; }
+.vz-tbl { margin-top: 12px; }
+.vz-tbl summary { cursor: pointer; font-size: 12px; color: var(--accent); }
+.vz-tbl table { margin-top: 6px; max-width: 420px; }
+@media (max-width: 640px) {
+  .vz-ctl { gap: 8px 10px; }
+  .vz-ctl > label.vz-wide { flex-basis: 100%; }
+  .vz-frame { padding: 8px; }
+  .vz-reset { margin-left: 0; }
+}
 /* Takes (takes.js): our X posts, on the Takes page and team/player Takes tabs */
 .tk-intro { margin: 4px 0 6px; font-size: 12px; }
 .tk-list { max-width: 640px; }
@@ -1617,6 +1659,14 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 .tk-pic img { width: 100%; height: auto; display: block; }
 .tk-text { margin: 8px 0 0; font-size: 14px; line-height: 1.45; color: var(--ink); }
 .tk-x { margin: 6px 0 0; font-size: 12px; }
+.tk-st-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 10px; }
+.tk-st-head h3 { margin: 0; }
+.tk-st { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.tk-st-item { border: 1px solid var(--line); border-top: 3px solid var(--accent); background: var(--bg); padding: 10px 12px; }
+.tk-st-item b { display: block; font-size: 24px; line-height: 1.1; color: var(--accent); }
+.tk-st-item small { display: block; margin-top: 2px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.tk-st-item p { margin: 8px 0 0; font-size: 13px; line-height: 1.45; color: var(--ink); }
+.tk-posts-h { margin: 22px 0 0; }
 .nw-teams a { border: 1px solid var(--line); padding: 1px 6px; font-size: 11px; color: var(--muted); text-decoration: none; }
 .nw-teams a:hover { border-color: var(--accent); color: var(--accent); }
 @media (max-width: 640px) {
