@@ -73,11 +73,4 @@ jobs:
         run: python src/social/post_to_x.py --meta out/social/today.json
       - name: Save the posting log
         if: success()
-        run: |
-          git config user.name "rankings-bot"
-          git config user.email "rankings-bot@users.noreply.github.com"
-          git add data/social/posted.json 2>/dev/null || exit 0
-          git diff --cached --quiet && echo "Nothing new posted" && exit 0
-          git commit -m "Posting log update $(date -u +%Y-%m-%dT%H:%MZ)"
-          git pull --rebase
-          git push
+        run: bash src/social/save_log.sh

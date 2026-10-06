@@ -118,11 +118,11 @@ def phrase(s):
         return ", ".join(x for x in [n(s.get("tackles", 0), "tackle", "tackles"), s.get("sacks") and n(s["sacks"], "sack", "sacks"),
                                      s.get("def_int") and n(s["def_int"], "interception", "interceptions")] if x)
     if s.get("rush_yds", 0) >= s.get("rec_yds", 0):
-        out = [n(s.get("car", 0), "carry", "carries"), f"{s['rush_yds']:,.0f} yards", n(s.get("rush_td", 0), "TD", "TDs")]
+        out = [n(s.get("car", 0), "carry", "carries"), f"{s['rush_yds']:,.0f} yards"] + ([n(s["rush_td"], "TD", "TDs")] if s.get("rush_td") else [])
         if s.get("rec_yds", 0) >= 30:
             out.append(f"plus {n(s.get('rec', 0), 'catch', 'catches')} for {s['rec_yds']:,.0f}")
         return ", ".join(out)
-    return ", ".join([n(s.get("rec", 0), "catch", "catches"), f"{s['rec_yds']:,.0f} yards", n(s.get("rec_td", 0), "TD", "TDs")])
+    return ", ".join([n(s.get("rec", 0), "catch", "catches"), f"{s['rec_yds']:,.0f} yards", n(s.get("rec_td", 0), "TD", "TDs")] if s.get("rec_td") else [n(s.get("rec", 0), "catch", "catches"), f"{s['rec_yds']:,.0f} yards"])
 
 
 def his_plays(summary, last):
@@ -381,7 +381,9 @@ def make(pick, out, theme=None, photo=None):
     opp = next(c for c in comp["competitors"] if c is not me)
     nm = lambda c: c["team"].get("location") if lg == "cfb" else c["team"].get("name") or c["team"].get("displayName")
     res = f"{'win over' if me.get('winner') else 'loss to'} {nm(opp)}"
-    text = f"{p['name']} ({me['team'].get('abbreviation', '')}) went off: {phrase(p['s'])} in {nm(me)}'s {me.get('score')}-{opp.get('score')} {res}."
+    team = nm(me) + ("'" if nm(me).endswith("s") else "'s")  # the Vikings' win, not the Vikings's
+    open_ = R.vary(["went off:", "was a problem:", "had a day:", "did whatever he wanted:", "stuffed the stat sheet:"], key)
+    text = f"{p['name']} ({me['team'].get('abbreviation', '')}) {open_} {phrase(p['s'])} in {team} {me.get('score')}-{opp.get('score')} {res}."
     theme = theme or O.random.choice(list(O.THEMES))
     os.makedirs(out, exist_ok=True)
     png = os.path.join(out, f"postgame-{lg}-{p['id']}.png")

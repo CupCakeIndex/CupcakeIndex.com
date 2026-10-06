@@ -684,7 +684,7 @@ def _():
 def make(key, out, theme=None, draft=False):
     f = STATS[key]()
     if isinstance(f, list):  # several candidates: the first one not posted yet (drafts: just the first)
-        f = next((x for x in f if draft or not posted.seen(tweet(x["text"], "", with_link=False))), None)
+        f = next((x for x in f if draft or not posted.repeat({"text": tweet(x["text"], "", with_link=False)})), None)
     if not f:
         return None
     f["score"] *= big_name(f["rows"][0][0], f["league"])  # the day's pick leans toward teams people care about
@@ -735,7 +735,7 @@ def main():
     if a.all:
         with open(os.path.join(out, "drafts.md"), "w", encoding="utf-8") as fh:
             fh.write("\n\n".join(f"## {m['stat']}\n![]({os.path.basename(m['image'])})\n\n{m['text']}" for m in made))
-    fresh = [m for m in made if not posted.seen(m["text"]) and m["stat"] not in posted.recent_stats(3)] or         [m for m in made if not posted.seen(m["text"])]
+    fresh = [m for m in made if not posted.repeat(m) and m["stat"] not in posted.recent_stats(3)] or [m for m in made if not posted.repeat(m)]
     if not fresh:
         sys.exit("Everything we have to say was already posted.")
     best = max(fresh, key=lambda m: m["score"])

@@ -23,6 +23,7 @@ This script never talks to X. Posting lives in post_to_x.py.
 """
 import argparse
 import datetime as dt
+import hashlib
 import io
 import re
 import json
@@ -37,6 +38,14 @@ DATA = os.path.join(ROOT, "docs", "data")
 HERE = os.path.dirname(os.path.abspath(__file__))
 SITE = "https://cupcakeindex.com"
 MOTTO = "Cupcake (n.): an opponent far below your level, scheduled for an easy win."  # tweet text
+
+
+def vary(options, seed):
+    """One of several ways to say the same thing, so posts don't all sound canned. Same seed = same pick
+    (a re-run renders the identical post, and the repeat check still catches it)."""
+    return options[int(hashlib.md5(str(seed).encode()).hexdigest(), 16) % len(options)]
+
+
 MOTTO_WORD, MOTTO_POS, MOTTO_DEF = "cup·cake", "n.", "an opponent far below your level, scheduled for an easy win."
 
 
@@ -287,7 +296,8 @@ def rankings_card(league, today):
         bits.append(f"{short(riser['team'], league)} climb{s_} {mv[riser['team']]} to No. {riser['power_rank']}.")
     if faller:
         bits.append(f"{short(faller['team'], league)} slide{s_} {-mv[faller['team']]} to No. {faller['power_rank']}.")
-    bits.append("Records lie. Margins don't.")
+    bits.append(vary(["Records lie. Margins don't.", "Wins are wins. Some are worth more.", "Who you beat, and by how much.",
+                      "Argue with the math in the replies.", "The résumé, not the record."], f"rank{league}{week}"))
     text = " ".join(bits)
     return img, text, link("rankings", league), is_stale(cur, today)
 
@@ -420,8 +430,9 @@ def bully_card(today, leagues=("cfb", "nfl"), now=None):
                      + (" (FCS)" if c.get("fcs") else "") + ".")
     if not lines:
         return img, "", link("rankings", leagues[0]), True  # no bully: no post
-    text = ("NFL Bully of the Week, the biggest blowout. " + " ".join(lines) + " Congrats on the win." if nfl_only
-            else "Cupcake Bully of the Week. " + " ".join(lines) + " Congrats on the win. It's not a résumé.")
+    text = ("NFL Bully of the Week, the biggest blowout. " + " ".join(lines) + " " + vary(["Not close.", "Somebody check on them.", "Mercy rule when?", "That one got out of hand early."], lines[0]) if nfl_only
+            else "Cupcake Bully of the Week. " + " ".join(lines) + " " + vary(["Congrats on the win. It's not a résumé.", "Bullying cupcakes isn't a résumé.",
+                                                                             "Great scrimmage, fellas.", "Put that one on the highlight reel, we guess."], lines[0]))
     return img, text, link("rankings", leagues[0]), stale
 
 
@@ -467,10 +478,12 @@ def gameday_card(league, today):
         g = games[0]
         fav = g["home"] if g["home_win_prob"] >= 0.5 else g["away"]
         pr = max(g["home_win_prob"], 1 - g["home_win_prob"])
-        close = min(games, key=lambda p: abs(p["home_win_prob"] - 0.5))
+        close = min(games[1:] or games, key=lambda p: abs(p["home_win_prob"] - 0.5))  # not the headliner again
+        flip = (f" Coin flip of the day: {short(close['away'], league)} @ {short(close['home'], league)}."
+                if close is not g and abs(close["home_win_prob"] - 0.5) <= 0.1 else "")
         text = (f"{lname} game day, Week {wk}. Headliner: {short(g['away'], league)} @ {short(g['home'], league)}, "
-                f"model likes {short(fav, league)} at {chance(pr)}. Coin flip of the day: "
-                f"{short(close['away'], league)} @ {short(close['home'], league)}. No cupcakes were harmed in this graphic.")
+                f"model likes {short(fav, league)} at {chance(pr)}.{flip} "
+                + vary(["No cupcakes were harmed in this graphic.", "Who you got?", "Lock in your picks.", "Drop your upset pick below."], f"gd{league}{wk}"))
     else:
         text = f"No {lname} games on the board this week."
     return img, text, link("scores", league), is_stale(cur, today) or not games
@@ -519,7 +532,11 @@ def render(day, out, today):
     body = tweet(text, url, with_link)
     with open(os.path.join(out, f"{day}.txt"), "w", encoding="utf-8") as f:
         f.write(body)
-    meta = {"day": day, "image": png, "text": body, "skip": bool(skip),
+    # one of each per week, however the text changes (win % moves, a late score): that's how the Alabama game-day card
+    # and the Pitt Bully went out twice
+    yr, wk, _ = today.isocalendar()
+    kind = {"thu": "bully_nfl", "bully_cfb": "bully_cfb"}.get(day, day)
+    meta = {"day": day, "key": f"{kind}:{yr}-W{wk}", "image": png, "text": body, "skip": bool(skip),
             "reason": "data is stale or empty" if skip else ""}
     with open(os.path.join(out, f"{day}.json"), "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=1, ensure_ascii=False)

@@ -16,7 +16,7 @@ import sys
 import requests
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from render import (ACCENT, BOTTOM, INK, LINE, MUTED, PAD, ROOT, TOP, W, canvas, chance, chip, fit, font,  # noqa: E402
+from render import (vary, ACCENT, BOTTOM, INK, LINE, MUTED, PAD, ROOT, TOP, W, canvas, chance, chip, fit, font,  # noqa: E402
                     is_stale, latest, short, tweet)
 
 ESPN = {"nfl": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard",
@@ -96,7 +96,7 @@ def card(day):
     pr = max(p["home_win_prob"], 1 - p["home_win_prob"])
     matchup = f"{short(p['away'], lg)} @ {short(p['home'], lg)}"
     if len(games) == 1:
-        text = f"{show or 'Tonight'}: {matchup}. Our model likes {short(fav, lg)} at {chance(pr)}. No cupcakes were harmed in this graphic."
+        text = f"{show or 'Tonight'}: {matchup}. Our model likes {short(fav, lg)} at {chance(pr)}. " + vary(["No cupcakes were harmed in this graphic.", "Who you got?", "Upset pick goes in the replies.", "Snacks ready?"], matchup)
     else:
         close = min(games[1:], key=lambda x: abs(x[1]["home_win_prob"] - 0.5))  # a different game than the headliner
         flip = f" Coin flip of the night: {short(close[1]['away'], close[0])} @ {short(close[1]['home'], close[0])}."             if abs(close[1]["home_win_prob"] - 0.5) <= 0.1 else ""

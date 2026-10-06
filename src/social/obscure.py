@@ -110,7 +110,7 @@ def nfl_players():
             p = x["player"]
             st = next((s for s in p.get("stats", []) if s.get("seasonId") == y and s.get("statSourceId") == 0 and s.get("statSplitTypeId") == 0), None)
             t = teams.get(str(p.get("proTeamId")))
-            if not st or not t or p.get("defaultPositionId") not in POS:
+            if not st or not st.get("stats") or not t or p.get("defaultPositionId") not in POS:
                 continue
             out.append({"id": p["id"], "name": p["fullName"], "pos": POS[p["defaultPositionId"]], "team": t["abbreviation"],
                         "color": "#" + t.get("color", "555555"), "logo": (t.get("logos") or [{}])[0].get("href"),
@@ -201,6 +201,12 @@ def fact(league, kind, rows, title, sub, unit, text, question=None, hot=False):
 
 def nxt(rows, n=2):
     return ", ".join(f"{(p.get('name') or p['team'])} {s}" for p, _, s in rows[1:1 + n])
+
+
+def chasers(rows):
+    """The 'and who's behind him' line, said a few different ways so the stat posts don't read like a template."""
+    lead = rows[0][0].get("name") or rows[0][0]["team"]
+    return R.vary(["Next: {}.", "Closest behind: {}.", "Chasing him: {}.", "Not far back: {}."], lead).format(nxt(rows))
 
 
 def player_rows(r, fmt):
@@ -530,7 +536,7 @@ def _():
         return None
     p, v, s = r[0]
     return fact("nfl", "player", r, "Quarterbacks who run", "Most rushing yards by an NFL quarterback this season", "rushing yards",
-                f"{p['name']} ({p['team']}) has {s} rushing yards, the most of any NFL quarterback. Next: {nxt(r)}.")
+                f"{p['name']} ({p['team']}) has {s} rushing yards, the most of any NFL quarterback. {chasers(r)}")
 
 
 @stat("nfl_rb_receiving")
@@ -540,7 +546,7 @@ def _():
         return None
     p, v, s = r[0]
     return fact("nfl", "player", r, "Running backs who catch", "Most receiving yards by an NFL running back this season", "receiving yards",
-                f"{p['name']} ({p['team']}) has {s} receiving yards, the most of any NFL running back. Next: {nxt(r)}.")
+                f"{p['name']} ({p['team']}) has {s} receiving yards, the most of any NFL running back. {chasers(r)}")
 
 
 @stat("nfl_interceptions")
@@ -550,7 +556,7 @@ def _():
         return None
     p, v, s = r[0]
     return fact("nfl", "player", r, "Gift wrapped", "Most interceptions thrown this season", "interceptions",
-                f"{p['name']} ({p['team']}) has thrown {s} interceptions, the most in the NFL. Next: {nxt(r)}.")
+                f"{p['name']} ({p['team']}) has thrown {s} interceptions, the most in the NFL. {chasers(r)}")
 
 
 @stat("nfl_catches_no_td")
@@ -560,7 +566,7 @@ def _():
         return None
     p, v, s = r[0]
     return fact("nfl", "player", r, "Still looking for six", "Most catches without a single touchdown this season", "catches, 0 TDs",
-                f"{p['name']} ({p['team']}) has {s} catches and still no touchdown. Next: {nxt(r)}.")
+                f"{p['name']} ({p['team']}) has {s} catches and still no touchdown. {chasers(r)}")
 
 
 @stat("nfl_yards_per_carry")
@@ -570,7 +576,7 @@ def _():
         return None
     p, v, s = r[0]
     return fact("nfl", "player", r, "Yards per carry", "NFL leaders, minimum 30 carries", "yards per carry",
-                f"{p['name']} ({p['team']}) is averaging {s} yards a carry, best in the NFL (30+ carries). Next: {nxt(r)}.")
+                f"{p['name']} ({p['team']}) is averaging {s} yards a carry, best in the NFL (30+ carries). {chasers(r)}")
 
 
 @stat("nfl_yards_per_catch")
@@ -580,7 +586,7 @@ def _():
         return None
     p, v, s = r[0]
     return fact("nfl", "player", r, "Big-play machine", "Yards per catch, minimum 10 catches", "yards per catch",
-                f"{p['name']} ({p['team']}) is averaging {s} yards every time he catches the ball. Next: {nxt(r)}.")
+                f"{p['name']} ({p['team']}) is averaging {s} yards every time he catches the ball. {chasers(r)}")
 
 
 @stat("nfl_completion_pct")
@@ -591,7 +597,7 @@ def _():
         return None
     p, v, s = r[0]
     return fact("nfl", "player", r, "Most accurate", "Completion percentage, minimum 60 throws", "completion %",
-                f"{p['name']} ({p['team']}) is completing {s} of his passes, best in the NFL. Next: {nxt(r)}.")
+                f"{p['name']} ({p['team']}) is completing {s} of his passes, best in the NFL. {chasers(r)}")
 
 
 @stat("nfl_te_touchdowns")
@@ -601,7 +607,7 @@ def _():
         return None
     p, v, s = r[0]
     return fact("nfl", "player", r, "Tight end touchdowns", "Most receiving touchdowns by a tight end", "touchdowns",
-                f"{p['name']} ({p['team']}) leads all tight ends with {s} receiving touchdowns. Next: {nxt(r)}.")
+                f"{p['name']} ({p['team']}) leads all tight ends with {s} receiving touchdowns. {chasers(r)}")
 
 
 @stat("hot_nfl_empty_yards")
@@ -624,7 +630,7 @@ def _():
         return None
     p, v, s = r[0]
     return fact("cfb", "player", r, "Quarterbacks who run", "Most rushing yards by an FBS quarterback this season", "rushing yards",
-                f"{p['name']} ({p['team']}) has {s} rushing yards, the most of any FBS quarterback. Next: {nxt(r)}.")
+                f"{p['name']} ({p['team']}) has {s} rushing yards, the most of any FBS quarterback. {chasers(r)}")
 
 
 @stat("cfb_rb_receiving")
@@ -634,7 +640,7 @@ def _():
         return None
     p, v, s = r[0]
     return fact("cfb", "player", r, "Running backs who catch", "Most receiving yards by an FBS running back this season", "receiving yards",
-                f"{p['name']} ({p['team']}) has {s} receiving yards, the most of any FBS running back. Next: {nxt(r)}.")
+                f"{p['name']} ({p['team']}) has {s} receiving yards, the most of any FBS running back. {chasers(r)}")
 
 
 @stat("cfb_pass_td_pace")
@@ -644,7 +650,7 @@ def _():
         return None
     p, v, s = r[0]
     return fact("cfb", "player", r, "On pace for history?", "Touchdown passes so far, plus our projection for every game left", "TD pass pace",
-                f"{p['name']} ({p['team']}) is on pace for {s} touchdown passes this season. Next: {nxt(r)}.")
+                f"{p['name']} ({p['team']}) is on pace for {s} touchdown passes this season. {chasers(r)}")
 
 
 @stat("cfb_yards_per_catch")
@@ -654,7 +660,7 @@ def _():
         return None
     p, v, s = r[0]
     return fact("cfb", "player", r, "Big-play machine", "Yards per catch, minimum 12 catches", "yards per catch",
-                f"{p['name']} ({p['team']}) is averaging {s} yards every time he catches the ball. Next: {nxt(r)}.")
+                f"{p['name']} ({p['team']}) is averaging {s} yards every time he catches the ball. {chasers(r)}")
 
 
 # ------------------------------------------------------------------ card
@@ -757,6 +763,72 @@ def _():
                 f"{h['key_out']} key player{'s' if h['key_out'] != 1 else ''} out" + (f" ({names})" if names else "") + ". Next: " + ", ".join(f"{short(p['team'], 'nfl')} {x}" for p, _, x in rows[1:3]) + ". "
                 f"League average {avg:.0f}%. Healthiest: {short(healthiest['team'], 'nfl')} {healthiest['inj']['health']:.0f}%.") | {
         "tag": "INJURY REPORT"}
+
+
+# --- weekly frauds vs over-achievers (Stats > Frauds on the site; posted Wednesdays by obscure.yml) ---------------
+# Same math as frPlayers() in docs/live.js: each week ESPN's fantasy feed sets a projection for every player; the
+# fraud score is how far below those projections he has played per game, stat by stat for his position (weighted,
+# each stat capped at 100% off). Negative = over-achiever. Players who are Out / IR / Doubtful are left out.
+FR_KEYS = {
+    "QB": [(["3"], 0.4, 10, False), (["4"], 0.3, 0, False), (["20"], 0.15, 0, True), (["24"], 0.15, 10, False)],
+    "RB": [(["24"], 0.5, 10, False), (["42"], 0.3, 10, False), (["25", "43"], 0.2, 0, False)],
+    "WR": [(["53"], 0.3, 1, False), (["42"], 0.5, 10, False), (["25", "43"], 0.2, 0, False)],
+}
+FR_KEYS["TE"] = FR_KEYS["WR"]
+FR_HURT = {"OUT", "INJURY_RESERVE", "DOUBTFUL"}
+
+
+def fraud_scores():
+    y = load(os.path.join(DATA, "index.json"))["leagues"]["nfl"]["latest"]["season"]
+    cur = _session.get(ESPN_FF.split("/segments")[0].format(y=y), timeout=30).json().get("currentScoringPeriod", {}).get("id") or 18
+    weeks = list(range(1, min(cur, 18) + 1))
+    filt = {"players": {"filterSlotIds": {"value": [0, 2, 4, 6]}, "limit": 350, "sortPercOwned": {"sortPriority": 1, "sortAsc": False},
+                        "filterStatsForSourceIds": {"value": [0, 1]}, "filterStatsForSplitTypeIds": {"value": [1]},
+                        "filterStatsForScoringPeriodIds": {"value": weeks}}}
+    teams_ = {str(t["team"]["id"]): t["team"] for t in
+              _session.get("https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams", timeout=30).json()["sports"][0]["leagues"][0]["teams"]}
+    tot = lambda st, ids: sum((st.get("stats") or {}).get(k, 0) for k in ids)
+    out = []
+    for x in _session.get(ESPN_FF.format(y=y), headers={"X-Fantasy-Filter": json.dumps(filt)}, timeout=30).json().get("players", []):
+        p = x["player"]
+        pos, t = POS.get(p.get("defaultPositionId")), teams_.get(str(p.get("proTeamId")))
+        if not pos or not t or p.get("injuryStatus") in FR_HURT:
+            continue
+        st = [s for s in p.get("stats", []) if s.get("seasonId") == y and s.get("statSplitTypeId") == 1]
+        proj = {s["scoringPeriodId"]: s for s in st if s.get("statSourceId") == 1}
+        games = [s for s in st if s.get("statSourceId") == 0 and (s.get("stats") or {}).get("210") and s["scoringPeriodId"] in proj]
+        n = len(games)
+        if n < 2 or sum(proj[g["scoringPeriodId"]].get("appliedTotal", 0) for g in games) / n < 8:
+            continue
+        score = wsum = 0
+        for ids, w, mn, worse in FR_KEYS[pos]:
+            act = sum(tot(g, ids) for g in games) / n
+            exp = sum(tot(proj[g["scoringPeriodId"]], ids) for g in games) / n
+            if exp > 0 and exp >= mn:
+                score += w * max(-1, min(1, ((act - exp) if worse else (exp - act)) / exp))
+                wsum += w
+        if wsum:
+            out.append({"id": p["id"], "name": p["fullName"], "pos": pos, "team": t["abbreviation"], "color": "#" + t.get("color", "555555"),
+                        "logo": (t.get("logos") or [{}])[0].get("href"), "pic": f"https://a.espncdn.com/i/headshots/nfl/players/full/{p['id']}.png",
+                        "score": round(100 * score / wsum), "n": n})
+    return out, cur
+
+
+@stat("weekly_frauds")
+def _():
+    ps, cur = fraud_scores()
+    frauds = sorted((p for p in ps if p["score"] >= 25), key=lambda p: -p["score"])
+    overs = sorted((p for p in ps if p["score"] <= -25), key=lambda p: p["score"])
+    if len(frauds) < 2 or len(overs) < 2:
+        return None
+    f0, o0 = frauds[0], overs[0]
+    rows = [(p, p["score"], f"{p['score']}% under") for p in frauds[:3]] + [(p, -p["score"], f"{-p['score']}% over") for p in overs[:2]]
+    wk = cur - 1
+    text = (f"Fraud watch through Week {wk}: {f0['name']} ({f0['team']}) is playing {f0['score']}% below his weekly projections. "
+            f"Also slipping: {frauds[1]['name']} ({frauds[1]['score']}%). "
+            f"Over-achiever: {o0['name']} ({o0['team']}), {-o0['score']}% above his.")
+    return fact("nfl", "player", rows, "Frauds vs. over-achievers", "Per game vs. ESPN's weekly projections, in the stats that matter for each position",
+                "below his projections, per game", text, "Who's the real fraud?") | {"tag": "FRAUD WATCH", "big": f"-{f0['score']}%"}
 
 
 # --- historic pace: a player on pace for (or near) a single-season record --------------------------
@@ -1010,7 +1082,10 @@ def make(key, out, theme=None):
     png = os.path.join(out, f"obscure-{key}.png")
     card(f, theme).convert("RGB").save(png, optimize=True)
     text = tweet(f["text"], "", with_link=False)  # never a link (Terry's rule)
-    meta = {"day": "obscure", "stat": key, "theme": theme, "image": png, "text": text, "skip": False, "reason": ""}
+    lead = f["rows"][0][0]
+    # same stat, same leader = the same post, even when the numbers and the runners-up changed (Zay Flowers went out twice)
+    meta = {"day": "obscure", "stat": key, "key": f"{key}:{lead.get('name') or lead.get('team')}", "theme": theme, "image": png,
+            "text": text, "skip": False, "reason": ""}
     with open(os.path.join(out, f"obscure-{key}.json"), "w", encoding="utf-8") as fh:
         json.dump(meta, fh, indent=1, ensure_ascii=False)
     return meta
@@ -1020,7 +1095,7 @@ def rotation(now=None):
     """Scheduled runs (twice a day): walk a fixed shuffled order of every stat, one per run, so nothing
     repeats for ~2 weeks (X rejects exact duplicate posts). Afternoon run = even slot, evening = odd."""
     now = now or dt.datetime.now(dt.timezone.utc)
-    order = sorted(k for k in STATS if not k.startswith("pace_"))  # pace posts have their own schedule (pace.yml)
+    order = sorted(k for k in STATS if not k.startswith(("pace_", "weekly_")))  # pace posts have their own schedule (pace.yml)
     random.Random(now.year).shuffle(order)
     slot = now.timetuple().tm_yday * 2 + (now.hour >= 20)
     return [order[(slot + i) % len(order)] for i in range(len(order))]  # next one first, the rest as fallbacks
@@ -1038,7 +1113,7 @@ def main():
     if a.list:
         print("\n".join(STATS))
         return
-    rot = [k for k in STATS if not k.startswith("pace_")]
+    rot = [k for k in STATS if not k.startswith(("pace_", "weekly_"))]
     pools = {"random": rot, "random-hot": [k for k in STATS if k.startswith("hot_")],
              "random-stat": [k for k in rot if not k.startswith("hot_")],
              "random-obscure": [k for k in rot if not k.startswith("hot_")]}  # old name for random-stat
@@ -1062,8 +1137,8 @@ def main():
         except Exception as e:  # one broken data source shouldn't stop the post
             print(f"[{key}] failed: {e!r}")
             m = None
-        if m and not a.all and posted.seen(m["text"]):
-            print(f"[{key}] already posted this exact text; trying the next one")
+        if m and not a.all and posted.repeat(m):
+            print(f"[{key}] {posted.repeat(m)}; trying the next one")
             m = None
             continue
         if m:

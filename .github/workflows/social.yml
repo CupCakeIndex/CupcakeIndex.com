@@ -17,7 +17,7 @@ on:
         required: false
 
 permissions:
-  contents: read
+  contents: write   # commits data/social/posted.json after a post
 
 concurrency:
   group: social-post
@@ -52,3 +52,6 @@ jobs:
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
         run: python src/social/post_to_x.py --meta out/social/today.json
+      - name: Save the posting log (so a re-run can't post the same card twice)
+        if: success() && vars.X_POSTING_ENABLED == 'true'
+        run: bash src/social/save_log.sh

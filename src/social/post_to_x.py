@@ -4,6 +4,7 @@ It only posts when ALL of these are true:
   - env X_POSTING_ENABLED is exactly "true"   (a GitHub repo *variable* Terry sets)
   - X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET are all set (GitHub *secrets*)
   - render.py didn't mark today's post as "skip" (stale or empty data)
+  - it isn't a repeat (posted.py: same text, the same post with new numbers, or the same story key)
 Otherwise it prints what it WOULD have posted and exits 0.
 
 Uses the X API v2: POST /2/media/upload (the old v1.1 upload endpoint was retired in 2025),
@@ -28,7 +29,7 @@ def main():
     with open(a.meta, encoding="utf-8") as f:
         meta = json.load(f)
 
-    print("Tweet text:\n" + meta["text"] + "\nImage: " + meta["image"])
+    print("Tweet text:\n" + meta["text"] + "\nImage: " + (meta.get("image") or "none (text-only post)"))
     # last line of defense: the account isn't verified, so X rejects anything over 280
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from render import x_len
@@ -46,8 +47,9 @@ def main():
         print(f"Not posting today: {meta.get('reason') or 'nothing fresh'}.")
         return
     import posted
-    if posted.seen(meta["text"]):
-        print("Not posting: this exact text was already posted (see data/social/posted.json).")
+    why = posted.repeat(meta)
+    if why:
+        print(f"Not posting: {why} (see data/social/posted.json).")
         return
 
     import requests
@@ -55,18 +57,20 @@ def main():
     auth = OAuth1(os.environ["X_API_KEY"], os.environ["X_API_SECRET"],
                   os.environ["X_ACCESS_TOKEN"], os.environ["X_ACCESS_SECRET"])
 
-    with open(meta["image"], "rb") as img:
-        r = requests.post(UPLOAD_URL, auth=auth, timeout=60,
-                          files={"media": ("card.png", img, "image/png")},
-                          data={"media_category": "tweet_image"})
-    if r.status_code >= 300:
-        sys.exit(f"Media upload failed ({r.status_code}): {r.text[:500]}")
-    media_id = (r.json().get("data") or {}).get("id") or r.json().get("media_id_string")
-    if not media_id:
-        sys.exit(f"Media upload returned no id: {r.text[:500]}")
+    body = {"text": meta["text"]}
+    if meta.get("image"):  # news posts are text only
+        with open(meta["image"], "rb") as img:
+            r = requests.post(UPLOAD_URL, auth=auth, timeout=60,
+                              files={"media": ("card.png", img, "image/png")},
+                              data={"media_category": "tweet_image"})
+        if r.status_code >= 300:
+            sys.exit(f"Media upload failed ({r.status_code}): {r.text[:500]}")
+        media_id = (r.json().get("data") or {}).get("id") or r.json().get("media_id_string")
+        if not media_id:
+            sys.exit(f"Media upload returned no id: {r.text[:500]}")
+        body["media"] = {"media_ids": [str(media_id)]}
 
-    r = requests.post(TWEET_URL, auth=auth, timeout=60,
-                      json={"text": meta["text"], "media": {"media_ids": [str(media_id)]}})
+    r = requests.post(TWEET_URL, auth=auth, timeout=60, json=body)
     if r.status_code >= 300:
         sys.exit(f"Posting failed ({r.status_code}): {r.text[:500]}")
     print("Posted: https://x.com/i/web/status/" + r.json()["data"]["id"])
