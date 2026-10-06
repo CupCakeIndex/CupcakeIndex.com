@@ -213,7 +213,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "195"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "196"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -368,7 +368,7 @@ function setLeague(l) {
   if (typeof Profile !== "undefined") Profile.header();
   document.querySelectorAll("#league button").forEach((b) => b.classList.toggle("active", b.dataset.league === l));
   document.body.dataset.league = l;
-  $("#profile").innerHTML = `<option value="">All schedule profiles</option>` + Object.entries(PROFILES).map(([k, p]) => `<option value="${k}">${p.name}</option>`).join("");
+  $("#profile").innerHTML = `<option value="">All schedule profiles</option>` + Object.entries(profs()).map(([k, p]) => `<option value="${k}">${p.name}</option>`).join("");
   $("#league-tag").textContent = LEAGUE_NAME[l] || l;
   document.querySelectorAll("#nav [data-view]").forEach((a) => (a.href = link(a.dataset.view)));
   $("#notes-link").href = link("updates");
@@ -401,7 +401,7 @@ function presetTips() {
   const pct = (x) => (x == null ? "?" : (100 * x).toFixed(1) + "%");
   return {
     "Best teams": `Who would win. Weights learned from ${m.games} games; the higher-ranked team won ${pct(m.accuracy.best)} of the following week's games.`,
-    "Most deserving": "Who has earned it: strength of record, schedule difficulty and cupcake padding. Ignores margin of victory and luck.",
+    "Most deserving": `Who has earned it: strength of record${league === "nfl" ? " and" : ","} schedule difficulty${league === "nfl" ? "" : " and cupcake padding"}. Ignores margin of victory and luck.`,
     "Default": "The site's standard blend.",
   };
 }
@@ -527,7 +527,7 @@ function renderCotw() {
   const dual = (n) => esc(nick(n)); // team name only, no city (Jaguars, Patriots), on every screen
   const oppTag = c.fcs ? `<span class="prof-badge prof-walk">FCS</span>` : `<span class="muted">#${esc(c.opp_rank)}</span>`;
   $("#cotw").innerHTML = `
-    <div class="cotw-tag"><span>Cupcake</span><span>Bully of the Week</span><small>Week ${esc(c.week)}</small></div>
+    <div class="cotw-tag"><span>${league === "nfl" ? "Biggest Blowout" : "Cupcake"}</span><span>Bully of the Week</span><small>Week ${esc(c.week)}</small></div>
     <div class="cotw-main">
       ${safeUrl(team.logo) ? `<img src="${esc(thumb(team.logo, 46))}" alt="" width="46" height="46" class="cotw-logo">` : ""}
       <div>
@@ -671,13 +671,39 @@ const PROFILES = {
   grind: { badge: "GRIND", name: "Honest Grind", desc: "Easier schedule, but no padding. They played their peers." },
   walk: { badge: "CUPCAKE WALK", short: "WALK", name: "Cupcake Walk", desc: "Easy schedule and padded. The records to be most skeptical of." },
 };
+// NFL: no cupcakes. Schedule (how hard was your road?) x Record (did you win anyway?). Same keys, so the same
+// colors: walk (pink) = winning on an easy road, gauntlet (green) = winning on a hard one.
+const NFL_PROFILES = {
+  gauntlet: { badge: "PROVEN", name: "Proven", desc: "Hard schedule, winning anyway." },
+  barbell: { badge: "TOUGH ROAD", short: "TOUGH", name: "Tough Road", desc: "Hard schedule, losing record. Better than it looks." },
+  grind: { badge: "NO EXCUSES", short: "NO EXC", name: "No Excuses", desc: "Easy schedule and still losing." },
+  walk: { badge: "EASY ROAD", short: "EASY", name: "Easy Road", desc: "Winning record against an easy schedule. The records to be most skeptical of." },
+};
+const profs = () => (league === "nfl" ? NFL_PROFILES : PROFILES);
 const HARD_SOS = 55, PADDED = 60; // score thresholds (50 = average)
+const HARD_NFL = 50; // NFL: above an average schedule = hard
+const winPct = (t) => (t.wins + t.losses ? t.wins / (t.wins + t.losses) : 0);
 function profileOf(t) {
-  if (t.scores.cupcake == null || !(t.wins + t.losses)) return null;
+  if (!(t.wins + t.losses)) return null;
+  if (league === "nfl") {
+    const hard = t.scores.sos >= HARD_NFL, winning = winPct(t) > 0.5;
+    return hard ? (winning ? "gauntlet" : "barbell") : winning ? "walk" : "grind";
+  }
+  if (t.scores.cupcake == null) return null;
   const hard = t.scores.sos >= HARD_SOS, padded = t.scores.cupcake >= PADDED;
   return hard ? (padded ? "barbell" : "gauntlet") : padded ? "walk" : "grind";
 }
-const profileBadge = (k) => `<span class="prof-badge prof-${k}" title="Schedule profile: ${PROFILES[k].name}. ${PROFILES[k].desc}">${tagText(PROFILES[k].badge, PROFILES[k].short)}</span>`;
+// NFL schedule rank: 1 = hardest schedule so far, 32 = easiest
+function sosRankOf(t, teams = DATA.teams) {
+  return [...teams].sort((a, b) => b.raw.sos - a.raw.sos).findIndex((x) => x.team === t.team) + 1;
+}
+// NFL: record against teams in the top half of our power ratings (#1-16)
+const TOP_HALF = 16;
+function topHalfRec(t) {
+  const g = (t.schedule || []).filter((x) => x.result && x.opp_rank && x.opp_rank <= TOP_HALF);
+  return `${g.filter((x) => x.result === "W").length}-${g.filter((x) => x.result === "L").length}`;
+}
+const profileBadge = (k) => `<span class="prof-badge prof-${k}" title="Schedule profile: ${profs()[k].name}. ${profs()[k].desc}">${tagText(profs()[k].badge, profs()[k].short)}</span>`;
 // tag label with an optional short version for phones (the rankings table swaps to it under 640px)
 const tagText = (full, short) => (short ? `<span class="tl-f">${full}</span><span class="tl-s">${short}</span>` : full);
 const profileIcon = (t) => {
@@ -686,7 +712,7 @@ const profileIcon = (t) => {
 };
 
 // Schedule tags for one game in a rankings file (FCS / cupcake / top 25)
-const schedTags = (g, nfl) => [g.fcs && '<span class="pill over">FCS</span>', g.cupcake && '<span class="pill over">cupcake</span>',
+const schedTags = (g, nfl) => [g.fcs && '<span class="pill over">FCS</span>', !nfl && g.cupcake && '<span class="pill over">cupcake</span>',
   !g.fcs && g.opp_rank <= (nfl ? 8 : 25) && `<span class="pill under">top ${nfl ? 8 : 25}</span>`].filter(Boolean).join(" ");
 
 // One schedule game as a mini version of the box score's scorebug; the whole thing links to the game.
@@ -734,6 +760,7 @@ const untestedTag = (t) => isUntested(t)
 // Half or more of the games against cupcakes = heavy padding (count shown in the accent color).
 // NFL week files from before the NFL got a Cupcake score have no scores.cupcake: no meter.
 function cupMeter(t) {
+  if (league === "nfl") return sosMeter(t);
   if (t.scores.cupcake == null || !(t.wins + t.losses)) return "";
   const played = t.schedule.filter((g) => g.result);
   const cups = played.filter((g) => g.cupcake);
@@ -745,6 +772,15 @@ function cupMeter(t) {
   const sq = played.map((g) => `<i${g.cupcake ? ' class="on"' : ""}></i>`).join("");
   return `<button type="button" class="cupm${heavy ? " heavy" : ""}${n ? "" : " none"}" data-tip="${esc(tip)}" title="${esc(tip)}" aria-label="${esc(tip)}">`
     + `<span class="cupm-sq" aria-hidden="true">${sq}</span><span class="cupm-n">${n ? n + (n === 1 ? " cupcake" : " cupcakes") : "no cupcakes"}</span></button>`;
+}
+// NFL: no cupcakes, just the schedule rank (#1 = hardest so far). The easiest 8 are shown in the accent color.
+function sosMeter(t) {
+  if (!(t.wins + t.losses)) return "";
+  const n = DATA.teams.length, r = sosRankOf(t), easy = r > n - 8;
+  const tip = `Schedule rank #${r} of ${n}: ${r === 1 ? "the hardest" : r === n ? "the easiest" : r <= n / 2 ? "a harder than average" : "an easier than average"} schedule so far`
+    + ` (how good their opponents have been). #1 = hardest, #${n} = easiest.`;
+  return `<button type="button" class="cupm sosm${easy ? " heavy" : ""}" data-tip="${esc(tip)}" title="${esc(tip)}" aria-label="${esc(tip)}">`
+    + `<span class="cupm-n">SOS #${r}</span></button>`;
 }
 // Tap (phones) or click on a padding meter: a small explanation box instead of opening the team panel
 function cupTip(btn) {
@@ -769,7 +805,7 @@ function cupTip(btn) {
 function cotwTag(t) {
   const c = DATA.cupcake_of_week;
   if (!c || c.team !== t.team) return "";
-  return ` <span class="pill cup-badge" title="Cupcake Bully of the Week: ${esc(c.score_line)} over ${esc(c.opp)}">BULLY</span>`;
+  return ` <span class="pill cup-badge" title="${league === "nfl" ? "" : "Cupcake "}Bully of the Week: ${esc(c.score_line)} over ${esc(c.opp)}">BULLY</span>`;
 }
 
 function apTag(t) {
@@ -843,12 +879,13 @@ function whyBullets(t) {
   const weak = f.filter((x) => x.v < 40).slice(-2).reverse();
   if (weak.length) out.push("Weaknesses: " + weak.map((x) => `${x.label.toLowerCase()} (${Math.round(x.v)})`).join(", ") + ".");
   const games = t.wins + t.losses, cups = t.fcs_games + t.weak_games;
-  if (t.scores.cupcake != null && cups >= 2) out.push(league === "nfl"
-    ? `Cupcake score ${Math.round(t.scores.cupcake)}: ${cups} of ${games} games were against weaker, below-average teams. Those wins count for less.`
-    : `Cupcake score ${Math.round(t.scores.cupcake)}: ${cups} of ${games} games were cupcakes for a team this good (${t.fcs_games} FCS, ${t.weak_games} FBS teams far below them). Those wins barely count.`);
+  const sr = sosRankOf(t), n = DATA.teams.length;
+  if (league === "nfl" && games && sr > n - 8) out.push(`Easy road: the #${sr} schedule of ${n} so far (#1 = hardest)${winPct(t) > 0.5 ? `. A ${t.record} record against it proves less than it looks.` : "."}`);
+  if (league === "nfl" && games && sr <= 8) out.push(`Tough road: the #${sr} schedule of ${n} so far (#1 = hardest)${winPct(t) > 0.5 ? `, and still ${t.record}.` : "."}`);
+  if (league !== "nfl" && t.scores.cupcake != null && cups >= 2) out.push(`Cupcake score ${Math.round(t.scores.cupcake)}: ${cups} of ${games} games were cupcakes for a team this good (${t.fcs_games} FCS, ${t.weak_games} FBS teams far below them). Those wins barely count.`);
   if (isUntested(t)) out.push(`Beaten Nobody: no win over a top-${TESTED[league].quality} team yet. Best win: ${bestWinText(bestWin(t))}.`);
   const cw = t.cotw_weeks || [];
-  if (cw.length) out.push(`Cupcake Bully of the Week ${cw.length === 1 ? "once" : cw.length + " times"} this season (week ${cw.join(", ")}).`);
+  if (cw.length) out.push(`${league === "nfl" ? "" : "Cupcake "}Bully of the Week ${cw.length === 1 ? "once" : cw.length + " times"} this season (week ${cw.join(", ")}).`);
   if (t.luck_wins >= 1) out.push(`Lucky: about ${t.luck_wins.toFixed(1)} more wins than their play deserved (${t.one_score} in one-score games).`);
   if (t.luck_wins <= -1) out.push(`Unlucky: about ${(-t.luck_wins).toFixed(1)} fewer wins than their play deserved (${t.one_score} in one-score games).`);
   if (t.ap_rank && t.rank - t.ap_rank >= 10) out.push(`AP has them #${t.ap_rank}; the numbers say #${t.rank}.`);
@@ -859,7 +896,7 @@ function whyBullets(t) {
 function openTeam(name) {
   const t = ranked.find((x) => x.team === name);
   if (!t) return;
-  const sosRank = [...DATA.teams].sort((a, b) => b.raw.sos - a.raw.sos).findIndex((x) => x.team === name) + 1;
+  const sosRank = sosRankOf(t);
   const why = whyBullets(t);
   const nfl = league === "nfl";
   // each game is a mini scorebug (away team on the left); ESPN abbreviations + kickoff times fill in after the panel opens
@@ -884,16 +921,16 @@ function openTeam(name) {
     <div class="stats">
       <div class="stat wide-stat"><small>Best win</small><b>${esc(bestWinText(bestWin(t)))}</b></div>
       <div class="stat"><small>Power rating</small><b>${t.rating > 0 ? "+" : ""}${t.rating.toFixed(1)}</b></div>
-      <div class="stat"><small>Schedule rank</small><b>#${sosRank}</b></div>
+      <div class="stat"><small>Schedule rank</small><b>#${sosRank}</b>${nfl ? `<small class="muted">of ${DATA.teams.length} (#1 = hardest)</small>` : ""}</div>
       <div class="stat"><small>One-score games</small><b>${esc(t.one_score)}</b></div>
       <div class="stat"><small>Wins vs. deserved</small><b>${t.luck_wins > 0 ? "+" : ""}${t.luck_wins.toFixed(1)}</b></div>
-      ${nfl ? `<div class="stat"><small>Main starting QB</small><b>${esc(t.usual_qb || "—")}</b></div>${t.scores.cupcake != null ? `<div class="stat"><small>Mismatch games</small><b>${esc(t.weak_games)}</b></div>` : ""}`
+      ${nfl ? `<div class="stat"><small>Main starting QB</small><b>${esc(t.usual_qb || "—")}</b></div><div class="stat"><small>Vs. top-half teams</small><b>${esc(topHalfRec(t))}</b></div>`
             : `<div class="stat"><small>FCS games</small><b>${esc(t.fcs_games)}</b></div><div class="stat"><small>FBS mismatches</small><b>${esc(t.weak_games)}</b></div>`}
-      ${profileOf(t) ? `<div class="stat wide-stat"><small>Schedule profile</small><b>${profileBadge(profileOf(t))}</b><small class="muted">${PROFILES[profileOf(t)].desc} <a href="${link("schedules", null, { team: t.team })}">See it on the chart →</a></small></div>` : ""}
+      ${profileOf(t) ? `<div class="stat wide-stat"><small>Schedule profile</small><b>${profileBadge(profileOf(t))}</b><small class="muted">${profs()[profileOf(t)].desc} <a href="${link("schedules", null, { team: t.team })}">See it on the chart →</a></small></div>` : ""}
     </div>
     <h3>Factor scores</h3>
     ${LG.factors.map((f) => `<div class="frow" title="${esc(f.help)}"><span>${esc(f.label)}</span><span class="bar${f.invert ? " inv" : ""}"><i style="width:${+t.scores[f.key] || 0}%"></i></span><b class="num">${Math.round(t.scores[f.key])}</b></div>`).join("")}
-    <p class="note">Power rating = points better than an average ${nfl ? "NFL" : "FBS"} team on a neutral field.${t.scores.cupcake != null ? " Cupcake: higher = softer schedule for a team at this level, counting only games already played." : ""}</p>
+    <p class="note">Power rating = points better than an average ${nfl ? "NFL" : "FBS"} team on a neutral field.${!nfl && t.scores.cupcake != null ? " Cupcake: higher = softer schedule for a team at this level, counting only games already played." : ""}</p>
     <h3>Schedule</h3>
     <div class="mb-list">${sched}</div>
     <p class="note">Tap a game for the box score or preview. Diff (difficulty) is the chance a typical ${bench} would lose this game.${nfl ? " ⚠ = a different QB than the team's usual starter." : " Beating FCS teams is close to 0%."}</p>`;
@@ -909,8 +946,9 @@ function openTeam(name) {
 
 // ------------------------------------------------------------------ schedule profile chart
 function renderSchedules() {
-  if (!DATA || !DATA.teams.some((t) => t.scores.cupcake != null)) {
-    $("#sp-chart").innerHTML = `<p class="muted" style="padding:16px">No Cupcake scores in this week's data, so there are no schedule profiles to show.</p>`;
+  const nfl = league === "nfl";
+  if (!DATA || !DATA.teams.some((t) => profileOf(t))) {
+    $("#sp-chart").innerHTML = `<p class="muted" style="padding:16px">No games played in this week's data, so there are no schedule profiles to show.</p>`;
     $("#sp-legend").innerHTML = "";
     return;
   }
@@ -922,37 +960,32 @@ function renderSchedules() {
   const focus = parseHash().params.get("team");
   const focusTeam = focus && all.find((t) => t.team === focus);
   if (focusTeam && !teams.includes(focusTeam)) teams = [...teams, focusTeam];
-  // NFL: most teams have no cupcakes yet, so they'd all sit on one flat row. Spread those teams out (below the
-  // "padded" line, so their profile doesn't change) by how much weaker their opponents have been than them on average.
-  const cupY = new Map(all.map((t) => [t, t.scores.cupcake]));
-  if (league === "nfl") {
-    const floor = Math.min(...all.map((t) => t.scores.cupcake));
-    const gap = (t) => { const g = t.schedule.filter((x) => x.result && x.opp_rating != null); return g.length ? g.reduce((s, x) => s + Math.max(0, t.rating - x.opp_rating), 0) / g.length : 0; };
-    const flat = all.filter((t) => t.scores.cupcake <= floor + 0.01).sort((a, b) => gap(a) - gap(b));
-    flat.forEach((t, i) => cupY.set(t, floor - 10 + (flat.length > 1 ? (i / (flat.length - 1)) : 0.5) * Math.min(20, PADDED - 3 - (floor - 10))));
-  }
+  // up: Cupcake score (college) or win % (NFL, which has no cupcakes). NFL records repeat (lots of 3-1 teams),
+  // so teams with the same record are nudged apart a little by point differential.
+  const cupY = new Map(all.map((t) => [t, nfl ? 100 * winPct(t) + Math.max(-4, Math.min(4, pointDiff(t).diff / 25)) : t.scores.cupcake]));
+  const xMid = nfl ? HARD_NFL : HARD_SOS, yMid = nfl ? 50 : PADDED;
   const xs = all.map((t) => t.scores.sos), ys = all.map((t) => cupY.get(t));
   // padded domain so logos at the extremes aren't clipped or covering the corner labels
   const x0 = Math.min(...xs) - 7, x1 = Math.max(...xs) + 9;
   const y0 = Math.min(...ys) - 12, y1 = Math.max(...ys) + 10;
   const px = (v) => ((v - x0) / (x1 - x0)) * 100, py = (v) => 100 - ((v - y0) / (y1 - y0)) * 100;
-  const cx = px(HARD_SOS), cy = py(PADDED);
+  const cx = px(xMid), cy = py(yMid);
   // positions are stored as 0-1 fractions; initZoom() turns them into pixels for the current zoom/pan
-  const quad = (k, l, t, w, h, pos) => `<div class="sp-q sp-${k}" data-x0="${l / 100}" data-x1="${(l + w) / 100}" data-y0="${t / 100}" data-y1="${(t + h) / 100}"><span class="sp-ql ${pos}">${profileBadge(k)}<small>${SP_QDESC[k]}</small></span></div>`;
+  const quad = (k, l, t, w, h, pos) => `<div class="sp-q sp-${k}" data-x0="${l / 100}" data-x1="${(l + w) / 100}" data-y0="${t / 100}" data-y1="${(t + h) / 100}"><span class="sp-ql ${pos}">${profileBadge(k)}<small>${(nfl ? SP_QDESC_NFL : SP_QDESC)[k]}</small></span></div>`;
   // dotted grid every 10 points (labels on the bottom and right edges) + dashed lines where the profiles split
   const tens = (a, b) => { const out = []; for (let v = Math.ceil(a / 10) * 10; v <= b; v += 10) out.push(v); return out; };
   const grid = tens(x0, x1).filter((v) => px(v) > 3 && px(v) < 96).map((v) => `<i class="sp-gl v" data-gx="${px(v) / 100}" data-l="${v}"></i>`).join("")
-    + tens(y0, y1).filter((v) => v !== PADDED && py(v) > 12 && py(v) < 90).map((v) => `<i class="sp-gl h" data-gy="${py(v) / 100}" data-l="${v}"></i>`).join("")
+    + tens(y0, y1).filter((v) => v !== yMid && py(v) > 12 && py(v) < 90).map((v) => `<i class="sp-gl h" data-gy="${py(v) / 100}" data-l="${v}"></i>`).join("")
     + `<i class="sp-gl v mid" data-gx="${cx / 100}"></i><i class="sp-gl h mid" data-gy="${cy / 100}"></i>`;
   const byName = new Map(teams.map((t) => [t.team, t]));
   $("#sp-chart").innerHTML = `${grid}
-    ${quad("walk", 0, 0, cx, cy, "tl")}${quad("barbell", cx, 0, 100 - cx, cy, "tr")}
-    ${quad("grind", 0, cy, cx, 100 - cy, "bl")}${quad("gauntlet", cx, cy, 100 - cx, 100 - cy, "br")}
-    <span class="sp-axis sp-x">Schedule: harder →</span><span class="sp-axis sp-y">Cupcake: more padded →</span>
+    ${quad("walk", 0, 0, cx, cy, "tl")}${quad(nfl ? "gauntlet" : "barbell", cx, 0, 100 - cx, cy, "tr")}
+    ${quad("grind", 0, cy, cx, 100 - cy, "bl")}${quad(nfl ? "barbell" : "gauntlet", cx, cy, 100 - cx, 100 - cy, "br")}
+    <span class="sp-axis sp-x">Schedule: harder →</span><span class="sp-axis sp-y">${nfl ? "Win %: higher →" : "Cupcake: more padded →"}</span>
     <div class="sp-zoom" role="group" aria-label="Zoom"><button data-z="in" aria-label="Zoom in">+</button><button data-z="out" aria-label="Zoom out">−</button><button data-z="reset">Reset</button></div>
     <div class="cc-tip"></div>
     ${teams.map((t) => `<button class="sp-dot${t === focusTeam ? " focus" : ""}" data-team="${esc(t.team)}" data-fx="${px(t.scores.sos) / 100}" data-fy="${py(cupY.get(t)) / 100}"
-        style="animation-delay:${Math.round((px(t.scores.sos) / 100) * 450)}ms" aria-label="#${t.rank} ${esc(t.team)} (${esc(t.record)}) · Schedule ${Math.round(t.scores.sos)} · Cupcake ${Math.round(t.scores.cupcake)}">
+        style="animation-delay:${Math.round((px(t.scores.sos) / 100) * 450)}ms" aria-label="#${t.rank} ${esc(t.team)} (${esc(t.record)}) · Schedule ${Math.round(t.scores.sos)}${nfl ? "" : ` · Cupcake ${Math.round(t.scores.cupcake)}`}">
         ${safeUrl(t.logo) ? `<img src="${esc(thumb(t.logo, 26))}" alt="${esc(t.team)}" width="26" height="26" loading="lazy" decoding="async">` : `<span>${esc(t.team.slice(0, 3))}</span>`}${t === focusTeam ? `<b class="sp-flabel">${esc(t.team)}</b>` : ""}</button>`).join("")}`;
   const zoom = initZoom($("#sp-chart"), (team) => { ranked = rankTeams(DATA.teams); openTeam(team); });
   // hover a logo (mouse): the same pop-in box as the Stats-by-year chart
@@ -962,7 +995,7 @@ function renderSchedules() {
     if (!t) return;
     const p = profileOf(t);
     showTip(box, tip, parseFloat(dot.style.left), parseFloat(dot.style.top) - 12, `<small>#${t.rank} · ${esc(t.record)} · ${esc(t.conference || "")}</small><b>${esc(t.team)}</b>
-      <span>Schedule ${Math.round(t.scores.sos)} · Cupcake ${Math.round(t.scores.cupcake)}</span>${p ? `<span>${profileBadge(p)}</span>` : ""}`);
+      <span>Schedule ${Math.round(t.scores.sos)}${nfl ? ` · #${sosRankOf(t)} of ${DATA.teams.length}` : ` · Cupcake ${Math.round(t.scores.cupcake)}`}</span>${p ? `<span>${profileBadge(p)}</span>` : ""}`);
   };
   box.onpointerout = (e) => { if (e.target.closest(".sp-dot") && !e.relatedTarget?.closest?.(".sp-dot")) tip.classList.remove("on"); };
   if (focusTeam) {
@@ -971,11 +1004,12 @@ function renderSchedules() {
     dot.scrollIntoView({ block: "center", behavior: "smooth" });
     setTimeout(() => dot.classList.add("faded"), 10000); // highlight fades after ~10 seconds
   }
-  const counts = Object.fromEntries(Object.keys(PROFILES).map((k) => [k, teams.filter((t) => profileOf(t) === k)]));
-  $("#sp-legend").innerHTML = Object.entries(PROFILES).map(([k, p]) => `<div class="sp-leg sp-${k}">${profileBadge(k)} <span class="muted">(${counts[k].length})</span><small>${p.desc}</small>
+  const counts = Object.fromEntries(Object.keys(profs()).map((k) => [k, teams.filter((t) => profileOf(t) === k)]));
+  $("#sp-legend").innerHTML = Object.entries(profs()).map(([k, p]) => `<div class="sp-leg sp-${k}">${profileBadge(k)} <span class="muted">(${counts[k].length})</span><small>${p.desc}</small>
     <small>${counts[k].slice(0, 6).map((t) => `#${t.rank} ${esc(t.team)}`).join(", ")}${counts[k].length > 6 ? "…" : ""}</small></div>`).join("");
   renderSchedBars(teams, all, conf, focusTeam);
 }
+const SP_QDESC_NFL = { walk: "easy road, winning", gauntlet: "hard road, winning", grind: "easy road, losing", barbell: "hard road, losing" };
 const SP_QDESC = { walk: "easy road, padded", barbell: "hard road, padded", grind: "easy road, no padding", gauntlet: "hard road, no padding" };
 
 // Hover box shared by the schedule charts (reuses the Stats-by-year .cc-tip look). x/y = anchor inside box.
@@ -1023,7 +1057,7 @@ function renderSchedBars(teams, all, conf, focusTeam) {
     label: `<em>${t.rank}</em> ${esc(t.team)}`,
     logo: safeUrl(t.logo) ? `<img src="${esc(thumb(t.logo, 16))}" alt="" width="16" height="16" loading="lazy" decoding="async">` : "",
     tip: `<small>#${t.rank} · ${esc(t.record)} · ${esc(t.conference || "")}</small><b>${esc(t.team)}</b>
-      <span>Schedule ${r(t.scores.sos)} · #${sosRank.get(t)} hardest of ${all.length}</span><span>Cupcake ${r(t.scores.cupcake)}</span>`,
+      <span>Schedule ${r(t.scores.sos)} · #${sosRank.get(t)} hardest of ${all.length}</span>${nfl ? "" : `<span>Cupcake ${r(t.scores.cupcake)}</span>`}`,
   })), (x) => { ranked = rankTeams(DATA.teams); openTeam(x.t.team); });
 
   // 2) conference (NFL: division) averages over all of its teams; tap one to filter everything to it
@@ -1037,7 +1071,7 @@ function renderSchedBars(teams, all, conf, focusTeam) {
   chart($("#sb-confs"), confs.map((g) => {
     const top = [...g.ts].sort((a, b) => b.scores.sos - a.scores.sos)[0];
     return { c: g.c, v: g.v, on: g.c === conf, label: esc(g.c),
-      tip: `<small>${g.ts.length} teams · average Cupcake ${r(g.cup)}</small><b>${esc(g.c)}</b><span>Average schedule ${r(g.v)}</span><span>Toughest: ${esc(top.team)} (${r(top.scores.sos)})</span>` };
+      tip: `<small>${g.ts.length} teams${nfl ? "" : ` · average Cupcake ${r(g.cup)}`}</small><b>${esc(g.c)}</b><span>Average schedule ${r(g.v)}</span><span>Toughest: ${esc(top.team)} (${r(top.scores.sos)})</span>` };
   }), (x) => { $("#sp-conf").value = x.c === conf ? "" : x.c; renderSchedules(); });
 }
 
@@ -1151,7 +1185,8 @@ function renderResume() {
     let real = 0, w = 0, l = 0;
     const cups = [];
     (t.schedule || []).filter((g) => g.result).forEach((g) => {
-      if (g.cupcake && g.result === "W") { cups.push(g); return; } // a LOSS to a cupcake stays in, and hurts
+      // a LOSS to a cupcake stays in, and hurts. NFL (no cupcakes): wins over bottom-half teams are taken away instead
+      if ((nfl ? !g.opp_rank || g.opp_rank > TOP_HALF : g.cupcake) && g.result === "W") { cups.push(g); return; }
       const d = g.difficulty ?? 0.5;
       if (g.result === "W") { real += d; w++; } else { real -= 1 - d; l++; }
     });
@@ -1165,14 +1200,16 @@ function renderResume() {
   const rose = rows.filter((r) => r.rank <= cut && r.move > 0).sort((a, b) => b.move - a.move).slice(0, 4);
   const item = (r, why) => `<li><a href="#" data-team="${esc(r.t.team)}">${esc(r.t.team)}</a> <span class="muted">#${r.ours} → #${r.rank} · ${why}</span></li>`;
   $("#rc-callouts").innerHTML = `
-    <div><b>Exposed</b><small class="muted">Looked good until we took away the cupcakes</small><ul>${fell.map((r) => item(r, `${esc(r.t.record)}, but ${r.rec} vs real teams`)).join("") || '<li class="muted">Nobody this week</li>'}</ul></div>
-    <div><b>The real deal</b><small class="muted">Climb the most when only real games count</small><ul>${rose.map((r) => item(r, `${r.rec} vs real teams`)).join("") || '<li class="muted">Nobody this week</li>'}</ul></div>`;
+    <div><b>Exposed</b><small class="muted">Looked good until we took away the ${nfl ? "wins over bad teams" : "cupcakes"}</small><ul>${fell.map((r) => item(r, `${esc(r.t.record)}, but ${r.rec} vs ${nfl ? "top-half" : "real"} teams${nfl ? ` · SOS #${sosRankOf(r.t)}` : ""}`)).join("") || '<li class="muted">Nobody this week</li>'}</ul></div>
+    <div><b>The real deal</b><small class="muted">Climb the most when only real games count</small><ul>${rose.map((r) => item(r, `${r.rec} vs ${nfl ? "top-half" : "real"} teams${nfl ? ` · SOS #${sosRankOf(r.t)}` : ""}`)).join("") || '<li class="muted">Nobody this week</li>'}</ul></div>`;
   const draw = () => {
     const all = nfl || $("#rc-show").value === "all";
     const list = all ? rows : rows.filter((r) => r.rank <= 25 || r.ours <= 25);
     tb.innerHTML = list.map((r) => {
       const cw = r.cups;
-      const gone = cw.length ? `minus ${cw.length} cupcake${cw.length > 1 ? "s" : ""}: ${cw.map((g) => esc(g.opp)).join(", ")}` : "no cupcakes";
+      const what = nfl ? ["bottom-half win", "bottom-half wins"] : ["cupcake", "cupcakes"];
+      const gone = (cw.length ? `minus ${cw.length} ${what[+(cw.length > 1)]}: ${cw.map((g) => esc(nfl ? g.opp.split(" ").pop() : g.opp)).join(", ")}` : `no ${what[1]}`)
+        + (nfl ? ` · SOS #${sosRankOf(r.t)}` : "");
       return `<tr data-team="${esc(r.t.team)}">
       <td class="num rank">${r.rank}</td>
       <td><div class="team">${logo(r.t)}<div><b>${esc(r.t.team)}</b><small class="muted">${esc(r.t.record)} · ${gone}</small></div></div></td>
@@ -1202,6 +1239,17 @@ async function renderShame() {
   const byName = new Map(cur.teams.map((t) => [t.team, t]));
   const tm = (name) => byName.get(name) || { team: name };
   const open = (e) => { const a = e.target.closest("[data-team]"); if (a && byName.has(a.dataset.team)) { e.preventDefault(); ranked = rankTeams(cur.teams); openTeam(a.dataset.team); } };
+
+  // 1. NFL (no cupcakes): the easiest schedules so far, winning records first
+  if (nfl) {
+    const easy = [...cur.teams].filter((t) => t.wins + t.losses).sort((a, b) => a.raw.sos - b.raw.sos).slice(0, 10);
+    el("hs-season-title").textContent = `${lt.season} easiest schedules`;
+    el("hs-season").innerHTML = easy.length ? `<ol class="hs-list">${easy.map((t) => `<li data-team="${esc(t.team)}">${logo(t)}<div><b>${esc(t.team)}</b>
+        <small class="muted">${esc(t.record)} · ${esc(topHalfRec(t))} vs top-half teams</small></div><span class="hs-n" title="Schedule rank (#1 = hardest)">#${sosRankOf(t, cur.teams)}</span></li>`).join("")}</ol>`
+      : `<p class="muted">No games played yet this season.</p>`;
+    el("hs-season").onclick = open;
+    return;
+  }
 
   // 1. this season: most cupcake wins so far
   const coll = cur.teams.map((t) => ({ t, cups: (t.schedule || []).filter((g) => g.cupcake && g.result === "W") }))

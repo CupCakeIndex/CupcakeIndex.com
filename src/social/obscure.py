@@ -265,7 +265,7 @@ def _():
     if len(rows) < 3:
         return None
     t, _, s = rows[0]
-    return fact("nfl", "team", rows[:5], "Built on cupcakes?", "Winning NFL teams, by the combined record of the teams they've beaten",
+    return fact("nfl", "team", rows[:5], "Built on a soft schedule?", "Winning NFL teams, by the combined record of the teams they've beaten",
                 "combined record of teams they've beaten",
                 f"The {t['team']} are {t['record']}. The teams they've beaten are a combined {s}.",
                 "Real contender, or a soft schedule?", hot=True)
@@ -323,7 +323,7 @@ def _():
     if len(r) < 3:
         return None
     t, _, s = r[0]
-    return fact("nfl", "team", r, "Cupcakes ahead", "NFL teams, by the combined record of the opponents still on their schedule (easiest first)",
+    return fact("nfl", "team", r, "Easy road ahead", "NFL teams, by the combined record of the opponents still on their schedule (easiest first)",
                 "combined record of opponents left",
                 f"The {t['team']} ({t['record']}) have the NFL's easiest schedule left: their remaining opponents are a combined {s}.",
                 "Playoff lock, or will they still find a way?", hot=True)

@@ -1796,6 +1796,7 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
   .tmeta .tl-f { display: none; } .tmeta .tl-s { display: inline; }
   .tmeta { flex-wrap: nowrap; gap: 4px; overflow: hidden; }
   .tmeta .cupm-n { display: none; }
+  .tmeta .sosm .cupm-n { display: inline; } /* NFL: the schedule rank is only text */
   .tmeta .prof-badge, .tmeta .pill { font-size: 9px; padding: 0 4px; height: 15px; flex: none; }
   .tmeta .pill { display: inline-flex; }
 }

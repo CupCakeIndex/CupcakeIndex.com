@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://a.espncdn.com">
 <meta name="theme-color" content="#0f1216">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=195">
+<link rel="stylesheet" href="style.css?v=196">
 <script>
 // Appearance (Dark / Light / System) + theme from the Settings page, applied before first paint so the page never flashes.
 // html[data-theme] = "dark" | "light" (System is resolved here and follows the device live); html[data-theme-name] = theme key.
@@ -198,7 +198,7 @@ window.CIT = (function () {
       <div class="table-wrap">
         <table id="table">
           <thead><tr>
-            <th class="num">#</th><th class="mv"></th><th>Team <span class="cupm-key" title="Under each team: one square per game played. A filled square is a game against a cupcake, an opponent far below that team's level."><i></i> game <i class="on"></i> vs cupcake</span></th><th class="num sortable" data-col="record" title="Sort by record: best first, then worst first, then off">Record<span class="arrow"></span></th>
+            <th class="num">#</th><th class="mv"></th><th>Team <span class="cupm-key nfl-only" title="Under each team: their schedule rank so far. #1 = hardest schedule, #32 = easiest.">SOS #1 = hardest</span><span class="cupm-key cfb-only" title="Under each team: one square per game played. A filled square is a game against a cupcake, an opponent far below that team's level."><i></i> game <i class="on"></i> vs cupcake</span></th><th class="num sortable" data-col="record" title="Sort by record: best first, then worst first, then off">Record<span class="arrow"></span></th>
             <th class="num diff sortable" data-col="diff" title="Point differential (points scored minus allowed). Sort: best first, then worst first, then off">Diff<span class="arrow"></span></th>
             <th class="num ap sortable" data-col="ap" title="Sort by AP rank: #1 first, then #25 first, then off">AP<span class="arrow"></span></th><th class="score-col">Score</th><th class="factors-col" title="Click a column to sort by it (high to low), again for low to high, again to go back to your blend"></th>
           </tr></thead>
@@ -215,7 +215,7 @@ window.CIT = (function () {
       <div class="sc-bar"><h2>Schedule profiles</h2>
         <select id="sp-show" class="cfb-only"><option value="25">Our top 25</option><option value="50">Our top 50</option><option value="ap">AP Top 25</option><option value="all">All FBS</option></select>
         <select id="sp-conf"><option value="">All conferences</option></select></div>
-      <p class="note">Across: <b>Schedule</b>, how hard was your road? Up: <b>Cupcake</b>, how much did you pad it? Every team lands in one of four profiles. Tap a logo for the full breakdown. Zoom with pinch, +/−, double-click or Ctrl+scroll, then drag to move around.</p>
+      <p class="note">Across: <b>Schedule</b>, how hard was your road? Up: <span class="cfb-only"><b>Cupcake</b>, how much did you pad it?</span><span class="nfl-only"><b>Win %</b>, did you win anyway?</span> Every team lands in one of four profiles. Tap a logo for the full breakdown. Zoom with pinch, +/−, double-click or Ctrl+scroll, then drag to move around.</p>
       <div id="sp-chart" class="sp-chart"></div>
       <div class="sp-legend" id="sp-legend"></div>
     </div>
@@ -231,21 +231,24 @@ window.CIT = (function () {
   <section id="view-resume" class="view hidden">
     <div class="card">
       <h2>Résumé Check</h2>
-      <p class="note">Bullying cupcakes isn't a résumé, so we took them away. This ranks every team on its <b>real games</b> only: the ones against opponents who weren't cupcakes for that team. Beating a team most top-25 teams would struggle with counts a lot; losing to a team you should beat costs a lot. <b>Ours</b> is our regular ranking. Tap a team for the full breakdown.</p>
+      <p class="note cfb-only">Bullying cupcakes isn't a résumé, so we took them away. This ranks every team on its <b>real games</b> only: the ones against opponents who weren't cupcakes for that team. Beating a team most top-25 teams would struggle with counts a lot; losing to a team you should beat costs a lot. <b>Ours</b> is our regular ranking. Tap a team for the full breakdown.</p>
+      <p class="note nfl-only">Beating bad teams isn't a résumé, so we took those wins away. This ranks every NFL team on its games against the <b>top half</b> of the league (our #1-16) only. Losses to bad teams stay in, and they hurt. <b>SOS</b> is the schedule rank (#1 = hardest). <b>Ours</b> is our regular ranking. Tap a team for the full breakdown.</p>
       <div id="rc-callouts" class="disagree"></div>
       <div class="sc-bar cfb-only"><select id="rc-show"><option value="25">Top 25 (real or ours)</option><option value="all">All FBS</option></select></div>
       <div class="table-wrap"><table id="rc-table"><thead><tr>
-        <th class="num">Real</th><th>Team</th><th class="num" title="Record against real (non-cupcake) teams">Real W-L</th><th class="num" title="Our regular ranking, and how far the team moves">Ours</th>
+        <th class="num">Real</th><th>Team</th><th class="num" title="Record against real teams: non-cupcakes in college, the top half of the league in the NFL">Real W-L</th><th class="num" title="Our regular ranking, and how far the team moves">Ours</th>
       </tr></thead><tbody></tbody></table></div>
     </div>
   </section>
   <section id="view-shame" class="view hidden">
     <div class="card">
-      <h2>Cupcake Hall of Shame</h2>
-      <p class="note">Bullying cupcakes isn't a résumé. Here's who does it the most, and who managed to lose to one anyway. Same cupcake rule as everywhere else on the site: an opponent far below <i>that team's</i> level. Tap a team for its panel.</p>
+      <h2><span class="cfb-only">Cupcake </span>Hall of Shame</h2>
+      <p class="note nfl-only">Nobody schedules a cupcake in the NFL, but some schedules are a lot softer than others. Here's who has had the easiest road so far, and how they've done against the top half of the league. Tap a team for its panel.</p>
+      <p class="note cfb-only">Bullying cupcakes isn't a résumé. Here's who does it the most, and who managed to lose to one anyway. Same cupcake rule as everywhere else on the site: an opponent far below <i>that team's</i> level. Tap a team for its panel.</p>
     </div>
     <div class="card"><h3 id="hs-season-title">This season's cupcake collectors</h3>
-      <p class="note">Most wins over cupcakes so far this season.</p>
+      <p class="note cfb-only">Most wins over cupcakes so far this season.</p>
+      <p class="note nfl-only">Easiest schedules so far. The number is the schedule rank (#1 = hardest, #32 = easiest).</p>
       <div id="hs-season"></div></div>
     <div class="card cfb-only"><div class="sc-bar"><h3>All-time padders</h3>
         <select id="hs-pad-show"><option value="15">Top 15</option><option value="all">All FBS</option></select></div>
@@ -322,7 +325,7 @@ window.CIT = (function () {
       </ul>
       <h3>NFL</h3>
       <p>The NFL has its own rating model, built for a 17-game league where most games are close. Four differences from college: (1) last season's rating carries over all year instead of fading out after a few weeks, because NFL rosters carry over; (2) the rating blends scoring margin with opponent-adjusted EPA per play (how well a team moves the ball and stops it, play by play), which predicts next week better than scores alone; (3) recent weeks count a bit more than September; (4) a team starting someone other than its usual quarterback is marked down. Margins are capped at 17 points and home field is worth 1 point. We tested it on every game from 2020 to 2025 using only what was known before kickoff: it picked 64.4% of winners (the old settings: 62.6%; the sportsbooks' favorite: 66.8%). Résumé is measured against a top-8 team. Monday's update runs before Monday Night Football. Tuesday's update adds that game.</p>
-      <p><b>NFL cupcakes.</b> Nobody in the NFL schedules a cupcake, and any given Sunday is real, so only a true mismatch counts: the opponent has to be clearly bad (about the bottom quarter of the league) <i>and</i> at least 5 points worse than you, with full credit at 10+ points worse. A good team like the Lions is never anyone's cupcake. NFL teams get the same schedule profiles. The <b>Cupcake Bully of the Week</b> is the most lopsided win (14+ points) over a weaker team, scored on the margin plus how big the mismatch was.</p>
+      <p><b>The NFL has no cupcakes.</b> Nobody in the NFL schedules a cupcake, so the NFL side uses <b>strength of schedule</b> instead. Under each team is its schedule rank (SOS #1 = hardest so far, #32 = easiest). NFL schedule profiles cross schedule with record: <b>Proven</b> (hard road, winning), <b>Easy Road</b> (winning on an easy schedule, the records to be most skeptical of), <b>Tough Road</b> (hard road, losing) and <b>No Excuses</b> (easy road, still losing). Résumé Check takes away wins over the bottom half of the league. The NFL <b>Bully of the Week</b> is simply the week's biggest blowout.</p>
       <h3>Early season</h3>
       <p>In the first few weeks there isn't enough data, so ratings start from a preseason guess: last year's rating scaled by returning production, plus roster talent. That guess fades to zero within a few weeks. After that it's pure on-field results.</p>
       <h3>Keeping it honest</h3>
@@ -343,16 +346,16 @@ window.CIT = (function () {
   </div>
 </div>
 
-<script src="app.js?v=195"></script>
-<script src="live.js?v=195"></script>
-<script src="daily.js?v=195"></script>
-<script src="share.js?v=195"></script>
-<script src="pickem.js?v=195"></script>
-<script src="fantasy.js?v=195"></script>
-<script src="news.js?v=195"></script>
-<script src="settings.js?v=195"></script>
-<script src="firebase-config.js?v=195"></script>
-<script src="account.js?v=195"></script>
-<script src="profile.js?v=195"></script>
+<script src="app.js?v=196"></script>
+<script src="live.js?v=196"></script>
+<script src="daily.js?v=196"></script>
+<script src="share.js?v=196"></script>
+<script src="pickem.js?v=196"></script>
+<script src="fantasy.js?v=196"></script>
+<script src="news.js?v=196"></script>
+<script src="settings.js?v=196"></script>
+<script src="firebase-config.js?v=196"></script>
+<script src="account.js?v=196"></script>
+<script src="profile.js?v=196"></script>
 </body>
 </html>

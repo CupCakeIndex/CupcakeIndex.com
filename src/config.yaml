@@ -42,9 +42,8 @@ nfl:
     power: 30        # (was 35; 5 moved to Cupcake when NFL got its own Cupcake score)
     resume: 15       # Wins compared with what the #8 team would get against the same schedule
     efficiency: 25   # Opponent-adjusted EPA/play (offense minus defense)
-    sos: 10
+    sos: 15          # (was 10 + Cupcake 5; the NFL dropped Cupcake for strength of schedule, Oct 2026)
     recent: 10
-    cupcake: 5       # Cupcake score: how much of the record came against teams far worse than you (counts AGAINST)
     luck: 5          # "Bad luck": one-score results count as coin flips
   model:
     # NFL ratings come from src/nfl_model.py (its own model: last season carries over all year, scoring margin
@@ -62,12 +61,10 @@ nfl:
     cupcake_gap: 5
     cupcake_span: 5
     cupcake_max_opp: -2.5
-    # Bully of the Week: the most lopsided win over a weaker team. Score = winning margin (capped at 35)
-    # + 2 x how many points better the winner is rated. Needs a 14+ point win.
-    cotw_min_margin: 14
-    cotw_min_gap: 0.5
+    # Bully of the Week: simply the week's biggest blowout (largest winning margin). No cupcakes in the NFL.
+    cotw_min_margin: 1
     cotw_any_weaker: true
-    cotw_gap_weight: 2
+    cotw_margin_only: true
     prior_games: 3
     prior_fade_week: 6
     one_score: 8

@@ -2,6 +2,7 @@
 Written to docs/data/nfl/facts.json; NFL team pages show them, same as college (team_facts.py).
 
 The NFL has no AP poll, so the college facts get NFL stand-ins:
+  (cupcakes: no longer shown; the NFL uses strength of schedule. Kept here for reference)
   cupcakes          the NFL cupcake rule from the site (clearly bad AND 5+ points worse), with each past season's
                     ratings from its scores (our power rating, scores only) and the site's own ratings this season
   "ranked" teams    teams with a winning record going into the game
@@ -135,8 +136,8 @@ def drought(gs, match):
 def facts_for(team, gs, names, upcoming):
     out = []
     since = lambda w, l: f". Since then: {rec(w, l)}" if w + l else ""
-    # 1. cupcakes
-    cups = [g for g in gs if g["cup"]]
+    # 1. cupcakes: dropped Oct 2026 (the NFL side of the site uses strength of schedule, not cupcakes)
+    cups = []
     streak = 0
     for g in reversed(cups):
         if not g["won"]:

@@ -454,9 +454,10 @@ def cupcake_of_week(games, ratings, week, cfg, fbs):
             # college: the loser must be a cupcake for the winner. NFL (cotw_any_weaker): any clearly weaker team
             if not cfg.get("cotw_any_weaker") and not cupcake_weight(ratings[t], ro, o not in fbs, cfg):
                 continue
-            if ratings[t] - ro < cfg.get("cotw_min_gap", 0):
+            if not cfg.get("cotw_margin_only") and ratings[t] - ro < cfg.get("cotw_min_gap", 0):
                 continue
-            score = (min(us - them, 35) + cfg["cotw_gap_weight"] * (ratings[t] - ro) if cfg.get("cotw_gap_weight")
+            score = (us - them if cfg.get("cotw_margin_only")  # NFL: biggest blowout, nothing else
+                     else min(us - them, 35) + cfg["cotw_gap_weight"] * (ratings[t] - ro) if cfg.get("cotw_gap_weight")
                      else (us - them) - ro)
             if best is None or score > best["score"]:
                 best = {"week": week, "team": t, "opp": x["away"] if home else x["home"], "fcs": o not in fbs,

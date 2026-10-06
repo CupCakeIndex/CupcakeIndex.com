@@ -6,7 +6,7 @@ tweet text for today's slot in the weekly rotation:
     Mon  CFB power rankings top 10 + biggest movers
     Tue  NFL power rankings top 10 + biggest movers
     Wed  Most padded schedules (Cupcake score) among the CFB top 25
-    Thu  NFL Cupcake Bully of the Week
+    Thu  NFL Bully of the Week (the week's biggest blowout)
     Sat  CFB Cupcake Bully of the Week (slot "bully_cfb", bully.yml: ~11:40 PM Eastern with retries), Sun NFL game day
     Fri  (rest day: nothing posts)
     Sat  CFB game day: the week's biggest games with model win odds
@@ -386,8 +386,9 @@ def cfb_bully_slot(today):
 
 def bully_card(today, leagues=("cfb", "nfl"), now=None):
     """now: {league: bully} computed fresh (the CFB Sunday post); otherwise the latest rankings file's pick."""
-    img, d = canvas("", "Bully of the Week", "Cupcake Bully of the Week",
-                    "The biggest beating of an overmatched opponent. We see you.")
+    nfl_only = tuple(leagues) == ("nfl",)  # the NFL has no cupcakes: its Bully is just the week's biggest blowout
+    img, d = canvas("", "Bully of the Week", "NFL Bully of the Week" if nfl_only else "Cupcake Bully of the Week",
+                    "The week's biggest blowout. We see you." if nfl_only else "The biggest beating of an overmatched opponent. We see you.")
     lines, stale = [], True
     col_w = (W - 2 * PAD - 40 * (len(leagues) - 1)) // len(leagues)
     for i, league in enumerate(leagues):
@@ -419,7 +420,8 @@ def bully_card(today, leagues=("cfb", "nfl"), now=None):
                      + (" (FCS)" if c.get("fcs") else "") + ".")
     if not lines:
         return img, "", link("rankings", leagues[0]), True  # no bully: no post
-    text = "Cupcake Bully of the Week. " + " ".join(lines) + " Congrats on the win. It's not a résumé."
+    text = ("NFL Bully of the Week, the biggest blowout. " + " ".join(lines) + " Congrats on the win." if nfl_only
+            else "Cupcake Bully of the Week. " + " ".join(lines) + " Congrats on the win. It's not a résumé.")
     return img, text, link("rankings", leagues[0]), stale
 
 
