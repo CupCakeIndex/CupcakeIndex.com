@@ -276,7 +276,7 @@ const Viz = (() => {
     function accentOf() { return getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#ff6b2c"; }
     const css = getComputedStyle(document.body), C = (v) => css.getPropertyValue(v).trim();
     const ink = C("--ink"), muted = C("--muted"), line = C("--line"), accent = C("--accent");
-    const weeksTxt = `${w1 > 1 || w2 < 99 ? `Weeks ${w1}–${Math.min(w2, maxWk)}` : "Full season"}`;
+    const weeksTxt = `${w1 > 1 || w2 < 99 ? `Weeks ${w1}–${D.bowls && w2 >= D.bowls ? "bowls" : Math.min(w2, maxWk)}` : league === "nfl" ? "Regular season" : "Full season incl. bowls"}`;
     const seasonTxt = multi ? `${st.from}–${st.to}` : st.to;
     const perTxt = (s) => (s[3].count && st.per === "game" ? " per game" : "");
     const lgTxt = league === "nfl" ? "NFL" : "College";
@@ -284,7 +284,7 @@ const Viz = (() => {
     const sel = (id, opts, v) => `<select id="${id}">${opts.map(([k, l]) => `<option value="${esc(k)}"${String(k) === String(v) ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
     const statSel = (id, v) => `<select id="${id}">${groups.map(([g, l]) => `<optgroup label="${esc(g)}">${l.map((s) => `<option value="${s[0]}"${s[0] === v ? " selected" : ""}>${esc(s[1])}</option>`).join("")}</optgroup>`).join("")}</select>`;
     const seg = (id, opts, v) => `<div class="seg vz-seg" id="${id}">${opts.map(([k, l]) => `<button data-v="${k}" class="${k === v ? "active" : ""}">${l}</button>`).join("")}</div>`;
-    const wkOpts = [["", "–"], ...Array.from({ length: Math.max(maxWk, 18) }, (_, i) => [i + 1, i + 1])];
+    const wkOpts = [["", "–"], ...Array.from({ length: Math.max(maxWk, D.league === "nfl" ? 18 : 1) }, (_, i) => [i + 1, D.bowls && i + 1 >= D.bowls ? "Bowls" : i + 1])];
 
     // the chart
     let cfg;
@@ -312,7 +312,7 @@ const Viz = (() => {
         data = (k) => Ds.map((d) => { const o = agg[k].seasons[d.season]; return o ? value(stat, o.S, o.g, st.per) : null; });
       } else {
         const wks = [...new Set(D.trows.map((r) => r[1]))].filter((w) => w >= w1 && w <= w2).sort((a, b) => a - b);
-        labels = wks.map((w) => `Wk ${w}`);
+        labels = wks.map((w) => (D.bowls && w >= D.bowls ? "Bowls" : `Wk ${w}`));
         data = (k) => {
           const run = {}; let g = 0;
           return wks.map((w) => {

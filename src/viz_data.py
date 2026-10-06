@@ -171,12 +171,16 @@ def split(s):
 
 def cfb(season):
     cur = season == season_now()
-    games = cfbd("/games", "games", cur, year=season, seasonType="regular")
-    done = [g for g in games if (g.get("homePoints") if "homePoints" in g else g.get("home_points")) is not None]
+    played = lambda gs: [g for g in gs if (g.get("homePoints") if "homePoints" in g else g.get("home_points")) is not None]
+    done = played(cfbd("/games", "games", cur, year=season, seasonType="regular"))
     if not done:
         print(f"  no college games played in {season} yet")
         return
     weeks = sorted({g["week"] for g in done})
+    # bowls and the playoff count, like every college season total (ESPN's too): one "Bowls" week after the last regular week
+    post = played(cfbd("/games", "games_post", cur, year=season, seasonType="postseason"))
+    done += post
+    plan = [("regular", w, w) for w in weeks] + [("postseason", w, weeks[-1] + w) for w in sorted({g["week"] for g in post})]
     fbs = {t["id"]: t for t in site_teams()["cfb"]}
     tmeta = {f"cfb:{i}": [t["name"], t.get("abbr") or t["name"], t["color"], t["group"]] for i, t in fbs.items()}
     pts = {}
@@ -186,15 +190,16 @@ def cfb(season):
         pts[(g["id"], hi)] = (hp, ap, ai)
         pts[(g["id"], ai)] = (ap, hp, hi)
     adv = {}
-    for a in cfbd("/stats/game/advanced", "advanced_games", cur, year=season, seasonType="regular", excludeGarbageTime="true"):
+    for a in cfbd("/stats/game/advanced", "advanced_games", cur, year=season, seasonType="regular", excludeGarbageTime="true") +             (cfbd("/stats/game/advanced", "advanced_games_post", cur, year=season, seasonType="postseason", excludeGarbageTime="true") if post else []):
         adv[(a.get("gameId") or a.get("game_id"), a["team"])] = a
     name_id = {t["name"]: i for i, t in fbs.items()}
     name_id.update({t["school"]: t["id"] for t in cfbd("/teams/fbs", "teams_fbs", cur, year=season) if t.get("school")})
 
     trows, prows, pmeta = [], [], {}
-    for wk in weeks:
-        last = cur and wk >= weeks[-1] - 1  # this week and last week can still change
-        box = cfbd("/games/teams", f"games_teams_w{wk}", last, year=season, week=wk, seasonType="regular")
+    for stype, w, wk in plan:
+        tag = "" if stype == "regular" else "post_"
+        last = cur and (stype == "postseason" or w >= weeks[-1] - 1)  # this week and last week can still change
+        box = cfbd("/games/teams", f"games_teams_{tag}w{w}", last, year=season, week=w, seasonType=stype)
         for g in box:
             gid = g["id"]
             sides = g["teams"]
@@ -224,7 +229,7 @@ def cfb(season):
                               round(n(rp.get("totalPPA")) / n(rp.get("ppa")), 0) if n(rp.get("ppa")) else 0, round(n(rp.get("totalPPA")), 2),
                               n(de.get("plays")), round(n(de.get("totalPPA")), 2), round(n(de.get("successRate")) * n(de.get("plays")), 2)])
 
-        for g in cfbd("/games/players", f"games_players_w{wk}", last, year=season, week=wk, seasonType="regular"):
+        for g in cfbd("/games/players", f"games_players_{tag}w{w}", last, year=season, week=w, seasonType=stype):
             for tm in g["teams"]:
                 tid = tm.get("teamId") or name_id.get(tm.get("team", tm.get("school")))
                 if tid not in fbs:
@@ -270,7 +275,7 @@ def cfb(season):
             pmeta[pid][1] = r.get("position") or ""
             avg, tot = r.get("averagePPA") or {}, r.get("totalPPA") or {}
             pppa[pid] = [round(n(tot.get("all")), 2), round(n(tot.get("pass")), 2), round(n(tot.get("rush")), 2), n(r.get("countablePlays"))]
-    write("cfb", season, {"teams": tmeta, "tcols": TEAM_COLS_CFB, "trows": trows, "pcols": PLAYER_COLS, "pmeta": pmeta, "prows": prows,
+    write("cfb", season, {"bowls": weeks[-1] + 1 if post else None, "teams": tmeta, "tcols": TEAM_COLS_CFB, "trows": trows, "pcols": PLAYER_COLS, "pmeta": pmeta, "prows": prows,
                           "pseason_cols": ["epa", "pass_epa", "rush_epa", "epa_plays"], "pseason": pppa})
 
 
