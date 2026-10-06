@@ -10,6 +10,7 @@ self.addEventListener("push", (e) => {
     body: d.body || "",
     icon: "icon-192.png",
     tag: d.tag || undefined,
+    renotify: !!d.tag, // a new score replaces the last one for that game, and still buzzes
     data: { url: d.url || "/#/rankings" },
   }));
 });

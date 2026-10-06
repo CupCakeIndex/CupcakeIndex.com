@@ -64,4 +64,4 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
           pip install -q pywebpush google-auth tzdata
-          python src/push.py post --meta out/social/today.json && bash src/push_save.sh
+          python src/push.py post --meta out/social/today.json

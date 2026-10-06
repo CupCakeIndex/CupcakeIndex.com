@@ -5,9 +5,15 @@ Each device that turns alerts on saves a document in Firestore at push/<id> (doc
 them with the Firebase service-account key and sends the alerts through Apple/Google/Mozilla's push services.
 Free: it runs on GitHub Actions, not Firebase Cloud Functions (those need the paid Blaze plan, which we never use).
 
-    python src/push.py auto                       # push.yml, every 15 min: final scores (+ the Saturday Pick'em reminder)
-    python src/push.py finals                     # final scores for followed teams, games that ended since the last run
-    python src/push.py picks [--force]            # "Pick'em locks in 2 hours" (Saturday 9-11 PM Eastern only, unless --force)
+Alerts for the teams you follow (push.yml, every 5 minutes during the season):
+    start   "Kickoff soon": ~15 minutes before the game (or at kickoff, if GitHub ran late)
+    score   every score change: "Alabama touchdown · ALA 14, AUB 7 · 4:12 - 2nd" (extra points ride along with the next update)
+    final   the final score and both records
+For everyone who wants them: bully (Bully of the Week, from the X post), picks (Saturday-night Pick'em reminder), news.
+
+    python src/push.py auto                       # push.yml: game alerts + the Saturday Pick'em reminder
+    python src/push.py auto --dry                 # what it would send right now (every game, not just followed ones)
+    python src/push.py picks --force              # the Pick'em reminder, whatever the time
     python src/push.py post --meta out/social/today.json   # Bully of the Week / breaking news, from the X post just made
     python src/push.py test                       # a test alert to every device (Actions > Alerts > Run workflow)
     python src/push.py list                       # how many devices have alerts on (and for what)
@@ -17,56 +23,82 @@ Secrets (GitHub > Settings > Secrets and variables > Actions):
     FIREBASE_SERVICE_ACCOUNT  the JSON key from Firebase console > Project settings > Service accounts
 Without them it says so and does nothing, so the workflows never fail over it.
 
-Every alert has a key (a game id, a week's Bully, a news story) and a key only goes out once (data/push/sent.json,
-committed by src/push_save.sh). Dead devices (uninstalled app, alerts turned off in phone settings) get a 404/410
-from the push service and their document is deleted.
+Every alert has a key (a game + score, a week's Bully, a news story) and a key only goes out once. The keys sent
+live in one Firestore document (pushstate/log, unreadable from the site), so nothing gets committed to the repo.
+Dead devices (uninstalled app, alerts turned off in phone settings) get a 404/410 from the push service and their
+document is deleted. Free-plan budget: each run that has a followed game going reads every device once
+(50,000 reads a day free), so this is comfortable up to roughly 150 devices.
 """
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
 import sys
-from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import requests
 
-ROOT = Path(__file__).resolve().parent.parent
-LOG = ROOT / "data" / "push" / "sent.json"
 PROJECT = "cupcake-index"
 DOCS = f"https://firestore.googleapis.com/v1/projects/{PROJECT}/databases/(default)/documents"
+STATE = f"{DOCS}/pushstate/log"
 ESPN = {"nfl": "https://site.api.espn.com/apis/site/v2/sports/football/nfl",
         "cfb": "https://site.api.espn.com/apis/site/v2/sports/football/college-football"}
 ET = ZoneInfo("America/New_York")
-KEEP_DAYS = 45
-MAX_NEWS_PER_DAY = 3   # breaking news alerts: fewer than the X posts (6), a phone buzzing is more annoying than a tweet
-FINAL_HOURS = 8        # a game that ended longer ago than this is old news (first run, or GitHub skipped runs)
+KEEP_DAYS = 21
+MAX_NEWS_PER_DAY = 3      # breaking news alerts: fewer than the X posts (6), a phone buzzing is more annoying than a tweet
+FINAL_HOURS = 8           # a game that kicked off longer ago than this is old news (GitHub skipped runs)
+SOON_MIN = 20             # "Kickoff soon" when the game starts within this many minutes
+GAME_TOPICS = ("start", "score", "final")
 
 
-# ---------- the sent log ----------
-def load_log():
-    try:
-        return json.loads(LOG.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return []
+# ---------- the sent log (one Firestore document) ----------
+def fid(key, kind="k"):
+    """Firestore field name for a key (plain letters/digits, so no quoting in field paths)."""
+    return kind + hashlib.sha1(key.encode()).hexdigest()[:20]
 
 
-def save_log(rows):
-    cutoff = (dt.date.today() - dt.timedelta(days=KEEP_DAYS)).isoformat()
-    rows = [r for r in rows if r.get("date", "") >= cutoff]
-    LOG.parent.mkdir(parents=True, exist_ok=True)
-    LOG.write_text(json.dumps(rows, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+class Log:
+    """{field: "YYYY-MM-DD|extra"}. Saved with an update mask, so two jobs saving at once never erase each other."""
+    def __init__(self, s):
+        self.s, self.new, self.today = s, {}, dt.date.today().isoformat()
+        self.f = {}
+        if s is not None:
+            r = s.get(STATE, timeout=30)
+            if r.status_code != 404:
+                r.raise_for_status()
+                self.f = {k: v.get("stringValue", "") for k, v in r.json().get("fields", {}).items()}
 
+    def _get(self, field):
+        return self.new.get(field) or self.f.get(field)
 
-def merge(other):
-    """push_save.sh: our log + the one on main (another job may have pushed in between)."""
-    rows, seen = load_log(), {r["key"] for r in load_log()}
-    try:
-        theirs = json.loads(Path(other).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        theirs = []
-    rows += [r for r in theirs if r.get("key") not in seen]
-    save_log(sorted(rows, key=lambda r: r.get("date", "")))
+    def has(self, key):
+        return bool(self._get(fid(key)))
+
+    def add(self, key, extra=""):
+        self.new[fid(key)] = f"{self.today}|{extra}"
+
+    def count_today(self, extra):
+        return sum(1 for v in {**self.f, **self.new}.values() if v == f"{self.today}|{extra}")
+
+    def last_score(self, game):
+        v = self._get(fid(game, "s"))
+        return v.split("|", 1)[1] if v else None
+
+    def set_score(self, game, score):
+        self.new[fid(game, "s")] = f"{self.today}|{score}"
+
+    def save(self):
+        if self.s is None:
+            return
+        cutoff = (dt.date.today() - dt.timedelta(days=KEEP_DAYS)).isoformat()
+        old = [k for k, v in self.f.items() if v[:10] < cutoff and k not in self.new]  # in the mask, not the body = deleted
+        fields = list(self.new) + old
+        for i in range(0, len(fields), 100):
+            chunk = fields[i:i + 100]
+            body = {"fields": {k: {"stringValue": self.new[k]} for k in chunk if k in self.new}}
+            r = self.s.patch(STATE, params=[("updateMask.fieldPaths", k) for k in chunk], json=body, timeout=30)
+            r.raise_for_status()
 
 
 # ---------- Firestore (the devices) ----------
@@ -114,12 +146,13 @@ def send(s, targets, alert):
                     data=json.dumps(alert, ensure_ascii=False),
                     vapid_private_key=os.environ["VAPID_PRIVATE_KEY"].strip(),
                     vapid_claims={"sub": "https://cupcakeindex.com"},
-                    ttl=6 * 3600, timeout=20)
+                    ttl=alert.get("ttl", 6 * 3600), timeout=20)
             ok += 1
         except WebPushException as e:
             code = getattr(e.response, "status_code", None)
             if code in (404, 410):  # this device is gone: forget it
                 s.delete(f"{DOCS}/push/{d['id']}", timeout=20)
+                d["gone"] = True
                 print(f"   removed a dead device ({code})")
             else:
                 print(f"   push failed ({code}): {str(e)[:160]}")
@@ -128,30 +161,27 @@ def send(s, targets, alert):
     return ok
 
 
-def deliver(s, items):
-    """items: [(key, topic, teams or None, alert)]. Sends the ones not sent before, logs them all."""
-    log = load_log()
-    done = {r["key"] for r in log}
-    new = [it for it in items if it[0] not in done]
+def deliver(s, devs, log, items):
+    """items: [(key, topic, teams or None, alert, extra)]. Sends the ones not sent before and logs them."""
+    new = [it for it in items if not log.has(it[0])]
     if not new:
         print("Nothing new to send.")
-        return
-    devs = devices(s)
-    for key, topic, teams, alert in new:
-        targets = [d for d in devs if topic in d["topics"] and (teams is None or d["teams"] & teams)]
+    for key, topic, teams, alert, extra in new:
+        targets = [d for d in devs if not d.get("gone") and topic in d["topics"] and (teams is None or d["teams"] & teams)]
         n = send(s, targets, alert) if targets else 0
         print(f"[{key}] {alert['title']} | {alert['body']} -> {n} of {len(targets)} device(s)")
-        log.append({"date": dt.date.today().isoformat(), "key": key, "topic": topic, "sent": n})
-    save_log(log)
+        log.add(key, extra)
+    log.save()
 
 
-# ---------- what to send ----------
-def finals():
+# ---------- games ----------
+def scoreboard():
+    """Today's and yesterday's games (UTC dates, so late-night games are included), both leagues."""
     now = dt.datetime.now(dt.timezone.utc)
-    items = []
+    out = []
     for lg, base in ESPN.items():
-        days = {(now - dt.timedelta(hours=h)).strftime("%Y%m%d") for h in (0, 12)}
-        for day in days:
+        seen = set()
+        for day in {(now - dt.timedelta(hours=h)).strftime("%Y%m%d") for h in (0, 12)}:
             q = {"dates": day, **({"groups": 80, "limit": 400} if lg == "cfb" else {})}
             try:
                 events = requests.get(f"{base}/scoreboard", params=q, timeout=30).json().get("events", [])
@@ -159,27 +189,87 @@ def finals():
                 print(f"{lg} scores unavailable: {e}")
                 continue
             for e in events:
-                st = e.get("status", {}).get("type", {})
-                start = dt.datetime.fromisoformat(e["date"].replace("Z", "+00:00"))
-                # kicked off 2.5-8.5 hours ago (a game runs ~3-4) = it ended recently, not yesterday
-                if not st.get("completed") or not dt.timedelta(hours=2.5) <= now - start <= dt.timedelta(hours=FINAL_HOURS + 0.5):
-                    continue
-                c = e["competitions"][0]["competitors"]
-                if len(c) != 2:
-                    continue
-                c = sorted(c, key=lambda x: -int(x.get("score") or 0))
-                win, lose = c
-                name = lambda x: x["team"].get("shortDisplayName") or x["team"].get("displayName")
-                rec = lambda x: next((r["summary"] for r in x.get("records", []) if r.get("type") in ("total", None)), "")
-                tie = win.get("score") == lose.get("score")
-                ot = " (OT)" if "OT" in (st.get("shortDetail") or "") else ""
-                title = f"FINAL{ot}: {name(win)} {win.get('score')}, {name(lose)} {lose.get('score')}"
-                body = (f"{name(win)} and {name(lose)} tie." if tie else
-                        f"{name(win)}{f' ({rec(win)})' if rec(win) else ''} beat {name(lose)}{f' ({rec(lose)})' if rec(lose) else ''}.")
-                teams = {f"{lg}:{x['team']['id']}" for x in c}
-                items.append((f"final:{lg}:{e['id']}", "final", teams,
-                              {"title": title, "body": body + " Tap for the box score.", "url": f"/#/game/{e['id']}?league={lg}",
-                               "tag": f"final-{e['id']}"}))
+                if e["id"] not in seen and len(e["competitions"][0]["competitors"]) == 2:
+                    seen.add(e["id"])
+                    out.append((lg, e))
+    return out
+
+
+def live_window(lg, e, now):
+    """Is anything about this game worth an alert right now? (cheap check before reading Firestore)"""
+    st = e["status"]["type"]
+    start = dt.datetime.fromisoformat(e["date"].replace("Z", "+00:00"))
+    if st.get("state") == "pre":
+        return dt.timedelta(0) <= start - now <= dt.timedelta(minutes=SOON_MIN)
+    if st.get("state") == "in":
+        return True
+    return bool(st.get("completed")) and now - start <= dt.timedelta(hours=FINAL_HOURS)
+
+
+def game_items(games, followed, log):
+    """followed: the set of "lg:id" anyone follows (None = every game, for --dry)."""
+    now = dt.datetime.now(dt.timezone.utc)
+    items = []
+    for lg, e in games:
+        if not live_window(lg, e, now):
+            continue
+        comp = e["competitions"][0]
+        c = comp["competitors"]                       # ESPN lists home first
+        teams = {f"{lg}:{x['team']['id']}" for x in c}
+        if followed is not None and not teams & followed:
+            continue
+        st, gid = e["status"]["type"], f"{lg}:{e['id']}"
+        name = lambda x: x["team"].get("shortDisplayName") or x["team"].get("displayName")
+        abbr = lambda x: x["team"].get("abbreviation") or name(x)
+        rec = lambda x: next((r["summary"] for r in x.get("records", []) if r.get("type") in ("total", None)), "")
+        pts = lambda x: int(x.get("score") or 0)
+        home, away = c[0], c[1]
+        url, tag = f"/#/game/{e['id']}?league={lg}", f"game-{e['id']}"
+        tv = ", ".join(n for b in comp.get("broadcasts", []) for n in b.get("names", []))
+        start = dt.datetime.fromisoformat(e["date"].replace("Z", "+00:00"))
+
+        # kickoff: ~15 minutes before, or at kickoff if the run before was skipped
+        if st.get("state") == "pre" or (st.get("state") == "in" and now - start <= dt.timedelta(minutes=30)):
+            soon = st.get("state") == "pre"
+            t = start.astimezone(ET)
+            when = f"{t.hour % 12 or 12}:{t.minute:02d} {'AM' if t.hour < 12 else 'PM'} ET" if soon else ""
+            channel = f"on {tv}" if tv else ""
+            line1 = " ".join(x for x in (when, channel) if x)
+            recs = " · ".join(f"{name(x)} {rec(x)}" for x in (away, home) if rec(x))
+            items.append((f"start:{gid}", "start", teams,
+                          {"title": f"{'Kickoff soon' if soon else 'Kickoff'}: {name(away)} at {name(home)}",
+                           "body": " · ".join(x for x in (line1[:1].upper() + line1[1:], recs) if x),
+                           "url": url, "tag": tag, "ttl": 1800}, ""))
+
+        # score changes while it's on
+        if st.get("state") == "in":
+            cur = f"{pts(home)}-{pts(away)}"
+            last = log.last_score(gid) or "0-0"
+            if cur != last:
+                lh, la = (int(x) for x in last.split("-"))
+                dh, da = pts(home) - lh, pts(away) - la
+                if dh + da != 1:  # a lone extra point rides along with the next update
+                    rh, ra = (d if d >= 2 else 0 for d in (dh, da))  # a leftover extra point doesn't count as "scoring"
+                    scorer = home if rh > 0 and ra <= 0 else away if ra > 0 and rh <= 0 else None
+                    kind = {3: "field goal", 6: "touchdown", 7: "touchdown", 8: "touchdown"}.get(max(rh, ra)) if scorer else None
+                    title = f"{name(scorer)} {kind}" if kind else f"{name(scorer)} scores" if scorer else "Score update"
+                    if dh < 0 or da < 0:
+                        title = "Score update"  # a score taken off the board (review)
+                    items.append((f"score:{gid}:{cur}", "score", teams,
+                                  {"title": title, "body": f"{abbr(away)} {pts(away)}, {abbr(home)} {pts(home)} · {st.get('shortDetail', '')}",
+                                   "url": url, "tag": tag, "ttl": 1800}, ""))
+                    log.set_score(gid, cur)
+
+        # the final
+        if st.get("completed"):
+            win, lose = sorted(c, key=lambda x: -pts(x))
+            tie = pts(win) == pts(lose)
+            ot = " (OT)" if "OT" in (st.get("shortDetail") or "") else ""
+            body = (f"{name(win)} and {name(lose)} tie." if tie else
+                    f"{name(win)}{f' ({rec(win)})' if rec(win) else ''} beat {name(lose)}{f' ({rec(lose)})' if rec(lose) else ''}.")
+            items.append((f"final:{gid}", "final", teams,
+                          {"title": f"FINAL{ot}: {name(win)} {pts(win)}, {name(lose)} {pts(lose)}",
+                           "body": body + " Tap for the box score.", "url": url, "tag": tag}, ""))
     return items
 
 
@@ -188,13 +278,14 @@ def picks(force=False):
     if not force and not (now.weekday() == 5 and 21 <= now.hour <= 22):  # Saturday 9-11 PM Eastern; picks lock at 11:59
         return []
     return [(f"picks:{now.date().isoformat()}", "picks", None,
-             {"title": "Pick'em locks tonight", "body": "Your picks lock at 11:59 PM Eastern. Get them in!", "url": "/#/picks", "tag": "picks"})]
+             {"title": "Pick'em locks tonight", "body": "Your picks lock at 11:59 PM Eastern. Get them in!", "url": "/#/picks", "tag": "picks"}, "")]
 
 
-def from_post(meta_path):
+def from_post(meta_path, log):
     """Bully of the Week (bully.yml, social.yml Thursdays) or breaking news (news.yml), from the X post's meta."""
     try:
-        m = json.loads(Path(meta_path).read_text(encoding="utf-8"))
+        with open(meta_path, encoding="utf-8") as f:
+            m = json.load(f)
     except (OSError, ValueError):
         return []
     if m.get("skip") or not m.get("text"):
@@ -205,56 +296,67 @@ def from_post(meta_path):
         lg = "cfb" if day == "bully_cfb" else "nfl"
         return [(m.get("key") or f"bully:{lg}:{dt.date.today().isocalendar()[1]}", "bully", None,
                  {"title": f"{'College' if lg == 'cfb' else 'NFL'} Bully of the Week", "body": text,
-                  "url": f"/#/rankings?league={lg}", "tag": f"bully-{lg}"})]
+                  "url": f"/#/rankings?league={lg}", "tag": f"bully-{lg}"}, "")]
     if day == "news":  # breaking.py
-        today = dt.date.today().isoformat()
-        if sum(1 for r in load_log() if r.get("topic") == "news" and r.get("date") == today) >= MAX_NEWS_PER_DAY:
+        if log.count_today("news") >= MAX_NEWS_PER_DAY:
             print("Already sent the most news alerts for today.")
             return []
         return [(m.get("key") or f"news:{text[:80]}", "news", None,
-                 {"title": "Breaking", "body": text.lstrip("🚨 "), "url": "/#/news", "tag": "news"})]
+                 {"title": "Breaking", "body": text.lstrip("🚨 "), "url": "/#/news", "tag": "news"}, "news")]
     return []
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("what", choices=["auto", "finals", "picks", "post", "test", "list", "merge"])
+    ap.add_argument("what", choices=["auto", "picks", "post", "test", "list"])
     ap.add_argument("--meta", help="post: the X post's meta file (out/social/today.json)")
     ap.add_argument("--force", action="store_true", help="picks: send the reminder whatever the time")
-    ap.add_argument("--file", help="merge: the other copy of the sent log")
     ap.add_argument("--dry", action="store_true", help="show what would be sent, send nothing")
     a = ap.parse_args()
-    if a.what == "merge":
-        return merge(a.file)
 
-    if a.what == "post":
-        items = from_post(a.meta) if a.meta else []
-    elif a.what in ("auto", "finals", "picks"):
-        items = (finals() if a.what != "picks" else []) + (picks(a.force) if a.what != "finals" else [])
-    else:
-        items = []
-    if a.dry:
-        done = {r["key"] for r in load_log()}
-        for key, topic, teams, alert in items:
-            print(f"{'(sent before) ' if key in done else ''}[{key}] {topic} {sorted(teams) if teams else 'everyone'}\n   {alert['title']}\n   {alert['body']}")
-        return
-
-    s = session()
-    if s is None:
+    s = None if a.dry else session()
+    if s is None and not a.dry:
         print("Alerts aren't set up yet (VAPID_PRIVATE_KEY / FIREBASE_SERVICE_ACCOUNT secrets missing). Nothing sent.")
         return
-    if a.what == "list":
+    if a.what in ("list", "test"):
         devs = devices(s)
-        print(f"{len(devs)} device(s) with alerts on")
-        for t in ("final", "bully", "picks", "news"):
-            print(f"   {t}: {sum(t in d['topics'] for d in devs)}")
+        if a.what == "list":
+            print(f"{len(devs)} device(s) with alerts on")
+            for t in (*GAME_TOPICS, "bully", "picks", "news"):
+                print(f"   {t}: {sum(t in d['topics'] for d in devs)}")
+        else:
+            n = send(s, devs, {"title": "Cupcake Index test alert", "body": "If you can read this, alerts work. 🧁", "url": "/#/settings", "tag": "test"})
+            print(f"Test alert sent to {n} of {len(devs)} device(s)")
         return
-    if a.what == "test":
-        devs = devices(s)
-        n = send(s, devs, {"title": "Cupcake Index test alert", "body": "If you can read this, alerts work. 🧁", "url": "/#/settings", "tag": "test"})
-        print(f"Test alert sent to {n} of {len(devs)} device(s)")
+
+    devs, log, items = [], Log(None), []
+    if a.what == "auto":
+        games = scoreboard()
+        now = dt.datetime.now(dt.timezone.utc)
+        hot = [g for g in games if live_window(*g, now)]
+        print(f"{len(games)} games today, {len(hot)} starting soon, on or just finished")
+        if hot or picks(a.force):
+            if s is not None:
+                devs, log = devices(s), Log(s)
+            followed = None if a.dry else {t for d in devs if d["topics"] & set(GAME_TOPICS) for t in d["teams"]}
+            items = (game_items(hot, followed, log) if followed is None or followed else []) + picks(a.force)
+    elif a.what == "picks":
+        items = picks(a.force)
+        if s is not None:
+            devs, log = devices(s), Log(s)
+    elif a.what == "post":
+        if s is not None:
+            log = Log(s)
+        items = from_post(a.meta, log) if a.meta else []
+        if items and s is not None:
+            devs = devices(s)
+
+    if a.dry:
+        for key, topic, teams, alert, _ in items:
+            print(f"[{key}] {topic} {sorted(teams) if teams else 'everyone'}\n   {alert['title']}\n   {alert['body']}")
         return
-    deliver(s, items)
+    if items:
+        deliver(s, devs, log, items)
 
 
 if __name__ == "__main__":

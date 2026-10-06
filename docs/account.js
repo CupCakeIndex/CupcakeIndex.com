@@ -73,7 +73,8 @@ const Account = (() => {
       setStatus("Saved to your account.");
       window.dispatchEvent(new HashChangeEvent("hashchange")); // redraw the page with the merged data
       CIT.apply(); Profile.header(); // your team's colors and header button come with the account
-      if (!store.get(Profile.KEY)) Profile.open(true); // first sign-in: name, what you watch, favorite team
+      if (!store.get(Profile.KEY)) Profile.open(true); // first sign-in: name, what you watch, favorite team (+ alerts)
+      else if (typeof Push !== "undefined") Push.ask(); // everyone else: asked once per device whether they want alerts
     } catch (e) { setStatus(friendly(e)); }
   }
   async function syncUp() {

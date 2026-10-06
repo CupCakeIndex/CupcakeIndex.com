@@ -66,10 +66,11 @@ const Profile = (() => {
           `<button type="button" data-w="${k}" class="${k === watch ? "active" : ""}">${l}</button>`).join("")}</div></div>
       <div class="pf-row pf-cfb"><span>Favorite college team</span><div class="pf-search" data-for="cfb"></div></div>
       <div class="pf-row pf-nfl"><span>Favorite NFL team</span><div class="pf-search" data-for="nfl"></div></div>
-      <div class="pf-row"><span>Other teams you follow <small>(optional, for quick links)</small></span>
+      <div class="pf-row"><span>Other teams you follow <small>(optional: quick links, and alerts if they're on)</small></span>
         <div class="pf-search" data-for="extra"></div>
         <div class="pf-chips" id="pf-chips"></div></div>
       <label class="pf-check"><input type="checkbox" id="pf-theme" ${first || CIT.name() === "team" ? "checked" : ""}> Use my team's colors for the site (Team theme)</label>
+      ${first && typeof Push !== "undefined" && Push.canAsk() ? `<label class="pf-check"><input type="checkbox" id="pf-push" checked> Send me alerts for my teams (kickoffs, scores, finals)</label>` : ""}
       <div class="pf-btns"><button type="submit" class="gbtn pf-save">Save</button><button type="button" class="boxbtn" id="pf-skip">${first ? "Skip for now" : "Cancel"}</button></div>
     </form>`;
     document.body.appendChild(w);
@@ -133,6 +134,8 @@ const Profile = (() => {
       if ($w("#pf-theme").checked && (np.cfb || np.nfl)) CIT.save(CIT.mode(), "team");
       else if (CIT.name() === "team" && !$w("#pf-theme").checked) CIT.save(CIT.mode(), "varsity");
       save(np);
+      const alerts = $w("#pf-push");
+      if (alerts) { Push.markAsked(); if (alerts.checked) Push.turnOn(); } // still inside the tap, as iPhone requires
       close();
       if (typeof Settings !== "undefined" && !document.getElementById("view-settings").classList.contains("hidden")) Settings.render();
     };

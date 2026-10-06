@@ -6,8 +6,9 @@
 const Push = (() => {
   const KEY = "push-alerts"; // this device only (not synced to the account): {on, id, topics, sig}
   const VAPID = "BCoYCwq981pDksYrHkFcp_geF-yiXs1uJcDTgMOXtPmGf4ksXSrtq5Ay1RT__PWl-H750UWSgFfPaZXzf8V109s";
-  const TOPICS = [["final", "Final scores for my teams"], ["bully", "Bully of the Week"], ["picks", "Pick'em reminder (Saturday night, before picks lock)"], ["news", "Breaking news (3 a day at most)"]];
-  const DEFAULT = { final: true, bully: true, picks: true, news: false };
+  const TOPICS = [["start", "Kickoff: my teams' games are about to start"], ["score", "Score updates during my teams' games"], ["final", "Final scores for my teams"], ["bully", "Bully of the Week"], ["picks", "Pick'em reminder (Saturday night, before picks lock)"], ["news", "Breaking news (3 a day at most)"]];
+  const DEFAULT = { start: true, score: true, final: true, bully: true, picks: true, news: false };
+  const ASKED = "push-asked"; // the one-time "Turn on alerts?" prompt was shown on this device
   let status = "", busy = false;
 
   const supported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
@@ -100,13 +101,14 @@ const Push = (() => {
     } else if (Notification.permission === "denied") {
       body = `<p class="note">Alerts are blocked for this site. Allow notifications for cupcakeindex.com in your ${iphone() ? "iPhone's Settings &gt; Notifications &gt; Cupcake" : "browser's site settings"}, then come back here.</p>`;
     } else if (!on) {
-      body = `<p class="note">Get a buzz on this device for final scores of your teams, the Bully of the Week and the Pick'em deadline. Free, no sign-in, and you can turn it off any time.</p>
+      body = `<p class="note">Get a buzz on this device when your teams kick off, score and finish, plus the Bully of the Week and the Pick'em deadline. Free, no sign-in, and you can turn it off any time.</p>
         <button type="button" class="gbtn" id="push-on">🔔 Turn on alerts</button>`;
     } else {
       body = `<p class="note">Alerts are on for this device. Pick what you want:</p>
         <div class="push-topics">${TOPICS.map(([k, l]) => `<label class="pf-check"><input type="checkbox" data-topic="${k}" ${s.topics[k] ? "checked" : ""}> ${esc(l)}</label>`).join("")}</div>
-        ${s.topics.final && !teams().length ? `<p class="note">Pick your teams under <b>Your team</b> to get their final scores.</p>` : ""}
-        <button type="button" class="boxbtn" id="push-off">Turn off alerts</button>`;
+        <p class="note">${teams().length ? `Following: ${following()}` : "You're not following any teams yet, so there are no kickoff, score or final alerts."}</p>
+        <div class="acct-btns"><button type="button" class="boxbtn" id="push-teams">${teams().length ? "Add or remove teams" : "Pick teams to follow"}</button>
+          <button type="button" class="boxbtn" id="push-off">Turn off alerts</button></div>`;
     }
     return `<h3>Alerts</h3>${body}<p class="note" id="push-status" role="status">${esc(status)}</p>`;
   }
@@ -114,6 +116,7 @@ const Push = (() => {
     const b = (id) => root.querySelector("#" + id);
     if (b("push-on")) b("push-on").onclick = turnOn;
     if (b("push-off")) b("push-off").onclick = turnOff;
+    if (b("push-teams")) b("push-teams").onclick = () => Profile.open(false);
     root.querySelectorAll("[data-topic]").forEach((x) => x.onchange = () => {
       const s = get();
       store.set(KEY, { ...s, topics: { ...s.topics, [x.dataset.topic]: x.checked } });
@@ -122,6 +125,28 @@ const Push = (() => {
     });
   }
 
+  const following = () => Profile.favorites().map((f) => `<span class="pf-team"><img src="${esc(thumb(f.logo, 18))}" alt="" width="18" height="18"> ${esc(f.name)}</span>`).join(" ");
+
+  // ask once per device: right after the first-time setup (profile.js) or the next time a signed-in person visits
+  const canAsk = () => typeof Account !== "undefined" && Account.enabled() && supported() && Notification.permission === "default" && !get().on;
+  const markAsked = () => store.set(ASKED, new Date().toISOString());
+  function ask() {
+    if (!canAsk() || store.get(ASKED) || document.querySelector(".pf-wrap")) return;
+    markAsked();
+    const w = document.createElement("div");
+    w.className = "pf-wrap";
+    w.innerHTML = `<div class="card pf" role="dialog" aria-modal="true" aria-labelledby="push-ask-title">
+      <h2 id="push-ask-title">🔔 Turn on alerts?</h2>
+      <p class="note">Get a buzz when ${teams().length ? "your teams kick off, score and finish" : "your teams play"}, plus the Bully of the Week and the Pick'em deadline. You can pick exactly which ones (or turn them off) any time in Settings &gt; Alerts.</p>
+      <div class="pf-btns"><button type="button" class="gbtn" id="push-ask-yes">Turn on alerts</button><button type="button" class="boxbtn" id="push-ask-no">Not now</button></div>
+    </div>`;
+    document.body.appendChild(w);
+    const close = () => w.remove();
+    w.querySelector("#push-ask-yes").onclick = () => { close(); turnOn(); };
+    w.querySelector("#push-ask-no").onclick = close;
+    w.addEventListener("click", (e) => { if (e.target === w) close(); });
+  }
+
   sync();
-  return { section, wire, sync };
+  return { section, wire, sync, turnOn, canAsk, markAsked, ask };
 })();
