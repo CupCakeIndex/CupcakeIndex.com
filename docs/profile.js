@@ -15,6 +15,7 @@ const Profile = (() => {
     CIT.apply();
     header();
     if (typeof render === "function" && DATA) render(); // rankings: highlight your team's row
+    if (typeof Push !== "undefined") Push.sync(); // alerts: final scores follow your new teams
   }
 
   // every favorite: your main team in each league first, then the extras

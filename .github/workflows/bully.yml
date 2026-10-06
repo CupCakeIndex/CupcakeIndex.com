@@ -72,3 +72,11 @@ jobs:
           git commit -m "College Bully of the Week $(date -u +%Y-%m-%dT%H:%MZ)"
           git pull --rebase
           git push
+      - name: Alert phones (Settings > Alerts; each alert goes out once)
+        if: success() && hashFiles('out/social/today.json') != ''
+        env:
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          pip install -q pywebpush google-auth tzdata
+          python src/push.py post --meta out/social/today.json && bash src/push_save.sh

@@ -6,6 +6,19 @@ service cloud.firestore {
     match /users/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
+    // alerts (Settings > Alerts, docs/push.js): each device that turns alerts on saves its own document, named by a
+    // hash of its push address, signed in or not. Nobody can read them from the site; only the alert sender
+    // (src/push.py, with the service-account key) can. Only the expected fields, with sane sizes.
+    match /push/{id} {
+      allow create, update: if request.resource.data.keys().hasOnly(["endpoint", "keys", "teams", "topics", "updated"])
+        && request.resource.data.endpoint is string && request.resource.data.endpoint.size() < 1000
+        && request.resource.data.endpoint.matches("https://.+")
+        && request.resource.data.keys is map && request.resource.data.keys.size() == 2
+        && request.resource.data.teams is list && request.resource.data.teams.size() <= 40
+        && request.resource.data.topics is list && request.resource.data.topics.size() <= 10
+        && request.resource.data.updated is string && request.resource.data.updated.size() < 40;
+      allow delete: if true;
+    }
     // card PC (cupcakeindex.com/pc): anyone can look; only the owner can add, edit or delete
     match /pc/{card} {
       allow read: if true;

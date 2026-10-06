@@ -1,0 +1,45 @@
+name: Alerts
+
+# Phone/browser alerts (Settings > Alerts on the site): final scores for the teams each person follows, and the
+# Saturday-night "Pick'em locks tonight" reminder. Bully of the Week and breaking-news alerts go out from
+# bully.yml, social.yml and news.yml, right after their X posts. See src/push.py.
+# Every 15 minutes during the season; most runs find nothing new and finish in a few seconds.
+# Run it by hand: Actions > Alerts > Run workflow ("test" sends a test alert to every device).
+
+on:
+  schedule:
+    - cron: "7,22,37,52 * * 8-12,1,2 *"
+  workflow_dispatch:
+    inputs:
+      what:
+        description: "What to send"
+        type: choice
+        default: test
+        options: [test, auto, picks, list]
+
+permissions:
+  contents: write   # commits data/push/sent.json (so an alert never goes out twice)
+
+concurrency:
+  group: push
+  cancel-in-progress: false
+
+jobs:
+  alerts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pywebpush google-auth requests tzdata
+      - name: Send alerts
+        env:
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          WHAT: ${{ inputs.what || 'auto' }}
+        run: |
+          if [ "$WHAT" = "picks" ]; then python src/push.py picks --force; else python src/push.py "$WHAT"; fi
+      - name: Save the alert log
+        if: success()
+        run: bash src/push_save.sh

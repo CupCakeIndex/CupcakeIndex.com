@@ -34,6 +34,7 @@ const Settings = (() => {
       <h2>Settings</h2>
       ${typeof Account !== "undefined" ? Account.section() : ""}
       ${typeof Profile !== "undefined" ? Profile.section() : ""}
+      ${typeof Push !== "undefined" ? Push.section() : ""}
       <h3>Appearance</h3>
       <p class="note">System follows your phone or computer's dark/light setting.</p>
       <div class="seg" id="set-mode" role="group" aria-label="Appearance">${MODES.map(([k, l]) =>
@@ -55,6 +56,7 @@ const Settings = (() => {
     v.querySelector("#set-reset").onclick = () => { CIT.save("system", "mono"); render(); };
     if (typeof Account !== "undefined") Account.wire(v);
     if (typeof Profile !== "undefined") Profile.wire(v);
+    if (typeof Push !== "undefined") Push.wire(v);
   }
 
   return { render };

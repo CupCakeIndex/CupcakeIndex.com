@@ -164,5 +164,8 @@ const Account = (() => {
   }
 
   if (enabled()) start(); // pick up a returning sign-in (or a finished redirect) on page load
-  return { enabled, section, wire, user: () => user };
+  // Firestore for other features (alerts: push.js), signed in or not
+  const firestore = async () => { await start(); return fb.firestore(); };
+
+  return { enabled, section, wire, user: () => user, firestore };
 })();
