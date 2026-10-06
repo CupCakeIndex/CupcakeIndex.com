@@ -814,21 +814,83 @@ def fraud_scores():
     return out, cur
 
 
+def day_job(pic, p):
+    """Fraud card meme: the player in a fast-food uniform (paper hat + a TRAINEE name tag), drawn on his headshot.
+    Generic on purpose: no real restaurant's name or logo."""
+    im = pic.convert("RGBA")
+    W_, H_ = im.size
+    a = im.getchannel("A")
+    rows = [(y, [x for x in range(0, W_, 2) if a.getpixel((x, y)) > 128]) for y in range(0, H_, 2)]
+    top = next(y for y, r in rows if len(r) * 2 > W_ * 0.12)                 # top of the head (past stray hair)
+    head = next(r for y, r in rows if y >= top + int(H_ * 0.12))            # head width a bit lower down
+    hx0, hx1 = head[0], head[-1]
+    cx, hw = (hx0 + hx1) // 2, hx1 - hx0
+    d = ImageDraw.Draw(im)
+    # fast-food cap: red dome, yellow band, a curved red brim over the forehead and a burger badge
+    RED, DARK, YEL = (206, 32, 41), (150, 18, 26), (255, 199, 44)
+    base = top + int(hw * 0.42)                       # bottom of the band: low enough to sit ON the head
+    dome_w, dome_h, band = int(hw * 0.60), int(hw * 0.50), int(hw * 0.16)
+    shadow = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    ImageDraw.Draw(shadow).ellipse((cx - int(hw * 0.66), base - 4, cx + int(hw * 0.66), base + int(hw * 0.2)), fill=(0, 0, 0, 110))
+    im.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(6)))
+    d = ImageDraw.Draw(im)
+    d.chord((cx - dome_w, base - band - dome_h, cx + dome_w, base - band + dome_h), 180, 360, fill=RED)
+    d.rectangle((cx - dome_w, base - band, cx + dome_w, base), fill=YEL)
+    d.chord((cx - int(hw * 0.66), base - int(hw * 0.07), cx + int(hw * 0.66), base + int(hw * 0.17)), 0, 180, fill=DARK)
+    r = int(hw * 0.11)
+    sy = base - band - int(dome_h * 0.42)
+    d.ellipse((cx - r, sy - r, cx + r, sy + r), fill=YEL)
+    q = r * 0.62  # a tiny burger on the badge: bun, patty, bun
+    d.chord((cx - q, sy - q * 0.95, cx + q, sy + q * 0.35), 180, 360, fill=(214, 128, 40))
+    d.rounded_rectangle((cx - q * 1.05, sy - q * 0.05, cx + q * 1.05, sy + q * 0.3), int(q * 0.15), fill=(92, 46, 24))
+    d.rounded_rectangle((cx - q, sy + q * 0.38, cx + q, sy + q * 0.7), int(q * 0.15), fill=(214, 128, 40))
+    # name tag on his chest (viewer's right)
+    first = (p.get("name") or "").split()[0].upper()[:10]
+    tw, th = int(W_ * 0.27), int(W_ * 0.15)
+    tag = Image.new("RGBA", (tw, th), (0, 0, 0, 0))
+    td = ImageDraw.Draw(tag)
+    td.rounded_rectangle((0, 0, tw - 1, th - 1), 8, fill=(250, 250, 246), outline=(180, 180, 175), width=2)
+    td.rounded_rectangle((0, 0, tw - 1, int(th * 0.34)), 8, fill=(206, 32, 41))
+    td.rectangle((0, int(th * 0.2), tw - 1, int(th * 0.34)), fill=(206, 32, 41))
+    td.text((tw // 2, int(th * 0.17)), "HI, I'M", font=R.font(max(10, th // 6), "Bold"), fill=(255, 255, 255), anchor="mm")
+    td.text((tw // 2, int(th * 0.55)), first, font=R.font(max(12, th // 4), "ExtraBold"), fill=(30, 30, 30), anchor="mm")
+    td.text((tw // 2, int(th * 0.83)), "TRAINEE", font=R.font(max(9, th // 7), "Bold"), fill=(206, 32, 41), anchor="mm")
+    tag = tag.rotate(-6, resample=Image.BICUBIC, expand=True)
+    tx, ty = cx - int(hw * 0.95) - tag.width // 2, int(H_ * 0.80)   # his right side (left on screen): the card's slant crops the other
+    im.alpha_composite(tag, (max(4, tx), min(ty, H_ - tag.height - 2)))
+    return im
+
+
 @stat("weekly_frauds")
 def _():
     ps, cur = fraud_scores()
-    frauds = sorted((p for p in ps if p["score"] >= 25), key=lambda p: -p["score"])
-    overs = sorted((p for p in ps if p["score"] <= -25), key=lambda p: p["score"])
-    if len(frauds) < 2 or len(overs) < 2:
+    rows = sorted((p for p in ps if p["score"] >= 25), key=lambda p: -p["score"])
+    if len(rows) < 3:
         return None
-    f0, o0 = frauds[0], overs[0]
-    rows = [(p, p["score"], f"{p['score']}% under") for p in frauds[:3]] + [(p, -p["score"], f"{-p['score']}% over") for p in overs[:2]]
-    wk = cur - 1
-    text = (f"Fraud watch through Week {wk}: {f0['name']} ({f0['team']}) is playing {f0['score']}% below his weekly projections. "
-            f"Also slipping: {frauds[1]['name']} ({frauds[1]['score']}%). "
-            f"Over-achiever: {o0['name']} ({o0['team']}), {-o0['score']}% above his.")
-    return fact("nfl", "player", rows, "Frauds vs. over-achievers", "Per game vs. ESPN's weekly projections, in the stats that matter for each position",
-                "below his projections, per game", text, "Who's the real fraud?") | {"tag": "FRAUD WATCH", "big": f"-{f0['score']}%"}
+    f0, f1 = rows[0], rows[1]
+    text = (f"Fraud watch through Week {cur - 1}: {f0['name']} ({f0['team']}) is playing {f0['score']}% below his weekly projections. "
+            + R.vary(["Might be time for a new line of work.", "Hope the day job is going better.", "The résumé needs work.",
+                      "Somebody get this man an application."], f0["name"])
+            + f" Also slipping: {f1['name']} ({f1['team']}), {f1['score']}% under.")
+    return fact("nfl", "player", [(p, p["score"], f"{p['score']}% under") for p in rows[:5]], "Fraud watch",
+                "Per game vs. ESPN's weekly projections, in the stats that matter for each position",
+                "below his projections, per game", text, "Who's the biggest fraud in the league?") | {
+        "tag": "FRAUD WATCH", "big": f"-{f0['score']}%", "costume": day_job, "key": f"weekly_frauds:W{cur - 1}"}
+
+
+@stat("weekly_overachievers")
+def _():
+    ps, cur = fraud_scores()
+    rows = sorted((p for p in ps if p["score"] <= -25), key=lambda p: p["score"])
+    if len(rows) < 3:
+        return None
+    o0, o1 = rows[0], rows[1]
+    text = (f"Over-achievers through Week {cur - 1}: {o0['name']} ({o0['team']}) is playing {-o0['score']}% above his weekly projections. "
+            f"Right behind him: {o1['name']} ({o1['team']}), {-o1['score']}% over.")
+    return fact("nfl", "player", [(p, -p["score"], f"{-p['score']}% over") for p in rows[:5]], "Over-achievers",
+                "Per game vs. ESPN's weekly projections, in the stats that matter for each position",
+                "above his projections, per game", text, "Breakout star, or just a hot start?") | {
+        "tag": "OVER-ACHIEVER", "big": f"+{-o0['score']}%", "key": f"weekly_overachievers:W{cur - 1}"}
 
 
 # --- historic pace: a player on pace for (or near) a single-season record --------------------------
@@ -966,6 +1028,8 @@ def card(f, theme):
         cfbd = re.search(r"collegefootballdata\.com/logos/\d+/(\d+)\.png", u)  # college logos: same team id at ESPN
         logo = image(f"https://a.espncdn.com/i/teamlogos/ncaa/500-dark/{cfbd[1]}.png" if cfbd else u.replace("/500/", "/500-dark/")) or logo
     pic = image(lead.get("pic")) if f["kind"] == "player" else None
+    if pic and f.get("costume"):
+        pic = f["costume"](pic.copy(), lead)
     if logo:
         wm = logo.copy()
         wm.thumbnail((520, 520), Image.LANCZOS)
@@ -1084,7 +1148,7 @@ def make(key, out, theme=None):
     text = tweet(f["text"], "", with_link=False)  # never a link (Terry's rule)
     lead = f["rows"][0][0]
     # same stat, same leader = the same post, even when the numbers and the runners-up changed (Zay Flowers went out twice)
-    meta = {"day": "obscure", "stat": key, "key": f"{key}:{lead.get('name') or lead.get('team')}", "theme": theme, "image": png,
+    meta = {"day": "obscure", "stat": key, "key": f.get("key") or f"{key}:{lead.get('name') or lead.get('team')}", "weekly": "key" in f, "theme": theme, "image": png,
             "text": text, "skip": False, "reason": ""}
     with open(os.path.join(out, f"obscure-{key}.json"), "w", encoding="utf-8") as fh:
         json.dump(meta, fh, indent=1, ensure_ascii=False)

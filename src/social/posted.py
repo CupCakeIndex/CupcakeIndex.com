@@ -63,7 +63,7 @@ def repeat(meta):
     """Why this post would be a repeat, or "" if it's new."""
     if seen(meta.get("text")):
         return "this exact text was already posted"
-    if similar(meta.get("text")):
+    if similar(meta.get("text")) and not meta.get("weekly"):  # weekly posts (one per week by key) may share a leader
         return "the same post (with different numbers) went out in the last 30 days"
     if meta.get("key") and meta["key"] in recent_keys(60):
         return f"already posted about {meta['key']}"
