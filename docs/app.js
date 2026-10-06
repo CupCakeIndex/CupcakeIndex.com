@@ -213,7 +213,7 @@ function renderGames() {
 }
 
 // ------------------------------------------------------------------ init
-const SITE_VERSION = "196"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "197"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -1201,7 +1201,7 @@ function renderResume() {
   const item = (r, why) => `<li><a href="#" data-team="${esc(r.t.team)}">${esc(r.t.team)}</a> <span class="muted">#${r.ours} → #${r.rank} · ${why}</span></li>`;
   $("#rc-callouts").innerHTML = `
     <div><b>Exposed</b><small class="muted">Looked good until we took away the ${nfl ? "wins over bad teams" : "cupcakes"}</small><ul>${fell.map((r) => item(r, `${esc(r.t.record)}, but ${r.rec} vs ${nfl ? "top-half" : "real"} teams${nfl ? ` · SOS #${sosRankOf(r.t)}` : ""}`)).join("") || '<li class="muted">Nobody this week</li>'}</ul></div>
-    <div><b>The real deal</b><small class="muted">Climb the most when only real games count</small><ul>${rose.map((r) => item(r, `${r.rec} vs ${nfl ? "top-half" : "real"} teams${nfl ? ` · SOS #${sosRankOf(r.t)}` : ""}`)).join("") || '<li class="muted">Nobody this week</li>'}</ul></div>`;
+    <div><b>The real deal</b><small class="muted">Climb the most when only ${nfl ? "games vs the top half" : "real games"} count</small><ul>${rose.map((r) => item(r, `${r.rec} vs ${nfl ? "top-half" : "real"} teams${nfl ? ` · SOS #${sosRankOf(r.t)}` : ""}`)).join("") || '<li class="muted">Nobody this week</li>'}</ul></div>`;
   const draw = () => {
     const all = nfl || $("#rc-show").value === "all";
     const list = all ? rows : rows.filter((r) => r.rank <= 25 || r.ours <= 25);

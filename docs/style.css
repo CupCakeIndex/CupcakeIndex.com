@@ -337,6 +337,8 @@ body.drawer-open { overflow: hidden; }
 #rc-table tbody tr:hover { background: var(--accent-soft); }
 #rc-table .team small { display: block; font-size: 11px; line-height: 1.35; }
 #rc-table .rc-mv { display: block; font-size: 11px; font-weight: 700; }
+#rc-table thead th.num { white-space: normal; max-width: 96px; line-height: 1.25; vertical-align: bottom; }
+.rc-key { margin-top: 6px; }
 #view-shame .card + .card { margin-top: 14px; }
 .hs-list { list-style: none; margin: 0; padding: 0; display: grid; }
 .hs-list li { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--line); cursor: pointer; min-width: 0; }
