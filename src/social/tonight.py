@@ -16,7 +16,7 @@ import sys
 import requests
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from render import (vary, ACCENT, BOTTOM, INK, LINE, MUTED, PAD, ROOT, TOP, W, canvas, chance, chip, fit, font,  # noqa: E402
+from render import (vary, matchup_rows, ACCENT, BOTTOM, INK, LINE, MUTED, PAD, ROOT, TOP, W, canvas, chance, chip, fit, font,  # noqa: E402
                     is_stale, latest, short, tweet)
 
 ESPN = {"nfl": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard",
@@ -67,30 +67,9 @@ def card(day):
     leagues = sorted({g[0] for g in games}, key=lambda lg: lg != "nfl")
     show = SHOWS.get((games[0][0], day.weekday()))
     title = show or ("Weeknight football" if len(leagues) > 1 or games[0][0] == "cfb" else "Tonight in the NFL")
-    img, d = canvas(leagues[0], f"{day:%A} · tonight", title, "Our model's win chances for tonight's games.")
-    row_h = (BOTTOM - TOP - 10) // 6
-    name_w = 360
-    bx0, bx1 = PAD + 70 + name_w + 20, W - PAD - 70 - name_w - 20
-    for i, (lg, p, rank, kick) in enumerate(games):
-        a, h = rank[p["away"]], rank[p["home"]]
-        cy = TOP + i * row_h + row_h // 2
-        if i:
-            d.line((PAD, TOP + i * row_h, W - PAD, TOP + i * row_h), fill=LINE)
-        hp = p["home_win_prob"]
-        chip(img, d, a, PAD, cy - 24, 48)
-        d.text((PAD + 64, cy - 14), fit(d, short(a["team"], lg), font(26, "Bold"), name_w), font=font(26, "Bold"), fill=INK, anchor="lm")
-        d.text((PAD + 64, cy + 18), f"#{a['power_rank']} · {a['record']}", font=font(18), fill=MUTED, anchor="lm")
-        chip(img, d, h, W - PAD - 48, cy - 24, 48)
-        d.text((W - PAD - 64, cy - 14), fit(d, "@ " + short(h["team"], lg), font(26, "Bold"), name_w), font=font(26, "Bold"), fill=INK, anchor="rm")
-        d.text((W - PAD - 64, cy + 18), f"#{h['power_rank']} · {h['record']}", font=font(18), fill=MUTED, anchor="rm")
-        split = bx0 + int((bx1 - bx0) * (1 - hp))
-        bt, bb = cy - 6, cy + 14
-        d.rectangle((bx0, bt, split, bb), fill=ACCENT if hp < 0.5 else (64, 64, 70))
-        d.rectangle((split, bt, bx1, bb), fill=ACCENT if hp >= 0.5 else (64, 64, 70))
-        d.text((bx0, bt - 8), chance(1 - hp), font=font(20, "Bold"), fill=INK if hp < 0.5 else MUTED, anchor="lb")
-        d.text((bx1, bt - 8), chance(hp), font=font(20, "Bold"), fill=INK if hp >= 0.5 else MUTED, anchor="rb")
-        d.text(((bx0 + bx1) // 2, bb + 8), f"{kick:%-I:%M %p} ET" if os.name != "nt" else f"{kick:%I:%M %p} ET".lstrip("0"),
-               font=font(16, "Bold"), fill=MUTED, anchor="mt")
+    img, d = canvas(leagues[0], f"{day:%A} · tonight", title, "Tonight's game" + ("s" if len(games) > 1 else "") + " and who our model favors.")
+    kt = lambda k: f"{k:%-I:%M %p} ET" if os.name != "nt" else f"{k:%I:%M %p} ET".lstrip("0")
+    matchup_rows(img, d, [(lg, rank[p["away"]], rank[p["home"]], p["home_win_prob"], kt(kick)) for lg, p, rank, kick in games])
     lg, p, rank, kick = games[0]
     fav = p["home"] if p["home_win_prob"] >= 0.5 else p["away"]
     pr = max(p["home_win_prob"], 1 - p["home_win_prob"])

@@ -437,6 +437,73 @@ def bully_card(today, leagues=("cfb", "nfl"), now=None):
 
 
 # ------------------------------------------------------------------ Fri: model vs Vegas
+def edge_word(p):
+    """How sure the model is, in words (p = the favorite's chance)."""
+    return "Toss-up" if p < 0.55 else "Slight edge" if p < 0.65 else "Favored" if p < 0.8 else "Big favorite"
+
+
+def matchup_rows(img, d, games):
+    """Game rows that make the favorite obvious: 'Away @ Home' on the left (underdog grayed out), and on the right
+    the favorite's logo, name, win chance and a word for how sure we are, over a bar of that chance.
+    games: [(league, away team, home team, home win prob, note under the matchup e.g. kickoff time)]"""
+    if not games:
+        return
+    if len(games) == 1:  # one game: big head-to-head instead of a lonely row
+        lg, a, h, hp, note = games[0]
+        home_fav, pr = hp >= 0.5, max(hp, 1 - hp)
+        toss = pr < 0.55
+        hot = MUTED if toss else ACCENT
+        for t, is_fav, cx, p in ((a, not home_fav, W // 4, 1 - hp), (h, home_fav, 3 * W // 4, hp)):
+            chip(img, d, t, cx - 90, TOP + 10, 180)
+            d.text((cx, TOP + 230), fit(d, short(t["team"], lg), font(40, "ExtraBold"), 560), font=font(40, "ExtraBold"),
+                   fill=INK if is_fav else MUTED, anchor="mm")
+            d.text((cx, TOP + 278), f"#{t['power_rank']} · {t['record']}", font=font(20), fill=MUTED, anchor="mm")
+            d.text((cx, TOP + 350), chance(p), font=font(72, "ExtraBold"), fill=hot if is_fav else DIM, anchor="mm")
+        d.text((W // 2, TOP + 100), "@", font=font(56, "Bold"), fill=DIM, anchor="mm")
+        if note:
+            d.text((W // 2, TOP + 160), note, font=font(20, "Bold"), fill=MUTED, anchor="mm")
+        by, x0, x1 = TOP + 420, PAD + 120, W - PAD - 120
+        split = x0 + int((x1 - x0) * (1 - hp))
+        d.rectangle((x0, by, split, by + 14), fill=hot if not home_fav else (52, 52, 58))
+        d.rectangle((split, by, x1, by + 14), fill=hot if home_fav else (52, 52, 58))
+        fav = h if home_fav else a
+        d.text((W // 2, by + 50), f"{edge_word(pr).upper()}: {short(fav['team'], lg).upper()}", font=font(22, "Bold"), fill=hot, anchor="mm")
+        return
+    col = W - PAD - 560                     # where the "favorite" column starts
+    d.text((PAD, TOP), "MATCHUP", font=font(16, "Bold"), fill=MUTED)
+    d.text((col, TOP), "FAVORITE", font=font(16, "Bold"), fill=MUTED)
+    d.text((W - PAD, TOP), "WIN CHANCE", font=font(16, "Bold"), fill=MUTED, anchor="ra")
+    top = TOP + 34
+    row_h = min(110, (BOTTOM - top) // len(games))
+    for i, (lg, a, h, hp, note) in enumerate(games):
+        y0 = top + i * row_h
+        cy = y0 + row_h // 2
+        d.line((PAD, y0, W - PAD, y0), fill=LINE)
+        home_fav = hp >= 0.5
+        fav, pr = (h if home_fav else a), max(hp, 1 - hp)
+        # left: away @ home, favorite in white
+        x = PAD
+        for t, is_fav, lead in ((a, not home_fav, ""), (h, home_fav, "@ ")):
+            if lead:
+                d.text((x, cy - 14), "@", font=font(26), fill=DIM, anchor="lm")
+                x += 40
+            chip(img, d, t, x, cy - 36, 44)
+            nm = fit(d, short(t["team"], lg), font(26, "Bold"), 250)
+            d.text((x + 54, cy - 14), nm, font=font(26, "Bold"), fill=INK if is_fav else MUTED, anchor="lm")
+            x += 54 + int(d.textlength(nm, font=font(26, "Bold"))) + 22
+        sub = f"#{a['power_rank']} {a['record']}  vs  #{h['power_rank']} {h['record']}" + (f"  ·  {note}" if note else "")
+        d.text((PAD, cy + 24), sub, font=font(17), fill=MUTED, anchor="lm")
+        # right: the favorite
+        toss = pr < 0.55
+        chip(img, d, fav, col, cy - 30, 52)
+        d.text((col + 66, cy - 12), fit(d, short(fav["team"], lg), font(28, "ExtraBold"), 300), font=font(28, "ExtraBold"), fill=INK, anchor="lm")
+        d.text((col + 66, cy + 18), edge_word(pr).upper(), font=font(15, "Bold"), fill=MUTED if toss else ACCENT, anchor="lm")
+        d.text((W - PAD, cy - 4), chance(pr), font=font(46, "ExtraBold"), fill=MUTED if toss else ACCENT, anchor="rm")
+        by = cy + 34
+        d.rectangle((col, by, W - PAD, by + 6), fill=(34, 34, 38))
+        d.rectangle((col, by, col + int((W - PAD - col) * pr), by + 6), fill=MUTED if toss else ACCENT)
+
+
 def gameday_card(league, today):
     cur, _, _ = latest(league)
     rank = {t["team"]: t for t in cur["teams"]}
@@ -448,32 +515,10 @@ def gameday_card(league, today):
     games = preds[:6]
     lname = "College football" if league == "cfb" else "NFL"
     img, d = canvas(league, f"Week {wk}", f"Game day: {'the big ones' if league == 'cfb' else 'the slate'}",
-                    "Model win probability for the week's best matchups (by our power ranking).")
+                    "The week's best matchups and who our model favors.")
     if not games:
         d.text((PAD, TOP + 80), "No games on the board.", font=font(30, "Bold"), fill=MUTED)
-    row_h = (BOTTOM - TOP - 10) // 6
-    name_w = 360
-    bx0, bx1 = PAD + 70 + name_w + 20, W - PAD - 70 - name_w - 20
-    for i, p in enumerate(games):
-        a, h = rank[p["away"]], rank[p["home"]]
-        y = TOP + i * row_h
-        cy = y + row_h // 2
-        if i:
-            d.line((PAD, y, W - PAD, y), fill=LINE)
-        hp = p["home_win_prob"]
-        chip(img, d, a, PAD, cy - 24, 48)
-        d.text((PAD + 64, cy - 14), fit(d, short(a["team"], league), font(26, "Bold"), name_w), font=font(26, "Bold"), fill=INK, anchor="lm")
-        d.text((PAD + 64, cy + 18), f"#{a['power_rank']} · {a['record']}", font=font(18), fill=MUTED, anchor="lm")
-        chip(img, d, h, W - PAD - 48, cy - 24, 48)
-        d.text((W - PAD - 64, cy - 14), fit(d, "@ " + short(h["team"], league), font(26, "Bold"), name_w), font=font(26, "Bold"), fill=INK, anchor="rm")
-        d.text((W - PAD - 64, cy + 18), f"#{h['power_rank']} · {h['record']}", font=font(18), fill=MUTED, anchor="rm")
-        # win-probability bar: away share from the left, home share from the right; favorite in orange
-        split = bx0 + int((bx1 - bx0) * (1 - hp))
-        bt, bb = cy - 6, cy + 14
-        d.rectangle((bx0, bt, split, bb), fill=ACCENT if hp < 0.5 else (64, 64, 70))
-        d.rectangle((split, bt, bx1, bb), fill=ACCENT if hp >= 0.5 else (64, 64, 70))
-        d.text((bx0, bt - 8), chance(1 - hp), font=font(20, "Bold"), fill=INK if hp < 0.5 else MUTED, anchor="lb")
-        d.text((bx1, bt - 8), chance(hp), font=font(20, "Bold"), fill=INK if hp >= 0.5 else MUTED, anchor="rb")
+    matchup_rows(img, d, [(league, rank[p["away"]], rank[p["home"]], p["home_win_prob"], "") for p in games])
     if games:
         g = games[0]
         fav = g["home"] if g["home_win_prob"] >= 0.5 else g["away"]
