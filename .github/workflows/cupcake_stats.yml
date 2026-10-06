@@ -91,6 +91,7 @@ jobs:
           git config user.email "rankings-bot@users.noreply.github.com"
           git add data/history docs/data/cfb/facts.json docs/data/cfb/shame.json docs/data/nfl/facts.json
           git add data/social/posted.json 2>/dev/null || true
+          for p in docs/data/takes.json docs/takes; do git add "$p" 2>/dev/null; done; true   # the Takes page (src/social/feed.py)
           git diff --cached --quiet && echo "Nothing new" && exit 0
           git commit -m "Cupcake stats: history / posting log $(date -u +%Y-%m-%dT%H:%MZ)"
           git pull --rebase

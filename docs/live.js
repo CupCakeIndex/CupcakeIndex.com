@@ -2367,11 +2367,13 @@ const Live = (() => {
     const season = params.get("season");
     const vs = (params.get("vs") || "").split(",").filter(Boolean).slice(0, 3);
     const careersP = Promise.all([career(lg, id), ...vs.map((v) => { const [l, pid] = v.split(":"); return career(LEAGUE_OF[l] || "nfl", pid); })]).catch(() => null);
-    let bio, gl;
+    const ptab = params.get("tab") === "takes" ? "takes" : "";
+    let bio, gl, takes;
     try {
-      [bio, gl] = await Promise.all([
+      [bio, gl, takes] = await Promise.all([
         api(`${WEB(lg)}/athletes/${encodeURIComponent(id)}`, 300000),
         api(`${WEB(lg)}/athletes/${encodeURIComponent(id)}/gamelog${season ? `?season=${season}` : ""}`, 120000).catch(() => null),
+        Takes.about("players", `${lg}:${id}`).catch(() => []), // our X posts about this player (takes.js)
       ]);
     } catch (e) { return fail("player", e); }
     if (my !== token) return;
@@ -2431,7 +2433,7 @@ const Live = (() => {
     const shown = +(season || seasonF?.value || gl?.requestedSeason?.year || thisYear);
     // years in the league: active players get ESPN's current count; retired ones get filled in from their career record below
     const exp = a.active !== false ? a.displayExperience || a.experience?.displayValue || "" : "";
-    view("player").innerHTML = `
+    const head = `
       <div class="card player-head">
         <div class="hs-frame" style="--tc:${teamColor(a.team)}">
           ${face(a.headshot?.href, a.displayName, "headshot", lg === "nfl", born)}
@@ -2442,7 +2444,14 @@ const Live = (() => {
             ${injInfo(inj) ? ` <span class="inj-line">${injTag(inj, a.id, fa ? "" : a.team?.id)} ${esc(injInfo(inj).tip)}</span>` : ""}</p>
           <p class="muted">${facts.map(esc).join(" · ")}<span id="pl-exp">${exp ? " · " + esc(exp) : ""}</span></p>
         </div>
-      </div>
+      </div>${takes.length ? `
+      <div class="subtabs"><a class="subtab${ptab ? "" : " on"}" href="${link("player", id)}">Stats</a><a class="subtab${ptab ? " on" : ""}" href="${link("player", id, { tab: "takes" })}">Takes <small>${takes.length}</small></a></div>` : ""}`;
+    if (ptab === "takes") {
+      view("player").innerHTML = head + `<div class="card">${takes.length ? Takes.list(takes) : `<p class="muted">No takes about this player yet.</p>`}</div>`;
+      fillFaces(view("player"));
+      return;
+    }
+    view("player").innerHTML = head + `
       ${summary ? `<div class="stats wide">${summary}</div>${caughtUp ? `<p class="note muted">Added up from his game-by-game stats, so it includes his latest game. Ranks come back once the overnight totals update.</p>` : ""}` : ""}
       <div id="career-slot"><div class="card muted">Loading stats by year…</div></div>
       <div class="card"><div class="sc-bar"><h3>Game log</h3>
@@ -3408,21 +3417,23 @@ const Live = (() => {
     const lg = league, my = token;
     store.set("lastTeam-" + lg, String(id)); // standings open on this team's conference
     const nfl = lg === "nfl";
-    const tab = ["roster", ...(nfl ? ["depth", "moves", "injuries"] : [])].includes(params.get("tab")) ? params.get("tab") : "schedule";
+    const tab = ["roster", "takes", ...(nfl ? ["depth", "moves", "injuries"] : [])].includes(params.get("tab")) ? params.get("tab") : "schedule";
     loading("team");
-    let sch, ros, ranks, extra;
+    let sch, ros, ranks, extra, takes;
     try {
-      [sch, ros, ranks, extra] = await Promise.all([
+      [sch, ros, ranks, extra, takes] = await Promise.all([
         api(`${SITE(lg)}/teams/${encodeURIComponent(id)}/schedule`, 60000),
         api(`${SITE(lg)}/teams/${encodeURIComponent(id)}/roster`, 600000).catch(() => null),
         modelRanks(lg),
         tab === "depth" || (tab === "roster" && nfl) ? api(`${SITE(lg)}/teams/${encodeURIComponent(id)}/depthcharts`, 600000).catch(() => null)
           : tab === "injuries" ? injData().catch(() => null)
           : tab === "moves" ? api(`${SITE(lg)}/transactions?limit=1000`, 1800000).catch(() => null) : null,
+        Takes.about("teams", `${lg}:${id}`).catch(() => []), // our X posts about this team (takes.js)
       ]);
     } catch (e) { return fail("team", e); }
     if (my !== token) return;
     const T = sch.team || {};
+    if (String(T.id) !== String(id)) takes = await Takes.about("teams", `${lg}:${T.id}`).catch(() => []); // opened by name, not id
     const ours = ourTeam(ranks, lg, { id: T.id, displayName: T.displayName });
 
     // schedule: one mini scorebug per game, with our tags / difficulty / win chance from the latest rankings file
@@ -3557,8 +3568,9 @@ const Live = (() => {
     const movesRows = moves.map((t) => `<tr><td class="muted">${esc(new Date(t.date).toLocaleDateString(undefined, { month: "short", day: "numeric" }))}</td><td>${esc(t.description)}</td></tr>`).join("");
     const tabLink = (t, label) => `<a class="subtab${tab === t ? " on" : ""}" href="${link("team", id, { tab: t })}">${label}</a>`;
     view("team").innerHTML = `${hub}
-      <div class="subtabs">${tabLink("schedule", "Schedule")}${tabLink("roster", "Roster")}${nfl ? tabLink("depth", "Depth chart") + tabLink("injuries", "Injuries") + tabLink("moves", "Transactions") : ""}</div>
-      <div class="card">${tab === "roster"
+      <div class="subtabs">${tabLink("schedule", "Schedule")}${tabLink("roster", "Roster")}${nfl ? tabLink("depth", "Depth chart") + tabLink("injuries", "Injuries") + tabLink("moves", "Transactions") : ""}${takes.length ? tabLink("takes", `Takes <small>${takes.length}</small>`) : ""}</div>
+      <div class="card">${tab === "takes" ? (takes.length ? Takes.list(takes) : `<p class="muted">No takes about this team yet.</p>`)
+        : tab === "roster"
         ? rosterRows || `<p class="muted">Roster not available.</p>`
         : tab === "injuries" ? injHtml || `<p class="muted">Injury report not available.</p>`
         : tab === "depth" ? depthRows || `<p class="muted">Depth chart not available.</p>`

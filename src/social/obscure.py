@@ -1131,7 +1131,10 @@ def make(key, out, theme=None):
     lead = f["rows"][0][0]
     # same stat, same leader = the same post, even when the numbers and the runners-up changed (Zay Flowers went out twice)
     meta = {"day": "obscure", "stat": key, "key": f.get("key") or f"{key}:{lead.get('name') or lead.get('team')}", "weekly": "key" in f, "theme": theme, "image": png,
-            "text": text, "skip": False, "reason": ""}
+            "text": text, "skip": False, "reason": "", "league": f["league"]}
+    pid = lead.get("id") or (re.search(r"/(\d+)\.png", lead.get("pic") or "") or [None, None])[1]
+    if f["kind"] == "player" and pid:  # the Takes tab on this player's page (feed.py)
+        meta["players"] = {f"{f['league']}:{pid}": lead.get("name", "")}
     with open(os.path.join(out, f"obscure-{key}.json"), "w", encoding="utf-8") as fh:
         json.dump(meta, fh, indent=1, ensure_ascii=False)
     return meta

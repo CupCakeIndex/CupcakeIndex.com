@@ -1,179 +1,1119 @@
 [
   {
-    "date": "2026-09-30",
-    "title": "Launch day",
+    "version": "1.21.0",
+    "build": 204,
+    "date": "2026-10-06",
     "items": [
-      "Alerts now follow your teams' games: a heads-up about 15 minutes before kickoff, every score (\"Alabama touchdown · AUB 7, ALA 14\") and the final. Follow more teams under Settings > Alerts > Add or remove teams. New accounts get asked about alerts during setup, and everyone else gets asked once the next time they visit.",
-      "New: alerts on your phone or computer. Turn them on in Settings > Alerts to get final scores for your teams, the Bully of the Week, a Saturday-night Pick'em reminder and (if you want) breaking news. On iPhone, open the site from your home-screen app first.",
-      "Frauds and Over-achievers are now two separate X posts: Fraud watch on Wednesdays (the top fraud is shown in black and white with a red FRAUD stamp across the photo) and Over-achievers on Thursdays.",
-      "Game-day and Tonight posts on X are easier to read: a Favorite column shows who our model likes, with a big win chance and a word for how sure it is (Toss-up, Slight edge, Favored, Big favorite). The underdog is grayed out, and a one-game night gets a big head-to-head card.",
-      "X posts sound less like a robot and never repeat: breaking news goes out within about half an hour (season-ending injuries, coaches fired or hired, trades, big contracts, star injuries) with credit to the source, plus a new Wednesday post on NFL Frauds vs Over-achievers.",
-      "Résumé Check is easier to read: the columns are now New rank, W-L without cupcakes (NFL: vs top half) and Usual rank, with a one-line key above the table.",
-      "The NFL side no longer uses cupcakes. Nobody schedules a cupcake in the NFL, so it now runs on strength of schedule. Under each team is its schedule rank (SOS #1 = hardest, #32 = easiest). New NFL schedule profiles: Proven, Easy Road, Tough Road and No Excuses. Résumé Check takes away wins over the bottom half of the league. Hall of Shame lists the easiest schedules. Bully of the Week is the week's biggest blowout.",
-      "Pick'em now moves to next week by itself: college picks open Sunday and NFL picks open Monday at 11:59 PM Eastern, instead of waiting a day or two for ESPN to catch up.",
-      "Upsets now count as cupcake losses. When we decide whether an old game was a cupcake, we rate both teams as if that game never happened, so an upset can't make itself look respectable. No. 5 Notre Dame losing to Northern Illinois in 2024 and Alabama losing to UL Monroe in 2007 are now on the Hall of Shame. Résumé Check also keeps losses to cupcakes in the real record (they cost a lot) instead of dropping them.",
-      "New: Cupcake Hall of Shame (More > Hall of Shame). This season's cupcake collectors, the all-time padders since 2005 (Boise State: 40% of games against cupcakes, 111-1 against them), and the ranked teams that lost to a cupcake anyway (No. 5 Michigan vs. App State, 2007).",
-      "New: Résumé Check (More > Résumé Check). We take away every cupcake win and re-rank everyone on their real games only. \"Exposed\" shows who drops the most, and \"The real deal\" shows who climbs.",
+      "New: Takes (More > Takes). Every stat card, hot take and Bully of the Week we post on X now shows up on the site too, with its picture and the date and time it went out. Team and player pages get a Takes tab when we've posted about them.",
+      "Release notes are sorted by the day each change came out (they were all under Launch day), and every update has a version number now. This one is v1.21.0: the middle number goes up for new features, the last one for fixes."
+    ]
+  },
+  {
+    "version": "1.20.1",
+    "build": 203,
+    "date": "2026-10-06",
+    "items": [
+      "Alerts now follow your teams' games: a heads-up about 15 minutes before kickoff, every score (\"Alabama touchdown · AUB 7, ALA 14\") and the final. Follow more teams under Settings > Alerts > Add or remove teams. New accounts get asked about alerts during setup, and everyone else gets asked once the next time they visit."
+    ]
+  },
+  {
+    "version": "1.20.0",
+    "build": 202,
+    "date": "2026-10-06",
+    "items": [
+      "New: alerts on your phone or computer. Turn them on in Settings > Alerts to get final scores for your teams, the Bully of the Week, a Saturday-night Pick'em reminder and (if you want) breaking news. On iPhone, open the site from your home-screen app first."
+    ]
+  },
+  {
+    "version": "1.19.7",
+    "build": 201,
+    "date": "2026-10-06",
+    "items": [
+      "Frauds and Over-achievers are now two separate X posts: Fraud watch on Wednesdays (the top fraud is shown in black and white with a red FRAUD stamp across the photo) and Over-achievers on Thursdays."
+    ]
+  },
+  {
+    "version": "1.19.6",
+    "build": 199,
+    "date": "2026-10-06",
+    "items": [
+      "Game-day and Tonight posts on X are easier to read: a Favorite column shows who our model likes, with a big win chance and a word for how sure it is (Toss-up, Slight edge, Favored, Big favorite). The underdog is grayed out, and a one-game night gets a big head-to-head card."
+    ]
+  },
+  {
+    "version": "1.19.5",
+    "build": 198,
+    "date": "2026-10-06",
+    "items": [
+      "X posts sound less like a robot and never repeat: breaking news goes out within about half an hour (season-ending injuries, coaches fired or hired, trades, big contracts, star injuries) with credit to the source, plus a new Wednesday post on NFL Frauds vs Over-achievers."
+    ]
+  },
+  {
+    "version": "1.19.4",
+    "build": 197,
+    "date": "2026-10-06",
+    "items": [
+      "Résumé Check is easier to read: the columns are now New rank, W-L without cupcakes (NFL: vs top half) and Usual rank, with a one-line key above the table."
+    ]
+  },
+  {
+    "version": "1.19.3",
+    "build": 196,
+    "date": "2026-10-06",
+    "items": [
+      "The NFL side no longer uses cupcakes. Nobody schedules a cupcake in the NFL, so it now runs on strength of schedule. Under each team is its schedule rank (SOS #1 = hardest, #32 = easiest). New NFL schedule profiles: Proven, Easy Road, Tough Road and No Excuses. Résumé Check takes away wins over the bottom half of the league. Hall of Shame lists the easiest schedules. Bully of the Week is the week's biggest blowout."
+    ]
+  },
+  {
+    "version": "1.19.2",
+    "build": 195,
+    "date": "2026-10-06",
+    "items": [
+      "Pick'em now moves to next week by itself: college picks open Sunday and NFL picks open Monday at 11:59 PM Eastern, instead of waiting a day or two for ESPN to catch up."
+    ]
+  },
+  {
+    "version": "1.19.1",
+    "build": 194,
+    "date": "2026-10-05",
+    "items": [
+      "Upsets now count as cupcake losses. When we decide whether an old game was a cupcake, we rate both teams as if that game never happened, so an upset can't make itself look respectable. No. 5 Notre Dame losing to Northern Illinois in 2024 and Alabama losing to UL Monroe in 2007 are now on the Hall of Shame. Résumé Check also keeps losses to cupcakes in the real record (they cost a lot) instead of dropping them."
+    ]
+  },
+  {
+    "version": "1.19.0",
+    "build": 193,
+    "date": "2026-10-05",
+    "items": [
+      "New: Cupcake Hall of Shame (More > Hall of Shame). This season's cupcake collectors, the all-time padders since 2005 (Boise State: 40% of games against cupcakes, 111-1 against them), and the ranked teams that lost to a cupcake anyway (No. 5 Michigan vs. App State, 2007)."
+    ]
+  },
+  {
+    "version": "1.18.0",
+    "build": 192,
+    "date": "2026-10-05",
+    "items": [
+      "New: Résumé Check (More > Résumé Check). We take away every cupcake win and re-rank everyone on their real games only. \"Exposed\" shows who drops the most, and \"The real deal\" shows who climbs."
+    ]
+  },
+  {
+    "version": "1.17.7",
+    "build": 191,
+    "date": "2026-10-04",
+    "items": [
       "Finished games keep their Tecmo field: tap PLAY HIGHLIGHTS to watch the game's top 5-10 plays (biggest swings, touchdowns, turnovers, long gains) back to back. A title card before each one says what's coming: the quarter and clock, \"DET TOUCHDOWN\", what happened, and the score.",
-      "Records on the Rankings page update as games finish, without waiting for the next rankings update. Hover a record to see when it includes a game played since then.",
+      "Records on the Rankings page update as games finish, without waiting for the next rankings update. Hover a record to see when it includes a game played since then."
+    ]
+  },
+  {
+    "version": "1.17.6",
+    "build": 190,
+    "date": "2026-10-04",
+    "items": [
       "College Bully of the Week now lands Saturday night (about 11:45 PM Eastern) instead of Sunday morning, on X and on the Rankings banner right away. College rankings now update Saturday night too (with more tries after midnight for the late games, and a final pass Sunday morning) instead of waiting for Monday.",
-      "Zoom in on the live Tecmo field: pinch with two fingers on your phone (drag with one finger to look around), or use the + and - buttons in the corner.",
-      "Team rosters are in football order now: offense, defense and special teams, each by position (QB, RB, WR, TE, line...) with starters first in depth-chart order and an S next to starters. Tap any column to sort by it. NFL team pages also get an Injuries tab: \"Operating at X%\" plus the full injury report.",
-      "Injuries now include players on injured reserve (ESPN's league report leaves them out, so we read each team's roster), and anyone hurt who has started 5+ games since last season counts as a key player, even when ESPN drops him from the depth chart. Washington: 40% healthy, 10 key players out (Daniels, Mariota, McLaurin, Amos, Tunsil, Cosmi...).",
-      "Injuries: each team now shows key players and the total on its injury report (\"4 key, 12 total\"), on phones too.",
-      "Injuries: \"starters out\" is now \"key players out\". A key player is a starter, or the next man up when the starter is out (with Daniels out, Mariota is Washington's QB, so his injury counts fully too). All three WR spots count.",
-      "Injuries page is live during games: anyone hurt in a game counts right away (read from the play-by-play, marked IN-GAME) and drops off if he returns to the game. The page refreshes every minute while games are on.",
-      "New: Stats > Injuries (NFL). Every team ranked by how healthy it is, as a bar chart with the league average marked. Starters count more than backups, and a QB counts far more than a punter. Tap a team for its full injury report (starters flagged, with ESPN's notes).",
-      "Live game field: hover or tap the yellow flag to see the penalty (what it was, who, how many yards, and whether it was declined or wiped out the play). On phones, tapping picks the player closest to your finger, and the name card shows just under the field so it never covers the action. Coming back from a replay no longer makes the players blink out.",
-      "Live game field: new REPLAY button in the bottom-right corner. Tap it to rewatch any of the last 3 plays, or all 3 back to back. Tap LIVE to jump back. The hover names also now catch the quarterback on shotgun snaps.",
-      "College season pace is now a true pace: his per-game average so far over the full season (Jeremiah Smith: 1,975 yards instead of 1,644). Our model's projected finish, which expects stars to sit late in blowouts and adjusts for the defenses left, still shows underneath as \"ours\" (hover it on the full list).",
-      "Live game field: hovering a player now shows who is actually in. Backups who come in (like a QB replacing an injured starter) show up as soon as they appear in the play-by-play, and players ESPN lists as Out, on IR or hurt during the game are skipped.",
+      "Zoom in on the live Tecmo field: pinch with two fingers on your phone (drag with one finger to look around), or use the + and - buttons in the corner."
+    ]
+  },
+  {
+    "version": "1.17.5",
+    "build": 189,
+    "date": "2026-10-04",
+    "items": [
+      "Team rosters are in football order now: offense, defense and special teams, each by position (QB, RB, WR, TE, line...) with starters first in depth-chart order and an S next to starters. Tap any column to sort by it. NFL team pages also get an Injuries tab: \"Operating at X%\" plus the full injury report."
+    ]
+  },
+  {
+    "version": "1.17.4",
+    "build": 188,
+    "date": "2026-10-04",
+    "items": [
+      "Injuries now include players on injured reserve (ESPN's league report leaves them out, so we read each team's roster), and anyone hurt who has started 5+ games since last season counts as a key player, even when ESPN drops him from the depth chart. Washington: 40% healthy, 10 key players out (Daniels, Mariota, McLaurin, Amos, Tunsil, Cosmi...)."
+    ]
+  },
+  {
+    "version": "1.17.3",
+    "build": 187,
+    "date": "2026-10-04",
+    "items": [
+      "Injuries: each team now shows key players and the total on its injury report (\"4 key, 12 total\"), on phones too."
+    ]
+  },
+  {
+    "version": "1.17.2",
+    "build": 186,
+    "date": "2026-10-04",
+    "items": [
+      "Injuries: \"starters out\" is now \"key players out\". A key player is a starter, or the next man up when the starter is out (with Daniels out, Mariota is Washington's QB, so his injury counts fully too). All three WR spots count."
+    ]
+  },
+  {
+    "version": "1.17.1",
+    "build": 185,
+    "date": "2026-10-04",
+    "items": [
+      "Injuries page is live during games: anyone hurt in a game counts right away (read from the play-by-play, marked IN-GAME) and drops off if he returns to the game. The page refreshes every minute while games are on."
+    ]
+  },
+  {
+    "version": "1.17.0",
+    "build": 184,
+    "date": "2026-10-04",
+    "items": [
+      "New: Stats > Injuries (NFL). Every team ranked by how healthy it is, as a bar chart with the league average marked. Starters count more than backups, and a QB counts far more than a punter. Tap a team for its full injury report (starters flagged, with ESPN's notes)."
+    ]
+  },
+  {
+    "version": "1.16.13",
+    "build": 183,
+    "date": "2026-10-04",
+    "items": [
+      "Live game field: hover or tap the yellow flag to see the penalty (what it was, who, how many yards, and whether it was declined or wiped out the play). On phones, tapping picks the player closest to your finger, and the name card shows just under the field so it never covers the action. Coming back from a replay no longer makes the players blink out."
+    ]
+  },
+  {
+    "version": "1.16.12",
+    "build": 182,
+    "date": "2026-10-04",
+    "items": [
+      "Live game field: new REPLAY button in the bottom-right corner. Tap it to rewatch any of the last 3 plays, or all 3 back to back. Tap LIVE to jump back. The hover names also now catch the quarterback on shotgun snaps."
+    ]
+  },
+  {
+    "version": "1.16.11",
+    "build": 181,
+    "date": "2026-10-04",
+    "items": [
+      "College season pace is now a true pace: his per-game average so far over the full season (Jeremiah Smith: 1,975 yards instead of 1,644). Our model's projected finish, which expects stars to sit late in blowouts and adjusts for the defenses left, still shows underneath as \"ours\" (hover it on the full list)."
+    ]
+  },
+  {
+    "version": "1.16.10",
+    "build": 180,
+    "date": "2026-10-04",
+    "items": [
+      "Live game field: hovering a player now shows who is actually in. Backups who come in (like a QB replacing an injured starter) show up as soon as they appear in the play-by-play, and players ESPN lists as Out, on IR or hurt during the game are skipped."
+    ]
+  },
+  {
+    "version": "1.16.9",
+    "build": 179,
+    "date": "2026-10-03",
+    "items": [
       "PCB: graded cards are shown as the whole slab, in its real taller shape, as a thick clear case up close (no penny sleeve). A slab-shaped photo, a grade on the label or an eBay title like \"PSA 10\" ticks the new Graded (slab) box, and the card reader now reads the slab label (grade and cert #). New Cert # box. A slab saved earlier in card shape gets stretched back to its real shape the next time the owner opens the page.",
-      "PCB eBay search: picking a listing uses its 2nd photo as the back, with the listing's other photos shown so you can pick a different one.",
+      "PCB eBay search: picking a listing uses its 2nd photo as the back, with the listing's other photos shown so you can pick a different one."
+    ]
+  },
+  {
+    "version": "1.16.8",
+    "build": 178,
+    "date": "2026-10-03",
+    "items": [
       "Player pages are current the moment a game ends: season stats are added up from his game-by-game log (so today's game counts right away), and our season pace swaps that game's projection for what he actually did. A projection for a game already played no longer shows.",
-      "PCB: the binder view is gone (the penny sleeves stay).",
-      "PCB: new Binder view (Grid / Binder switch next to the sort menu): your cards in 9-pocket pages on gold rings. Swipe to turn the page (it follows your finger), tap a card and it slides up out of its pocket and opens up close, and it slides back in when you close it. The penny sleeves are real 3D pockets now: thin clear plastic with depth you can see when you turn the card.",
-      "PCB now stands for Personal Collection Binder, back in black and gold: cards sit on a binder page (with ring holes on bigger screens), each in a clear penny sleeve whose glare moves as you tilt it. Up close, two fingers now move the card exactly with your fingers and zoom around the spot you pinch. New black-and-gold binder icon.",
-      "PCB: zooming now feels like holding the card. Pinch to bring it closer (in 3D, like the tilt), twist it with two fingers, lift one finger to keep turning it up close, and let go to have it spring back.",
-      "PCB: pinch to zoom on a card you opened (up to 4x; drag to move it around, tap to zoom back out; the mouse wheel zooms on a computer), and smooth card edges when you tilt a card instead of jagged ones.",
-      "The Vault is now PCB, the Personal Card Board (cupcakeindex.com/pc or /pcb): a circuit-board look with copper traces, chip-shaped stat tiles and a part label on every card. It opens fast for everyone, no sign-in: the grid loads small thumbnails and full photos only come down when you open a card. New home-screen icon too.",
-      "Live game field: the play clock now stops for timeouts. When the latest thing in the feed is a timeout (it says which team and which of their timeouts), an official or injury timeout, the two-minute warning, the end of a quarter or halftime, the bar freezes and says so until the next play.",
-      "Live game field: the yellow play clock no longer restarts every few seconds or jumps back to an older play. It now runs down smoothly from when the play came in. When it runs out before ESPN posts the next play, it says WAITING ON NEXT PLAY, and between quarters or at halftime it says so instead.",
-      "The Vault reads your cards: add the front and back photos and it fills in the player, team, year, set, card #, serial, rookie and auto from the printed text (names checked against every NFL player, sets against a list of football sets). It never overwrites what you typed, and what it filled in is outlined in gold so you can check it. Sideways backs get turned automatically. A new Card # box sits next to Parallel.",
-      "The Vault: tap any card and it comes up close over a blurred page, like holding the real thing. Drag to turn it in your hand (it has a thin card edge now), tap it to flip it over, and Turn spins it for sideways backs. Close with the X or by tapping outside.",
-      "The Vault: Rotate now turns a photo a quarter turn per tap, so card backs printed sideways can be set to read right. Those cards turn landscape when you flip them to the back. The holo shimmer on the cards is gone.",
-      "The Vault's card photos fix themselves much better now: it finds the card even when it's tilted, shot at an angle, on a wood or carpet background, or has a shadow, then flattens it into a perfect card. If it's ever off, tap Corners and drag four dots onto the card's corners (a zoom bubble helps you land them), or tap Rotate to flip it. Works on cards you've already saved, too.",
-      "News has a Cards tab next to CFB / NFL / All: the football card release calendar with its countdown lives there now (headlines stay on the other tabs).",
-      "New: The Vault (cupcakeindex.com/pc), a football card collection showcase: cards flip around on tap to show the back, shine like holo foil as you move over them, and can be searched and filtered (rookies, autos, numbered, graded), with a featured grail. Linked from the card releases box on News, which also got a cleaner phone layout.",
-      "News tab: football card releases. A live countdown to the next drop, what's coming up, what just dropped, and sets with dates to be announced (from a public release calendar, checked daily).",
-      "NFL Schedules chart: teams with no cupcakes no longer pile up in one flat row; they're spread out (still below the padded line) by how much weaker their opponents have been than them.",
-      "NFL Just the Facts says \"prime time\" instead of \"night games\" (kickoff 7 PM Eastern or later). Switching CFB/NFL now just plays the scan line (no more pixel particles).",
-      "Bully of the Week banner (NFL) shows team names only, no city (Jaguars 35-6, over Patriots #12), so it never wraps onto extra lines.",
-      "My Team theme uses each team's exact official color for buttons, banners, bars, the CFB/NFL switch and the wordmark (Commanders = real burgundy + gold, no longer Chiefs red). Small text only gets a lighter shade when the official color is too dark to read.",
-      "Where to watch: upcoming and live games show the channel plus a button that opens its streaming service: NBC = Peacock, CBS = Paramount+, FOX/FS1/Big Ten Network = FOX One, ESPN/ABC/SEC Network = ESPN, Netflix, Prime Video, NFL Network = NFL+, YouTube TV, TNT = HBO Max, The CW. On phones it opens the app if you have it. On Scores cards, the game page and team pages.",
-      "My Team theme: deep red team colors (Commanders, Alabama and friends) stay wine/burgundy when brightened for dark mode instead of drifting orange.",
-      "My Team theme in dark mode is much cleaner: a neutral near-black base with just a hint of your team's color, and the team color itself kept rich and vivid (no more muddy browns or dusty pinks) for highlights, buttons, bars and the wordmark.",
+      "PCB: the binder view is gone (the penny sleeves stay)."
+    ]
+  },
+  {
+    "version": "1.16.7",
+    "build": 177,
+    "date": "2026-10-03",
+    "items": [
+      "PCB: new Binder view (Grid / Binder switch next to the sort menu): your cards in 9-pocket pages on gold rings. Swipe to turn the page (it follows your finger), tap a card and it slides up out of its pocket and opens up close, and it slides back in when you close it. The penny sleeves are real 3D pockets now: thin clear plastic with depth you can see when you turn the card."
+    ]
+  },
+  {
+    "version": "1.16.6",
+    "build": 176,
+    "date": "2026-10-03",
+    "items": [
+      "PCB now stands for Personal Collection Binder, back in black and gold: cards sit on a binder page (with ring holes on bigger screens), each in a clear penny sleeve whose glare moves as you tilt it. Up close, two fingers now move the card exactly with your fingers and zoom around the spot you pinch. New black-and-gold binder icon."
+    ]
+  },
+  {
+    "version": "1.16.5",
+    "build": 175,
+    "date": "2026-10-03",
+    "items": [
+      "PCB: zooming now feels like holding the card. Pinch to bring it closer (in 3D, like the tilt), twist it with two fingers, lift one finger to keep turning it up close, and let go to have it spring back."
+    ]
+  },
+  {
+    "version": "1.16.4",
+    "build": 174,
+    "date": "2026-10-03",
+    "items": [
+      "PCB: pinch to zoom on a card you opened (up to 4x; drag to move it around, tap to zoom back out; the mouse wheel zooms on a computer), and smooth card edges when you tilt a card instead of jagged ones."
+    ]
+  },
+  {
+    "version": "1.16.3",
+    "build": 173,
+    "date": "2026-10-03",
+    "items": [
+      "The Vault is now PCB, the Personal Card Board (cupcakeindex.com/pc or /pcb): a circuit-board look with copper traces, chip-shaped stat tiles and a part label on every card. It opens fast for everyone, no sign-in: the grid loads small thumbnails and full photos only come down when you open a card. New home-screen icon too."
+    ]
+  },
+  {
+    "version": "1.16.2",
+    "build": 172,
+    "date": "2026-10-02",
+    "items": [
+      "Live game field: the play clock now stops for timeouts. When the latest thing in the feed is a timeout (it says which team and which of their timeouts), an official or injury timeout, the two-minute warning, the end of a quarter or halftime, the bar freezes and says so until the next play."
+    ]
+  },
+  {
+    "version": "1.16.1",
+    "build": 171,
+    "date": "2026-10-02",
+    "items": [
+      "Live game field: the yellow play clock no longer restarts every few seconds or jumps back to an older play. It now runs down smoothly from when the play came in. When it runs out before ESPN posts the next play, it says WAITING ON NEXT PLAY, and between quarters or at halftime it says so instead."
+    ]
+  },
+  {
+    "version": "1.16.0",
+    "build": 170,
+    "date": "2026-10-02",
+    "items": [
+      "The Vault reads your cards: add the front and back photos and it fills in the player, team, year, set, card #, serial, rookie and auto from the printed text (names checked against every NFL player, sets against a list of football sets). It never overwrites what you typed, and what it filled in is outlined in gold so you can check it. Sideways backs get turned automatically. A new Card # box sits next to Parallel."
+    ]
+  },
+  {
+    "version": "1.15.4",
+    "build": 169,
+    "date": "2026-10-02",
+    "items": [
+      "The Vault: tap any card and it comes up close over a blurred page, like holding the real thing. Drag to turn it in your hand (it has a thin card edge now), tap it to flip it over, and Turn spins it for sideways backs. Close with the X or by tapping outside."
+    ]
+  },
+  {
+    "version": "1.15.3",
+    "build": 168,
+    "date": "2026-10-02",
+    "items": [
+      "The Vault: Rotate now turns a photo a quarter turn per tap, so card backs printed sideways can be set to read right. Those cards turn landscape when you flip them to the back. The holo shimmer on the cards is gone."
+    ]
+  },
+  {
+    "version": "1.15.2",
+    "build": 167,
+    "date": "2026-10-02",
+    "items": [
+      "The Vault's card photos fix themselves much better now: it finds the card even when it's tilted, shot at an angle, on a wood or carpet background, or has a shadow, then flattens it into a perfect card. If it's ever off, tap Corners and drag four dots onto the card's corners (a zoom bubble helps you land them), or tap Rotate to flip it. Works on cards you've already saved, too."
+    ]
+  },
+  {
+    "version": "1.15.1",
+    "build": 166,
+    "date": "2026-10-02",
+    "items": [
+      "News has a Cards tab next to CFB / NFL / All: the football card release calendar with its countdown lives there now (headlines stay on the other tabs)."
+    ]
+  },
+  {
+    "version": "1.15.0",
+    "build": 165,
+    "date": "2026-10-02",
+    "items": [
+      "New: The Vault (cupcakeindex.com/pc), a football card collection showcase: cards flip around on tap to show the back, shine like holo foil as you move over them, and can be searched and filtered (rookies, autos, numbered, graded), with a featured grail. Linked from the card releases box on News, which also got a cleaner phone layout."
+    ]
+  },
+  {
+    "version": "1.14.10",
+    "build": 164,
+    "date": "2026-10-02",
+    "items": [
+      "News tab: football card releases. A live countdown to the next drop, what's coming up, what just dropped, and sets with dates to be announced (from a public release calendar, checked daily)."
+    ]
+  },
+  {
+    "version": "1.14.9",
+    "build": 163,
+    "date": "2026-10-02",
+    "items": [
+      "NFL Schedules chart: teams with no cupcakes no longer pile up in one flat row; they're spread out (still below the padded line) by how much weaker their opponents have been than them."
+    ]
+  },
+  {
+    "version": "1.14.8",
+    "build": 162,
+    "date": "2026-10-02",
+    "items": [
+      "NFL Just the Facts says \"prime time\" instead of \"night games\" (kickoff 7 PM Eastern or later). Switching CFB/NFL now just plays the scan line (no more pixel particles)."
+    ]
+  },
+  {
+    "version": "1.14.7",
+    "build": 161,
+    "date": "2026-10-02",
+    "items": [
+      "Bully of the Week banner (NFL) shows team names only, no city (Jaguars 35-6, over Patriots #12), so it never wraps onto extra lines."
+    ]
+  },
+  {
+    "version": "1.14.6",
+    "build": 159,
+    "date": "2026-10-02",
+    "items": [
+      "My Team theme uses each team's exact official color for buttons, banners, bars, the CFB/NFL switch and the wordmark (Commanders = real burgundy + gold, no longer Chiefs red). Small text only gets a lighter shade when the official color is too dark to read."
+    ]
+  },
+  {
+    "version": "1.14.5",
+    "build": 158,
+    "date": "2026-10-02",
+    "items": [
+      "Where to watch: upcoming and live games show the channel plus a button that opens its streaming service: NBC = Peacock, CBS = Paramount+, FOX/FS1/Big Ten Network = FOX One, ESPN/ABC/SEC Network = ESPN, Netflix, Prime Video, NFL Network = NFL+, YouTube TV, TNT = HBO Max, The CW. On phones it opens the app if you have it. On Scores cards, the game page and team pages."
+    ]
+  },
+  {
+    "version": "1.14.4",
+    "build": 157,
+    "date": "2026-10-02",
+    "items": [
+      "My Team theme: deep red team colors (Commanders, Alabama and friends) stay wine/burgundy when brightened for dark mode instead of drifting orange."
+    ]
+  },
+  {
+    "version": "1.14.3",
+    "build": 156,
+    "date": "2026-10-02",
+    "items": [
+      "My Team theme in dark mode is much cleaner: a neutral near-black base with just a hint of your team's color, and the team color itself kept rich and vivid (no more muddy browns or dusty pinks) for highlights, buttons, bars and the wordmark."
+    ]
+  },
+  {
+    "version": "1.14.2",
+    "build": 155,
+    "date": "2026-10-02",
+    "items": [
       "My Team theme: the CUPCAKE_INDEX wordmark is now a letterman-jacket patch: CUPCAKE in your team's color trimmed in its second color, _INDEX the reverse.",
-      "The search button matches your theme: the >_ terminal prompt in the terminal themes, a plain magnifying glass in the others.",
-      "My Team: pick teams by typing (\"bama\", \"lions\", \"osu\") instead of scrolling a long list. The Team theme now leans on your team's main color (Commanders = burgundy, with gold lettering on buttons). On a team page, switching CFB/NFL jumps straight to your favorite team in the other league.",
-      "New: My Team. Tell us your name, whether you watch college, NFL or both, and your favorite team(s) (asked once when you first sign in, or any time in Settings > Your team). Pick the My Team theme and the whole site switches to Varsity lettering in your team's colors, with its logo as a faint watermark; on CFB pages it uses your college team, on NFL pages your NFL team. Your team's logo sits in the header for one-tap access (with a My teams menu if you follow more than one), and its row is highlighted on Rankings.",
-      "Accounts: new Switch account button in Settings (signs you out, then opens Google's account picker). Sign in always lets you pick which Google account to use.",
-      "Accounts: signing out now clears your picks and record from the device (they stay safe in your account and come back when you sign in). Picks made while signed out join the next account that signs in. Switching accounts only shows that account's picks.",
-      "Every team logo and player headshot is now clickable: tap one to open that team's or player's page (game scoreboards, game leaders, the live field's team tags, standings, brackets and more).",
-      "Phones: the CFB | NFL switch's orange button now sits neatly inside its box (it was hanging out the bottom).",
+      "The search button matches your theme: the >_ terminal prompt in the terminal themes, a plain magnifying glass in the others."
+    ]
+  },
+  {
+    "version": "1.14.1",
+    "build": 154,
+    "date": "2026-10-02",
+    "items": [
+      "My Team: pick teams by typing (\"bama\", \"lions\", \"osu\") instead of scrolling a long list. The Team theme now leans on your team's main color (Commanders = burgundy, with gold lettering on buttons). On a team page, switching CFB/NFL jumps straight to your favorite team in the other league."
+    ]
+  },
+  {
+    "version": "1.14.0",
+    "build": 153,
+    "date": "2026-10-02",
+    "items": [
+      "New: My Team. Tell us your name, whether you watch college, NFL or both, and your favorite team(s) (asked once when you first sign in, or any time in Settings > Your team). Pick the My Team theme and the whole site switches to Varsity lettering in your team's colors, with its logo as a faint watermark; on CFB pages it uses your college team, on NFL pages your NFL team. Your team's logo sits in the header for one-tap access (with a My teams menu if you follow more than one), and its row is highlighted on Rankings."
+    ]
+  },
+  {
+    "version": "1.13.5",
+    "build": 152,
+    "date": "2026-10-02",
+    "items": [
+      "Accounts: new Switch account button in Settings (signs you out, then opens Google's account picker). Sign in always lets you pick which Google account to use."
+    ]
+  },
+  {
+    "version": "1.13.4",
+    "build": 151,
+    "date": "2026-10-02",
+    "items": [
+      "Accounts: signing out now clears your picks and record from the device (they stay safe in your account and come back when you sign in). Picks made while signed out join the next account that signs in. Switching accounts only shows that account's picks."
+    ]
+  },
+  {
+    "version": "1.13.3",
+    "build": 149,
+    "date": "2026-10-02",
+    "items": [
+      "Every team logo and player headshot is now clickable: tap one to open that team's or player's page (game scoreboards, game leaders, the live field's team tags, standings, brackets and more)."
+    ]
+  },
+  {
+    "version": "1.13.2",
+    "build": 148,
+    "date": "2026-10-02",
+    "items": [
+      "Phones: the CFB | NFL switch's orange button now sits neatly inside its box (it was hanging out the bottom)."
+    ]
+  },
+  {
+    "version": "1.13.1",
+    "build": 147,
+    "date": "2026-10-02",
+    "items": [
       "iPhone: tapping a search box or dropdown no longer zooms the page in (and leaves it stuck zoomed in the home-screen app). Pinch-zoom still works.",
+      "Switching between CFB and NFL: a short stream of pixels leaves the switch (to the right into NFL, to the left into CFB) and a thin orange scan line sweeps the page the same way while the other league fades in. Skipped if your phone is set to reduce motion."
+    ]
+  },
+  {
+    "version": "1.13.0",
+    "build": 142,
+    "date": "2026-10-02",
+    "items": [
       "Switching tabs on the same page (Rushing to Receiving, Offense to Defense, filters) no longer jumps you to the top. A new page still starts at the top.",
-      "Switching between CFB and NFL: a short stream of pixels leaves the switch (to the right into NFL, to the left into CFB) and a thin orange scan line sweeps the page the same way while the other league fades in. Skipped if your phone is set to reduce motion.",
-      "Phones: the Back button in the header is a compact arrow, so the Rankings header (Season, Week, search, CFB/NFL) fits on one row.",
-      "Accounts: Google sign-in now runs on cupcakeindex.com itself, so it works inside the iPhone home-screen app.",
-      "Accounts: signing in now shows a \"Signed in as …\" message right away, and your Google photo appears on the settings gear on every page.",
-      "Accounts are here: Settings (the gear) > Sign in with Google. Your Pick'em picks and record, the daily game and your fantasy team follow you to any phone or computer you sign in on. Free, optional, and you can delete it any time. See the new Privacy page for what we keep.",
-      "Just the Facts fix (thanks for catching it): this season's games now show up everywhere. NFL \"last win over a playoff team\" is now \"last win over a top-10 team\" (our ratings; today's ratings for this season), so the Commanders' win over No. 1 Seattle counts. This season's cupcakes use the site's ratings instead of three games of scores, so Seattle no longer \"lost to a cupcake\".",
+      "Phones: the Back button in the header is a compact arrow, so the Rankings header (Season, Week, search, CFB/NFL) fits on one row."
+    ]
+  },
+  {
+    "version": "1.12.6",
+    "build": 141,
+    "date": "2026-10-02",
+    "items": [
+      "Accounts: Google sign-in now runs on cupcakeindex.com itself, so it works inside the iPhone home-screen app."
+    ]
+  },
+  {
+    "version": "1.12.5",
+    "build": 140,
+    "date": "2026-10-02",
+    "items": [
+      "Accounts: signing in now shows a \"Signed in as …\" message right away, and your Google photo appears on the settings gear on every page."
+    ]
+  },
+  {
+    "version": "1.12.4",
+    "build": 139,
+    "date": "2026-10-02",
+    "items": [
+      "Accounts are here: Settings (the gear) > Sign in with Google. Your Pick'em picks and record, the daily game and your fantasy team follow you to any phone or computer you sign in on. Free, optional, and you can delete it any time. See the new Privacy page for what we keep."
+    ]
+  },
+  {
+    "version": "1.12.3",
+    "build": 137,
+    "date": "2026-10-02",
+    "items": [
+      "Just the Facts fix (thanks for catching it): this season's games now show up everywhere. NFL \"last win over a playoff team\" is now \"last win over a top-10 team\" (our ratings; today's ratings for this season), so the Commanders' win over No. 1 Seattle counts. This season's cupcakes use the site's ratings instead of three games of scores, so Seattle no longer \"lost to a cupcake\"."
+    ]
+  },
+  {
+    "version": "1.12.2",
+    "build": 136,
+    "date": "2026-10-02",
+    "items": [
       "The header motto is now our definition of a cupcake, dictionary style: \"cup·cake n. an opponent far below your level, scheduled for an easy win.\"",
-      "Just the Facts is on NFL team pages too, with NFL versions of the college stats (every game since 1999): straight wins over cupcakes, last road win over a team with a winning record, last win over a playoff team, playoff record and last playoff win, night-game record, and the series with the next opponent. The Raiders, Chargers and Rams include their old cities. Try the Lions.",
-      "Refresh button (the circle arrow next to the settings gear): reloads the page with the latest scores and data. Handy in the home-screen app, which has no browser reload.",
-      "New on college team pages: Just the Facts. True stats from every game since 2005: straight wins over cupcakes, the last road win over a ranked team (and the record since), the last win over a top-10 team, record vs cupcakes vs ranked teams, how much of the schedule has been cupcakes, and the series with the next opponent. Try Nebraska.",
-      "Phones: Rankings tags are shorter (WALK, NOBODY, OVER, UNDER) and sit on one line with the cupcake squares. Tap the squares for the cupcake count and who they were; the panel and desktop still show full names.",
-      "Game scoreboard: the team colors now fade smoothly into a dark middle (one continuous gradient) instead of cutting off hard, and it looks the same in light mode and every theme.",
-      "Saving the site to your phone's home screen now uses the new cupcake logo (same as our X account), opens full-screen, and is named \"Cupcake\". Android can install it as an app too. Already saved it? Delete the old icon and add it again to get the new one.",
-      "Phones: the game scoreboard is mirrored like a TV score bar: logo, name and record on the outside, each score beside them next to the middle (PIT 24 | FINAL | 27 CLE).",
-      "Phones: the rank, movement, Record and Score columns on the Rankings table are centered.",
-      "Phones: the Back button now floats at the top of the screen as you scroll (it sits in the header when you're at the top). Game scoreboard shows both scores in the same spot (under each team), and the settings gear lines up with the logo.",
-      "Phones: the Back button moved up into the header (left of search) so it's easier to tap, especially in the home-screen app.",
-      "Rankings team panel: games played after the weekly rankings update (like Thursday night) now show the final score and W/L right away instead of still looking upcoming.",
-      "Game pages: each team's record (like 3-1) now shows under its name on phones too; a new Takeaways row in Game leaders lists every interception and fumble recovery (ties all listed); and phones get a Back button in the bottom-left corner once you've clicked around.",
-      "Phone fixes: the live field zooms in on the action, the game scoreboard shows team abbreviations instead of cut-off names, team pages stack Factor scores and Next game full width, the model's chip on the Lines card wraps, the Schedules zoom buttons no longer cover the chart labels, Free agents shows age / years / points per game, and the header is one line shorter.",
-      "Live field: hover over (or tap) a pixel player to highlight him and see his number, name, position and headshot. Players named in the play (passer, receiver, runner, interceptor, tacklers) are exact (\"in this play\"); everyone else is the team's listed starter at that spot (\"likely\"), since nobody publishes exactly who's on the field each snap.",
-      "Live field: touchdowns now play out the try before the kickoff. Extra points line up (at the 15 in the NFL) and get snapped, held and kicked through the posts (IT'S GOOD! / NO GOOD!). Two-point tries line up at the 2 and run or pass it in (2 PT GOOD! / 2 PT FAILS). Then the teams set up for the kickoff.",
-      "Live field fix: after a punt, kickoff or turnover, the team that now has the ball lines up right away (ESPN's \"who has the ball\" flag can lag a few seconds; the field now goes by the play itself). The old drive's shading clears too.",
-      "Live field: after a touchdown, both teams jog off to the sidelines after the celebration and the field sets up for the kickoff (kicking team on its 35 with the ball on a tee, return team spread out, two returners deep). Field goals and extra points go straight to the kickoff setup, and pick-sixes and return TDs have the right team kicking. The field no longer restarts mid-animation when the page checks for updates.",
-      "Pick'em keeps your season record now: your overall W-L and win %, a week-by-week history, your best week, your current streak, and how you're doing against our model on the same games. Weeks you picked but didn't come back to are graded automatically. Picks lock Saturday at 11:59 PM Eastern (or at kickoff), and a \"Lock in my picks\" button locks your week early. It's all kept in your browser.",
-      "Live field fix: interceptions are now caught where they actually happened (read from the play, e.g. \"INTERCEPTED by D.Ward at CLV 44\") instead of a guessed spot, so the return runs the right way.",
+      "Just the Facts is on NFL team pages too, with NFL versions of the college stats (every game since 1999): straight wins over cupcakes, last road win over a team with a winning record, last win over a playoff team, playoff record and last playoff win, night-game record, and the series with the next opponent. The Raiders, Chargers and Rams include their old cities. Try the Lions."
+    ]
+  },
+  {
+    "version": "1.12.1",
+    "build": 135,
+    "date": "2026-10-02",
+    "items": [
+      "Refresh button (the circle arrow next to the settings gear): reloads the page with the latest scores and data. Handy in the home-screen app, which has no browser reload."
+    ]
+  },
+  {
+    "version": "1.12.0",
+    "build": 134,
+    "date": "2026-10-02",
+    "items": [
+      "New on college team pages: Just the Facts. True stats from every game since 2005: straight wins over cupcakes, the last road win over a ranked team (and the record since), the last win over a top-10 team, record vs cupcakes vs ranked teams, how much of the schedule has been cupcakes, and the series with the next opponent. Try Nebraska."
+    ]
+  },
+  {
+    "version": "1.11.20",
+    "build": 133,
+    "date": "2026-10-02",
+    "items": [
+      "Phones: the rank, movement, Record and Score columns on the Rankings table are centered."
+    ]
+  },
+  {
+    "version": "1.11.19",
+    "build": 132,
+    "date": "2026-10-02",
+    "items": [
+      "Phones: Rankings tags are shorter (WALK, NOBODY, OVER, UNDER) and sit on one line with the cupcake squares. Tap the squares for the cupcake count and who they were; the panel and desktop still show full names."
+    ]
+  },
+  {
+    "version": "1.11.18",
+    "build": 131,
+    "date": "2026-10-02",
+    "items": [
+      "Game scoreboard: the team colors now fade smoothly into a dark middle (one continuous gradient) instead of cutting off hard, and it looks the same in light mode and every theme."
+    ]
+  },
+  {
+    "version": "1.11.17",
+    "build": 130,
+    "date": "2026-10-02",
+    "items": [
+      "Saving the site to your phone's home screen now uses the new cupcake logo (same as our X account), opens full-screen, and is named \"Cupcake\". Android can install it as an app too. Already saved it? Delete the old icon and add it again to get the new one."
+    ]
+  },
+  {
+    "version": "1.11.16",
+    "build": 129,
+    "date": "2026-10-02",
+    "items": [
+      "Phones: the game scoreboard is mirrored like a TV score bar: logo, name and record on the outside, each score beside them next to the middle (PIT 24 | FINAL | 27 CLE)."
+    ]
+  },
+  {
+    "version": "1.11.15",
+    "build": 126,
+    "date": "2026-10-02",
+    "items": [
+      "Phones: the Back button now floats at the top of the screen as you scroll (it sits in the header when you're at the top). Game scoreboard shows both scores in the same spot (under each team), and the settings gear lines up with the logo."
+    ]
+  },
+  {
+    "version": "1.11.14",
+    "build": 125,
+    "date": "2026-10-02",
+    "items": [
+      "Phones: the Back button moved up into the header (left of search) so it's easier to tap, especially in the home-screen app."
+    ]
+  },
+  {
+    "version": "1.11.13",
+    "build": 124,
+    "date": "2026-10-02",
+    "items": [
+      "Rankings team panel: games played after the weekly rankings update (like Thursday night) now show the final score and W/L right away instead of still looking upcoming."
+    ]
+  },
+  {
+    "version": "1.11.12",
+    "build": 123,
+    "date": "2026-10-02",
+    "items": [
+      "Game pages: each team's record (like 3-1) now shows under its name on phones too; a new Takeaways row in Game leaders lists every interception and fumble recovery (ties all listed); and phones get a Back button in the bottom-left corner once you've clicked around."
+    ]
+  },
+  {
+    "version": "1.11.11",
+    "build": 122,
+    "date": "2026-10-01",
+    "items": [
+      "Phone fixes: the live field zooms in on the action, the game scoreboard shows team abbreviations instead of cut-off names, team pages stack Factor scores and Next game full width, the model's chip on the Lines card wraps, the Schedules zoom buttons no longer cover the chart labels, Free agents shows age / years / points per game, and the header is one line shorter."
+    ]
+  },
+  {
+    "version": "1.11.10",
+    "build": 121,
+    "date": "2026-10-01",
+    "items": [
+      "Live field: hover over (or tap) a pixel player to highlight him and see his number, name, position and headshot. Players named in the play (passer, receiver, runner, interceptor, tacklers) are exact (\"in this play\"); everyone else is the team's listed starter at that spot (\"likely\"), since nobody publishes exactly who's on the field each snap."
+    ]
+  },
+  {
+    "version": "1.11.9",
+    "build": 120,
+    "date": "2026-10-01",
+    "items": [
+      "Live field: touchdowns now play out the try before the kickoff. Extra points line up (at the 15 in the NFL) and get snapped, held and kicked through the posts (IT'S GOOD! / NO GOOD!). Two-point tries line up at the 2 and run or pass it in (2 PT GOOD! / 2 PT FAILS). Then the teams set up for the kickoff."
+    ]
+  },
+  {
+    "version": "1.11.8",
+    "build": 119,
+    "date": "2026-10-01",
+    "items": [
+      "Live field fix: after a punt, kickoff or turnover, the team that now has the ball lines up right away (ESPN's \"who has the ball\" flag can lag a few seconds; the field now goes by the play itself). The old drive's shading clears too."
+    ]
+  },
+  {
+    "version": "1.11.7",
+    "build": 118,
+    "date": "2026-10-01",
+    "items": [
+      "Live field: after a touchdown, both teams jog off to the sidelines after the celebration and the field sets up for the kickoff (kicking team on its 35 with the ball on a tee, return team spread out, two returners deep). Field goals and extra points go straight to the kickoff setup, and pick-sixes and return TDs have the right team kicking. The field no longer restarts mid-animation when the page checks for updates."
+    ]
+  },
+  {
+    "version": "1.11.6",
+    "build": 117,
+    "date": "2026-10-01",
+    "items": [
+      "Pick'em keeps your season record now: your overall W-L and win %, a week-by-week history, your best week, your current streak, and how you're doing against our model on the same games. Weeks you picked but didn't come back to are graded automatically. Picks lock Saturday at 11:59 PM Eastern (or at kickoff), and a \"Lock in my picks\" button locks your week early. It's all kept in your browser."
+    ]
+  },
+  {
+    "version": "1.11.5",
+    "build": 116,
+    "date": "2026-10-01",
+    "items": [
+      "Live field fix: interceptions are now caught where they actually happened (read from the play, e.g. \"INTERCEPTED by D.Ward at CLV 44\") instead of a guessed spot, so the return runs the right way."
+    ]
+  },
+  {
+    "version": "1.11.4",
+    "build": 115,
+    "date": "2026-10-01",
+    "items": [
       "Live field: plays are re-enacted by both teams. Runs show the handoff and the runner getting chased down; passes show the drop-back, the route and the throw; incompletions skid into the turf; picks get run back; sacks, punts, kickoffs, field goals (with goalposts), kneels and spikes all have their own moves. Banners for INCOMPLETE, NO GOOD, TOUCHBACK, FAIR CATCH and more. Players have pixel drop shadows.",
       "Touchdowns: no more \"-1th & goal\". The bar says TOUCHDOWN!, the end zone flashes, confetti falls and the scorer celebrates.",
-      "Live game pages check every 5 seconds and read two ESPN feeds (the game summary and the faster scoreboard), using whichever has the newest play, so plays show up sooner.",
-      "Live field: penalties get their own animation. A striped ref steps up at the sideline and tosses a fluttering flag to the spot, and the banner spells out the foul (e.g. \"FLAG! FALSE START · PIT · 5 YDS\", or DECLINED). The flag stays on the field until the next play.",
+      "Live game pages check every 5 seconds and read two ESPN feeds (the game summary and the faster scoreboard), using whichever has the newest play, so plays show up sooner."
+    ]
+  },
+  {
+    "version": "1.11.3",
+    "build": 114,
+    "date": "2026-10-01",
+    "items": [
+      "Live field: penalties get their own animation. A striped ref steps up at the sideline and tosses a fluttering flag to the spot, and the banner spells out the foul (e.g. \"FLAG! FALSE START · PIT · 5 YDS\", or DECLINED). The flag stays on the field until the next play."
+    ]
+  },
+  {
+    "version": "1.11.2",
+    "build": 113,
+    "date": "2026-10-01",
+    "items": [
       "Live games get an 8-bit field (Tecmo Bowl style) on the game page: who has the ball, which way they're going, the line of scrimmage, the first-down line, this drive shaded in, and pixel players lined up. Each new play replays on the field (runs, pass arcs, kicks, flags, and big TOUCHDOWN! / FIRST DOWN! / SACK! banners), and a play-clock bar fills the wait for the next snap. Live game pages now check for new plays every 12 seconds.",
-      "Win probability chart: the line now follows the game clock (halftime = halfway across, with quarter marks), and the current chance is shown next to the dot.",
+      "Win probability chart: the line now follows the game clock (halftime = halfway across, with quarter marks), and the current chance is shown next to the dot."
+    ]
+  },
+  {
+    "version": "1.11.1",
+    "build": 112,
+    "date": "2026-10-01",
+    "items": [
       "College win chances now blend team strength with play-by-play efficiency instead of using power alone. Tested on 2025 games, it picks more winners (73% vs 72%).",
       "Every upcoming game now says why our model leans the way it does, e.g. \"Edge South Carolina: home field. Edge Kentucky: a slightly stronger team, slightly more efficient play.\" It's on team schedules, game pages, and the Scores page (hover the model line).",
-      "Stats > Projected: removed \"Rest of season\" (Season pace already covers it). Quarterbacks' Season pace on player pages now includes interceptions.",
+      "Stats > Projected: removed \"Rest of season\" (Season pace already covers it). Quarterbacks' Season pace on player pages now includes interceptions."
+    ]
+  },
+  {
+    "version": "1.11.0",
+    "build": 111,
+    "date": "2026-10-01",
+    "items": [
       "New NFL model: the NFL now has its own ratings instead of sharing the college engine. Last season carries over all year, scores are blended with play-by-play efficiency (EPA per play), recent weeks count more, and backup quarterbacks are marked down. Tested on every game from 2020 to 2025: 64.4% of winners picked, up from 62.6%.",
-      "NFL cupcakes are real mismatches now: the opponent must be clearly bad and 5+ points worse than you. Good teams like the Lions no longer show up as anyone's cupcake. Bully of the Week is the most lopsided win over a weaker team (week 3: Jaguars 35-6 over the Patriots).",
-      "Win chances now top out at 99.9% (and bottom out at 0.1%) until a game is over. Nothing is ever a 100% lock.",
-      "Player pages: this week's projection and the season pace now share one small card with two tabs, so Stats by year sits higher up. NFL players get the week projection too.",
-      "NFL season pace: Stats > Projected > Season pace, plus a Season pace card on NFL player pages. It adds each player's real stats so far to ESPN's projection for every game left.",
-      "College season pace: Stats > Projected > Season pace shows where every FBS quarterback, running back and receiver's season totals are headed: what they've done so far plus our projection for each game left, adjusted for those defenses. College player pages have a small Season pace card too.",
+      "NFL cupcakes are real mismatches now: the opponent must be clearly bad and 5+ points worse than you. Good teams like the Lions no longer show up as anyone's cupcake. Bully of the Week is the most lopsided win over a weaker team (week 3: Jaguars 35-6 over the Patriots)."
+    ]
+  },
+  {
+    "version": "1.10.7",
+    "build": 110,
+    "date": "2026-10-01",
+    "items": [
+      "Win chances now top out at 99.9% (and bottom out at 0.1%) until a game is over. Nothing is ever a 100% lock."
+    ]
+  },
+  {
+    "version": "1.10.6",
+    "build": 109,
+    "date": "2026-10-01",
+    "items": [
+      "Player pages: this week's projection and the season pace now share one small card with two tabs, so Stats by year sits higher up. NFL players get the week projection too."
+    ]
+  },
+  {
+    "version": "1.10.5",
+    "build": 108,
+    "date": "2026-10-01",
+    "items": [
+      "NFL season pace: Stats > Projected > Season pace, plus a Season pace card on NFL player pages. It adds each player's real stats so far to ESPN's projection for every game left."
+    ]
+  },
+  {
+    "version": "1.10.4",
+    "build": 107,
+    "date": "2026-10-01",
+    "items": [
+      "College season pace: Stats > Projected > Season pace shows where every FBS quarterback, running back and receiver's season totals are headed: what they've done so far plus our projection for each game left, adjusted for those defenses. College player pages have a small Season pace card too."
+    ]
+  },
+  {
+    "version": "1.10.3",
+    "build": 106,
+    "date": "2026-10-01",
+    "items": [
       "Team pages: finished games in the schedule are now tinted green for a win, red for a loss and yellow for a tie, so played games stand out from upcoming ones.",
       "Stats > Projected now opens on quarterbacks, and each position sorts by its main stat (passing yards for QBs, rushing yards for RBs, receiving yards for WRs and TEs). Tap All to see everyone.",
-      "Frauds now includes injured players by default. Tap \"Include injured\" to hide them.",
+      "Frauds now includes injured players by default. Tap \"Include injured\" to hide them."
+    ]
+  },
+  {
+    "version": "1.10.2",
+    "build": 105,
+    "date": "2026-10-01",
+    "items": [
+      "College projections: Stats > Projected now works for college too, with our own model's projected yards, touchdowns, catches and PPR points for every FBS quarterback, running back and receiver this week. Past games are adjusted for the defense faced, and this week's opponent counts too. Search any player by name, and player pages show a small Projected this week card."
+    ]
+  },
+  {
+    "version": "1.10.1",
+    "build": 104,
+    "date": "2026-10-01",
+    "items": [
       "Scores and game pages show our model as a win chance (\"Bears 85% to win\") instead of a point spread. The books’ lines are still shown for comparison.",
-      "Fix: in the rankings side panel, opponents now show the same rank as everywhere else on the site.",
-      "College projections: Stats > Projected now works for college too, with our own model's projected yards, touchdowns, catches and PPR points for every FBS quarterback, running back and receiver this week. Past games are adjusted for the defense faced, and this week's opponent counts too. Search any player by name, and player pages show a small Projected this week card.",
-      "Frauds: players currently listed Out, IR or Doubtful are hidden by default. Tap \"Include injured\" to bring them back (with their injury tag).",
-      "New Stats > Projected tab (NFL): ESPN's projected yards, touchdowns, catches and fantasy points for every player, for this week or the rest of the season. Filter by position and sort any column.",
-      "Frauds is now purely per game: players who missed games (injury, benched) are no longer left out, as long as they've played at least 2 games.",
-      "Team pages have a new header: a big logo on a team-color banner, record, our rank and AP rank, conference standing, schedule profile, points scored and allowed per game, factor score bars, and a next-game card.",
-      "Team schedules (on the team page and in the rankings team panel) now show each game as a mini score bug with both logos, scores, W/L, kickoff time, tags and a difficulty bar. Tap anywhere on a game to open its box score or preview. Upcoming games show our win chance instead of a point spread.",
-      "New Fantasy tab (NFL): this week's start 'em / sit 'em at every position, each with a one-line reason (ESPN's projection, how widely he's rostered, injury status, and how many points his opponent allows to that position), plus a My team builder: type players at the > prompt, see each one's projected points and your lineup total, and tap Best lineup to start your highest projections. Your team is saved in your browser and in the link. Projections are ESPN's (PPR); just for fun.",
-      "New News tab: the latest NFL and college football headlines from ESPN, CBS Sports, Yahoo Sports, Pro Football Talk, SB Nation and On3, refreshed every hour. Filter by league, source or team; every headline opens the full story on the publisher's site. Team pages now show that team's 3 latest headlines.",
+      "Fix: in the rankings side panel, opponents now show the same rank as everywhere else on the site."
+    ]
+  },
+  {
+    "version": "1.10.0",
+    "build": 103,
+    "date": "2026-10-01",
+    "items": [
       "New Settings page (the gear at the top right): pick Dark, Light or System (follows your device), and choose a theme: Data Terminal Mono (the default), Data Terminal green or amber, Sleek Broadcast, Editorial, Midnight Glass or Varsity. Your choice is remembered in this browser.",
       "Cleaner menu: the main tabs (Rankings, Scores, Stats, Standings, Pick'em, Games) stay up top, and everything else (Schedules, Compare, Free agents, Fantasy, News, How it works, Release notes) is under More. On phones, More also holds Standings and Games.",
       "New Games tab: the Daily player game now lives there (old #/daily links still work), with room for more games. On Rankings it's now a small link at the end of the filter row instead of a banner.",
-      "The Padding meter under each team now explains itself: one small square per game played, filled in for a game against a cupcake, plus a plain count like \"2 cupcakes\". Tap it to see which games and what counts as a cupcake.",
-      "Every injury tag (Q, O, IR...) is now clickable: it jumps to that player's row on his team's roster, or, for a free agent, to his page, which now ends with an injury card (status, injury, expected return, ESPN's latest notes). The highlight is softer, too.",
-      "Playoff picture My picks: the box (and the saved picture) now says \"Chances\" and \"Title chance\" instead of odds, since these are our model's probabilities, not betting lines.",
-      "My picks starts blank: type all the seeds yourself (who gets in and where), then pick every game. A chances box shows your champion’s title chance, each pick’s win % (boldest first) and the chance your whole bracket hits, from 5,000 simulations of the rest of the season.",
-      "Share your bracket: the new Share button copies the link or saves a picture of your picks, sized for social media.",
+      "The Padding meter under each team now explains itself: one small square per game played, filled in for a game against a cupcake, plus a plain count like \"2 cupcakes\". Tap it to see which games and what counts as a cupcake."
+    ]
+  },
+  {
+    "version": "1.9.0",
+    "build": 102,
+    "date": "2026-10-01",
+    "items": [
+      "New News tab: the latest NFL and college football headlines from ESPN, CBS Sports, Yahoo Sports, Pro Football Talk, SB Nation and On3, refreshed every hour. Filter by league, source or team; every headline opens the full story on the publisher's site. Team pages now show that team's 3 latest headlines."
+    ]
+  },
+  {
+    "version": "1.8.0",
+    "build": 101,
+    "date": "2026-10-01",
+    "items": [
+      "New Fantasy tab (NFL): this week's start 'em / sit 'em at every position, each with a one-line reason (ESPN's projection, how widely he's rostered, injury status, and how many points his opponent allows to that position), plus a My team builder: type players at the > prompt, see each one's projected points and your lineup total, and tap Best lineup to start your highest projections. Your team is saved in your browser and in the link. Projections are ESPN's (PPR); just for fun."
+    ]
+  },
+  {
+    "version": "1.7.2",
+    "build": 100,
+    "date": "2026-10-01",
+    "items": [
+      "Team pages have a new header: a big logo on a team-color banner, record, our rank and AP rank, conference standing, schedule profile, points scored and allowed per game, factor score bars, and a next-game card.",
+      "Team schedules (on the team page and in the rankings team panel) now show each game as a mini score bug with both logos, scores, W/L, kickoff time, tags and a difficulty bar. Tap anywhere on a game to open its box score or preview. Upcoming games show our win chance instead of a point spread."
+    ]
+  },
+  {
+    "version": "1.7.1",
+    "build": 99,
+    "date": "2026-10-01",
+    "items": [
+      "Frauds: players currently listed Out, IR or Doubtful are hidden by default. Tap \"Include injured\" to bring them back (with their injury tag)."
+    ]
+  },
+  {
+    "version": "1.7.0",
+    "build": 98,
+    "date": "2026-10-01",
+    "items": [
+      "New Stats > Projected tab (NFL): ESPN's projected yards, touchdowns, catches and fantasy points for every player, for this week or the rest of the season. Filter by position and sort any column.",
+      "Frauds is now purely per game: players who missed games (injury, benched) are no longer left out, as long as they've played at least 2 games."
+    ]
+  },
+  {
+    "version": "1.6.4",
+    "build": 97,
+    "date": "2026-10-01",
+    "items": [
+      "Picks is now Pick'em: tap the winner of each game on this week's slate (CFB top-25 games or all FBS, every NFL game), get a ✓ or ✗ as games go final, and share with Share ▾ (Copy Link or Save Image). Sportsbook lines and links are gone."
+    ]
+  },
+  {
+    "version": "1.6.3",
+    "build": 96,
+    "date": "2026-10-01",
+    "items": [
       "Free agents: click the Age, Exp or Pts/g column headers to sort by them (click again to flip the order). Best and Most rostered still work.",
       "Stats by year: with College and NFL shown together, the table dims college seasons and draws a labeled line where the NFL career starts.",
-      "Frauds: players who have missed more than a third of their team's games, or are listed Out, Doubtful or on IR, are left off (the page says how many).",
-      "Picks is now Pick'em: tap the winner of each game on this week's slate (CFB top-25 games or all FBS, every NFL game), get a ✓ or ✗ as games go final, and share with Share ▾ (Copy Link or Save Image). Sportsbook lines and links are gone.",
-      "Stats by year: with College and NFL shown together, college seasons are a dimmer shade so you can tell them apart (key above the chart).",
-      "NFL Stats has a new Frauds tab: players falling furthest short of their weekly ESPN projections (yards, TDs, catches, interceptions for their position), with a switch to see the over-achievers instead.",
+      "Frauds: players who have missed more than a third of their team's games, or are listed Out, Doubtful or on IR, are left off (the page says how many)."
+    ]
+  },
+  {
+    "version": "1.6.2",
+    "build": 95,
+    "date": "2026-10-01",
+    "items": [
+      "Every injury tag (Q, O, IR...) is now clickable: it jumps to that player's row on his team's roster, or, for a free agent, to his page, which now ends with an injury card (status, injury, expected return, ESPN's latest notes). The highlight is softer, too.",
+      "Playoff picture My picks: the box (and the saved picture) now says \"Chances\" and \"Title chance\" instead of odds, since these are our model's probabilities, not betting lines.",
+      "My picks starts blank: type all the seeds yourself (who gets in and where), then pick every game. A chances box shows your champion’s title chance, each pick’s win % (boldest first) and the chance your whole bracket hits, from 5,000 simulations of the rest of the season."
+    ]
+  },
+  {
+    "version": "1.6.1",
+    "build": 94,
+    "date": "2026-10-01",
+    "items": [
+      "Share your bracket: the new Share button copies the link or saves a picture of your picks, sized for social media."
+    ]
+  },
+  {
+    "version": "1.6.0",
+    "build": 93,
+    "date": "2026-10-01",
+    "items": [
+      "New daily game: guess today's mystery NFL player in 8 tries. Each guess shows how close you got on team, division, position, age, college and jersey number, with hints if you're stuck. Everyone gets the same player, and you can copy your result to share. Find it at the top of the Rankings page."
+    ]
+  },
+  {
+    "version": "1.5.8",
+    "build": 92,
+    "date": "2026-10-01",
+    "items": [
       "Player pages: the headshot now sits in a framed card with a glow in the team’s colors and a jersey number / position label in the corner.",
-      "Injury tags (Q, D, O, IR) are clickable: they jump to that player’s row on his team’s roster, which pulses and shows the latest injury update.",
-      "New daily game: guess today's mystery NFL player in 8 tries. Each guess shows how close you got on team, division, position, age, college and jersey number, with hints if you're stuck. Everyone gets the same player, and you can copy your result to share. Find it at the top of the Rankings page.",
+      "Injury tags (Q, D, O, IR) are clickable: they jump to that player’s row on his team’s roster, which pulses and shows the latest injury update."
+    ]
+  },
+  {
+    "version": "1.5.7",
+    "build": 91,
+    "date": "2026-10-01",
+    "items": [
+      "Stats by year: with College and NFL shown together, college seasons are a dimmer shade so you can tell them apart (key above the chart).",
+      "NFL Stats has a new Frauds tab: players falling furthest short of their weekly ESPN projections (yards, TDs, catches, interceptions for their position), with a switch to see the over-achievers instead."
+    ]
+  },
+  {
+    "version": "1.5.6",
+    "build": 90,
+    "date": "2026-10-01",
+    "items": [
       "Player pages: a College | NFL | Both switch on Stats by year, so NFL players’ college seasons no longer mix into their NFL table (College shows their college career totals).",
-      "Search understands initials: typing \"OSU\" shows Ohio State, Oklahoma State and Oregon State (also FSU, LSU, MSU and more).",
+      "Search understands initials: typing \"OSU\" shows Ohio State, Oklahoma State and Oregon State (also FSU, LSU, MSU and more)."
+    ]
+  },
+  {
+    "version": "1.5.5",
+    "build": 89,
+    "date": "2026-10-01",
+    "items": [
       "My picks: every empty bracket slot is now a little terminal prompt. Type a team (name, city, mascot or abbreviation), press Enter or Tab to lock it in, and it jumps to the next slot. Tapping teams still works.",
-      "The search box in the header now looks like a terminal prompt (>_).",
-      "Free agents are now sorted by who is best: last season’s production compared with a typical starter at the same position (new Pts/g column). \"Most rostered\" is still one click away.",
-      "Sharper logo: the cupcake is now a detailed, high-resolution mark (also the browser tab icon), and a new motto: \"Bullying cupcakes isn’t a résumé.\"",
-      "Make your own playoff bracket: on Standings > Playoff picture, switch to My picks and tap teams to send them through (the NFL reseeds after the Wild Card round, like the real thing). Our model's win chance is shown as a hint, Fill with model's picks gives you a head start, and Copy link shares your bracket. Your picks are saved on this device.",
-      "Fix: NFL Cupcake Bully of the Week now needs a real mismatch (the winner rated 7+ points better), so a bad team beating a slightly worse team no longer counts. Week 3 is back to the Bears over the Eagles.",
-      "New logo: a cupcake with football laces next to a CUPCAKE_INDEX wordmark, drawn to match the site's terminal look. It's also the new browser tab icon.",
-      "New Playoff picture under Standings: a projected 12-team College Football Playoff bracket built from our rankings, and an NFL Super Bowl bracket from today's playoff seeds. Later rounds show our model's favorite and its win chance. Hover or tap any game for details.",
-      "NFL Cupcake score is now on a sliding scale: every game against a weaker, below-average team counts a little (more for bigger mismatches), instead of a hard cutoff that left most NFL teams tied. The NFL Schedules chart spreads out as a result.",
-      "Schedules got a makeover: the profile chart has a dotted grid and a hover box for each team, plus two new charts underneath: every team's schedule strength from toughest to easiest, and each conference's (or NFL division's) average. Tap a conference to filter to it.",
-      "Standings are easier to get around: pick one conference at a time (it opens on the conference of the last team you looked at, or the SEC), or AFC / NFC for the NFL with playoff seeds. Our rank sits next to every team, and the tables fit on phones.",
-      "The NFL now has a Cupcake score too: how much of a team's record came against bottom-third teams far worse than them. NFL teams get the padding meter, schedule profiles (and the Schedules chart), and a Cupcake Bully of the Week.",
+      "The search box in the header now looks like a terminal prompt (>_)."
+    ]
+  },
+  {
+    "version": "1.5.4",
+    "build": 88,
+    "date": "2026-09-30",
+    "items": [
+      "Free agents are now sorted by who is best: last season’s production compared with a typical starter at the same position (new Pts/g column). \"Most rostered\" is still one click away."
+    ]
+  },
+  {
+    "version": "1.5.3",
+    "build": 87,
+    "date": "2026-09-30",
+    "items": [
+      "Sharper logo: the cupcake is now a detailed, high-resolution mark (also the browser tab icon), and a new motto: \"Bullying cupcakes isn’t a résumé.\""
+    ]
+  },
+  {
+    "version": "1.5.2",
+    "build": 86,
+    "date": "2026-09-30",
+    "items": [
+      "Make your own playoff bracket: on Standings > Playoff picture, switch to My picks and tap teams to send them through (the NFL reseeds after the Wild Card round, like the real thing). Our model's win chance is shown as a hint, Fill with model's picks gives you a head start, and Copy link shares your bracket. Your picks are saved on this device."
+    ]
+  },
+  {
+    "version": "1.5.1",
+    "build": 85,
+    "date": "2026-09-30",
+    "items": [
+      "Fix: NFL Cupcake Bully of the Week now needs a real mismatch (the winner rated 7+ points better), so a bad team beating a slightly worse team no longer counts. Week 3 is back to the Bears over the Eagles."
+    ]
+  },
+  {
+    "version": "1.5.0",
+    "build": 84,
+    "date": "2026-09-30",
+    "items": [
+      "New logo: a cupcake with football laces next to a CUPCAKE_INDEX wordmark, drawn to match the site's terminal look. It's also the new browser tab icon."
+    ]
+  },
+  {
+    "version": "1.4.0",
+    "build": 83,
+    "date": "2026-09-30",
+    "items": [
+      "New Playoff picture under Standings: a projected 12-team College Football Playoff bracket built from our rankings, and an NFL Super Bowl bracket from today's playoff seeds. Later rounds show our model's favorite and its win chance. Hover or tap any game for details."
+    ]
+  },
+  {
+    "version": "1.3.1",
+    "build": 82,
+    "date": "2026-09-30",
+    "items": [
+      "NFL Cupcake score is now on a sliding scale: every game against a weaker, below-average team counts a little (more for bigger mismatches), instead of a hard cutoff that left most NFL teams tied. The NFL Schedules chart spreads out as a result."
+    ]
+  },
+  {
+    "version": "1.3.0",
+    "build": 81,
+    "date": "2026-09-30",
+    "items": [
+      "Schedules got a makeover: the profile chart has a dotted grid and a hover box for each team, plus two new charts underneath: every team's schedule strength from toughest to easiest, and each conference's (or NFL division's) average. Tap a conference to filter to it."
+    ]
+  },
+  {
+    "version": "1.2.6",
+    "build": 80,
+    "date": "2026-09-30",
+    "items": [
+      "Standings are easier to get around: pick one conference at a time (it opens on the conference of the last team you looked at, or the SEC), or AFC / NFC for the NFL with playoff seeds. Our rank sits next to every team, and the tables fit on phones."
+    ]
+  },
+  {
+    "version": "1.2.5",
+    "build": 78,
+    "date": "2026-09-30",
+    "items": [
+      "The NFL now has a Cupcake score too: how much of a team's record came against bottom-third teams far worse than them. NFL teams get the padding meter, schedule profiles (and the Schedules chart), and a Cupcake Bully of the Week."
+    ]
+  },
+  {
+    "version": "1.2.4",
+    "build": 77,
+    "date": "2026-09-30",
+    "items": [
       "Stats by year chart: drag across it to zoom in on a stretch of seasons (Reset zoom to go back). Handy for long careers and comparisons.",
-      "Stats by year chart: switch between Line and Bar, and show or hide the data table. Your choice is remembered.",
-      "Stats by year chart: a faint dashed line shows the average of that season's top 10 players in the same stat, so you can see how a player stacks up.",
+      "Stats by year chart: switch between Line and Bar, and show or hide the data table. Your choice is remembered."
+    ]
+  },
+  {
+    "version": "1.2.3",
+    "build": 75,
+    "date": "2026-09-30",
+    "items": [
+      "Stats by year chart: a faint dashed line shows the average of that season's top 10 players in the same stat, so you can see how a player stacks up."
+    ]
+  },
+  {
+    "version": "1.2.2",
+    "build": 74,
+    "date": "2026-09-30",
+    "items": [
       "Picks now show moneyline value: our win chance vs. the books' odds (with their cut removed), the best price, and the game total (over/under).",
-      "Tick any picks and hit Copy picks to copy them as plain text for your bet slip; DraftKings chips marked ↗ open that game at the book.",
-      "Stats by year chart: lines now animate in, and hovering (or tapping) a dot shows that season's number, team and year in a pop-up box. Numbers no longer clutter the chart.",
-      "NFL team pages have two new tabs: Depth chart (starters and backups at every position, with injury tags) and Transactions (the team's recent signings, releases and injured-reserve moves).",
+      "Tick any picks and hit Copy picks to copy them as plain text for your bet slip; DraftKings chips marked ↗ open that game at the book."
+    ]
+  },
+  {
+    "version": "1.2.1",
+    "build": 73,
+    "date": "2026-09-30",
+    "items": [
+      "Stats by year chart: lines now animate in, and hovering (or tapping) a dot shows that season's number, team and year in a pop-up box. Numbers no longer clutter the chart."
+    ]
+  },
+  {
+    "version": "1.2.0",
+    "build": 71,
+    "date": "2026-09-30",
+    "items": [
+      "NFL team pages have two new tabs: Depth chart (starters and backups at every position, with injury tags) and Transactions (the team's recent signings, releases and injured-reserve moves)."
+    ]
+  },
+  {
+    "version": "1.1.0",
+    "build": 70,
+    "date": "2026-09-30",
+    "items": [
       "Retired NFL players now have a red RETIRED tag next to their name on their player page.",
       "New NFL Free Agents tab: every unsigned QB, RB, WR, TE and kicker ESPN lists as a free agent, with age, years in the league and last team. Filter by position or search by name.",
-      "Player stats by year now use a line chart with a dot for each season (hover a dot for details), which makes it easier to compare players.",
-      "NFL injury tags: players who are questionable (Q), doubtful (D), out (O) or on injured reserve (IR) now carry a small colored tag on team rosters, player pages and game previews. Hover it for the injury and expected return date.",
-      "Phones: the rankings now show every tag on each team (not just one), wrapping onto a second line when needed.",
-      "The Cupcake Bully of the Week now stands out in the rankings: its whole row is highlighted in orange.",
+      "Player stats by year now use a line chart with a dot for each season (hover a dot for details), which makes it easier to compare players."
+    ]
+  },
+  {
+    "version": "1.0.12",
+    "build": 68,
+    "date": "2026-09-30",
+    "items": [
+      "NFL injury tags: players who are questionable (Q), doubtful (D), out (O) or on injured reserve (IR) now carry a small colored tag on team rosters, player pages and game previews. Hover it for the injury and expected return date."
+    ]
+  },
+  {
+    "version": "1.0.11",
+    "build": 67,
+    "date": "2026-09-30",
+    "items": [
+      "Phones: the rankings now show every tag on each team (not just one), wrapping onto a second line when needed."
+    ]
+  },
+  {
+    "version": "1.0.10",
+    "build": 66,
+    "date": "2026-09-30",
+    "items": [
+      "The Cupcake Bully of the Week now stands out in the rankings: its whole row is highlighted in orange."
+    ]
+  },
+  {
+    "version": "1.0.9",
+    "build": 65,
+    "date": "2026-09-30",
+    "items": [
       "Player pages show every season on record, even before 1999: Jerry Rice's game log picker now runs 1985–2004. When ESPN has no game-by-game log for an older season, the page says so instead of showing an empty table.",
       "Years in the league and career totals now come from a player's real career record, not the games we have logs for: Barry Sanders shows 10 NFL seasons (1989–1998) and a Career row with his official 15,269 rushing yards. Compare's \"Career year\" now counts from each player's actual rookie season, and a year split between two teams counts as one season.",
       "Players without an ESPN headshot (Jerry Rice, Barry Sanders, Dan Marino…) now show their Wikipedia photo, checked to be the right football player. If there's no photo, you see their initials instead of a blank circle.",
-      "Fix: on phones, the score in a box score's Scoring plays list no longer splits across two lines.",
+      "Fix: on phones, the score in a box score's Scoring plays list no longer splits across two lines."
+    ]
+  },
+  {
+    "version": "1.0.8",
+    "build": 64,
+    "date": "2026-09-30",
+    "items": [
       "Stat category buttons (Passing, Defense, Interceptions and the rest) on player pages now wrap onto a second row on phones instead of running off the screen.",
-      "Cupcake of the Week is now Cupcake Bully of the Week. The badge next to a team's name now reads BULLY.",
-      "History: player game logs cover every season of a career, and the Scores page has a season picker. NFL goes back to 1999, college to 2001, with full box scores.",
-      "Search forgives typos and spelling variants: \"devonte smith\" finds DeVonta Smith, \"alabma\" finds Alabama.",
-      "Search box (top right): find any college or NFL team, current player or past NFL player. Press / to jump to it.",
-      "Fix: \"Why they're here\" no longer lists a low Bad luck score as a weakness (a low score means a team has been lucky, not unlucky).",
-      "Player compare search now finds past NFL players too (Brady, Peyton Manning, Barry Sanders, Jerry Rice…), with their college years included.",
-      "Schedule score now counts FBS opponents only (FCS games already count in Cupcake), so skipping an FCS game no longer makes a schedule look tougher than it is.",
-      "The site now refreshes itself when a new version is published, and sorting by a single column shows that column's score.",
+      "Cupcake of the Week is now Cupcake Bully of the Week. The badge next to a team's name now reads BULLY."
+    ]
+  },
+  {
+    "version": "1.0.7",
+    "build": 63,
+    "date": "2026-09-30",
+    "items": [
+      "History: player game logs cover every season of a career, and the Scores page has a season picker. NFL goes back to 1999, college to 2001, with full box scores."
+    ]
+  },
+  {
+    "version": "1.0.6",
+    "build": 62,
+    "date": "2026-09-30",
+    "items": [
+      "Search forgives typos and spelling variants: \"devonte smith\" finds DeVonta Smith, \"alabma\" finds Alabama."
+    ]
+  },
+  {
+    "version": "1.0.5",
+    "build": 61,
+    "date": "2026-09-30",
+    "items": [
+      "Search box (top right): find any college or NFL team, current player or past NFL player. Press / to jump to it."
+    ]
+  },
+  {
+    "version": "1.0.4",
+    "build": 59,
+    "date": "2026-09-30",
+    "items": [
+      "Fix: \"Why they're here\" no longer lists a low Bad luck score as a weakness (a low score means a team has been lucky, not unlucky)."
+    ]
+  },
+  {
+    "version": "1.0.3",
+    "build": 58,
+    "date": "2026-09-30",
+    "items": [
+      "Player compare search now finds past NFL players too (Brady, Peyton Manning, Barry Sanders, Jerry Rice…), with their college years included."
+    ]
+  },
+  {
+    "version": "1.0.2",
+    "build": 57,
+    "date": "2026-09-30",
+    "items": [
+      "Schedule score now counts FBS opponents only (FCS games already count in Cupcake), so skipping an FCS game no longer makes a schedule look tougher than it is."
+    ]
+  },
+  {
+    "version": "1.0.1",
+    "build": 56,
+    "date": "2026-09-30",
+    "items": [
+      "The site now refreshes itself when a new version is published, and sorting by a single column shows that column's score."
+    ]
+  },
+  {
+    "version": "1.0.0",
+    "date": "2026-09-30",
+    "items": [
       "Player pages: stats by year (with college seasons for NFL players) and a Compare tool to chart up to four players side by side, by season or by career year.",
       "Phones: game leaders now show the full stat line, including completions and touchdowns.",
       "New look: a sleek monospace \"terminal\" design, a floating Weights button (bottom right) that opens the sliders, a Breakdown toggle for the factor columns, and a phone layout with the CFB/NFL switch on the right.",
@@ -207,6 +1147,7 @@
       "NFL rankings, with starting-QB change warnings.",
       "Next week's picks compared with the sportsbooks, with a running record.",
       "College football power rankings built on schedule strength, efficiency and context, updated every Monday."
-    ]
+    ],
+    "title": "Launch day"
   }
 ]

@@ -73,8 +73,14 @@ def main():
     r = requests.post(TWEET_URL, auth=auth, timeout=60, json=body)
     if r.status_code >= 300:
         sys.exit(f"Posting failed ({r.status_code}): {r.text[:500]}")
-    print("Posted: https://x.com/i/web/status/" + r.json()["data"]["id"])
+    tid = r.json()["data"]["id"]
+    print("Posted: https://x.com/i/web/status/" + tid)
     posted.add(meta)  # the workflow commits this so the next run knows
+    try:  # the Takes page on the site; never fails the post over it
+        import feed
+        feed.add(meta, tid)
+    except Exception as e:
+        print(f"Couldn't add it to the Takes page: {e}")
 
 
 if __name__ == "__main__":

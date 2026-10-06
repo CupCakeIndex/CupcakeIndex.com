@@ -1,0 +1,849 @@
+{
+ "teams": {
+  "nfl:7": {
+   "name": "Denver Broncos",
+   "short": "Broncos",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/den.png"
+  },
+  "nfl:21": {
+   "name": "Philadelphia Eagles",
+   "short": "Eagles",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/phi.png"
+  },
+  "nfl:25": {
+   "name": "San Francisco 49ers",
+   "short": "49ers",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/sf.png"
+  },
+  "nfl:14": {
+   "name": "Los Angeles Rams",
+   "short": "Rams",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lar.png"
+  },
+  "cfb:344": {
+   "name": "Mississippi State",
+   "short": "Mississippi State",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/344.png"
+  },
+  "cfb:77": {
+   "name": "Northwestern",
+   "short": "Northwestern",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/77.png"
+  },
+  "cfb:213": {
+   "name": "Penn State",
+   "short": "Penn State",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/213.png"
+  },
+  "cfb:333": {
+   "name": "Alabama",
+   "short": "Alabama",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/333.png"
+  },
+  "cfb:221": {
+   "name": "Pittsburgh",
+   "short": "Pittsburgh",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/221.png"
+  },
+  "nfl:17": {
+   "name": "New England Patriots",
+   "short": "Patriots",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ne.png"
+  },
+  "nfl:30": {
+   "name": "Jacksonville Jaguars",
+   "short": "Jaguars",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/jax.png"
+  },
+  "cfb:61": {
+   "name": "Georgia",
+   "short": "Georgia",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/61.png"
+  },
+  "cfb:97": {
+   "name": "Louisville",
+   "short": "Louisville",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/97.png"
+  },
+  "cfb:2483": {
+   "name": "Oregon",
+   "short": "Oregon",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/2483.png"
+  },
+  "nfl:34": {
+   "name": "Houston Texans",
+   "short": "Texans",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/hou.png"
+  },
+  "nfl:11": {
+   "name": "Indianapolis Colts",
+   "short": "Colts",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ind.png"
+  },
+  "nfl:3": {
+   "name": "Chicago Bears",
+   "short": "Bears",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/chi.png"
+  },
+  "cfb:158": {
+   "name": "Nebraska",
+   "short": "Nebraska",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/158.png"
+  },
+  "cfb:68": {
+   "name": "Boise State",
+   "short": "Boise State",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/68.png"
+  },
+  "cfb:328": {
+   "name": "Utah State",
+   "short": "Utah State",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/328.png"
+  },
+  "cfb:259": {
+   "name": "Virginia Tech",
+   "short": "Virginia Tech",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/259.png"
+  },
+  "cfb:2294": {
+   "name": "Iowa",
+   "short": "Iowa",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/2294.png"
+  },
+  "nfl:18": {
+   "name": "New Orleans Saints",
+   "short": "Saints",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/no.png"
+  },
+  "cfb:2579": {
+   "name": "South Carolina",
+   "short": "South Carolina",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/2579.png"
+  },
+  "cfb:2309": {
+   "name": "Kent State",
+   "short": "Kent State",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/2309.png"
+  },
+  "nfl:26": {
+   "name": "Seattle Seahawks",
+   "short": "Seahawks",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/sea.png"
+  },
+  "cfb:183": {
+   "name": "Syracuse",
+   "short": "Syracuse",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/183.png"
+  },
+  "cfb:41": {
+   "name": "UConn",
+   "short": "UConn",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/41.png"
+  },
+  "cfb:194": {
+   "name": "Ohio State",
+   "short": "Ohio State",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/194.png"
+  },
+  "cfb:36": {
+   "name": "Colorado State",
+   "short": "Colorado State",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/36.png"
+  },
+  "cfb:204": {
+   "name": "Oregon State",
+   "short": "Oregon State",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/204.png"
+  },
+  "cfb:2226": {
+   "name": "Florida Atlantic",
+   "short": "Florida Atlantic",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/2226.png"
+  },
+  "cfb:251": {
+   "name": "Texas",
+   "short": "Texas",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/251.png"
+  },
+  "cfb:52": {
+   "name": "Florida State",
+   "short": "Florida State",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/52.png"
+  },
+  "cfb:258": {
+   "name": "Virginia",
+   "short": "Virginia",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/258.png"
+  },
+  "nfl:15": {
+   "name": "Miami Dolphins",
+   "short": "Dolphins",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/mia.png"
+  },
+  "nfl:4": {
+   "name": "Cincinnati Bengals",
+   "short": "Bengals",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/cin.png"
+  },
+  "nfl:6": {
+   "name": "Dallas Cowboys",
+   "short": "Cowboys",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/dal.png"
+  },
+  "nfl:28": {
+   "name": "Washington Commanders",
+   "short": "Commanders",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png"
+  },
+  "nfl:24": {
+   "name": "Los Angeles Chargers",
+   "short": "Chargers",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lac.png"
+  },
+  "nfl:10": {
+   "name": "Tennessee Titans",
+   "short": "Titans",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ten.png"
+  },
+  "nfl:16": {
+   "name": "Minnesota Vikings",
+   "short": "Vikings",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/min.png"
+  },
+  "nfl:29": {
+   "name": "Carolina Panthers",
+   "short": "Panthers",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500-dark/car.png"
+  },
+  "nfl:8": {
+   "name": "Detroit Lions",
+   "short": "Lions",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/det.png"
+  },
+  "cfb:2633": {
+   "name": "Tennessee",
+   "short": "Tennessee",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/2633.png"
+  },
+  "cfb:2572": {
+   "name": "Southern Miss",
+   "short": "Southern Miss",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/2572.png"
+  },
+  "cfb:2653": {
+   "name": "Troy",
+   "short": "Troy",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/2653.png"
+  }
+ },
+ "players": {
+  "nfl:16800": "Davante Adams",
+  "nfl:4832800": "Denzel Boston",
+  "nfl:4429615": "Zay Flowers",
+  "nfl:4426354": "George Pickens",
+  "nfl:3117256": "Dalton Schultz",
+  "nfl:4870653": "KC Concepcion",
+  "nfl:4241389": "CeeDee Lamb",
+  "nfl:4036133": "T.J. Hockenson",
+  "nfl:4685472": "Tetairoa McMillan"
+ },
+ "items": [
+  {
+   "id": "old-2026-10-06-45",
+   "time": "2026-10-06T12:00:45Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "tonight-2026-10-06",
+   "text": "Tonight: Southern Miss @ Troy. Our model likes Troy at 77%. Who you got?",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:2572",
+    "cfb:2653"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-06-42",
+   "time": "2026-10-06T12:00:42Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "series_week",
+   "text": "Alabama is 10-3 against Georgia since 2005. Last meeting: Dec 6, 2025: L 7-28 vs. No. 3 Georgia. Last win: Sep 27, 2025. They meet again this week.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:333",
+    "cfb:61"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-06-41",
+   "time": "2026-10-06T12:00:41Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "cfb_biggest_blowout",
+   "text": "South Carolina beat Kent State 57-0, the biggest win by any FBS team over an FBS opponent this year.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:2579",
+    "cfb:2309"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-05-40",
+   "time": "2026-10-05T12:00:40Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "hot_cfb_beaten_nobody",
+   "text": "Hot take: AP #15 Tennessee is 4-1. The teams it has beaten are a combined 5-8 +1 FCS. Contender, or a résumé made of cupcakes?",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:2633"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-05-39",
+   "time": "2026-10-05T12:00:39Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "cfb_easiest_left",
+   "text": "Hot take: #20 Boise State has the easiest road left in our top 25: its remaining opponents are a combined 14-16. Should an easy path to the playoff count against them?",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:68"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-05-38",
+   "time": "2026-10-05T12:00:38Z",
+   "date_only": true,
+   "league": "nfl",
+   "stat": "biggame:nfl:401872978:4685472",
+   "text": "Tetairoa McMillan (CAR) went off: 14 catches, 192 yards, 2 TDs in Panthers's 32-26 win over Lions.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "nfl:29",
+    "nfl:8"
+   ],
+   "players": [
+    "nfl:4685472"
+   ]
+  },
+  {
+   "id": "old-2026-10-05-37",
+   "time": "2026-10-05T12:00:37Z",
+   "date_only": true,
+   "league": "nfl",
+   "stat": "biggame:nfl:401872974:4036133",
+   "text": "T.J. Hockenson (MIN) went off: 13 catches, 119 yards, 0 TDs in Vikings's 15-10 win over Dolphins.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "nfl:15",
+    "nfl:16"
+   ],
+   "players": [
+    "nfl:4036133"
+   ]
+  },
+  {
+   "id": "old-2026-10-04-36",
+   "time": "2026-10-04T12:00:36Z",
+   "date_only": true,
+   "league": "nfl",
+   "stat": "nfl_injuries",
+   "text": "Injury report: the Commanders are the most banged-up team in the NFL, 40% healthy with 10 key players out (Daniels, Mariota, McLaurin, Amos). Next: Chargers 54%, Eagles 58%. League average 72%. Healthiest: Titans 93%.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "nfl:28",
+    "nfl:24",
+    "nfl:21",
+    "nfl:10"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-04-35",
+   "time": "2026-10-04T12:00:35Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "hot_cfb_paper_unbeaten",
+   "text": "Hot take: Nebraska is 4-0. The teams it has beaten are a combined 4-8 +1 FCS, and 3 of the wins came against cupcakes. Does a perfect record mean anything without a real test?",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:158"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-04-34",
+   "time": "2026-10-04T12:00:34Z",
+   "date_only": true,
+   "league": "nfl",
+   "stat": "biggame:nfl:401872967:4241389",
+   "text": "CeeDee Lamb (DAL) went off: 17 catches, 189 yards, 1 TD in Cowboys's 34-30 win over Texans.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "nfl:6",
+    "nfl:34"
+   ],
+   "players": [
+    "nfl:4241389"
+   ]
+  },
+  {
+   "id": "old-2026-10-04-33",
+   "time": "2026-10-04T12:00:33Z",
+   "date_only": true,
+   "league": "nfl",
+   "stat": "nfl_one_score_games",
+   "text": "📲 The Cupcake Index works like an app on your phone. Free, no download from a store. iPhone: Safari → Share → Add to Home Screen Android: Chrome → ⋮ → Add to Home screen Stat of the day: The New Orleans Saints have played 3 one-score games already and are 1-2 in them.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "nfl:18"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-04-32",
+   "time": "2026-10-04T12:00:32Z",
+   "date_only": true,
+   "league": "nfl",
+   "stat": "hot_nfl_paper_record",
+   "text": "Hot take: The Cincinnati Bengals are 2-1. The teams they've beaten are a combined 0-6. Real contender, or a soft schedule?",
+   "image": null,
+   "x": "",
+   "teams": [
+    "nfl:4"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-04-31",
+   "time": "2026-10-04T12:00:31Z",
+   "date_only": true,
+   "league": "nfl",
+   "stat": "nfl_playoff_drought",
+   "text": "The Dolphins haven't won a playoff game since Dec 30, 2000, a 23-17 win over the Indianapolis Colts in the Wild Card round. Playoff record since 1999: 2-7.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "nfl:11",
+    "nfl:15"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-04-30",
+   "time": "2026-10-04T12:00:30Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "biggame:cfb:401858253:4838679",
+   "text": "Ashton Daniels (FSU) went off: 12/19 for 183 yards, 0 TDs, 1 INT, plus 136 rushing yards and 5 rushing TDs in Florida State's 38-7 win over Virginia.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:52",
+    "cfb:258"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-04-29",
+   "time": "2026-10-04T12:00:29Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "biggame:cfb:401862790:4920163",
+   "text": "Kelby Valsin (FAU) went off: 7 catches, 126 yards, 3 TDs in Florida Atlantic's 66-10 win over Texas Southern.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:2226",
+    "cfb:251"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-04-28",
+   "time": "2026-10-04T12:00:28Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "biggame:cfb:401860899:5289510",
+   "text": "Jesse Legree (ORST) went off: 5 catches, 156 yards, 3 TDs in Oregon State's 56-26 win over Colorado State.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:36",
+    "cfb:204"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-04-27",
+   "time": "2026-10-04T12:00:27Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "biggame:cfb:401858473:5079720",
+   "text": "Jeremiah Smith (OSU) went off: 11 catches, 206 yards, 2 TDs in Ohio State's 31-14 win over Iowa.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:194",
+    "cfb:2294"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-04-26",
+   "time": "2026-10-04T12:00:26Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "biggame:cfb:401858252:4691315",
+   "text": "Umari Hatcher (SYR) went off: 12 catches, 152 yards, 3 TDs in Syracuse's 42-41 win over UConn.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:183",
+    "cfb:41"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-04-25",
+   "time": "2026-10-04T12:00:25Z",
+   "date_only": true,
+   "league": "nfl",
+   "stat": "nfl_toughest_left",
+   "text": "The Seattle Seahawks (2-1) have the NFL's toughest schedule left: their remaining opponents are a combined 25-17.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "nfl:26"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-03-24",
+   "time": "2026-10-03T12:00:24Z",
+   "date_only": true,
+   "league": "nfl",
+   "stat": "nfl_catches_no_td",
+   "text": "Dalton Schultz (HOU) has 19 catches and still no touchdown. Next: KC Concepcion 17, George Pickens 16.",
+   "image": null,
+   "x": "",
+   "teams": [],
+   "players": [
+    "nfl:4426354",
+    "nfl:3117256",
+    "nfl:4870653"
+   ]
+  },
+  {
+   "id": "old-2026-10-03-23",
+   "time": "2026-10-03T12:00:23Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "week_drought",
+   "text": "Mississippi State has lost 16 straight to Alabama. Last win: Nov 10, 2007, 17-12. Saturday: vs. No. 7 Alabama.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:344",
+    "cfb:333"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-02-20",
+   "time": "2026-10-02T12:00:20Z",
+   "date_only": true,
+   "league": "nfl",
+   "stat": "nfl_yards_per_catch",
+   "text": "Zay Flowers (BAL) is averaging 23.4 yards every time he catches the ball. Next: Denzel Boston 22.4, Davante Adams 19.9.",
+   "image": null,
+   "x": "",
+   "teams": [],
+   "players": [
+    "nfl:16800",
+    "nfl:4832800",
+    "nfl:4429615"
+   ]
+  },
+  {
+   "id": "old-2026-10-02-19",
+   "time": "2026-10-02T12:00:19Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "cfb_biggest_blowout",
+   "text": "South Carolina beat Kent State 57-0, the biggest win by any FBS team over an FBS opponent this year.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:2579",
+    "cfb:2309"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-02-16",
+   "time": "2026-10-02T12:00:16Z",
+   "date_only": true,
+   "league": "nfl",
+   "stat": "nfl_yards_per_catch",
+   "text": "Zay Flowers (BAL) is averaging 23.4 yards every time he catches the ball. Next: Denzel Boston 21.8, Davante Adams 19.9.",
+   "image": null,
+   "x": "",
+   "teams": [],
+   "players": [
+    "nfl:16800",
+    "nfl:4832800",
+    "nfl:4429615"
+   ]
+  },
+  {
+   "id": "old-2026-10-02-15",
+   "time": "2026-10-02T12:00:15Z",
+   "date_only": true,
+   "league": "nfl",
+   "stat": "nfl_easiest_left",
+   "text": "Hot take: The Jacksonville Jaguars (2-1) have the NFL's easiest schedule left: their remaining opponents are a combined 16-26. Playoff lock, or will they still find a way?",
+   "image": null,
+   "x": "",
+   "teams": [
+    "nfl:30"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-02-14",
+   "time": "2026-10-02T12:00:14Z",
+   "date_only": true,
+   "league": "nfl",
+   "stat": "nfl_one_score_games",
+   "text": "The New Orleans Saints have played 3 one-score games already and are 1-2 in them.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "nfl:18"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-02-13",
+   "time": "2026-10-02T12:00:13Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "hot_cfb_ap_overrated",
+   "text": "Hot take: Iowa (4-0) is #14 in the AP poll. We have them #36. Who's wrong, us or the voters?",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:2294"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-02-12",
+   "time": "2026-10-02T12:00:12Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "tonight-2026-10-02",
+   "text": "Weeknight football: 3 games tonight. Headliner: Penn State @ Northwestern, our model likes Northwestern at 52%. Coin flip of the night: Pittsburgh @ Virginia Tech.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:259",
+    "cfb:77",
+    "cfb:213",
+    "cfb:221"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-02-11",
+   "time": "2026-10-02T12:00:11Z",
+   "date_only": true,
+   "league": "nfl",
+   "stat": "nfl_series_week",
+   "text": "The Eagles are 12-4 against the Rams since 1999. Last meeting: Sep 21, 2025: W 33-26 vs. Los Angeles Rams. They meet again this week.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "nfl:14",
+    "nfl:21"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-02-10",
+   "time": "2026-10-02T12:00:10Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "week_drought",
+   "text": "Utah State is 0-9 at Boise State since at least 2005. Saturday: at No. 22 Boise State.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:68",
+    "cfb:328"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-02-8",
+   "time": "2026-10-02T12:00:08Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "bully_drought",
+   "text": "Nebraska has won 45 straight games against cupcakes. On the road against ranked teams, it's 0-18: its last one came Nov 12, 2011, 17-14 at No. 12 Penn State.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:213",
+    "cfb:158"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-01-7",
+   "time": "2026-10-01T12:00:07Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "Daily X post",
+   "text": "Cupcake Bully of the Week. CFB: Pittsburgh 59-0 over Bucknell (FCS). NFL: Bears 27-7 over Eagles. Congrats on the win. It's not a résumé. https://cupcakeindex.com/#/rankings?league=cfb",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:221",
+    "nfl:21",
+    "nfl:3"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-01-6",
+   "time": "2026-10-01T12:00:06Z",
+   "date_only": true,
+   "league": "nfl",
+   "stat": "nfl_easiest_left",
+   "text": "Obscure stat: The Houston Texans have the softest schedule left in the NFL (14 games to go). Next up: Jaguars -2.0, Colts -1.3.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "nfl:34",
+    "nfl:30",
+    "nfl:11"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-01-5",
+   "time": "2026-10-01T12:00:05Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "Daily X post",
+   "text": "College football power rankings, Week 4: Alabama (4-0) holds No. 1. Oregon climbs 20 to No. 9. Louisville slides 25 to No. 37. Records lie. Margins don't.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:97",
+    "cfb:333",
+    "cfb:2483"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-01-4",
+   "time": "2026-10-01T12:00:04Z",
+   "date_only": true,
+   "league": "nfl",
+   "stat": "Daily X post",
+   "text": "NFL power rankings, Week 3: 49ers (3-0) hold No. 1. Jaguars climb 11 to No. 2. Patriots slide 7 to No. 11. Records lie. Margins don't.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "nfl:17",
+    "nfl:30",
+    "nfl:25"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-01-3",
+   "time": "2026-10-01T12:00:03Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "Daily X post",
+   "text": "Most padded résumés in the top 25 after Week 4: Georgia leads with a Cupcake score of 100 (4-0, 1 FCS). Higher = more padding, and it counts against you. Bullying cupcakes isn't a résumé.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:61"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-01-2",
+   "time": "2026-10-01T12:00:02Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "Daily X post",
+   "text": "Cupcake Bully of the Week. CFB: Pittsburgh 59-0 over Bucknell (FCS). NFL: Jaguars 35-6 over Patriots. Congrats on the win. It's not a résumé.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:221",
+    "nfl:17",
+    "nfl:30"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-01-1",
+   "time": "2026-10-01T12:00:01Z",
+   "date_only": true,
+   "league": "cfb",
+   "stat": "Daily X post",
+   "text": "College football game day, Week 5. Headliner: Alabama @ Mississippi State, model likes Alabama at 70%. Coin flip of the day: Penn State @ Northwestern. No cupcakes were harmed in this graphic.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "cfb:344",
+    "cfb:77",
+    "cfb:213",
+    "cfb:333"
+   ],
+   "players": []
+  },
+  {
+   "id": "old-2026-10-01-0",
+   "time": "2026-10-01T12:00:00Z",
+   "date_only": true,
+   "league": "nfl",
+   "stat": "Daily X post",
+   "text": "NFL game day, Week 4. Headliner: Broncos @ 49ers, model likes 49ers at 60%. Coin flip of the day: Rams @ Eagles. No cupcakes were harmed in this graphic.",
+   "image": null,
+   "x": "",
+   "teams": [
+    "nfl:7",
+    "nfl:21",
+    "nfl:25",
+    "nfl:14"
+   ],
+   "players": []
+  }
+ ]
+}
