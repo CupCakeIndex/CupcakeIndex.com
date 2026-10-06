@@ -17,16 +17,20 @@ const Pickem = (() => {
   const kicked = (e) => state(e) !== "pre" || new Date(e.date) <= Date.now();
   const locked = (e) => kicked(e) || !!cur?.weekLocked;
 
-  // Saturday 11:59 PM Eastern of the week this slate starts in (EDT or EST, whichever applies that night)
-  function deadline(events) {
+  // A time Eastern (EDT or EST, whichever applies) on the given weekday (0 = Sun) on or after the slate's first game
+  function etAfter(events, dow, hhmm, strict = false) {
     if (!events.length) return null;
     const first = new Date(Math.min(...events.map((e) => +new Date(e.date))));
     const et = (d, o) => d.toLocaleString("en-US", { timeZone: "America/New_York", ...o });
-    const day = new Date(et(first)).getDay(), sat = new Date(+first + ((6 - day + 7) % 7) * 864e5);
-    const ymd = sat.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-    const probe = new Date(`${ymd}T23:59:00Z`), edt = /EDT/.test(et(probe, { timeZoneName: "short" }));
+    const day = new Date(et(first)).getDay(), n = (dow - day + 7) % 7 || (strict ? 7 : 0);
+    const ymd = new Date(+first + n * 864e5).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    const probe = new Date(`${ymd}T${hhmm}:00Z`), edt = /EDT/.test(et(probe, { timeZoneName: "short" }));
     return +probe + (edt ? 4 : 5) * 36e5;
   }
+  // Saturday 11:59 PM Eastern of the week this slate starts in
+  const deadline = (events) => etAfter(events, 6, "23:59");
+  // When next week's picks open: NFL Monday 11:59 PM Eastern, college Sunday 12:00 AM Eastern
+  const nextOpens = (lg, events) => (lg === "nfl" ? etAfter(events, 1, "23:59") : etAfter(events, 0, "00:00", true));
 
   // ---- season log: { "2:5": { w, l, mw, ml, seq: "WWL", done } } per league + season, kept in this browser
   const logKey = (lg, season) => `pickem-log-${lg}-${season}`;
@@ -79,6 +83,18 @@ const Pickem = (() => {
       return;
     }
     if (my !== K.token()) return;
+    // ESPN keeps showing last week for a day or two; once next week's picks open (and nothing is live), show next week
+    const opens = nextOpens(lg, sb.events || []);
+    if (!wk && opens && Date.now() >= opens && !(sb.events || []).some((e) => state(e) === "in")) {
+      const y = sb.season?.year, t = sb.season?.type, w = sb.week?.number;
+      const tries = t === 2 ? [[t, w + 1], [3, 1]] : [[t, w + 1]]; // after the last regular-season week comes postseason week 1
+      for (const [st, n] of tries) {
+        q.set("seasontype", st); q.set("week", n); q.set("dates", y);
+        const nx = await K.api(`${K.SITE(lg)}/scoreboard?${q}`, refresh ? 0 : 20000).catch(() => null);
+        if (nx?.events?.length && nx.week?.number === n && nx.season?.type === st) { sb = nx; break; }
+      }
+      if (my !== K.token()) return;
+    }
     const season = sb.season?.year, type = sb.season?.type, week = sb.week?.number;
 
     // the model's win chance for each game, from the rankings file made the week before
@@ -219,7 +235,7 @@ const Pickem = (() => {
       <div class="br-tools pk-tools">${toggle}<button data-act="clear"${picks.size && !weekLocked ? "" : " disabled"}>Clear picks</button>
         ${cur.mine && !weekLocked ? `<button data-act="lock" class="pk-lockbtn"${picks.size ? "" : " disabled"}>🔒 Lock in my picks</button>` : ""}${Share.menuHtml()}</div>
       ${list.length ? `<div class="pk-grid">${list.map(game).join("")}</div>` : `<p class="muted">No games this week.</p>`}
-      <p class="note">Tap a team to pick it; tap again to undo. Each game locks at kickoff, and the whole week locks Saturday at 11:59 PM Eastern (or as soon as you tap Lock in).
+      <p class="note">Tap a team to pick it; tap again to undo. Each game locks at kickoff, and the whole week locks Saturday at 11:59 PM Eastern (or as soon as you tap Lock in). Next week's games show up Sunday for college and Monday at 11:59 PM Eastern for the NFL.
         Your picks get a ✓ or ✗ when the game is final and add to your season record, which stays in this browser unless you clear its data.
         Picks are saved in this browser and in the page link, so Share › Copy Link sends your slate to a friend. "model" = our ratings' win chance for the team they favor. Just for fun.</p></div>`;
   }
