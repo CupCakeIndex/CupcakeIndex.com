@@ -1616,6 +1616,13 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 .vz-ideas { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
 .vz-idea { border: 1px solid var(--line); background: var(--bg); color: var(--ink); padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; }
 .vz-idea:hover { border-color: var(--accent); color: var(--accent); }
+.vz-presets { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 10px; margin: 0 0 14px; }
+.vz-presets > label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; flex: 1 1 260px; max-width: 420px; }
+.vz-presets select, .vz-presets input { font: inherit; font-size: 13px; text-transform: none; letter-spacing: 0; color: var(--ink); background: var(--bg); border: 1px solid var(--line); padding: 6px; }
+.vz-saveform { display: flex; gap: 6px; flex-wrap: wrap; }
+.vz-saveform.hidden { display: none; }
+.vz-presets small { flex-basis: 100%; }
+.vz-presets small:empty { display: none; }
 .vz-ctl { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-end; margin-bottom: 12px; }
 .vz-ctl > label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 .vz-ctl > label.vz-wide { flex: 1 1 220px; }

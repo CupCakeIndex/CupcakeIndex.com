@@ -98,7 +98,7 @@ TEAM_COLS_NFL = ["pts", "opp_pts", "plays", "cmp", "att", "pass_yds", "pass_td",
                  "opp_plays", "opp_pass_yds", "opp_rush_yds", "opp_epa", "opp_first_downs", "fg_made", "fg_att"]
 PLAYER_COLS = ["cmp", "att", "pass_yds", "pass_td", "int", "sacked", "carries", "rush_yds", "rush_td", "rec", "targets", "rec_yds",
                "rec_td", "tackles", "def_sacks", "tfl", "qb_hits", "pd", "def_int", "fg_made", "fg_att"]
-PLAYER_COLS_NFL = PLAYER_COLS + ["pass_epa", "rush_epa", "rec_epa", "air_yds", "yac", "ppr", "left"]  # left: 1 = gone by halftime (early_exits)
+PLAYER_COLS_NFL = PLAYER_COLS + ["pass_epa", "rush_epa", "rec_epa", "air_yds", "yac", "ppr", "snaps", "left"]  # left: 1 = gone by halftime
 
 
 def early_exits(season):
@@ -167,6 +167,24 @@ def nfl(season):
     except Exception as e:  # no play-by-play: nobody marked, the option just does nothing
         print(f"  ! play-by-play unavailable ({e}); early exits not marked")
         gone = set()
+    # snaps per player per game (nflverse snap counts, from Pro Football Reference): offense + defense snaps, and the
+    # share of his side's snaps. A regular (usually 60%+ of the snaps) who played under half of them in a game left early.
+    from statistics import median
+    ids = {r["pfr_id"]: (r.get("espn_id") or r["gsis_id"]) for r in nflverse_csv(f"{NFLV}/players/players.csv", "players.csv") if r.get("pfr_id")}
+    try:
+        sc = nflverse_csv(f"{NFLV}/snap_counts/snap_counts_{season}.csv", f"snap_counts_{season}.csv")
+    except requests.HTTPError:
+        sc = []
+    snap = {}
+    for r in sc:
+        pid = ids.get(r["pfr_player_id"])
+        if r.get("game_type") == "REG" and pid:
+            snap[(pid, int(r["week"]))] = (n(r["offense_snaps"]) + n(r["defense_snaps"]), max(n(r["offense_pct"]), n(r["defense_pct"])))
+    shares = defaultdict(list)
+    for (pid, _w), (_s, pct) in snap.items():
+        if pct > 0:
+            shares[pid].append(pct)
+    usual = {pid: median(v) for pid, v in shares.items() if len(v) >= 2}
     pmeta, prows = {}, []
     for r in pl:
         if r["season_type"] != "REG":
@@ -181,8 +199,12 @@ def nfl(season):
             continue
         pid = espn.get(r["player_id"]) or r["player_id"]
         pmeta[pid] = [r["player_display_name"], r["position"], key.get(r["team"], r["team"])]
-        prows.append([pid, int(r["week"]), key.get(r["team"], r["team"])] + vals + [1 if r["position"] == "QB" and (r["player_id"], r.get("game_id")) in gone else 0])  # QBs only: a WR not targeted after halftime may still be out there
-    print(f"  {sum(x[-1] for x in prows)} QB games where the QB was gone by halftime")
+        wk = int(r["week"])
+        snaps, pct = snap.get((pid, wk), (0, None))
+        left = (r["position"] == "QB" and (r["player_id"], r.get("game_id")) in gone) \
+            or (pct is not None and usual.get(pid, 0) >= 0.6 and pct < 0.5)  # QBs: no plays after halftime; others: a regular under half the snaps
+        prows.append([pid, wk, key.get(r["team"], r["team"])] + vals + [snaps, 1 if left else 0])
+    print(f"  {sum(x[-1] for x in prows)} player games left early (QBs by play-by-play, others by snaps); snaps for {sum(1 for x in prows if x[-2])} of {len(prows)}")
     write("nfl", season, {"teams": tmeta, "tcols": TEAM_COLS_NFL, "trows": trows, "pcols": PLAYER_COLS_NFL, "pmeta": pmeta, "prows": prows})
 
 

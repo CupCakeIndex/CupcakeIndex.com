@@ -234,14 +234,51 @@ const Viz = (() => {
   }
   const stSub = () => Live.statsSubtabs("visualize");
 
-  const IDEAS = { // one-tap starting points
-    nfl: [["Schedule vs record (the Schedules chart)", { who: "teams", type: "scatter", stat: "ci_sos", y: "win_pct", top: "50" }], ["EPA per play vs points", { who: "teams", type: "scatter", stat: "epa_play", y: "pts" }], ["Best offenses (EPA)", { who: "teams", type: "bar", stat: "epa_play" }],
-      ["Top passers (EPA per dropback)", { who: "players", type: "bar", stat: "epa_db", pos: "QB" }], ["Rushing yards by week", { who: "players", type: "line", stat: "rush_yds", pos: "RB", top: "5", cum: "1" }],
-      ["QB profiles", { who: "players", type: "radar", pos: "QB", top: "3" }]],
-    cfb: [["Schedule vs cupcakes (the Schedules chart)", { who: "teams", type: "scatter", stat: "ci_sos", y: "ci_cupcake", group: "" }], ["EPA per play vs points", { who: "teams", type: "scatter", stat: "epa_play", y: "pts" }], ["Best defenses (EPA allowed)", { who: "teams", type: "bar", stat: "def_epa_play" }],
-      ["Top passers (efficiency)", { who: "players", type: "bar", stat: "eff", pos: "QB" }], ["Rushing yards by week", { who: "players", type: "line", stat: "rush_yds", pos: "RB", top: "5", cum: "1" }],
-      ["Team profiles", { who: "teams", type: "radar", top: "3" }]],
+  // Presets: popular charts, one pick away (the Presets dropdown). People's own presets are added below these.
+  const T_ = (o) => ({ who: "teams", ...o }), P_ = (o) => ({ who: "players", ...o });
+  const PRESETS = {
+    nfl: [
+      ["Schedule vs record (the Schedules chart)", T_({ type: "scatter", stat: "ci_sos", y: "win_pct", top: "all" })],
+      ["Who's for real: EPA per play vs points", T_({ type: "scatter", stat: "epa_play", y: "pts", top: "all" })],
+      ["Best offenses (EPA per play)", T_({ type: "bar", stat: "epa_play", top: "15" })],
+      ["Best defenses (EPA per play allowed)", T_({ type: "bar", stat: "def_epa_play", top: "15" })],
+      ["Turnover margin", T_({ type: "bar", stat: "to_margin", per: "total", top: "all" })],
+      ["Team profiles (radar)", T_({ type: "radar", top: "3" })],
+      ["Top passers (EPA per dropback)", P_({ type: "bar", stat: "epa_db", pos: "QB", top: "15" })],
+      ["QB efficiency vs volume", P_({ type: "scatter", stat: "epa_db", y: "pass_yds", pos: "QB", top: "all" })],
+      ["Passing yards race", P_({ type: "line", stat: "pass_yds", pos: "QB", top: "5", cum: "1" })],
+      ["QB profiles (radar)", P_({ type: "radar", pos: "QB", top: "3" })],
+      ["Rushing yards race", P_({ type: "line", stat: "rush_yds", pos: "RB", top: "5", cum: "1" })],
+      ["Workhorse RB1s (carries per game)", P_({ type: "bar", stat: "carries", role: "RB1", top: "15" })],
+      ["Best WR1s (receiving yards per game)", P_({ type: "bar", stat: "rec_yds", role: "WR1", top: "15" })],
+      ["Best WR2s (receiving yards per game)", P_({ type: "bar", stat: "rec_yds", role: "WR2", top: "15" })],
+      ["Deep threats: yards per catch vs catch rate", P_({ type: "scatter", stat: "ypr", y: "catch_pct", pos: "WR", top: "25" })],
+      ["Yards after catch leaders", P_({ type: "bar", stat: "yac", top: "15" })],
+      ["Fantasy (PPR) leaders", P_({ type: "bar", stat: "ppr", top: "20" })],
+      ["Sack leaders", P_({ type: "bar", stat: "def_sacks", per: "total", pos: "DEF", top: "15" })],
+    ],
+    cfb: [
+      ["Schedule vs cupcakes (the Schedules chart)", T_({ type: "scatter", stat: "ci_sos", y: "ci_cupcake", top: "all" })],
+      ["Who's for real: EPA per play vs points", T_({ type: "scatter", stat: "epa_play", y: "pts", top: "50" })],
+      ["Power rating vs record (who's lucky?)", T_({ type: "scatter", stat: "ci_rating", y: "win_pct", top: "50" })],
+      ["Best offenses (EPA per play)", T_({ type: "bar", stat: "epa_play", top: "15" })],
+      ["Best defenses (EPA per play allowed)", T_({ type: "bar", stat: "def_epa_play", top: "15" })],
+      ["Success rate vs EPA (consistent or explosive?)", T_({ type: "scatter", stat: "succ", y: "epa_play", top: "50" })],
+      ["Third-down rate", T_({ type: "bar", stat: "third", top: "15" })],
+      ["Team profiles (radar)", T_({ type: "radar", top: "3" })],
+      ["Top passers (passing efficiency)", P_({ type: "bar", stat: "eff", pos: "QB", top: "15" })],
+      ["Passing yards race", P_({ type: "line", stat: "pass_yds", pos: "QB", top: "5", cum: "1" })],
+      ["QB profiles (radar)", P_({ type: "radar", pos: "QB", top: "3" })],
+      ["Rushing yards race", P_({ type: "line", stat: "rush_yds", pos: "RB", top: "5", cum: "1" })],
+      ["Best WR1s (receiving yards per game)", P_({ type: "bar", stat: "rec_yds", role: "WR1", top: "15" })],
+      ["Scrimmage yards leaders", P_({ type: "bar", stat: "scrim", top: "15" })],
+      ["Sack leaders", P_({ type: "bar", stat: "def_sacks", per: "total", pos: "DEF", top: "15" })],
+    ],
   };
+  // your own presets: localStorage "viz-presets" {nfl: [{name, st}], cfb: [...]}, synced to your account when signed in (account.js)
+  const MINE = "viz-presets";
+  const mine = () => store.get(MINE) || {};
+  const saveMine = (v) => store.set(MINE, v);
   const RADAR = { teams: ["epa_play", "def_epa_play", "ypp", "third", "giveaways", "def_sacks", "pts"], players: {
     QB: ["pass_yds", "pass_td", "cmp_pct", "ypa", "int", "epa_db", "eff", "rush_yds"], RB: ["rush_yds", "ypc", "rush_td", "rec", "rec_yds", "epa_rush"],
     WR: ["rec", "rec_yds", "rec_td", "ypr", "catch_pct", "epa_tgt", "yac"], DEF: ["tackles", "def_sacks", "tfl", "qb_hits", "pd", "def_int"], K: ["fg_made", "fg_pct"], "": ["scrim", "tds", "rec_yds", "rush_yds", "pass_yds"] } };
@@ -470,7 +507,16 @@ const Viz = (() => {
 
     el.innerHTML = stSub() + `<div class="card vz">
       <div class="sc-bar"><h2>Visualize</h2><span class="muted vz-tag">Make a chart, win the argument.</span></div>
-      <div class="vz-ideas">${IDEAS[league].map(([l], i) => `<button class="vz-idea" data-i="${i}">${esc(l)}</button>`).join("")}</div>
+      <div class="vz-presets">
+        <label>Presets<select id="vz-preset"><option value="">Pick a chart…</option>
+          <optgroup label="Popular">${PRESETS[league].map(([l], i) => `<option value="p${i}">${esc(l)}</option>`).join("")}</optgroup>
+          ${(mine()[league] || []).length ? `<optgroup label="Yours">${mine()[league].map((m, i) => `<option value="m${i}">${esc(m.name)}</option>`).join("")}</optgroup>` : ""}
+        </select></label>
+        <button class="btn" id="vz-save" type="button">Save as preset</button>
+        ${(mine()[league] || []).length ? `<button class="btn" id="vz-del" type="button" title="Delete one of your presets">Delete…</button>` : ""}
+        <span class="vz-saveform hidden" id="vz-saveform"><input id="vz-pname" maxlength="40" placeholder="Name this chart"><button class="btn tour-next" id="vz-pok" type="button">Save</button><button class="btn" id="vz-pno" type="button">Cancel</button></span>
+        <small class="muted" id="vz-pmsg"></small>
+      </div>
       <div class="vz-ctl">
         <label>Chart${seg("vz-type", [["bar", "Bar"], ["line", "Line"], ["pie", "Pie"], ["scatter", "Scatter"], ["radar", "Radar"]], st.type)}</label>
         <label>Of${seg("vz-who", [["teams", "Teams"], ["players", "Players"]], who)}</label>
@@ -483,7 +529,7 @@ const Viz = (() => {
         ${st.type === "line" && !multi ? `<label>Line${seg("vz-cum", [["", "Each week"], ["1", "Running total"]], st.cum)}</label>` : ""}
         <label>How many${sel("vz-top", [...[5, 10, 15, 20, 25, 50, 100].map((x) => [x, `Top ${x}`]), ["all", "All"]], st.top)}</label>
         ${stat[3].den && st.type !== "pie" || (st.type === "radar" && who === "players") ? `<label>Minimum <small class="muted">${esc(st.type === "radar" ? { QB: "pass attempts", RB: "carries", WR: "catches", DEF: "tackles", K: "field goal tries" }[st.pos] || "touches" : unitOf(stat))}</small><input id="vz-min" type="number" min="0" inputmode="numeric" placeholder="auto ${st.type === "radar" ? "" : autoMin(stat)}" value="${esc(st.min)}"></label>` : ""}
-        ${who === "players" && D.pcols.includes("left") ? `<div class="vz-chks"><label title="A QB who threw or ran in the first half and never again after halftime: usually hurt, sometimes rested in a blowout"><input type="checkbox" id="vz-noexit"${st.noexit ? " checked" : ""}> Leave out games a QB left by halftime</label></div>` : ""}
+        ${who === "players" && D.pcols.includes("left") ? `<div class="vz-chks"><label title="Games a player left by halftime (usually hurt, sometimes rested in a blowout). QBs: threw or ran in the first half and never after. Everyone else: a regular who played under half his side's snaps."><input type="checkbox" id="vz-noexit"${st.noexit ? " checked" : ""}> Leave out games they left by halftime</label></div>` : ""}
         ${st.type !== "radar" ? `<div class="vz-chks"><label><input type="checkbox" id="vz-logo"${st.logo !== "0" ? " checked" : ""}> Team logos</label><label><input type="checkbox" id="vz-names"${st.names !== "0" ? " checked" : ""}> ${who === "teams" ? "Team" : "Player"} names</label></div>` : ""}
       </div>
       <details class="vz-more"${st.group || st.team || st.pos || picks.length ? " open" : ""}><summary>Filters and highlights</summary><div class="vz-ctl">
@@ -567,7 +613,41 @@ const Viz = (() => {
     sugg.onclick = (e) => { const b = e.target.closest("[data-i]"); if (b) add(hits[+b.dataset.i]); };
     find.onblur = () => setTimeout(() => (sugg.hidden = true), 150);
     el.querySelector(".vz-picks").onclick = (e) => { const b = e.target.closest("[data-k]"); if (b) { st.pick = picks.filter((k) => k !== b.dataset.k).join(","); redo(); } };
-    el.querySelector(".vz-ideas").onclick = (e) => { const b = e.target.closest("[data-i]"); if (!b) return; st = { ...DEF, from: st.from, to: st.to, ...IDEAS[league][+b.dataset.i][1] }; reload(); };
+    // presets: pick one (popular or yours), save the current chart as yours, or delete one of yours
+    const pick = document.getElementById("vz-preset");
+    pick.onchange = () => {
+      const v = pick.value;
+      if (!v) return;
+      const chosen = v[0] === "p" ? PRESETS[league][+v.slice(1)]?.[1] : (mine()[league] || [])[+v.slice(1)]?.st;
+      if (chosen) { st = { ...DEF, from: st.from, to: st.to, ...chosen }; reload(); }
+    };
+    const form = document.getElementById("vz-saveform"), msg = document.getElementById("vz-pmsg"), nm = document.getElementById("vz-pname");
+    document.getElementById("vz-save").onclick = () => { form.classList.remove("hidden"); nm.value = title.slice(0, 40); nm.focus(); nm.select(); };
+    document.getElementById("vz-pno").onclick = () => form.classList.add("hidden");
+    const doSave = () => {
+      const name = nm.value.trim();
+      if (!name) return nm.focus();
+      const all = mine(), list = (all[league] || []).filter((m) => m.name !== name); // same name: replace it
+      const keep = Object.fromEntries(Object.entries(st).filter(([k, v]) => v !== "" && v !== DEF[k] && k !== "from" && k !== "to"));
+      list.unshift({ name, st: keep });
+      all[league] = list.slice(0, 30);
+      saveMine(all);
+      const signed = typeof Account !== "undefined" && Account.user();
+      redo();
+      const m = document.getElementById("vz-pmsg");
+      if (m) m.textContent = signed ? `Saved “${name}” to your account.` : `Saved “${name}” on this device. Sign in (Settings) to keep it on every device.`;
+    };
+    document.getElementById("vz-pok").onclick = doSave;
+    nm.onkeydown = (e) => { if (e.key === "Enter") doSave(); else if (e.key === "Escape") form.classList.add("hidden"); };
+    const del = document.getElementById("vz-del");
+    if (del) del.onclick = () => {
+      const list = mine()[league] || [];
+      const which = window.prompt(`Delete which preset? Type its name:\n${list.map((m) => "• " + m.name).join("\n")}`);
+      if (!which) return;
+      const all = mine(), left = list.filter((m) => m.name.toLowerCase() !== which.trim().toLowerCase());
+      if (left.length === list.length) { msg.textContent = `No preset called “${which}”.`; return; }
+      all[league] = left; saveMine(all); redo();
+    };
     document.getElementById("vz-reset").onclick = () => { st = { ...DEF }; reload(); };
     document.getElementById("vz-png").onclick = () => picture().then((c) => { if (typeof Stats !== "undefined") Stats.count("downloads"); const a = document.createElement("a"); a.href = c.toDataURL("image/png"); a.download = `cupcake-index-${st.stat}.png`; a.click(); });
     document.getElementById("vz-link").onclick = (e) => { navigator.clipboard?.writeText(location.href).then(() => { e.target.textContent = "Link copied"; setTimeout(() => (e.target.textContent = "Copy link"), 1500); }); };
@@ -592,7 +672,7 @@ const Viz = (() => {
         st.type === "bar" && `${st.order === "worst" ? "Worst" : "Top"} ${top}`,
         (st.type === "line" || st.type === "radar" || st.type === "pie") && !picks.length && `Top ${top}`,
         picks.length && `Highlighted: ${picks.map(name).join(", ")}`,
-        st.noexit && "QB games left by halftime left out",
+        st.noexit && "games left by halftime left out",
         st.type === "line" && st.cum && "running total",
       ].filter(Boolean);
       return `Filters: ${parts.join(" · ")}. Data: ${league === "nfl" ? "nflverse play-by-play" : "CollegeFootballData.com"}.`;
