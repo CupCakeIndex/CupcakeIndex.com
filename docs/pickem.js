@@ -36,6 +36,18 @@ const Pickem = (() => {
   const logKey = (lg, season) => `pickem-log-${lg}-${season}`;
   const readLog = (lg, season) => { try { return JSON.parse(store.get(logKey(lg, season)) || "{}") || {}; } catch (e) { return {}; } };
   const writeLog = (lg, season, log) => store.set(logKey(lg, season), JSON.stringify(log));
+  // Perfect Pick'em badge: every game on the week's slate picked, locked in before the deadline, and all of them right.
+  // Kept in localStorage "pickem-badges" ([{lg, season, wk}]), which syncs to your account like your picks (account.js).
+  const badges = () => { try { return JSON.parse(store.get("pickem-badges") || "[]") || []; } catch (e) { return []; } };
+  function checkPerfect(lg, season, type, week, key, events, picks, g) {
+    const lockedAt = +store.get(`${key}-lock`) || 0, slateN = +store.get(`${key}-slate`) || 0, due = deadline(events);
+    if (!g.done || g.l || !lockedAt || !slateN || (due && lockedAt > due) || g.w < slateN || picks.size < slateN) return;
+    const list = badges(), wk = `${type}:${week}`;
+    if (list.some((b) => b.lg === lg && b.season === +season && b.wk === wk)) return;
+    list.push({ lg, season: +season, wk, n: g.w });
+    store.set("pickem-badges", JSON.stringify(list));
+    setTimeout(() => alert(`🏅 Perfect Pick'em! You went ${g.w}-0 this week. The badge (and a gold frame on your picture) is yours for good.`), 300);
+  }
   // grade one week's stored picks: your record, the model's record on the same games, and the W/L sequence by kickoff
   function gradeWeek(events, picks, preds) {
     let w = 0, l = 0, mw = 0, ml = 0, seq = "", pending = 0;
@@ -133,6 +145,7 @@ const Pickem = (() => {
     const { lg, season, type, week, events, picks, preds } = cur;
     const log = readLog(lg, season), g = gradeWeek(events, picks, preds);
     if (g.w + g.l || log[`${type}:${week}`]) { log[`${type}:${week}`] = g; writeLog(lg, season, log); }
+    checkPerfect(lg, season, type, week, cur.key, events, picks, g);
   }
 
   // Earlier weeks with saved picks whose games weren't all final last time: fetch that week's scoreboard and grade it
@@ -157,6 +170,7 @@ const Pickem = (() => {
         }
         const g = gradeWeek(sb.events || [], picks, preds);
         if (g.w + g.l) { log[`${t}:${w}`] = g; writeLog(lg, season, log); }
+        checkPerfect(lg, season, t, w, k, sb.events || [], picks, g);
       } catch (e) { /* ESPN hiccup: try again next visit */ }
     }
     if (todo.length) Leaderboard.publish(lg, season, readLog(lg, season));
@@ -166,11 +180,14 @@ const Pickem = (() => {
   // Your season so far, from the log: record, win %, week-by-week, best week, streak, vs. our model
   function seasonPanel() {
     const { lg, season, type, week } = cur, log = readLog(lg, season);
+    const wkName0 = (k) => { const [t, w] = k.split(":"); return t === "3" ? (lg === "nfl" ? `Playoffs ${w}` : "Bowls") : `Wk ${w}`; };
+    const mine = badges().filter((b) => b.lg === lg && b.season === +season);
+    const badgeHtml = mine.length ? `<div class="pk-badges">${mine.map((b) => `<span class="pk-badge" title="Every game picked, locked in on time, all right">🏅 Perfect Pick'em · ${esc(wkName0(b.wk))} (${b.n}-0)</span>`).join("")}</div>` : "";
     const weeks = Object.entries(log).filter(([, g]) => g.w + g.l).sort(([a], [b]) => {
       const [ta, wa] = a.split(":").map(Number), [tb, wb] = b.split(":").map(Number);
       return ta - tb || wa - wb;
     });
-    if (!weeks.length) return `<div class="pk-season muted">Your season record shows up here once your first picked game is final. It's kept in this browser.</div>`;
+    if (!weeks.length) return badgeHtml + `<div class="pk-season muted">Your season record shows up here once your first picked game is final. It's kept in this browser.</div>`;
     const W = weeks.reduce((n, [, g]) => n + g.w, 0), L = weeks.reduce((n, [, g]) => n + g.l, 0);
     const MW = weeks.reduce((n, [, g]) => n + g.mw, 0), ML = weeks.reduce((n, [, g]) => n + g.ml, 0);
     const seq = weeks.map(([, g]) => g.seq || "").join(""), streakChar = seq.at(-1);
@@ -180,6 +197,7 @@ const Pickem = (() => {
     const pct = (w, l) => (w + l ? Math.round((100 * w) / (w + l)) : 0);
     const beatModel = MW + ML ? (W > MW ? "you're ahead of our model" : W < MW ? "our model is ahead of you" : "dead even with our model") : "";
     return `<div class="pk-season">
+      ${badgeHtml}
       <div class="pk-big"><b>${W}-${L}</b><small>your ${season} season · ${pct(W, L)}%</small></div>
       <div class="pk-facts">
         ${streak > 1 ? `<span><b>${streak}</b> ${streakChar === "W" ? "right" : "wrong"} in a row</span>` : ""}
@@ -241,6 +259,7 @@ const Pickem = (() => {
       ${list.length ? `<div class="pk-grid">${list.map(game).join("")}</div>` : `<p class="muted">No games this week.</p>`}
       <p class="note">Tap a team to pick it; tap again to undo. Each game locks at kickoff, and the whole week locks Saturday at 11:59 PM Eastern (or as soon as you tap Lock in). Next week's games show up Sunday for college and Monday at 11:59 PM Eastern for the NFL.
         Your picks get a ✓ or ✗ when the game is final and add to your season record, which stays in this browser unless you clear its data.
+        Pick every game, lock in before the deadline and get them all right for the permanent 🏅 Perfect Pick'em badge.
         Picks are saved in this browser and in the page link, so Share › Copy Link sends your slate to a friend. "model" = our ratings' win chance for the team they favor. Just for fun.</p></div>`;
   }
 
@@ -269,6 +288,7 @@ const Pickem = (() => {
       if (e.target.closest('[data-act="lock"]')) {
         if (!confirm("Lock in your picks for this week? You won't be able to change them.")) return;
         store.set(`${cur.key}-lock`, String(Date.now()));
+        store.set(`${cur.key}-slate`, String(slate().length)); // how many games were on the slate (Perfect Pick'em needs them all)
         cur.lockedAt = Date.now(); cur.weekLocked = true;
         return draw();
       }

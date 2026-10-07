@@ -39,10 +39,13 @@ const Leaderboard = (() => {
     const best = weeks.filter(([, g]) => g.done).sort(([, a], [, b]) => b.w / (b.w + b.l) - a.w / (a.w + a.l) || b.w - a.w)[0];
     return { w, l, weeks: weeks.length, best: best ? `${best[1].w}-${best[1].l}` : "" };
   }
+  function perfect(lg, season) { // Perfect Pick'em weeks this season (pickem.js)
+    try { return (JSON.parse(store.get("pickem-badges") || "[]") || []).filter((b) => b.lg === lg && b.season === +season).length; } catch { return 0; }
+  }
   async function publish(lg, season, log) {
     const u = user(), n = mine();
     if (!u || !n) return;
-    const s = summary(log), id = `${lg}-${season}-${u.uid}`, sig = JSON.stringify([n.name, s]);
+    const s = { ...summary(log), perfect: perfect(lg, season) }, id = `${lg}-${season}-${u.uid}`, sig = JSON.stringify([n.name, s]);
     if (!s.w && !s.l) return;
     try { if (localStorage.getItem("lb-pub-" + id) === sig) return; } catch {}
     try {
@@ -81,7 +84,7 @@ const Leaderboard = (() => {
     const body = rows.slice(0, 200).map((r, i) => {
       if (!prev || prev.w !== r.w || prev.l !== r.l) rank = i + 1; // ties share a rank
       prev = r;
-      return `<tr class="${me && r.uid === me.uid ? "lb-me" : ""}"><td class="num">${rank}</td><td><b>${esc(r.name)}</b></td>
+      return `<tr class="${me && r.uid === me.uid ? "lb-me" : ""}"><td class="num">${rank}</td><td><b>${esc(r.name)}</b>${r.perfect ? ` <span class="lb-perfect" title="Perfect Pick'em: every game right in ${r.perfect} week${r.perfect > 1 ? "s" : ""}">🏅${r.perfect > 1 ? "×" + r.perfect : ""}</span>` : ""}</td>
         <td class="num">${r.w}-${r.l}</td><td class="num">${pct(r)}%</td><td class="num">${esc(r.best || "–")}</td><td class="num">${r.weeks}</td></tr>`;
     }).join("");
     const join = !Account.enabled() ? "" : !me ? `<p class="note">Sign in (Settings) and pick a leaderboard name to join.</p>`
@@ -91,7 +94,7 @@ const Leaderboard = (() => {
       ${join}
       ${rows.length ? `<div class="table-wrap"><table class="box lb-tbl"><thead><tr><th class="num">#</th><th>Name</th><th class="num">Record</th><th class="num">Win %</th><th class="num">Best week</th><th class="num">Weeks</th></tr></thead><tbody>${body}</tbody></table></div>`
         : `<p class="muted">Nobody's on the board yet. Make your picks, pick a leaderboard name in Settings, and you'll show up once your first game is final.</p>`}
-      <p class="note">Ranked by games picked right, then fewest wrong. Records update when each player opens Pick'em. Just for fun.</p></div>`;
+      <p class="note">🏅 = Perfect Pick'em: every game picked, locked in on time, all right. Ranked by games picked right, then fewest wrong. Records update when each player opens Pick'em. Just for fun.</p></div>`;
   }
 
   // -------- Settings section

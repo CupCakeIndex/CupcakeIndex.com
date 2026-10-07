@@ -121,14 +121,18 @@ const Account = (() => {
     "auth/unauthorized-domain": "This web address isn't allowed to sign in yet (Firebase > Authentication > Settings > Authorized domains).",
     "permission-denied": "The account database refused the save (check the Firestore rules)." }[e?.code] || `Something went wrong (${e?.code || e?.message || e}).`);
   // signed in: your Google photo (or initial) on the gear button, so it's obvious from every page
+  const perfects = () => { // Perfect Pick'em weeks (pickem.js stores the list as a JSON string, like its season log)
+    try { let v = JSON.parse(localStorage.getItem("pickem-badges") || "null"); if (typeof v === "string") v = JSON.parse(v); return Array.isArray(v) ? v.length : 0; } catch (e) { return 0; }
+  };
   function badge() {
     const g = document.getElementById("gear");
     if (!g) return;
     g.classList.toggle("signed-in", !!user);
     g.querySelector(".gear-me")?.remove();
+    const gold = perfects() ? " gold" : ""; // Perfect Pick'em badge (pickem.js)
     if (user) g.insertAdjacentHTML("beforeend", user.photoURL
-      ? `<img class="gear-me" src="${esc(user.photoURL)}" alt="" referrerpolicy="no-referrer">`
-      : `<span class="gear-me">${esc((user.displayName || "?")[0])}</span>`);
+      ? `<img class="gear-me${gold}" src="${esc(user.photoURL)}" alt="" referrerpolicy="no-referrer">`
+      : `<span class="gear-me${gold}">${esc((user.displayName || "?")[0])}</span>`);
     g.title = user ? `Settings · signed in as ${user.displayName || user.email || "you"}` : "Settings: dark/light mode and theme";
   }
   function toast(msg) {
@@ -145,9 +149,10 @@ const Account = (() => {
   function section() {
     if (!enabled()) return "";
     start();
-    const pic = user?.photoURL ? `<img src="${esc(user.photoURL)}" alt="" width="40" height="40" referrerpolicy="no-referrer">` : "";
+    const np = perfects();
+    const pic = user?.photoURL ? `<img src="${esc(user.photoURL)}" alt="" width="40" height="40" referrerpolicy="no-referrer"${np ? ` class="gold" title="Perfect Pick'em"` : ""}>` : "";
     return `<h3>Account</h3>
-      ${user ? `<div class="acct-me">${pic}<div><b>Signed in as ${esc(user.displayName || user.email || "you")}</b>
+      ${user ? `<div class="acct-me">${pic}<div><b>Signed in as ${esc(user.displayName || user.email || "you")}</b>${np ? `<span class="pk-badge acct-badge">🏅 Perfect Pick'em${np > 1 ? " ×" + np : ""}</span>` : ""}
           <small>Your Pick'em picks and record, the daily game and your fantasy team are saved to your account and show up on any device you sign in on.</small></div></div>
         <div class="acct-btns"><button type="button" class="boxbtn" id="acct-switch">Switch account</button><button type="button" class="boxbtn" id="acct-out">Sign out</button>
           <button type="button" class="boxbtn danger" id="acct-del">Delete my account</button></div>

@@ -1669,6 +1669,12 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
   .vz-frame { padding: 8px; }
   .vz-reset { margin-left: 0; }
 }
+/* Perfect Pick'em badge (pickem.js): a gold frame on your picture and a badge */
+.gear .gear-me.gold, .acct-me img.gold { border-color: #f5c542; box-shadow: 0 0 0 2px #f5c542, 0 0 10px rgba(245, 197, 66, .6); }
+.pk-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.pk-badge { display: inline-block; border: 1px solid #f5c542; color: #f5c542; background: rgba(245, 197, 66, .1); padding: 2px 8px; font-size: 12px; font-weight: 700; }
+.acct-badge { display: table; margin: 4px 0; }
+.lb-perfect { font-size: 13px; }
 /* Pick'em leaderboard + leaderboard name (leaderboard.js) */
 .lb-tbl { max-width: 640px; }
 .lb-tbl tr.lb-me td { background: var(--accent-soft); color: var(--accent); }
