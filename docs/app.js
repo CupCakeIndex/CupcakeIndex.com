@@ -22,9 +22,9 @@ const BASE_PRESETS = {
 const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", recent: "FORM", cupcake: "CUP", luck: "UNLK" };
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
 const RANK_VIEWS = new Set(["rankings", "schedules", "resume"]);
-const VIEWS = new Set(["rankings", "picks", "schedules", "resume", "shame", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily", "fantasy", "news", "takes", "admin", "games", "settings", "privacy"]);
+const VIEWS = new Set(["rankings", "picks", "schedules", "resume", "shame", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily", "fantasy", "news", "takes", "admin", "breakdown", "games", "settings", "privacy"]);
 // Sub-pages that light up a parent tab in the nav (the Daily player game lives under Games)
-const NAV_PARENT = { daily: "games" };
+const NAV_PARENT = { daily: "games", breakdown: "rankings" };
 
 // ------------------------------------------------------------------ forgiving name search
 // Lowercase, strip accents/punctuation ("D.J." -> "dj", "Smith-Njigba" -> "smith njigba"), drop jr/sr/ii/iii.
@@ -170,6 +170,9 @@ async function route() {
     Takes.render(r.params);
   } else if (r.view === "admin") {
     Admin.render();
+  } else if (r.view === "breakdown") {
+    await loadWeek(); // the rankings data (this week, your weights)
+    Breakdown.render(r.arg);
   } else if (Live[r.view]) {
     Live[r.view](r.arg, r.params);
   }
@@ -222,7 +225,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "218"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "219"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -925,7 +928,7 @@ function openTeam(name) {
   const bench = nfl ? "top-8 NFL team" : "top-25 team";
   $("#drawer-body").innerHTML = `
     <div class="d-head">${logo(t)}<div><h2>#${t.rank} ${esc(t.team)}</h2><span class="muted">${esc(t.conference || "")} · ${esc(t.record)}${t.ap_rank ? " · AP #" + esc(t.ap_rank) : ""}</span>
-      <div><a id="team-page-link" class="boxlink" href="#">Roster, schedule &amp; stats →</a></div></div></div>
+      <div><a id="team-page-link" class="boxlink" href="#">Roster, schedule &amp; stats →</a> <a class="boxlink" href="${link("breakdown", t.team)}">Full breakdown →</a></div></div></div>
     ${why.length ? `<div class="why"><b>Why they're here</b><ul>${why.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
     <div class="stats">
       <div class="stat wide-stat"><small>Best win</small><b>${esc(bestWinText(bestWin(t)))}</b></div>

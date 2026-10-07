@@ -3498,7 +3498,7 @@ const Live = (() => {
           <div><small>Points / game</small><b>${perGame((m) => m)}</b></div>
           <div><small>Allowed / game</small><b>${perGame((m, o) => o)}</b></div>
           ${ours ? `<div><small>Power rating</small><b>${ours.rating > 0 ? "+" : ""}${ours.rating.toFixed(1)}</b></div>` : ""}
-          ${ours ? `<div><small>Why #${ours.rank}?</small><a class="boxlink" href="${link("rankings", null, { team: ours.team })}">See the breakdown →</a></div>` : ""}
+          ${ours ? `<div><small>Why #${ours.rank}?</small><a class="boxlink" href="${link("breakdown", ours.team)}">See the breakdown →</a></div>` : ""}
         </div>
       </div>
       <div class="th-grid">
