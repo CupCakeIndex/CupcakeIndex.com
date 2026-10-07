@@ -22,7 +22,8 @@ self.addEventListener("notificationclick", (e) => {
     const open = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     const tab = open.find((c) => c.url.startsWith(self.registration.scope) && !c.url.includes("/pc"));
     if (tab) {
-      try { await tab.focus(); await tab.navigate(url); return; } catch (_) { /* fall through: open a new one */ }
+      // tell the open app where to go: iPhone home-screen apps don't support tab.navigate()
+      try { await tab.focus(); tab.postMessage({ type: "open", url }); return; } catch (_) { /* fall through: open a new one */ }
     }
     await self.clients.openWindow(url);
   })());

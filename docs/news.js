@@ -76,7 +76,10 @@ const News = (() => {
       el.innerHTML = `<div class="card">Couldn't load the news (${esc(e.message)}). Try again in a minute.</div>`;
       return;
     }
-    const pool = D.items.filter((it) => inLeague(it, lg));
+    // opened from a breaking-news alert: that story goes first, highlighted (it may be older than the filters show)
+    const story = params.get("story"), pinned = story && D.items.find((it) => it.url.split("?")[0] === story);
+    const pool = D.items.filter((it) => inLeague(it, lg) && it !== pinned);
+    if (pinned) pool.unshift(pinned);
     const sources = [...new Set(pool.map((it) => it.source))].sort();
     if (st.source && !sources.includes(st.source)) st.source = "";
     const lgBtn = (v, label) => `<a class="nw-lg${v === lg ? " on" : ""}" href="#/news?league=${v === "all" ? league : v}${v === "all" ? "&all=1" : ""}">${label}</a>`;
@@ -103,7 +106,7 @@ const News = (() => {
       const rows = pool.filter((it) => (!st.source || it.source === st.source)
         && (!q || it.teams.some((k) => teamName(k).toLowerCase().includes(q)) || it.title.toLowerCase().includes(q)));
       $("#nw-count").textContent = `${rows.length} headline${rows.length === 1 ? "" : "s"}`;
-      $("#nw-list").innerHTML = rows.slice(0, st.shown).map((it) => card(it)).join("")
+      $("#nw-list").innerHTML = rows.slice(0, st.shown).map((it) => it === pinned ? `<div class="nw-pin"><span>From your alert</span>${card(it)}</div>` : card(it)).join("")
         + (rows.length > st.shown ? `<button class="btn nw-more" id="nw-more">Show more</button>` : "")
         || `<p class="muted">No headlines match.</p>`;
     };
