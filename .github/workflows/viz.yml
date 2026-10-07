@@ -42,11 +42,14 @@ jobs:
           CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
           LEAGUE: ${{ inputs.league || 'all' }}
         run: python src/viz_data.py --league "$LEAGUE"
+      - name: Build the deep cuts (Stats > Deep cuts, NFL)
+        if: ${{ (inputs.league || 'all') != 'cfb' }}
+        run: python src/deep_stats.py
       - name: Publish
         run: |
           git config user.name "rankings-bot"
           git config user.email "rankings-bot@users.noreply.github.com"
-          git add docs/data/viz
+          git add docs/data/viz docs/data/deep
           git diff --cached --quiet && echo "No changes" && exit 0
           git commit -m "Visualize data $(date -u +%Y-%m-%dT%H:%MZ)"
           for try in 1 2 3; do git pull --rebase -q && git push -q && exit 0; sleep 10; done

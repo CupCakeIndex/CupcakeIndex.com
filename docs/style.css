@@ -2145,3 +2145,13 @@ table.roster th.sortable.on a { color: var(--accent); }
 
 /* Settings > Alerts (push.js) */
 .push-topics { display: grid; gap: 8px; margin: 4px 0 12px; }
+
+/* Stats > Deep cuts (deep.js) */
+.dp-rk { color: var(--accent); font-weight: 800; }
+.dp #dp-picks { margin-bottom: 10px; }
+.dp .vz-ctl select { max-width: 100%; }
+@media (max-width: 600px) {
+  .dp #dp-picks { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+  .dp #dp-picks button { flex: none; }
+  .dp .vz-ctl > label.vz-wide { flex-basis: 100%; min-width: 0; }
+}
