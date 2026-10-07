@@ -3208,10 +3208,7 @@ const Live = (() => {
             ["Boldest call", o.picked[0] ? `${chancePct(o.picked[0].p)} ${ab(o.picked[0].w)} over ${ab(o.picked[0].l)}` : "–"]],
           foot: `Our power ratings + ${SIM_N.toLocaleString("en-US")} season sims. For fun.`,
         });
-        const url = URL.createObjectURL(blob), a = document.createElement("a");
-        if ("download" in a) { a.href = url; a.download = `cupcake-index-${lg}-bracket-${season}.png`; document.body.appendChild(a); a.click(); a.remove(); }
-        else window.open(url, "_blank"); // no download support: show the picture in a new tab (press and hold to save)
-        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        await Share.download(blob, `cupcake-index-${lg}-bracket-${season}.png`); // phones: the share sheet; computers: a download
         btn.textContent = was; menu(false);
       } catch { btn.textContent = "Couldn't draw it"; setTimeout(() => (btn.textContent = was), 2000); }
     };

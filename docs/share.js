@@ -49,7 +49,14 @@ const Share = (() => {
     catch { return blob(draw(false)); } // a logo without CORS "taints" the canvas so it can't export: redraw without logos
   }
 
-  function download(blob, name) {
+  // phones and tablets (touch, with the share sheet): pictures go to the share sheet (Save Image, Messages, X...)
+  // instead of a download, which doesn't work well in the home-screen app (Terry, Oct 6)
+  const phone = () => matchMedia("(pointer: coarse)").matches && typeof navigator.canShare === "function";
+  async function download(blob, name) {
+    if (phone()) {
+      const f = new File([blob], name, { type: blob.type || "image/png" });
+      if (navigator.canShare({ files: [f] })) { try { await navigator.share({ files: [f] }); } catch (e) { /* closed the sheet */ } return; }
+    }
     const url = URL.createObjectURL(blob), a = document.createElement("a");
     if ("download" in a) { a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
     else window.open(url, "_blank"); // no download support: show the picture in a new tab (press and hold to save)
@@ -65,7 +72,7 @@ const Share = (() => {
   }
 
   const menuHtml = () => `<span class="share"><button data-act="share" aria-haspopup="menu" aria-expanded="false">Share ▾</button>
-    <span class="share-menu" role="menu" hidden><button data-act="copy" role="menuitem">Copy Link</button><button data-act="img" role="menuitem">Save Image</button></span></span>`;
+    <span class="share-menu" role="menu" hidden><button data-act="copy" role="menuitem">Copy Link</button><button data-act="img" role="menuitem">${phone() ? "Share Image" : "Save Image"}</button></span></span>`;
 
   // Wire the menu inside root (root's content may be redrawn; lookups happen on each click).
   // image() returns { blob, name } or throws an Error whose message is shown on the button.
@@ -99,5 +106,5 @@ const Share = (() => {
     return menu;
   }
 
-  return { W, H, C, F, loadImg, png, download, copy, menuHtml, wire };
+  return { W, H, C, F, loadImg, png, download, copy, menuHtml, wire, phone };
 })();
