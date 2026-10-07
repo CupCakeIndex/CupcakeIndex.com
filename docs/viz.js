@@ -417,7 +417,12 @@ const Viz = (() => {
       const axes = custom.map((k) => all.find((s) => s[0] === k)).filter(Boolean).slice(0, 8);
       const lead = rank(axes[0], qualify(axes[0]));
       const sers = (picks.length ? picks.filter((k) => agg[k]) : lead.slice(0, Math.min(top, 4))).slice(0, 5);
-      const pctile = (s, k) => { const q = qualify(s), v = val(s, k); if (v == null) return null; const vals = q.map((x) => val(s, x)).filter((x) => x != null);
+      // compare against real workloads only (a backup with 5 throws and 0 picks isn't the bar for interceptions)
+      const VOL = { QB: (S) => S.att, RB: (S) => S.carries, WR: (S) => S.rec, DEF: (S) => S.tackles, K: (S) => S.fg_att };
+      const vol = who === "players" ? VOL[st.pos] || ((S) => S.att + S.carries + S.rec + S.tackles) : null;
+      const most = vol ? Math.max(...keys.map((x) => vol(agg[x].S) || 0)) : 0;
+      const regulars = vol ? keys.filter((x) => picks.includes(x) || (vol(agg[x].S) || 0) >= most * 0.35) : keys;
+      const pctile = (s, k) => { const q = qualify(s).filter((x) => regulars.includes(x)), v = val(s, k); if (v == null) return null; const vals = q.map((x) => val(s, x)).filter((x) => x != null);
         const below = vals.filter((x) => (s[3].low ? x > v : x < v)).length; return Math.round((100 * below) / Math.max(1, vals.length - 1)); };
       title = `${who === "teams" ? "Team" : "Player"} profiles (percentile among ${who}${st.pos ? ` at ${st.pos}` : ""})`;
       cfg = { type: "radar", data: { labels: axes.map((s) => s[1].replace(/ \(.+\)/, "")), datasets: sers.map((k, i) => ({ label: short(k), data: axes.map((s) => pctile(s, k)),
