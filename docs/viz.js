@@ -400,7 +400,7 @@ const Viz = (() => {
         <label>${league === "nfl" ? "Division" : "Conference"}${sel("vz-group", [["", "All"], ...confs.map((c) => [c, c])], st.group)}</label>
         ${who === "players" ? `<label>Team${sel("vz-team", [["", "All teams"], ...Object.entries(D.teams).sort((a, b) => a[1][0].localeCompare(b[1][0])).map(([k, t]) => [k, t[0]])], st.team)}</label>
           <label>Position${sel("vz-pos", [["", "All"], ["QB", "QB"], ["RB", "RB"], ["WR", "WR / TE"], ["K", "Kicker"], ["DEF", "Defense"]], st.pos)}</label>` : ""}
-        <label class="vz-wide">Highlight / compare<input id="vz-find" list="vz-names" placeholder="Type a ${who === "teams" ? "team" : "player"}…" autocomplete="off"><datalist id="vz-names">${Object.keys(agg).filter(ok).slice(0, 4000).map((k) => `<option value="${esc(name(k))}${who === "players" ? ` (${esc(tm(teamOf(k))[1])})` : ""}">`).join("")}</datalist></label>
+        <label class="vz-wide vz-findwrap">Highlight / compare<input id="vz-find" placeholder="Type a ${who === "teams" ? "team" : "player"}…" autocomplete="off" spellcheck="false"><div class="vz-sugg" id="vz-sugg" hidden></div></label>
         <div class="vz-picks">${picks.map((k) => `<button data-k="${esc(k)}" title="Remove">${esc(name(k))} ×</button>`).join("")}</div>
       </div></details>
       <div class="vz-frame" id="vz-frame"><div class="vz-title"><b>${esc(title)}</b><small>${esc(sub)}</small></div>
@@ -438,12 +438,36 @@ const Viz = (() => {
       st.radar = v.join(","); redo();
       document.querySelector(".vz-rstats")?.setAttribute("open", "");
     };
-    const find = document.getElementById("vz-find");
-    find.onchange = () => {
-      const t = find.value.replace(/ \([^)]*\)$/, "").toLowerCase();
-      const k = Object.keys(agg).filter(ok).find((x) => name(x).toLowerCase() === t) || Object.keys(agg).filter(ok).find((x) => name(x).toLowerCase().includes(t));
-      if (k && !picks.includes(k)) { st.pick = [...picks, k].slice(-6).join(","); redo(); }
+    // search every team/player in the data (not just the first few thousand): best name match first, then the bigger stat line
+    const find = document.getElementById("vz-find"), sugg = document.getElementById("vz-sugg");
+    const norm = (x) => x.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[.'’-]/g, "").toLowerCase();
+    const pool = Object.keys(agg).filter(ok).map((k) => [k, norm(name(k)), agg[k].S]);
+    const size = (S) => who === "teams" ? 0 : (S.pass_yds || 0) + (S.rush_yds || 0) + (S.rec_yds || 0) + 10 * (S.tackles || 0) + 30 * (S.fg_made || 0);
+    let hits = [], cur = -1;
+    const add = (k) => { if (k && !picks.includes(k)) { st.pick = [...picks, k].slice(-6).join(","); redo(); } };
+    const show = () => {
+      const q = norm(find.value.trim());
+      if (q.length < 2) { sugg.hidden = true; hits = []; return; }
+      const words = q.split(/\s+/);
+      hits = pool.filter(([, n]) => words.every((w) => n.includes(w)))
+        .map(([k, n, S]) => [k, n.startsWith(q) ? 0 : n.split(" ").some((w) => w.startsWith(words[0])) ? 1 : 2, size(S)])
+        .sort((a, b) => a[1] - b[1] || b[2] - a[2]).slice(0, 10).map((x) => x[0]);
+      cur = -1;
+      sugg.innerHTML = hits.map((k, i) => `<button type="button" data-i="${i}">${esc(name(k))}${who === "players" ? ` <small>${esc([POS_OF(meta(k)?.[1], agg[k].S), tm(teamOf(k))[0]].filter(Boolean).join(" · "))}</small>` : ""}</button>`).join("")
+        || `<p class="muted">No ${who} named “${esc(find.value.trim())}” with stats in these weeks${st.pos || st.team || st.group ? " and filters" : ""}.</p>`;
+      sugg.hidden = false;
     };
+    find.oninput = show;
+    find.onkeydown = (e) => {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault(); cur = Math.max(0, Math.min(hits.length - 1, cur + (e.key === "ArrowDown" ? 1 : -1)));
+        sugg.querySelectorAll("button").forEach((b, i) => b.classList.toggle("on", i === cur));
+      } else if (e.key === "Enter") { e.preventDefault(); add(hits[Math.max(cur, 0)]); }
+      else if (e.key === "Escape") sugg.hidden = true;
+    };
+    sugg.onmousedown = (e) => e.preventDefault(); // keep the box focused while tapping a name
+    sugg.onclick = (e) => { const b = e.target.closest("[data-i]"); if (b) add(hits[+b.dataset.i]); };
+    find.onblur = () => setTimeout(() => (sugg.hidden = true), 150);
     el.querySelector(".vz-picks").onclick = (e) => { const b = e.target.closest("[data-k]"); if (b) { st.pick = picks.filter((k) => k !== b.dataset.k).join(","); redo(); } };
     el.querySelector(".vz-ideas").onclick = (e) => { const b = e.target.closest("[data-i]"); if (!b) return; st = { ...DEF, from: st.from, to: st.to, ...IDEAS[league][+b.dataset.i][1] }; reload(); };
     document.getElementById("vz-reset").onclick = () => { st = { ...DEF }; reload(); };

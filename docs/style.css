@@ -1631,6 +1631,12 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 .vz-rstats label { display: flex; gap: 6px; align-items: center; color: var(--ink); text-transform: none; letter-spacing: 0; cursor: pointer; }
 .vz-rstats p { flex-basis: 100%; margin: 0; }
 .vz-more summary { cursor: pointer; font-size: 12px; color: var(--accent); margin-bottom: 8px; }
+.vz-findwrap { position: relative; }
+.vz-sugg { position: absolute; z-index: 20; top: 100%; left: 0; right: 0; margin-top: 2px; background: var(--card); border: 1px solid var(--accent); max-height: 320px; overflow-y: auto; text-transform: none; letter-spacing: 0; }
+.vz-sugg button { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; font-size: 13px; padding: 8px 10px; cursor: pointer; }
+.vz-sugg button:hover, .vz-sugg button.on { background: var(--accent-soft); color: var(--accent); }
+.vz-sugg small { color: var(--muted); font-size: 11px; margin-left: 4px; }
+.vz-sugg p { margin: 0; padding: 8px 10px; font-size: 12px; }
 .vz-picks { display: flex; flex-wrap: wrap; gap: 6px; flex-basis: 100%; }
 .vz-picks:empty { display: none; }
 .vz-picks button { border: 1px solid var(--accent); background: transparent; color: var(--accent); padding: 2px 8px; font: inherit; font-size: 12px; cursor: pointer; }
