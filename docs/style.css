@@ -1604,6 +1604,9 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 .nw-teams { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 0; }
 .nw-teams button { border: 1px solid var(--line); background: transparent; padding: 1px 6px; font-size: 11px; cursor: pointer; color: var(--muted); }
 .nw-teams button:hover { border-color: var(--accent); color: var(--accent); }
+.nw-pin { border: 1px solid var(--accent); border-left-width: 3px; padding: 0 10px; margin-bottom: 6px; background: var(--accent-soft); }
+.nw-pin > span { display: block; margin-top: 8px; font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: .04em; }
+.nw-pin .nw-item { border-top: 0; }
 .nw-more { align-self: center; margin-top: 10px; border-radius: 0; }
 .nw-team { margin-top: 16px; }
 .nw-team .sc-bar a { margin-left: auto; font-size: 12px; }

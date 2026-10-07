@@ -39,6 +39,7 @@ import sys
 from zoneinfo import ZoneInfo
 
 import requests
+from urllib.parse import quote
 
 PROJECT = "cupcake-index"
 DOCS = f"https://firestore.googleapis.com/v1/projects/{PROJECT}/databases/(default)/documents"
@@ -306,8 +307,10 @@ def from_post(meta_path, log):
         if log.count_today("news") >= MAX_NEWS_PER_DAY:
             print("Already sent the most news alerts for today.")
             return []
+        story = (m.get("key") or "")[5:] if (m.get("key") or "").startswith("news:") else ""
+        url = "/#/news?all=1" + (f"&story={quote(story, safe='')}" if story else "")  # the News tab, with this story pinned on top
         return [(m.get("key") or f"news:{text[:80]}", "news", None,
-                 {"title": "Breaking", "body": text.lstrip("🚨 "), "url": "/#/news", "tag": "news"}, "news")]
+                 {"title": "Breaking", "body": text.lstrip("🚨 "), "url": url, "tag": "news"}, "news")]
     return []
 
 
