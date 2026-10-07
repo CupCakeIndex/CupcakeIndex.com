@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.27.1",
+    "build": 218,
+    "date": "2026-10-06",
+    "items": [
+      "Analytics counts more carefully: the owner's own visits never count, a browser that can't remember it was counted (some private windows) isn't counted as a visitor at all, and a page view counts only when you go to a different page."
+    ]
+  },
+  {
     "version": "1.27.0",
     "build": 217,
     "date": "2026-10-06",

@@ -125,7 +125,6 @@ async function route() {
   if (lg !== league && LG) leagueWipe(lg); // switching CFB <-> NFL: a quick wipe across the screen
   if (lg !== league || !LG) setLeague(lg);
   Live.stop();
-  if (typeof Stats !== "undefined") Stats.count("views"); // analytics (stats.js, which loads after this file)
   document.querySelectorAll(".view").forEach((s) => s.classList.toggle("hidden", s.id !== "view-" + r.view));
   setNavActive(NAV_PARENT[r.view] || r.view);
   $("#gear").classList.toggle("active", r.view === "settings");
@@ -135,6 +134,7 @@ async function route() {
   // a new page starts at the top; a tab or filter on the same page (Rushing -> Receiving) keeps your place,
   // with the page's height held while it reloads so it can't snap upward
   const page = r.view + "/" + (r.arg || "");
+  if (page !== lastPage && typeof Stats !== "undefined") Stats.count("views"); // analytics (stats.js): a new page, not a re-render
   if (page !== lastPage) window.scrollTo(0, 0);
   else {
     const v = $("#view-" + r.view);
@@ -222,7 +222,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "217"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "218"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
