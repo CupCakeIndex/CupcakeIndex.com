@@ -45,18 +45,23 @@ on:
           - nfl_easiest_left
           - nfl_one_score_games
           - cfb_biggest_blowout
-          - nfl_qb_rush
-          - nfl_rb_receiving
-          - nfl_interceptions
-          - nfl_catches_no_td
-          - nfl_yards_per_carry
-          - nfl_yards_per_catch
-          - nfl_completion_pct
-          - nfl_te_touchdowns
-          - cfb_qb_rush
-          - cfb_rb_receiving
-          - cfb_pass_td_pace
-          - cfb_yards_per_catch
+          - deep_rookie_lb_run_stops
+          - deep_run_stops
+          - deep_lb_stop_rate
+          - deep_safety_run_stops
+          - deep_undrafted_run_stops
+          - deep_third_down_sacks
+          - deep_rookie_edge_heat
+          - deep_rookie_db_ball
+          - deep_red_zone_stops
+          - deep_third_down_stops
+          - deep_short_yardage_backs
+          - deep_goal_line_backs
+          - deep_explosive_runs
+          - deep_rookie_wr_deep
+          - deep_third_down_catches
+          - deep_qb_deep_ball
+          - deep_qb_third_down
       theme:
         description: "Card look (a site theme; random = surprise me)"
         type: choice

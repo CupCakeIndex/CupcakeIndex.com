@@ -528,86 +528,121 @@ def _():
     return upset_alert("cfb")
 
 
-# --- players: traditional stats only ---------------------------------------------------
-@stat("nfl_qb_rush")
-def _():
-    r = player_rows(leaders(nfl_players(), lambda p: g(p, RY), lambda p: p["pos"] == "QB"), n0)
-    if len(r) < 3:
-        return None
-    p, v, s = r[0]
-    return fact("nfl", "player", r, "Quarterbacks who run", "Most rushing yards by an NFL quarterback this season", "rushing yards",
-                f"{p['name']} ({p['team']}) has {s} rushing yards, the most of any NFL quarterback. {chasers(r)}")
+# --- players: deep cuts (NFL) ---------------------------------------------------------
+# Super specific stats from the site's Visualize data (docs/data/viz/nfl_<season>.json, nflverse play-by-play,
+# src/deep_stats.py): run stops by rookie linebackers, drive-killing sacks, short-yardage backs...
+# A "stop" = the offense failed on that play (under 40% of the yards needed on 1st down, 60% on 2nd, no 3rd/4th-down conversion).
+DEEP_ROLE = {"EDGE": "Edge", "IDL": "DL", "LB": "LB", "CB": "CB", "S": "S", "QB": "QB", "RB": "RB", "WR": "WR", "TE": "TE"}
 
 
-@stat("nfl_rb_receiving")
-def _():
-    r = player_rows(leaders(nfl_players(), lambda p: g(p, RECY), lambda p: p["pos"] == "RB"), n0)
-    if len(r) < 3:
-        return None
-    p, v, s = r[0]
-    return fact("nfl", "player", r, "Running backs who catch", "Most receiving yards by an NFL running back this season", "receiving yards",
-                f"{p['name']} ({p['team']}) has {s} receiving yards, the most of any NFL running back. {chasers(r)}")
+def deep_players():
+    """Every NFL player's season totals from the Visualize data: [{id, name, pos, role, yr, draft, team, color, logo, pic, s}], plus weeks."""
+    if "deep" not in _cache:
+        idx = load(os.path.join(DATA, "viz", "index.json"))
+        D = load(os.path.join(DATA, "viz", f"nfl_{idx['nfl'][-1]}.json"))
+        cols, xcols = D["pcols"], D.get("xcols") or []
+        tot = {}
+        for r in D["prows"]:
+            s = tot.setdefault(r[0], {"team": r[2], **{c: 0 for c in cols + xcols}})
+            s["team"] = r[2]
+            for i, c in enumerate(cols):
+                s[c] += r[i + 3] or 0
+            x = r[3 + len(cols)] if xcols and len(r) > 3 + len(cols) else []
+            for i in range(0, len(x), 2):
+                s[xcols[x[i]]] += x[i + 1]
+        out = []
+        for pid, s in tot.items():
+            m = D["pmeta"].get(pid)
+            if not m or len(m) < 6 or m[3] not in DEEP_ROLE or not str(pid).isdigit():
+                continue
+            t = D["teams"].get(s["team"]) or ["", "", "#555555", ""]
+            out.append({"id": pid, "name": m[0], "pos": DEEP_ROLE[m[3]], "role": m[3], "yr": m[4], "draft": m[5], "team": t[1],
+                        "color": t[2] or "#555555", "logo": f"https://a.espncdn.com/i/teamlogos/nfl/500/{t[1].lower()}.png" if t[1] else None,
+                        "pic": f"https://a.espncdn.com/i/headshots/nfl/players/full/{pid}.png", "s": s})
+        _cache["deep"] = (out, max([r[1] for r in D["trows"]] or [0]), idx["nfl"][-1])
+    return _cache["deep"]
 
 
-@stat("nfl_interceptions")
-def _():
-    r = player_rows(leaders(nfl_players(), lambda p: g(p, INT), lambda p: p["pos"] == "QB"), n0)
-    if len(r) < 3:
-        return None
-    p, v, s = r[0]
-    return fact("nfl", "player", r, "Gift wrapped", "Most interceptions thrown this season", "interceptions",
-                f"{p['name']} ({p['team']}) has thrown {s} interceptions, the most in the NFL. {chasers(r)}")
+def deep(key, title, sub, unit, value, keep, fmt, text, n_min=0):
+    """One deep-cut post: leaders by value among players who pass keep(p, weeks). text(p, s, r) -> the tweet."""
+    @stat(key)
+    def _():
+        ps, wk, season = deep_players()
+        if wk < 2:
+            return None
+        r = player_rows(leaders(ps, lambda p: value(p["s"]), lambda p: keep(p, wk)), fmt)
+        if len(r) < 3 or r[0][1] <= n_min:
+            return None
+        p, v, s = r[0]
+        t = text(p, s, r)
+        if r[1][1] == v:  # tied at the top: say so
+            for a, b in (("leads the NFL with", "is tied for the NFL lead with"), ("Most in the NFL.", "Tied for the most in the NFL."),
+                         ("Best in the NFL.", "Tied for the best in the NFL."), ("the most", "tied for the most"), ("best among", "tied for best among")):
+                if a in t:
+                    t = t.replace(a, b, 1)
+                    break
+        return fact("nfl", "player", r, title, f"{sub} · {season} through week {wk}", unit, t)
+    return _
 
 
-@stat("nfl_catches_no_td")
-def _():
-    r = player_rows(leaders(nfl_players(), lambda p: g(p, REC), lambda p: p["pos"] != "QB" and not g(p, RECTD) and not g(p, RTD)), n0)
-    if len(r) < 3:
-        return None
-    p, v, s = r[0]
-    return fact("nfl", "player", r, "Still looking for six", "Most catches without a single touchdown this season", "catches, 0 TDs",
-                f"{p['name']} ({p['team']}) has {s} catches and still no touchdown. {chasers(r)}")
+rookie = lambda p: p["yr"] == 1
+snaps = lambda p, wk, per=15: p["s"]["snaps"] >= per * wk
+div = lambda a, b: a / b if b else None
+pct1 = lambda v: f"{v:.1f}%"
 
-
-@stat("nfl_yards_per_carry")
-def _():
-    r = player_rows(leaders(nfl_players(), lambda p: g(p, RY) / g(p, RA) if g(p, RA) else None, lambda p: g(p, RA) >= 30), n1)
-    if len(r) < 3:
-        return None
-    p, v, s = r[0]
-    return fact("nfl", "player", r, "Yards per carry", "NFL leaders, minimum 30 carries", "yards per carry",
-                f"{p['name']} ({p['team']}) is averaging {s} yards a carry, best in the NFL (30+ carries). {chasers(r)}")
-
-
-@stat("nfl_yards_per_catch")
-def _():
-    r = player_rows(leaders(nfl_players(), lambda p: g(p, RECY) / g(p, REC) if g(p, REC) else None, lambda p: g(p, REC) >= 10), n1)
-    if len(r) < 3:
-        return None
-    p, v, s = r[0]
-    return fact("nfl", "player", r, "Big-play machine", "Yards per catch, minimum 10 catches", "yards per catch",
-                f"{p['name']} ({p['team']}) is averaging {s} yards every time he catches the ball. {chasers(r)}")
-
-
-@stat("nfl_completion_pct")
-def _():
-    r = player_rows(leaders(nfl_players(), lambda p: g(p, CMP) / g(p, PA) if g(p, PA) else None, lambda p: g(p, PA) >= 60),
-                    lambda v: f"{v:.1%}")
-    if len(r) < 3:
-        return None
-    p, v, s = r[0]
-    return fact("nfl", "player", r, "Most accurate", "Completion percentage, minimum 60 throws", "completion %",
-                f"{p['name']} ({p['team']}) is completing {s} of his passes, best in the NFL. {chasers(r)}")
-
-
-@stat("nfl_te_touchdowns")
-def _():
-    r = player_rows(leaders(nfl_players(), lambda p: g(p, RECTD), lambda p: p["pos"] == "TE"), n0)
-    if len(r) < 3:
-        return None
-    p, v, s = r[0]
-    return fact("nfl", "player", r, "Tight end touchdowns", "Most receiving touchdowns by a tight end", "touchdowns",
-                f"{p['name']} ({p['team']}) leads all tight ends with {s} receiving touchdowns. {chasers(r)}")
+deep("deep_rookie_lb_run_stops", "Rookie run stoppers", "Run stops by rookie linebackers", "run stops",
+     lambda s: s["run_stop"], lambda p, wk: p["role"] == "LB" and rookie(p), n0,
+     lambda p, s, r: f"{p['name']} ({p['team']}) has {s} run stops, the most of any rookie linebacker. A run stop = he made the tackle "
+                     f"and the offense came up short on that play. {chasers(r)}")
+deep("deep_run_stops", "Run stop kings", "Most run stops, every defender", "run stops",
+     lambda s: s["run_stop"], lambda p, wk: p["role"] in ("LB", "EDGE", "IDL", "CB", "S"), n0,
+     lambda p, s, r: f"{p['name']} ({p['team']}) leads the NFL with {s} run stops: tackles on runs where the offense came up short. {chasers(r)}")
+deep("deep_lb_stop_rate", "Run stops per 100 snaps", "Linebackers, 15+ snaps a week", "run stops per 100 snaps",
+     lambda s: div(100 * s["run_stop"], s["snaps"]), lambda p, wk: p["role"] == "LB" and snaps(p, wk), n1,
+     lambda p, s, r: f"{p['name']} ({p['team']}) makes {s} run stops every 100 snaps, best among NFL linebackers. "
+                     f"A run stop = his tackle left the offense short. {chasers(r)}")
+deep("deep_safety_run_stops", "Safeties who hit", "Most run stops by a safety", "run stops",
+     lambda s: s["run_stop"], lambda p, wk: p["role"] == "S", n0,
+     lambda p, s, r: f"{p['name']} ({p['team']}) has {s} run stops, the most of any NFL safety. Tackles on runs that came up short. {chasers(r)}")
+deep("deep_undrafted_run_stops", "Undrafted and stopping the run", "Most run stops by an undrafted defender", "run stops",
+     lambda s: s["run_stop"], lambda p, wk: p["draft"] == "UDFA" and p["role"] in ("LB", "EDGE", "IDL", "CB", "S"), n0,
+     lambda p, s, r: f"Nobody drafted him. {p['name']} ({p['team']}) has {s} run stops, the most of any undrafted defender in the NFL. {chasers(r)}")
+deep("deep_third_down_sacks", "Drive killers", "Sacks on 3rd or 4th down", "3rd/4th-down sacks",
+     lambda s: s["third_sacks"], lambda p, wk: p["role"] in ("LB", "EDGE", "IDL", "CB", "S"), lambda v: f"{v:g}",
+     lambda p, s, r: f"{p['name']} ({p['team']}) has {s} sacks on 3rd or 4th down, the kind that end drives. Most in the NFL. {chasers(r)}")
+deep("deep_rookie_edge_heat", "Rookie pass rushers", "Sacks + QB hits by rookie edge rushers", "sacks + QB hits",
+     lambda s: s["def_sacks"] + s["qb_hits"], lambda p, wk: p["role"] == "EDGE" and rookie(p), lambda v: f"{v:g}",
+     lambda p, s, r: f"{p['name']} ({p['team']}) has {s} sacks plus QB hits, the most of any rookie edge rusher. {chasers(r)}")
+deep("deep_rookie_db_ball", "Rookie ballhawks", "Interceptions + passes defended by rookie DBs", "INT + passes defended",
+     lambda s: s["def_int"] + s["pd"], lambda p, wk: p["role"] in ("CB", "S") and rookie(p), n0,
+     lambda p, s, r: f"{p['name']} ({p['team']}) has gotten his hands on {s} passes (interceptions plus pass breakups), the most of any rookie DB. {chasers(r)}")
+deep("deep_red_zone_stops", "Red-zone wall", "Stops inside his own 20", "red-zone stops",
+     lambda s: s["rz_stop"], lambda p, wk: p["role"] in ("LB", "EDGE", "IDL", "CB", "S"), n0,
+     lambda p, s, r: f"{p['name']} ({p['team']}) has made {s} stops inside his own 20, the most in the NFL. Tackles that left the offense short. {chasers(r)}")
+deep("deep_third_down_stops", "Get off the field", "Tackles that stopped a 3rd or 4th down", "3rd/4th-down stops",
+     lambda s: s["third_stop"], lambda p, wk: p["role"] in ("LB", "EDGE", "IDL", "CB", "S"), n0,
+     lambda p, s, r: f"{p['name']} ({p['team']}) has {s} tackles that stopped a 3rd or 4th down short of the sticks. Most in the NFL. {chasers(r)}")
+deep("deep_short_yardage_backs", "Short-yardage backs", "Conversion % on 3rd/4th & 2 or less, 1+ try a week", "conversion %",
+     lambda s: div(100 * s["sy_conv"], s["sy_carries"]), lambda p, wk: p["role"] == "RB" and p["s"]["sy_carries"] >= wk, pct1,
+     lambda p, s, r: f"Need 2 yards or less on 3rd or 4th down? {p['name']} ({p['team']}) moves the chains {s} of the time, best among NFL backs. {chasers(r)}")
+deep("deep_goal_line_backs", "Goal-line backs", "Carries starting inside the 5", "goal-line carries",
+     lambda s: s["gl_carries"], lambda p, wk: p["role"] in ("RB", "QB", "WR", "TE"), n0,
+     lambda p, s, r: f"{p['name']} ({p['team']}) has {s} carries inside the 5-yard line, the most in the NFL. {chasers(r)}")
+deep("deep_explosive_runs", "Home-run hitters", "Runs of 10+ yards", "10+ yard runs",
+     lambda s: s["rush_10"], lambda p, wk: p["role"] in ("RB", "QB", "WR"), n0,
+     lambda p, s, r: f"{p['name']} ({p['team']}) has {s} runs of 10 yards or more, the most in the NFL. {chasers(r)}")
+deep("deep_rookie_wr_deep", "Rookie deep threats", "Catches on throws 20+ yards downfield, rookie WRs", "deep catches",
+     lambda s: s["deep_rec"], lambda p, wk: p["role"] == "WR" and rookie(p), n0,
+     lambda p, s, r: f"{p['name']} ({p['team']}) has {s} catches on throws 20+ yards downfield, the most of any rookie receiver. {chasers(r)}", n_min=2)
+deep("deep_third_down_catches", "Mr. Third Down", "Catches that moved the chains on 3rd or 4th down", "3rd/4th-down conversions",
+     lambda s: s["third_conv"], lambda p, wk: p["role"] in ("WR", "TE", "RB"), n0,
+     lambda p, s, r: f"{p['name']} ({p['team']}) has {s} catches on 3rd or 4th down that moved the chains, the most in the NFL. {chasers(r)}")
+deep("deep_qb_deep_ball", "Deep ball", "Completion % on throws 20+ yards downfield, 2+ a week", "deep completion %",
+     lambda s: div(100 * s["deep_cmp"], s["deep_att"]), lambda p, wk: p["role"] == "QB" and p["s"]["deep_att"] >= 2 * wk, pct1,
+     lambda p, s, r: f"{p['name']} ({p['team']}) completes {s} of his throws that go 20+ yards in the air, best among NFL starters. {chasers(r)}")
+deep("deep_qb_third_down", "Money down", "3rd/4th-down conversion % on dropbacks, 6+ a week", "conversion %",
+     lambda s: div(100 * s["third_db_conv"], s["third_db"]), lambda p, wk: p["role"] == "QB" and p["s"]["third_db"] >= 6 * wk, pct1,
+     lambda p, s, r: f"On 3rd and 4th down, {p['name']} ({p['team']}) moves the chains {s} of the time he drops back (sacks count against him). Best in the NFL. {chasers(r)}")
 
 
 @stat("hot_nfl_empty_yards")
@@ -621,46 +656,6 @@ def _():
     return fact("nfl", "player", r, "Empty yards?", "Fewest touchdown passes for the yards, minimum 80 throws", "passing yards per TD pass",
                 f"{p['name']} ({p['team']}) has {g(p, PY):,.0f} passing yards and only {td:.0f} touchdown pass{'' if td == 1 else 'es'}.",
                 "Stat-sheet QB, or bad luck in the red zone?", hot=True)
-
-
-@stat("cfb_qb_rush")
-def _():
-    r = player_rows(leaders(cfb_players(), lambda p: g(p, "ry"), lambda p: p["pos"] == "QB"), n0)
-    if len(r) < 3:
-        return None
-    p, v, s = r[0]
-    return fact("cfb", "player", r, "Quarterbacks who run", "Most rushing yards by an FBS quarterback this season", "rushing yards",
-                f"{p['name']} ({p['team']}) has {s} rushing yards, the most of any FBS quarterback. {chasers(r)}")
-
-
-@stat("cfb_rb_receiving")
-def _():
-    r = player_rows(leaders(cfb_players(), lambda p: g(p, "recy"), lambda p: p["pos"] == "RB"), n0)
-    if len(r) < 3:
-        return None
-    p, v, s = r[0]
-    return fact("cfb", "player", r, "Running backs who catch", "Most receiving yards by an FBS running back this season", "receiving yards",
-                f"{p['name']} ({p['team']}) has {s} receiving yards, the most of any FBS running back. {chasers(r)}")
-
-
-@stat("cfb_pass_td_pace")
-def _():
-    r = player_rows(leaders(cfb_players(), lambda p: p["ptd"], lambda p: p["pos"] == "QB"), n0)
-    if len(r) < 3:
-        return None
-    p, v, s = r[0]
-    return fact("cfb", "player", r, "On pace for history?", "Touchdown passes so far, plus our projection for every game left", "TD pass pace",
-                f"{p['name']} ({p['team']}) is on pace for {s} touchdown passes this season. {chasers(r)}")
-
-
-@stat("cfb_yards_per_catch")
-def _():
-    r = player_rows(leaders(cfb_players(), lambda p: g(p, "recy") / g(p, "rec") if g(p, "rec") else None, lambda p: g(p, "rec") >= 12), n1)
-    if len(r) < 3:
-        return None
-    p, v, s = r[0]
-    return fact("cfb", "player", r, "Big-play machine", "Yards per catch, minimum 12 catches", "yards per catch",
-                f"{p['name']} ({p['team']}) is averaging {s} yards every time he catches the ball. {chasers(r)}")
 
 
 # ------------------------------------------------------------------ card
