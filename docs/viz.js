@@ -49,7 +49,7 @@ const Viz = (() => {
       ["fg_pct", "Field goal %", (S) => div(100 * S.fg_made, S.fg_att), { den: (S) => S.fg_att, pct: 1, need: ["fg_att"] }],
     ]],
     ["Cupcake Index (our model)", [
-      ["win_pct", "Win %", (S, g) => div(100 * S.wins, g), { den: (S, g) => 1, pct: 1, need: ["pts"] }],
+      ["win_pct", "Win %", (S, g) => div(100 * S.wins, g), { den: (S, g) => g, pct: 1, need: ["pts"] }],
       ["ci_rating", "Power rating (our model)", (S) => S.ci_rating, { d: 1, fmt: "+", season: 1 }],
       ["ci_rank", "Our ranking", (S) => S.ci_rank, { low: 1, season: 1 }],
       ["ci_sos", "Schedule strength (0–100, higher = harder)", (S) => S.ci_sos, { d: 0, season: 1 }],
@@ -128,7 +128,7 @@ const Viz = (() => {
 
   // ---------------------------------------------------------------- state (all in the link)
   const DEF = { who: "teams", type: "bar", stat: "epa_play", y: "pts", from: "", to: "", wk1: "", wk2: "", per: "game", top: "10",
-    group: "", team: "", pos: "", pick: "", order: "best", cum: "", radar: "", logo: "", names: "" }; // logo/names: "" = on, "0" = off
+    group: "", team: "", pos: "", pick: "", order: "best", cum: "", radar: "", logo: "", names: "", min: "" }; // logo/names: "" = on, "0" = off; min: "" = automatic
   let st = { ...DEF };
   const save = () => {
     const q = new URLSearchParams({ league, show: "visualize" });
@@ -281,11 +281,18 @@ const Viz = (() => {
     };
     let keys = Object.keys(agg).filter(ok);
     // rates: only who has at least 35% of the leader's attempts/plays (picked ones always count)
+    // who counts for a rate stat: your minimum (in the stat's own unit: dropbacks, carries...) for the main stat,
+    // otherwise 35% of the leader's. Highlighted ones always count.
+    const autoMin = (s) => s[3].den ? Math.round(0.35 * Math.max(0, ...keys.map((k) => s[3].den(agg[k].S, agg[k].g) || 0))) : 0;
+    const minFor = (s) => (st.min !== "" && s === stat ? +st.min : autoMin(s));
     const qualify = (s) => {
       if (!s[3].den) return keys;
-      const best = Math.max(...keys.map((k) => s[3].den(agg[k].S) || 0));
-      return keys.filter((k) => picks.includes(k) || (s[3].den(agg[k].S) || 0) >= best * 0.35);
+      const m = minFor(s);
+      return keys.filter((k) => picks.includes(k) || (s[3].den(agg[k].S, agg[k].g) || 0) >= m);
     };
+    const UNITS = { epa_db: "dropbacks", pass_epa_play: "pass plays", rush_epa_play: "rushes", epa_rush: "carries", ypc: "carries", ypr: "catches",
+      catch_pct: "targets", epa_tgt: "targets", fg_pct: "field goal tries", third: "third downs", ppa_play: "plays", win_pct: "games" };
+    const unitOf = (s) => UNITS[s[0]] || (["ypa", "cmp_pct", "rating", "eff"].includes(s[0]) ? "pass attempts" : who === "teams" ? "plays" : "attempts");
     const val = (s, k) => value(s, agg[k].S, agg[k].g, st.per);
     const rank = (s, list) => list.filter((k) => val(s, k) != null).sort((a, b) => (s[3].low ? 1 : -1) * (val(s, a) - val(s, b)) * (st.order === "worst" ? -1 : 1));
     const top = +st.top || 10;
@@ -335,7 +342,7 @@ const Viz = (() => {
           });
           ctx.restore(); } }] };
       body = { h: Math.max(260, shown.length * 26 + 60) };
-      note = `${list.length} ${who} ranked${stat[3].den ? ` (at least 35% of the leader's ${who === "teams" ? "plays" : "attempts"})` : ""}.`;
+      note = `${list.length} ${who} ranked${stat[3].den ? ` (at least ${minFor(stat)} ${unitOf(stat)}${st.min === "" ? ", 35% of the leader's; change it with Minimum" : ""})` : ""}.`;
       body.table = shown.map((k, i) => [i + 1, k, fmt(stat, val(stat, k), st.per)]);
     } else if (st.type === "line") {
       const list = rank(stat, qualify(stat)), sers = (picks.length ? picks.filter((k) => agg[k]) : list.slice(0, Math.min(top, 8)));
@@ -410,7 +417,7 @@ const Viz = (() => {
           });
           ctx.restore(); } }] };
       body = { h: 440 };
-      note = `${both.length} ${who}. Dashed lines are the averages. ${stat[3].low || ystat[3].low ? "Axes are flipped where lower is better, so up and right is always good." : "Up and right is good."}`;
+      note = `${both.length} ${who}${stat[3].den ? ` (at least ${minFor(stat)} ${unitOf(stat)} for ${stat[1].toLowerCase()})` : ""}. Dashed lines are the averages. ${stat[3].low || ystat[3].low ? "Axes are flipped where lower is better, so up and right is always good." : "Up and right is good."}`;
     } else { // radar: percentiles among everyone shown
       const want = who === "teams" ? RADAR.teams : RADAR.players[st.pos] || RADAR.players[""];
       const custom = st.radar ? st.radar.split(",") : want;
@@ -421,7 +428,7 @@ const Viz = (() => {
       const VOL = { QB: (S) => S.att, RB: (S) => S.carries, WR: (S) => S.rec, DEF: (S) => S.tackles, K: (S) => S.fg_att };
       const vol = who === "players" ? VOL[st.pos] || ((S) => S.att + S.carries + S.rec + S.tackles) : null;
       const most = vol ? Math.max(...keys.map((x) => vol(agg[x].S) || 0)) : 0;
-      const regulars = vol ? keys.filter((x) => picks.includes(x) || (vol(agg[x].S) || 0) >= most * 0.35) : keys;
+      const regulars = vol ? keys.filter((x) => picks.includes(x) || (vol(agg[x].S) || 0) >= (st.min !== "" ? +st.min : most * 0.35)) : keys;
       const pctile = (s, k) => { const q = qualify(s).filter((x) => regulars.includes(x)), v = val(s, k); if (v == null) return null; const vals = q.map((x) => val(s, x)).filter((x) => x != null);
         const below = vals.filter((x) => (s[3].low ? x > v : x < v)).length; return Math.round((100 * below) / Math.max(1, vals.length - 1)); };
       title = `${who === "teams" ? "Team" : "Player"} profiles (percentile among ${who}${st.pos ? ` at ${st.pos}` : ""})`;
@@ -450,6 +457,7 @@ const Viz = (() => {
         ${st.type === "bar" ? `<label>Show${seg("vz-order", [["best", "Best"], ["worst", "Worst"]], st.order)}</label>` : ""}
         ${st.type === "line" && !multi ? `<label>Line${seg("vz-cum", [["", "Each week"], ["1", "Running total"]], st.cum)}</label>` : ""}
         <label>How many${sel("vz-top", [5, 10, 15, 25, 50].map((x) => [x, `Top ${x}`]), st.top)}</label>
+        ${stat[3].den && st.type !== "pie" || (st.type === "radar" && who === "players") ? `<label>Minimum <small class="muted">${esc(st.type === "radar" ? { QB: "pass attempts", RB: "carries", WR: "catches", DEF: "tackles", K: "field goal tries" }[st.pos] || "touches" : unitOf(stat))}</small><input id="vz-min" type="number" min="0" inputmode="numeric" placeholder="auto ${st.type === "radar" ? "" : autoMin(stat)}" value="${esc(st.min)}"></label>` : ""}
         ${st.type !== "radar" ? `<div class="vz-chks"><label><input type="checkbox" id="vz-logo"${st.logo !== "0" ? " checked" : ""}> Team logos</label><label><input type="checkbox" id="vz-names"${st.names !== "0" ? " checked" : ""}> ${who === "teams" ? "Team" : "Player"} names</label></div>` : ""}
       </div>
       <details class="vz-more"${st.group || st.team || st.pos || picks.length ? " open" : ""}><summary>Filters and highlights</summary><div class="vz-ctl">
@@ -484,7 +492,9 @@ const Viz = (() => {
       if (k === "type") st.radar = "";
       redo();
     });
-    const on = (id, k, again = redo) => { const x = document.getElementById(id); if (x) x.onchange = () => { st[k] = x.value; if (k === "pos") st.radar = ""; again(); }; };
+    const on = (id, k, again = redo) => { const x = document.getElementById(id); if (x) x.onchange = () => { st[k] = x.value; if (k === "pos") st.radar = ""; if (k === "stat" || k === "pos") st.min = ""; again(); }; };
+    const mi = document.getElementById("vz-min");
+    if (mi) mi.onchange = () => { st.min = mi.value === "" ? "" : String(Math.max(0, Math.round(+mi.value) || 0)); redo(); };
     on("vz-stat", "stat"); on("vz-y", "y"); on("vz-wk1", "wk1"); on("vz-wk2", "wk2"); on("vz-top", "top"); on("vz-group", "group"); on("vz-team", "team"); on("vz-pos", "pos");
     on("vz-from", "from", reload); on("vz-to", "to", reload);
     ["logo", "names"].forEach((k) => { const x = document.getElementById("vz-" + k); if (x) x.onchange = () => { st[k] = x.checked ? "" : "0"; redo(); }; });
