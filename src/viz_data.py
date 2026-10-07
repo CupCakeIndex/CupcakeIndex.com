@@ -98,7 +98,29 @@ TEAM_COLS_NFL = ["pts", "opp_pts", "plays", "cmp", "att", "pass_yds", "pass_td",
                  "opp_plays", "opp_pass_yds", "opp_rush_yds", "opp_epa", "opp_first_downs", "fg_made", "fg_att"]
 PLAYER_COLS = ["cmp", "att", "pass_yds", "pass_td", "int", "sacked", "carries", "rush_yds", "rush_td", "rec", "targets", "rec_yds",
                "rec_td", "tackles", "def_sacks", "tfl", "qb_hits", "pd", "def_int", "fg_made", "fg_att"]
-PLAYER_COLS_NFL = PLAYER_COLS + ["pass_epa", "rush_epa", "rec_epa", "air_yds", "yac", "ppr"]
+PLAYER_COLS_NFL = PLAYER_COLS + ["pass_epa", "rush_epa", "rec_epa", "air_yds", "yac", "ppr", "left"]  # left: 1 = gone by halftime (early_exits)
+
+
+def early_exits(season):
+    """{(gsis id, game id)} for players who had a pass, run or target in the first half and none after halftime:
+    hurt (or benched) by halftime. From nflverse play-by-play. Players who only came in later (relief QBs) aren't in it."""
+    import gzip
+    f = RAW / "nfl" / f"pbp_{season}.csv.gz"
+    if not f.exists() or season == season_now():
+        r = requests.get(f"{NFLV}/pbp/play_by_play_{season}.csv.gz", timeout=600)
+        r.raise_for_status()
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_bytes(r.content)
+    first, second = set(), set()
+    with gzip.open(f, "rt", encoding="utf-8", newline="") as fh:
+        for row in csv.DictReader(fh):
+            if row.get("season_type") != "REG":
+                continue
+            half = first if n(row.get("qtr")) <= 2 else second
+            for c in ("passer_player_id", "rusher_player_id", "receiver_player_id"):
+                if row.get(c) and row[c] != "NA":
+                    half.add((row[c], row["game_id"]))
+    return first - second
 
 
 def nfl(season):
@@ -140,6 +162,11 @@ def nfl(season):
     except requests.HTTPError:
         pl = []
     espn = {r["gsis_id"]: r["espn_id"] for r in nflverse_csv(f"{NFLV}/players/players.csv", "players.csv") if r.get("espn_id")}
+    try:
+        gone = early_exits(season)
+    except Exception as e:  # no play-by-play: nobody marked, the option just does nothing
+        print(f"  ! play-by-play unavailable ({e}); early exits not marked")
+        gone = set()
     pmeta, prows = {}, []
     for r in pl:
         if r["season_type"] != "REG":
@@ -154,7 +181,8 @@ def nfl(season):
             continue
         pid = espn.get(r["player_id"]) or r["player_id"]
         pmeta[pid] = [r["player_display_name"], r["position"], key.get(r["team"], r["team"])]
-        prows.append([pid, int(r["week"]), key.get(r["team"], r["team"])] + vals)
+        prows.append([pid, int(r["week"]), key.get(r["team"], r["team"])] + vals + [1 if r["position"] == "QB" and (r["player_id"], r.get("game_id")) in gone else 0])  # QBs only: a WR not targeted after halftime may still be out there
+    print(f"  {sum(x[-1] for x in prows)} QB games where the QB was gone by halftime")
     write("nfl", season, {"teams": tmeta, "tcols": TEAM_COLS_NFL, "trows": trows, "pcols": PLAYER_COLS_NFL, "pmeta": pmeta, "prows": prows})
 
 

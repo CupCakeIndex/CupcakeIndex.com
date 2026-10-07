@@ -128,7 +128,7 @@ const Viz = (() => {
 
   // ---------------------------------------------------------------- state (all in the link)
   const DEF = { who: "teams", type: "bar", stat: "epa_play", y: "pts", from: "", to: "", wk1: "", wk2: "", per: "game", top: "10",
-    group: "", team: "", pos: "", pick: "", order: "best", cum: "", radar: "", logo: "", names: "", min: "", role: "" }; // logo/names: "" = on, "0" = off; min: "" = automatic
+    group: "", team: "", pos: "", pick: "", order: "best", cum: "", radar: "", logo: "", names: "", min: "", role: "", noexit: "" }; // logo/names: "" = on, "0" = off; min: "" = automatic
   let st = { ...DEF };
   const save = () => {
     const q = new URLSearchParams({ league, show: "visualize" });
@@ -183,8 +183,10 @@ const Viz = (() => {
   // rows -> { key: {S: summed columns, g: games, wk: {week: S}} } for one season, weeks wk1..wk2
   function sum(D, who, w1, w2, byWeek) {
     const cols = who === "players" ? D.pcols : D.tcols, rows = who === "players" ? D.prows : D.trows, out = {};
+    const left = who === "players" && st.noexit ? D.pcols.indexOf("left") + 3 : -1; // NFL QBs gone by halftime (hurt, or a blowout)
     for (const r of rows) {
       if (r[1] < w1 || r[1] > w2) continue;
+      if (left > 2 && r[left]) continue;
       const o = out[r[0]] || (out[r[0]] = { S: Object.fromEntries(cols.map((c) => [c, 0])), g: 0, wk: {}, team: r[2] });
       o.g++;
       o.team = r[2];
@@ -475,6 +477,7 @@ const Viz = (() => {
         ${st.type === "line" && !multi ? `<label>Line${seg("vz-cum", [["", "Each week"], ["1", "Running total"]], st.cum)}</label>` : ""}
         <label>How many${sel("vz-top", [5, 10, 15, 25, 50].map((x) => [x, `Top ${x}`]), st.top)}</label>
         ${stat[3].den && st.type !== "pie" || (st.type === "radar" && who === "players") ? `<label>Minimum <small class="muted">${esc(st.type === "radar" ? { QB: "pass attempts", RB: "carries", WR: "catches", DEF: "tackles", K: "field goal tries" }[st.pos] || "touches" : unitOf(stat))}</small><input id="vz-min" type="number" min="0" inputmode="numeric" placeholder="auto ${st.type === "radar" ? "" : autoMin(stat)}" value="${esc(st.min)}"></label>` : ""}
+        ${who === "players" && D.pcols.includes("left") ? `<div class="vz-chks"><label title="A QB who threw or ran in the first half and never again after halftime: usually hurt, sometimes rested in a blowout"><input type="checkbox" id="vz-noexit"${st.noexit ? " checked" : ""}> Leave out games a QB left by halftime</label></div>` : ""}
         ${st.type !== "radar" ? `<div class="vz-chks"><label><input type="checkbox" id="vz-logo"${st.logo !== "0" ? " checked" : ""}> Team logos</label><label><input type="checkbox" id="vz-names"${st.names !== "0" ? " checked" : ""}> ${who === "teams" ? "Team" : "Player"} names</label></div>` : ""}
       </div>
       <details class="vz-more"${st.group || st.team || st.pos || picks.length ? " open" : ""}><summary>Filters and highlights</summary><div class="vz-ctl">
@@ -516,6 +519,8 @@ const Viz = (() => {
     on("vz-role", "role");
     on("vz-stat", "stat"); on("vz-y", "y"); on("vz-wk1", "wk1"); on("vz-wk2", "wk2"); on("vz-top", "top"); on("vz-group", "group"); on("vz-team", "team"); on("vz-pos", "pos");
     on("vz-from", "from", reload); on("vz-to", "to", reload);
+    const nx = document.getElementById("vz-noexit");
+    if (nx) nx.onchange = () => { st.noexit = nx.checked ? "1" : ""; redo(); };
     ["logo", "names"].forEach((k) => { const x = document.getElementById("vz-" + k); if (x) x.onchange = () => { st[k] = x.checked ? "" : "0"; redo(); }; });
     const rs = document.getElementById("vz-radar");
     if (rs) rs.onchange = (e) => {
@@ -566,8 +571,40 @@ const Viz = (() => {
     }));
 
     // the picture: title, chart and the site's mark on the card color, 2x for sharp text
+    // fine print under the picture: every setting behind it, so anyone can check (or rebuild) the chart
+    function synopsis() {
+      const u = (s) => (s[3].den ? ` (min. ${minFor(s)} ${unitOf(s)})` : "");
+      const parts = [
+        st.type === "scatter" ? `X: ${stat[1]}${perTxt(stat)}${u(stat)} · Y: ${ystat[1]}${perTxt(ystat)}${u(ystat)}`
+          : st.type === "radar" ? `Stats: ${custom().map((k) => all.find((s) => s[0] === k)?.[1]).filter(Boolean).join(", ")} (percentiles)`
+          : `Stat: ${stat[1]}${st.type === "pie" ? "" : perTxt(stat)}${u(stat)}`,
+        `${lgTxt} ${seasonTxt}, ${weeksTxt.toLowerCase()}`,
+        st.group && (league === "nfl" ? "Division: " : "Conference: ") + st.group,
+        st.team && `Team: ${tm(st.team)[0]}`,
+        st.role ? `Depth chart: ${st.role} (by use)` : st.pos && `Position: ${st.pos === "DEF" ? "Defense" : st.pos === "WR" ? "WR/TE" : st.pos}`,
+        st.type === "bar" && `${st.order === "worst" ? "Worst" : "Top"} ${top}`,
+        (st.type === "line" || st.type === "radar" || st.type === "pie") && !picks.length && `Top ${top}`,
+        picks.length && `Highlighted: ${picks.map(name).join(", ")}`,
+        st.noexit && "QB games left by halftime left out",
+        st.type === "line" && st.cum && "running total",
+      ].filter(Boolean);
+      return `Filters: ${parts.join(" · ")}. Data: ${league === "nfl" ? "nflverse play-by-play" : "CollegeFootballData.com"}.`;
+    }
+    function wrap(x, text, maxW) {
+      const lines = [];
+      let cur = "";
+      for (const w of text.split(" ")) {
+        const t = cur ? cur + " " + w : w;
+        if (x.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t;
+      }
+      return cur ? [...lines, cur] : lines;
+    }
     async function picture() {
-      const cv = document.getElementById("vz-chart"), W = cv.width, H = cv.height, sc = W / cv.clientWidth, pad = 24 * sc, top = 70 * sc, bot = 34 * sc;
+      const cv = document.getElementById("vz-chart"), W = cv.width, H = cv.height, sc = W / cv.clientWidth, pad = 24 * sc, top = 70 * sc;
+      const probe = document.createElement("canvas").getContext("2d");
+      probe.font = `${10 * sc}px JetBrains Mono, monospace`;
+      const fine = wrap(probe, synopsis(), W);
+      const bot = 34 * sc + fine.length * 14 * sc + 6 * sc;
       const out = document.createElement("canvas"); out.width = W + 2 * pad; out.height = H + top + bot;
       const x = out.getContext("2d");
       x.fillStyle = C("--card") || "#111"; x.fillRect(0, 0, out.width, out.height);
@@ -575,6 +612,8 @@ const Viz = (() => {
       x.fillStyle = ink; x.font = `700 ${18 * sc}px JetBrains Mono, monospace`; x.fillText(title, pad, 34 * sc);
       x.fillStyle = muted; x.font = `${12 * sc}px JetBrains Mono, monospace`; x.fillText(sub, pad, 54 * sc);
       x.drawImage(cv, pad, top);
+      x.fillStyle = muted; x.font = `${10 * sc}px JetBrains Mono, monospace`;
+      fine.forEach((line, i) => x.fillText(line, pad, top + H + 16 * sc + i * 14 * sc));
       x.fillStyle = accent; x.font = `700 ${12 * sc}px JetBrains Mono, monospace`; x.fillText("CUPCAKE_INDEX", pad, out.height - 12 * sc);
       x.fillStyle = muted; x.font = `${11 * sc}px JetBrains Mono, monospace`; x.textAlign = "right";
       x.fillText(`cupcakeindex.com · ${league === "nfl" ? "data: nflverse" : "data: CollegeFootballData.com"}`, out.width - pad, out.height - 12 * sc);
