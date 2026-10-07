@@ -128,7 +128,7 @@ const Viz = (() => {
 
   // ---------------------------------------------------------------- state (all in the link)
   const DEF = { who: "teams", type: "bar", stat: "epa_play", y: "pts", from: "", to: "", wk1: "", wk2: "", per: "game", top: "10",
-    group: "", team: "", pos: "", pick: "", order: "best", cum: "", radar: "", logo: "", names: "", min: "" }; // logo/names: "" = on, "0" = off; min: "" = automatic
+    group: "", team: "", pos: "", pick: "", order: "best", cum: "", radar: "", logo: "", names: "", min: "", role: "" }; // logo/names: "" = on, "0" = off; min: "" = automatic
   let st = { ...DEF };
   const save = () => {
     const q = new URLSearchParams({ league, show: "visualize" });
@@ -272,10 +272,27 @@ const Viz = (() => {
     });
     if (who === "teams") for (const k in agg) Object.assign(agg[k].S, Ds.at(-1).ours?.[k] || {}); // season-long: the latest season's
     // filters
+    // depth chart role by actual use over the weeks picked: WR1 = the team's wide receiver with the most targets
+    // (college: catches), RB1 = most carries + catches, QB1 = most pass attempts, TE1 = most targets among tight ends
+    const role = {};
+    if (who === "players" && st.role) {
+      const fine = (k) => { const p = (meta(k)?.[1] || "").toUpperCase(), S = agg[k].S;
+        if (["QB", "RB", "WR", "TE"].includes(p)) return p;
+        if (["FB", "HB"].includes(p)) return "RB";
+        return p ? "" : S.att >= 10 ? "QB" : S.carries > S.rec && S.carries >= 5 ? "RB" : S.rec ? "WR" : ""; };
+      const use = { QB: (S) => S.att + S.sacked, RB: (S) => S.carries + S.rec, WR: (S) => (S.targets || S.rec) + S.rec_yds / 1000, TE: (S) => (S.targets || S.rec) + S.rec_yds / 1000 };
+      const groups = {};
+      for (const k in agg) { const f = fine(k); if (f) (groups[`${agg[k].team}|${f}`] ||= []).push(k); }
+      for (const [g, list] of Object.entries(groups)) {
+        const f = g.split("|")[1];
+        list.sort((a, b) => use[f](agg[b].S) - use[f](agg[a].S)).forEach((k, i) => { role[k] = f + (i + 1); });
+      }
+    }
     const ok = (k) => {
       const a = agg[k], t = tm(teamOf(k));
       if (st.group && t[3] !== st.group) return false;
       if (who === "players" && st.team && teamOf(k) !== st.team) return false;
+      if (who === "players" && st.role) return role[k] === st.role;
       if (who === "players" && st.pos && POS_OF(meta(k)?.[1], a.S) !== st.pos) return false;
       return true;
     };
@@ -439,7 +456,7 @@ const Viz = (() => {
       body = { h: 440 };
       note = "100 = the best among everyone listed, 0 = the worst. Lower-is-better stats are flipped.";
     }
-    const sub = `${lgTxt} · ${seasonTxt} · ${weeksTxt}${st.group ? ` · ${st.group}` : ""}${st.team ? ` · ${tm(st.team)[0]}` : ""}${st.pos ? ` · ${st.pos === "DEF" ? "Defense" : st.pos}` : ""}`;
+    const sub = `${lgTxt} · ${seasonTxt} · ${weeksTxt}${st.group ? ` · ${st.group}` : ""}${st.team ? ` · ${tm(st.team)[0]}` : ""}${st.role ? ` · ${st.role}s` : st.pos ? ` · ${st.pos === "DEF" ? "Defense" : st.pos}` : ""}`;
     const src = league === "nfl" ? "nflverse play-by-play (EPA)" : "CollegeFootballData.com (box scores; PPA = college EPA, garbage time left out)";
     const seasonOnly = [stat, ystat].some((s) => s[3].season) && (w1 > 1 || w2 < 99);
 
@@ -463,7 +480,8 @@ const Viz = (() => {
       <details class="vz-more"${st.group || st.team || st.pos || picks.length ? " open" : ""}><summary>Filters and highlights</summary><div class="vz-ctl">
         <label>${league === "nfl" ? "Division" : "Conference"}${sel("vz-group", [["", "All"], ...confs.map((c) => [c, c])], st.group)}</label>
         ${who === "players" ? `<label>Team${sel("vz-team", [["", "All teams"], ...Object.entries(D.teams).sort((a, b) => a[1][0].localeCompare(b[1][0])).map(([k, t]) => [k, t[0]])], st.team)}</label>
-          <label>Position${sel("vz-pos", [["", "All"], ["QB", "QB"], ["RB", "RB"], ["WR", "WR / TE"], ["K", "Kicker"], ["DEF", "Defense"]], st.pos)}</label>` : ""}
+          <label>Position${sel("vz-pos", [["", "All"], ["QB", "QB"], ["RB", "RB"], ["WR", "WR / TE"], ["K", "Kicker"], ["DEF", "Defense"]], st.pos)}</label>
+          <label>Depth chart${sel("vz-role", [["", "Any"], ...["QB1", "QB2", "RB1", "RB2", "RB3", "WR1", "WR2", "WR3", "WR4", "TE1", "TE2"].map((r) => [r, r])], st.role)}</label>` : ""}
         <label class="vz-wide vz-findwrap">Highlight / compare<input id="vz-find" placeholder="Type a ${who === "teams" ? "team" : "player"}…" autocomplete="off" spellcheck="false"><div class="vz-sugg" id="vz-sugg" hidden></div></label>
         <div class="vz-picks">${picks.map((k) => `<button data-k="${esc(k)}" title="Remove">${esc(name(k))} ×</button>`).join("")}</div>
       </div></details>
@@ -473,7 +491,7 @@ const Viz = (() => {
       ${seasonOnly ? `<p class="note">Our ratings and college PPA are season-long numbers (as of the latest rankings), so they ignore the weeks you picked.</p>` : ""}
       <div class="vz-actions"><button class="btn" id="vz-png">Download picture</button><button class="btn" id="vz-link">Copy link</button>${navigator.share ? `<button class="btn" id="vz-share">Share</button>` : ""}<button class="btn vz-reset" id="vz-reset">Start over</button></div>
       ${body.table ? `<details class="vz-tbl"><summary>See the numbers</summary><table class="box"><tbody>${body.table.map(([i, k, v]) => `<tr><td class="num muted">${i}</td><td>${who === "players" && /^\d+$/.test(k) ? `<a href="#/player/${esc(k)}?league=${league}">${esc(name(k))}</a>` : who === "teams" ? `<a href="#/team/${esc(k.split(":")[1])}?league=${league}">${esc(name(k))}</a>` : esc(name(k))}</td><td class="num">${esc(v)}</td></tr>`).join("")}</tbody></table></details>` : ""}
-      <p class="note">${esc(note)} Source: ${esc(src)}. Rates are total ÷ total over the weeks you pick, not an average of weekly averages. Updated ${esc(new Date(D.updated).toLocaleDateString(undefined, { month: "short", day: "numeric" }))}.</p></div>`;
+      <p class="note">${st.role ? esc(`${st.role} = each team's ${(({ QB: "quarterback with the most pass attempts", RB: "back with the most carries + catches", WR: "wide receiver with the most targets", TE: "tight end with the most targets" })[st.role.slice(0, 2)]).replace("the most", st.role.endsWith("1") ? "the most" : `the ${{ 2: "2nd", 3: "3rd", 4: "4th" }[st.role.slice(2)]}-most`)} in the weeks you picked${league === "cfb" ? " (catches stand in for targets in college)" : ""}. `) : ""}${esc(note)} Source: ${esc(src)}. Rates are total ÷ total over the weeks you pick, not an average of weekly averages. Updated ${esc(new Date(D.updated).toLocaleDateString(undefined, { month: "short", day: "numeric" }))}.</p></div>`;
     function custom() { return st.radar ? st.radar.split(",") : who === "teams" ? RADAR.teams : RADAR.players[st.pos] || RADAR.players[""]; }
     function axes() { return custom().filter((k) => all.some((s) => s[0] === k)); }
 
@@ -495,6 +513,7 @@ const Viz = (() => {
     const on = (id, k, again = redo) => { const x = document.getElementById(id); if (x) x.onchange = () => { st[k] = x.value; if (k === "pos") st.radar = ""; if (k === "stat" || k === "pos") st.min = ""; again(); }; };
     const mi = document.getElementById("vz-min");
     if (mi) mi.onchange = () => { st.min = mi.value === "" ? "" : String(Math.max(0, Math.round(+mi.value) || 0)); redo(); };
+    on("vz-role", "role");
     on("vz-stat", "stat"); on("vz-y", "y"); on("vz-wk1", "wk1"); on("vz-wk2", "wk2"); on("vz-top", "top"); on("vz-group", "group"); on("vz-team", "team"); on("vz-pos", "pos");
     on("vz-from", "from", reload); on("vz-to", "to", reload);
     ["logo", "names"].forEach((k) => { const x = document.getElementById("vz-" + k); if (x) x.onchange = () => { st[k] = x.checked ? "" : "0"; redo(); }; });
