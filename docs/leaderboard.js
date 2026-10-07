@@ -129,5 +129,5 @@ const Leaderboard = (() => {
     catch (err) { msg(err.message === "taken" ? "Taken. Try another." : "Couldn't save it. Try again in a minute.", "lb-bad"); }
   });
 
-  return { publish, render, section, seasonNow };
+  return { publish, render, section, seasonNow, claim, valid, name: () => mine()?.name || "" };
 })();

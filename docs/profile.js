@@ -58,8 +58,9 @@ const Profile = (() => {
     const w = document.createElement("div");
     w.className = "pf-wrap";
     w.innerHTML = `<form class="card pf" id="pf-form" role="dialog" aria-modal="true" aria-labelledby="pf-title">
-      <h2 id="pf-title">${first ? "Welcome to the Cupcake Index" : "Your profile"}</h2>
-      ${first ? `<p class="note">Three quick questions so the site feels like yours. You can change these any time in Settings.</p>` : ""}
+      <h2 id="pf-title">${first === "refresh" ? "Quick check-in" : first ? "Welcome to the Cupcake Index" : "Your profile"}</h2>
+      ${first === "refresh" ? `<p class="note">We added alerts for your teams and a Pick'em leaderboard. Make sure these are right (change anything any time in Settings).</p>`
+        : first ? `<p class="note">Three quick questions so the site feels like yours. You can change these any time in Settings.</p>` : ""}
       <label class="pf-row"><span>What should we call you?</span><input id="pf-name" type="text" maxlength="30" autocomplete="given-name" value="${esc(p.name || first_)}"></label>
       <div class="pf-row"><span>What do you watch?</span>
         <div class="seg" id="pf-watch">${[["cfb", "College"], ["nfl", "NFL"], ["both", "Both"]].map(([k, l]) =>
@@ -69,8 +70,10 @@ const Profile = (() => {
       <div class="pf-row"><span>Other teams you follow <small>(optional: quick links, and alerts if they're on)</small></span>
         <div class="pf-search" data-for="extra"></div>
         <div class="pf-chips" id="pf-chips"></div></div>
-      <label class="pf-check"><input type="checkbox" id="pf-theme" ${first || CIT.name() === "team" ? "checked" : ""}> Use my team's colors for the site (Team theme)</label>
+      <label class="pf-check"><input type="checkbox" id="pf-theme" ${first === true || CIT.name() === "team" ? "checked" : ""}> Use my team's colors for the site (Team theme)</label>
       ${first && typeof Push !== "undefined" && Push.canAsk() ? `<label class="pf-check"><input type="checkbox" id="pf-push" checked> Send me alerts for my teams (kickoffs, scores, finals)</label>` : ""}
+      ${first && typeof Leaderboard !== "undefined" && Account.user?.() && !Leaderboard.name() ? `<div class="pf-row"><span>Pick'em leaderboard name <small>(optional; nobody else can have it)</small></span>
+        <div class="lb-set"><input id="lb-name" maxlength="20" autocomplete="off" spellcheck="false" placeholder="Pick a name"><small id="lb-msg" class="muted"></small></div></div>` : ""}
       <div class="pf-btns"><button type="submit" class="gbtn pf-save">Save</button><button type="button" class="boxbtn" id="pf-skip">${first ? "Skip for now" : "Cancel"}</button></div>
     </form>`;
     document.body.appendChild(w);
@@ -127,8 +130,15 @@ const Profile = (() => {
     const close = () => w.remove();
     $w("#pf-skip").onclick = () => { if (first && !get()) save({ name: $w("#pf-name").value.trim(), watch: pick }); close(); }; // don't ask again
     w.addEventListener("click", (e) => { if (e.target === w) close(); });
-    $w("#pf-form").onsubmit = (e) => {
+    $w("#pf-form").onsubmit = async (e) => {
       e.preventDefault();
+      const lb = $w("#lb-name")?.value.trim();
+      if (lb) { // claim the leaderboard name first; if it's taken, say so and keep the window open
+        const m = $w("#lb-msg");
+        if (!Leaderboard.valid(lb)) { m.textContent = "3–20 letters, numbers or spaces (and keep it clean)."; m.className = "lb-bad"; return; }
+        m.textContent = "Saving…"; m.className = "muted";
+        try { await Leaderboard.claim(lb); } catch (err) { m.textContent = err.message === "taken" ? "Taken. Try another (or leave it empty)." : "Couldn't save the name. Try again, or leave it empty."; m.className = "lb-bad"; return; }
+      }
       const find = (lg) => { const t = chosen[lg]; if (!t || pick === (lg === "cfb" ? "nfl" : "cfb")) return null; const { score, lg: _l, ...clean } = t; return clean; };
       const np = { name: $w("#pf-name").value.trim(), watch: pick, cfb: find("cfb"), nfl: find("nfl"), favs: extras.map(({ score, ...f }) => f) };
       if ($w("#pf-theme").checked && (np.cfb || np.nfl)) CIT.save(CIT.mode(), "team");
@@ -152,6 +162,17 @@ const Profile = (() => {
       <button type="button" class="boxbtn" id="pf-edit">${p && (p.cfb || p.nfl) ? "Edit" : "Pick my team"}</button>`;
   }
   function wire(root) { const b = root.querySelector("#pf-edit"); if (b) b.onclick = () => open(false); }
+
+  // one-time check-in for everyone after new features (alerts, leaderboard names): bump SETUP to ask again
+  const SETUP = 2;
+  function checkIn() {
+    if (navigator.webdriver) return;
+    if ((+store.get("ci-setup") || 0) >= SETUP) return;
+    if (document.querySelector(".pf-wrap, .tour")) { setTimeout(checkIn, 4000); return; } // the welcome window or the tour is up
+    store.set("ci-setup", SETUP);
+    open(get() ? "refresh" : true); // people who already set things up get the check-in; new visitors the normal welcome
+  }
+  setTimeout(checkIn, 3500); // after sign-in has settled, so signed-in people get the leaderboard name too
 
   return { get, mine, favorites, save, open, header, section, wire, KEY };
 })();
