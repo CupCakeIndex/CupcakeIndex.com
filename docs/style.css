@@ -2149,3 +2149,8 @@ table.roster th.sortable.on a { color: var(--accent); }
 /* Visualize: long stat names (Deep cuts) must not push the dropdown past the card on phones */
 .vz-ctl > label { min-width: 0; max-width: 100%; }
 .vz-ctl select { max-width: 100%; }
+
+/* Visualize: the search box (find any stat, preset, position or team) */
+.vz-q { margin: 0 0 12px; }
+.vz-q input { width: 100%; box-sizing: border-box; font: inherit; font-size: 16px; color: var(--ink); background: var(--bg); border: 1px solid var(--accent); padding: 9px 10px; }
+.vz-q .vz-sugg { max-height: 60vh; }

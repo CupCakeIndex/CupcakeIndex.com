@@ -462,6 +462,8 @@ const Viz = (() => {
     const sel = (id, opts, v) => `<select id="${id}">${opts.map(([k, l]) => `<option value="${esc(k)}"${String(k) === String(v) ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
     const statSel = (id, v) => `<select id="${id}">${groups.map(([g, l]) => `<optgroup label="${esc(g)}">${l.map((s) => `<option value="${s[0]}"${s[0] === v ? " selected" : ""}>${esc(s[1])}</option>`).join("")}</optgroup>`).join("")}</select>`;
     const seg = (id, opts, v) => `<div class="seg vz-seg" id="${id}">${opts.map(([k, l]) => `<button data-v="${k}" class="${k === v ? "active" : ""}">${l}</button>`).join("")}</div>`;
+    const posOpts = [["", "All"], ["QB", "QB"], ["RB", "RB"], ["WR", "WR / TE"], ...(D.xcols?.length ? [["TE", "TE only"]] : []), ["K", "Kicker"], ["DEF", "Defense"],
+      ...(D.xcols?.length ? Object.entries(FINE).filter(([k]) => k !== "TE").map(([k, l]) => [k, `Defense: ${l}`]) : [])];
     const wkOpts = [["", "–"], ...Array.from({ length: Math.max(maxWk, D.league === "nfl" ? 18 : 1) }, (_, i) => [i + 1, D.bowls && i + 1 >= D.bowls ? "Bowls" : i + 1])];
 
     // the chart
@@ -601,6 +603,7 @@ const Viz = (() => {
 
     el.innerHTML = stSub() + `<div class="card vz">
       <div class="sc-bar"><h2>Visualize</h2><span class="muted vz-tag">Make a chart, win the argument.</span></div>
+      <div class="vz-q vz-findwrap"><input id="vz-q" type="search" placeholder="Search stats, presets, positions, teams… (try “run stops” or “rookie”)" autocomplete="off" spellcheck="false"><div class="vz-sugg" id="vz-qs" hidden></div></div>
       <div class="vz-presets">
         <label>Presets<select id="vz-preset"><option value="">Pick a chart…</option>
           <optgroup label="Popular">${PRESETS[league].map(([l], i) => `<option value="p${i}">${esc(l)}</option>`).join("")}</optgroup>
@@ -629,8 +632,7 @@ const Viz = (() => {
       <details class="vz-more"${st.group || st.team || st.pos || st.exp || st.draft || picks.length ? " open" : ""}><summary>Filters and highlights</summary><div class="vz-ctl">
         <label>${league === "nfl" ? "Division" : "Conference"}${sel("vz-group", [["", "All"], ...confs.map((c) => [c, c])], st.group)}</label>
         ${who === "players" ? `<label>Team${sel("vz-team", [["", "All teams"], ...Object.entries(D.teams).sort((a, b) => a[1][0].localeCompare(b[1][0])).map(([k, t]) => [k, t[0]])], st.team)}</label>
-          <label>Position${sel("vz-pos", [["", "All"], ["QB", "QB"], ["RB", "RB"], ["WR", "WR / TE"], ...(D.xcols?.length ? [["TE", "TE only"]] : []), ["K", "Kicker"], ["DEF", "Defense"],
-            ...(D.xcols?.length ? Object.entries(FINE).filter(([k]) => k !== "TE").map(([k, l]) => [k, `Defense: ${l}`]) : [])], st.pos)}</label>
+          <label>Position${sel("vz-pos", posOpts, st.pos)}</label>
           ${D.xcols?.length ? `<label>Experience${sel("vz-exp", EXP, st.exp)}</label><label>Drafted${sel("vz-draft", DRAFT, st.draft)}</label>` : ""}
           <label>Depth chart${sel("vz-role", [["", "Any"], ...["QB1", "QB2", "RB1", "RB2", "RB3", "WR1", "WR2", "WR3", "WR4", "TE1", "TE2"].map((r) => [r, r])], st.role)}</label>` : ""}
         <label class="vz-wide vz-findwrap">Highlight / compare<input id="vz-find" placeholder="Type a ${who === "teams" ? "team" : "player"}…" autocomplete="off" spellcheck="false"><div class="vz-sugg" id="vz-sugg" hidden></div></label>
@@ -709,6 +711,47 @@ const Viz = (() => {
     sugg.onclick = (e) => { const b = e.target.closest("[data-i]"); if (b) add(hits[+b.dataset.i]); };
     find.onblur = () => setTimeout(() => (sugg.hidden = true), 150);
     el.querySelector(".vz-picks").onclick = (e) => { const b = e.target.closest("[data-k]"); if (b) { st.pick = picks.filter((k) => k !== b.dataset.k).join(","); redo(); } };
+    // Search box: one place to find any stat, preset, position, team or filter instead of scrolling the dropdowns.
+    // Each item: [label, what it is, extra words to match, apply()]
+    const qbox = document.getElementById("vz-q"), qs = document.getElementById("vz-qs");
+    const setWho = (w) => { if (w !== st.who) { st.who = w; st.pick = ""; st.team = ""; st.pos = ""; st.radar = ""; st.role = ""; } };
+    const qItems = () => [
+      ...PRESETS[league].map(([l, o]) => [l, "Preset", "chart idea", () => { st = { ...DEF, from: st.from, to: st.to, ...o }; reload(); }]),
+      ...(mine()[league] || []).map((m) => [m.name, "Your preset", "mine saved", () => { st = { ...DEF, from: st.from, to: st.to, ...m.st }; reload(); }]),
+      ...["players", "teams"].flatMap((w) => statsFor(w, D).flatMap(([g, l]) => l.map((x) => [x[1], `${w === "players" ? "Player" : "Team"} stat · ${g}`, `${g} ${x[0]}`,
+        () => { setWho(w); if (st.type === "radar" || st.type === "pie" && !x[3].count) st.type = "bar"; st.stat = x[0]; st.min = ""; redo(); }]))),
+      ...posOpts.filter(([k]) => k).map(([k, l]) => [l, "Position", `${k} position players`, () => { setWho("players"); st.pos = k; st.role = ""; st.min = ""; redo(); }]),
+      ...(D.xcols?.length ? EXP.filter(([k]) => k).map(([k, l]) => [l, "Experience", "years experience rookie", () => { setWho("players"); st.exp = k; redo(); }]) : []),
+      ...(D.xcols?.length ? DRAFT.filter(([k]) => k).map(([k, l]) => [l === "Any" ? l : k === "U" ? "Undrafted" : `Drafted: ${l}`, "Drafted", "draft round pick", () => { setWho("players"); st.draft = k; redo(); }]) : []),
+      ...Object.entries(D.teams).map(([k, t]) => [t[0], "Team", `${t[1]} ${t[3] || ""}`, () => {
+        if (st.who === "players") st.team = k; else st.pick = [...(st.pick ? st.pick.split(",") : []).filter((x) => x !== k), k].slice(-6).join(","); redo(); }]),
+      ...confs.map((c) => [c, league === "nfl" ? "Division" : "Conference", "group", () => { st.group = c; redo(); }]),
+      ...[["bar", "Bar"], ["line", "Line"], ["pie", "Pie"], ["scatter", "Scatter"], ["radar", "Radar"]].map(([k, l]) => [`${l} chart`, "Chart type", "chart type", () => { st.type = k; st.radar = ""; redo(); }]),
+    ];
+    let qHits = [], qCur = -1;
+    const qShow = () => {
+      const q = norm(qbox.value.trim());
+      if (q.length < 2) { qs.hidden = true; qHits = []; return; }
+      const words = q.split(/\s+/);
+      qHits = qItems().map((it) => [it, norm(it[0]), norm(`${it[0]} ${it[1]} ${it[2]}`)]).filter(([, , all]) => words.every((w) => all.includes(w)))
+        .map(([it, l]) => [it, l.startsWith(q) ? 0 : words.every((w) => l.includes(w)) ? 1 : 2]).sort((a, b) => a[1] - b[1]).slice(0, 12).map((x) => x[0]);
+      qCur = -1;
+      qs.innerHTML = qHits.map((it, i) => `<button type="button" data-i="${i}">${esc(it[0])} <small>${esc(it[1])}</small></button>`).join("")
+        || `<p class="muted">Nothing matches “${esc(qbox.value.trim())}”.</p>`;
+      qs.hidden = false;
+    };
+    const qPick = (it) => { if (it) { qbox.value = ""; qs.hidden = true; it[3](); } };
+    qbox.oninput = qShow;
+    qbox.onkeydown = (e) => {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault(); qCur = Math.max(0, Math.min(qHits.length - 1, qCur + (e.key === "ArrowDown" ? 1 : -1)));
+        qs.querySelectorAll("button").forEach((b, i) => b.classList.toggle("on", i === qCur));
+      } else if (e.key === "Enter") { e.preventDefault(); qPick(qHits[Math.max(qCur, 0)]); }
+      else if (e.key === "Escape") qs.hidden = true;
+    };
+    qs.onmousedown = (e) => e.preventDefault();
+    qs.onclick = (e) => { const b = e.target.closest("[data-i]"); if (b) qPick(qHits[+b.dataset.i]); };
+    qbox.onblur = () => setTimeout(() => (qs.hidden = true), 150);
     // presets: pick one (popular or yours), save the current chart as yours, or delete one of yours
     const pick = document.getElementById("vz-preset");
     pick.onchange = () => {
