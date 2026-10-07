@@ -73,7 +73,8 @@ const Profile = (() => {
       <label class="pf-check"><input type="checkbox" id="pf-theme" ${first === true || CIT.name() === "team" ? "checked" : ""}> Use my team's colors for the site (Team theme)</label>
       ${first && typeof Push !== "undefined" && Push.canAsk() ? `<label class="pf-check"><input type="checkbox" id="pf-push" checked> Send me alerts for my teams (kickoffs, scores, finals)</label>` : ""}
       ${first && typeof Leaderboard !== "undefined" && Account.user?.() && !Leaderboard.name() ? `<div class="pf-row"><span>Pick'em leaderboard name <small>(optional; nobody else can have it)</small></span>
-        <div class="lb-set"><input id="lb-name" maxlength="20" autocomplete="off" spellcheck="false" placeholder="Pick a name"><small id="lb-msg" class="muted"></small></div></div>` : ""}
+        <div class="lb-set"><input id="lb-name" maxlength="20" autocomplete="off" spellcheck="false" placeholder="Pick a name"><small id="lb-msg" class="muted"></small></div></div>`
+        : first && typeof Account !== "undefined" && Account.enabled() && !Account.user?.() ? `<p class="note pf-signin">Want your Pick'em record on every device and a name on the Pick'em leaderboard? Sign in with Google in Settings (free).</p>` : ""}
       <div class="pf-btns"><button type="submit" class="gbtn pf-save">Save</button><button type="button" class="boxbtn" id="pf-skip">${first ? "Skip for now" : "Cancel"}</button></div>
     </form>`;
     document.body.appendChild(w);
