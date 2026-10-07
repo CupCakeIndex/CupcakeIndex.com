@@ -1786,9 +1786,82 @@ const Live = (() => {
     return data;
   }
 
+  // ---------------------------------------------------------------- NFL defensive season pace
+  // ESPN's fantasy projections skip defenders, so this is ours: his per-game average so far x (his games + his team's
+  // games left of 17). From the Visualize data (docs/data/viz/nfl_<season>.json, nflverse, Sunday and Tuesday mornings).
+  const DP_POS = { LB: "Linebackers", EDGE: "Edge", IDL: "D-line", CB: "Corners", S: "Safeties" }; // roles from src/deep_stats.py
+  const DP_COLS = [["Tackles", "tackles"], ["Sacks", "def_sacks"], ["TFL", "tfl"], ["QB hits", "qb_hits"], ["PBU", "pd"], ["INT", "def_int"], ["FF", "ff"]];
+  const DP_KEY = { LB: "tackles", EDGE: "def_sacks", IDL: "def_sacks", CB: "pd", S: "tackles" };
+  let defPaceP = null;
+  const defPace = () => (defPaceP ||= (async () => {
+    const idx = await getJSON("data/viz/index.json"), season = (idx.nfl || []).at(-1);
+    const D = await getJSON(`data/viz/nfl_${season}.json`);
+    const ci = Object.fromEntries(D.pcols.map((c, i) => [c, i + 3])), ff = (D.xcols || []).indexOf("ff");
+    const tg = {}, out = new Map();
+    for (const r of D.trows) tg[r[0]] = (tg[r[0]] || 0) + 1;
+    const through = Math.max(0, ...D.trows.map((r) => r[1]));
+    for (const r of D.prows) {
+      const m = D.pmeta[r[0]];
+      if (!m || !DP_POS[m[3]]) continue;
+      const o = out.get(r[0]) || { id: r[0], name: m[0], pos: m[3], yr: m[4], team: r[2], g: 0, so: Object.fromEntries(DP_COLS.map(([, k]) => [k, 0])) };
+      o.g++; o.team = r[2];
+      for (const [, k] of DP_COLS) o.so[k] += k === "ff" ? (() => { const x = r.at(-1); if (!Array.isArray(x)) return 0; for (let i = 0; i < x.length; i += 2) if (x[i] === ff) return x[i + 1]; return 0; })() : r[ci[k]] || 0;
+      out.set(r[0], o);
+    }
+    for (const o of out.values()) {
+      o.left = Math.max(0, 17 - (tg[o.team] || 0));
+      o.pace = Object.fromEntries(DP_COLS.map(([, k]) => [k, o.g ? (o.so[k] / o.g) * (o.g + o.left) : 0]));
+    }
+    return { season, through, list: [...out.values()] };
+  })().catch(() => { defPaceP = null; return null; }));
+
+  async function defProjected(params, pos) {
+    const my = token;
+    view("stats").innerHTML = stSubStats("projected") + `<div class="card muted">Loading…</div>`;
+    const [data, teams] = await Promise.all([defPace(), api(`${STAND("nfl")}/standings?level=3`, 86400000).then((d) => new Map(groupsOf(d).flatMap((g) => g.entries).map((e) => [String(e.team.id), e.team]))).catch(() => new Map())]);
+    if (my !== token) return;
+    if (!data) { view("stats").innerHTML = stSubStats("projected") + `<div class="card">Couldn't load the defensive stats. Try again in a minute.</div>`; return; }
+    const sort = DP_COLS.some(([, k]) => k === params.get("sort")) ? params.get("sort") : DP_KEY[pos], dir = params.get("dir") === "asc" ? -1 : 1;
+    const go = (changes) => {
+      const p = new URLSearchParams(params);
+      Object.entries(changes).forEach(([k, v]) => (v == null || v === "" ? p.delete(k) : p.set(k, v)));
+      p.set("league", "nfl"); p.set("show", "projected"); p.set("when", "pace");
+      location.hash = `#/stats?${p}`;
+    };
+    const all = data.list.filter((r) => r.pos === pos && r.g >= 1).sort((a, b) => dir * (b.pace[sort] - a.pace[sort]) || b.pace.tackles - a.pace.tackles).slice(0, 100);
+    const th = (k, l) => `<th class="num sortable${k === sort ? " on" : ""}" data-sort="${k}">${esc(l)}${k === sort ? (dir > 0 ? " ▼" : " ▲") : ""}</th>`;
+    const abbr = (key) => teams.get(String(key).split(":")[1])?.abbreviation || "";
+    const tm = (key) => { const t = teams.get(String(key).split(":")[1]); return t ? `<a href="${link("team", t.id)}"><span class="tm">${img(teamLogo(t), "xs")} ${esc(t.abbreviation)}</span></a>` : ""; };
+    view("stats").innerHTML = stSubStats("projected") + `
+      <div class="sc-bar">
+        <div class="presets" id="pj-when"><button data-when="" >This week</button><button data-when="pace" class="on">Season pace</button></div>
+        <div class="presets" id="pj-pos">${[["", "All"], ...Object.values(PJ_POS).map((p) => [p, p]), ...Object.entries(DP_POS)].map(([v, l]) => `<button data-pos="${v}" class="${v === pos ? "on" : ""}">${l}</button>`).join("")}</div>
+        <input id="pj-search" type="search" placeholder="Filter player or team…">
+      </div>
+      <p class="fr-how"><b>Season pace</b>: where each defender's ${esc(data.season)} totals are headed if he keeps it up. His per-game average so far times his games plus his team's games left. Hover a number to see his total so far.</p>
+      <div class="table-wrap"><table id="pj-table"><thead><tr><th class="num">#</th><th>Player</th><th>Team</th><th class="num" title="Games played + team games left">G</th>${DP_COLS.map(([l, k]) => th(k, l)).join("")}</tr></thead>
+        <tbody>${all.map((r, i) => `<tr data-name="${esc(r.name.toLowerCase())} ${esc(abbr(r.team).toLowerCase())}"><td class="num muted">${i + 1}</td>
+          <td><div class="team">${face(`https://a.espncdn.com/i/headshots/nfl/players/full/${r.id}.png`, r.name, "hs")}<div><a href="${link("player", r.id)}"><b>${esc(r.name)}</b></a><small class="muted">${esc(DP_POS[r.pos])}${r.yr === 1 ? " · rookie" : ""}</small></div></div></td>
+          <td>${tm(r.team)}</td><td class="num">${r.g}<small class="muted"> +${r.left}</small></td>
+          ${DP_COLS.map(([, k]) => `<td class="num${k === sort ? " on" : ""}" title="${Math.round(r.so[k] * 10) / 10} so far">${paceFmt(r.pace[k])}</td>`).join("")}</tr>`).join("")
+          || `<tr><td colspan="11" class="muted">No defensive stats yet.</td></tr>`}</tbody></table></div>
+      <p class="note">Click a column to sort by it. Top 100 at the position. Stats through week ${esc(data.through)} (nflverse, the NFL's official play-by-play; updated Sunday and Tuesday mornings). ESPN doesn't project defenders, so this is a straight-line pace: no adjustment for opponents or injuries.</p>`;
+    $("#pj-when").onclick = (e) => { const b = e.target.closest("[data-when]"); if (b && !b.dataset.when) go({ when: null, pos: null, sort: null, dir: null }); };
+    $("#pj-pos").onclick = (e) => { const b = e.target.closest("[data-pos]"); if (b) go({ pos: b.dataset.pos || "all", sort: null, dir: null, pages: null, when: DP_POS[b.dataset.pos] ? "pace" : null }); };
+    view("stats").querySelector("#pj-table thead").onclick = (e) => {
+      const k = e.target.closest("th")?.dataset.sort;
+      if (k) go({ sort: k === DP_KEY[pos] ? null : k, dir: k === sort && dir > 0 ? "asc" : null });
+    };
+    $("#pj-search").oninput = (e) => {
+      const q = e.target.value.trim().toLowerCase();
+      view("stats").querySelectorAll("#pj-table tbody tr").forEach((tr) => tr.classList.toggle("hidden", !!q && !(tr.dataset.name || "").includes(q)));
+    };
+  }
+
   async function projected(params) {
     const my = token;
     if (league !== "nfl") return cfbProjected(params);
+    if (DP_POS[params.get("pos")]) return defProjected(params, params.get("pos"));
     view("stats").innerHTML = stSubStats("projected") + `<div class="card muted">Loading…</div>`;
     let data, teams;
     try {
@@ -1820,7 +1893,7 @@ const Live = (() => {
     view("stats").innerHTML = stSubStats("projected") + `
       <div class="sc-bar">
         <div class="presets" id="pj-when">${[["", "This week"], ["pace", "Season pace"]].map(([v, l]) => `<button data-when="${v}" class="${v === when ? "on" : ""}">${l}</button>`).join("")}</div>
-        <div class="presets" id="pj-pos">${[["", "All"], ...Object.values(PJ_POS).map((p) => [p, p])].map(([v, l]) => `<button data-pos="${v}" class="${v === pos ? "on" : ""}">${l}</button>`).join("")}</div>
+        <div class="presets" id="pj-pos">${[["", "All"], ...Object.values(PJ_POS).map((p) => [p, p]), ...Object.entries(DP_POS)].map(([v, l]) => `<button data-pos="${v}" class="${v === pos ? "on" : ""}" ${DP_POS[v] ? 'title="Defense: season pace"' : ""}>${l}</button>`).join("")}</div>
         <input id="pj-search" type="search" placeholder="Filter player or team…">
       </div>
       <p class="fr-how">${pace ? `<b>Season pace</b>: where each player's ${esc(data.y)} totals are headed. Real stats so far plus ESPN's projection for every game left (each one set for that week's opponent). Hover a number to see his total so far.`
@@ -1831,7 +1904,7 @@ const Live = (() => {
       ${all.length > shown ? `<p><button id="pj-more" class="btn">Show 100 more</button></p>` : ""}
       <p class="note">Click a column to sort by it. Players on bye or projected for nothing (out) aren't listed${ros ? "; rest-of-season totals skip byes and games ESPN expects them to miss" : ""}. Projections: ESPN fantasy, updated through the week.</p>`;
     $("#pj-when").onclick = (e) => { const b = e.target.closest("[data-when]"); if (b) go({ when: b.dataset.when, sort: null, dir: null, pages: null }); };
-    $("#pj-pos").onclick = (e) => { const b = e.target.closest("[data-pos]"); if (b) go({ pos: b.dataset.pos || "all", sort: null, dir: null, pages: null }); };
+    $("#pj-pos").onclick = (e) => { const b = e.target.closest("[data-pos]"); if (b) go({ pos: b.dataset.pos || "all", sort: null, dir: null, pages: null, ...(DP_POS[b.dataset.pos] ? { when: "pace" } : {}) }); };
     view("stats").querySelector("#pj-table thead").onclick = (e) => {
       const k = e.target.closest("th")?.dataset.sort;
       if (k) go({ sort: k === (PJ_KEY[pos] || "pts") ? null : k, dir: k === sort && dir === "desc" ? "asc" : null, pages: null });
@@ -1976,8 +2049,15 @@ const Live = (() => {
       note: `${r.g + r.gl} games, ${r.gl} left. Big number: his per-game average so far over the full season. "Ours": what he's done plus our projection for each game left, adjusted for those defenses and expected blowouts. <a href="${link("stats", null, { show: "projected", league: "cfb", when: "pace", pos: r.pos })}">Full list →</a>` };
   }
   async function nflPanes(id) {
-    const d = await pjPlayers(), r = d?.list?.find((p) => String(p.id) === String(id));
-    if (!r) return [];
+    const d = await pjPlayers().catch(() => null), r = d?.list?.find((p) => String(p.id) === String(id));
+    if (!r) { // defenders: our straight-line pace
+      const dp = (await defPace())?.list.find((p) => String(p.id) === String(id));
+      if (!dp) return [];
+      const main = { LB: ["tackles", "def_sacks", "tfl", "pd", "def_int"], EDGE: ["def_sacks", "qb_hits", "tfl", "tackles", "ff"], IDL: ["def_sacks", "qb_hits", "tfl", "tackles"],
+        CB: ["def_int", "pd", "tackles", "ff"], S: ["tackles", "def_int", "pd", "tfl"] }[dp.pos];
+      return [{ k: "pace", tab: "Season pace", cells: DP_COLS.filter(([, k]) => main.includes(k)).sort((a, b) => main.indexOf(a[1]) - main.indexOf(b[1])).map(([l, k]) => [l, paceFmt(dp.pace[k]) === `<span class="muted">–</span>` ? "0" : paceFmt(dp.pace[k]), soLine(dp.so[k])]),
+        note: `His per-game average so far over ${dp.g + dp.left} games (${dp.left} left), if he keeps it up. <a href="${link("stats", null, { show: "projected", league: "nfl", when: "pace", pos: dp.pos })}">Full list →</a>` }];
+    }
     const main = PACE_MAIN[r.pos] || [], cols = [...PJ_COLS, ...PJ_K].filter(([, k]) => main.includes(k));
     return [r.week.pts > 0 && { k: "week", tab: `Week ${esc(d.wk)}`,
         cells: [...cols.map(([l, k]) => [l, pjFmt(r.week[k], l)]), ["PPR pts", r.week.pts.toFixed(1)]],
