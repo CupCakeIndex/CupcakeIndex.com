@@ -404,17 +404,9 @@ const Viz = (() => {
       title = `${who === "players" && st.team ? tm(st.team)[0] + ": " : ""}share of ${s[1].toLowerCase()}`.replace(/^s/, "S");
       cfg = { type: "doughnut", data: { labels: [...shown.map(short), ...(rest ? ["Everyone else"] : [])],
         datasets: [{ data: [...shown.map((k) => val(s, k)), ...(rest ? [rest] : [])], backgroundColor: [...shown.map((k, i) => PAL[i % PAL.length]), ...(rest ? [line] : [])], borderColor: C("--card"), borderWidth: 2 }] },
-        plugins: [{ id: "vzPie", afterDatasetsDraw(c) { // each slice's share (and team logos on team pies)
-          const ctx = c.ctx, data = c.data.datasets[0].data;
-          ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = "bold 12px JetBrains Mono";
-          c.getDatasetMeta(0).data.forEach((arc, i) => {
-            if (arc.circumference < 0.22) return; // too thin to label: the hover still shows it
-            const p = arc.tooltipPosition(), logo = showLogo && who === "teams" && i < shown.length && drawLogo(ctx, shown[i], p.x, p.y - 8, 22);
-            const t = `${Math.round((100 * data[i]) / total)}%`;
-            ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,.55)"; ctx.strokeText(t, p.x, p.y + (logo ? 12 : 0));
-            ctx.fillStyle = "#fff"; ctx.fillText(t, p.x, p.y + (logo ? 12 : 0));
-          });
-          ctx.restore(); } }],
+        plugins: [{ id: "vzPie", afterDatasetsDraw(c) { // team logos on their slices; the share shows on hover
+          if (!showLogo || who !== "teams") return;
+          c.getDatasetMeta(0).data.forEach((arc, i) => { if (i < shown.length && arc.circumference > 0.3) { const p = arc.tooltipPosition(); drawLogo(c.ctx, shown[i], p.x, p.y, 24); } }); } }],
         options: { ...base, scales: {}, plugins: { ...base.plugins, legend: { position: "bottom", labels: base.plugins.legend.labels, display: showNames },
           tooltip: { ...base.plugins.tooltip, callbacks: {
             title: (c) => (c[0].dataIndex < shown.length ? name(shown[c[0].dataIndex]) : "Everyone else"),
