@@ -1,0 +1,44 @@
+name: Post a thread
+
+# Posts a reviewed thread (text + pictures in data/threads/<folder>/thread.json) to X, each post replying to the last.
+# Only runs when you start it: Actions tab > "Post a thread" > Run workflow, and type the folder name.
+# If X's daily limit doesn't leave room for the whole thread, it takes the first post back down and says when to retry.
+
+on:
+  workflow_dispatch:
+    inputs:
+      folder:
+        description: "Thread folder in data/threads (for example 2026-10-06-new-features)"
+        required: true
+        type: string
+
+permissions:
+  contents: write   # commits data/social/posted.json after posting
+
+concurrency:
+  group: social-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r src/social/requirements.txt
+      - name: Post the thread
+        env:
+          FOLDER: ${{ inputs.folder }}
+          X_POSTING_ENABLED: ${{ vars.X_POSTING_ENABLED }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+        run: |
+          [[ "$FOLDER" =~ ^[A-Za-z0-9_.-]+$ ]] || { echo "Folder name can only have letters, numbers, - and _"; exit 1; }
+          python src/social/post_thread.py "data/threads/$FOLDER"
+      - name: Save the posting log
+        if: always()
+        run: bash src/social/save_log.sh
