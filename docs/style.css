@@ -1373,6 +1373,13 @@ a.mbug:hover .mb-mid b.mb-at { color: var(--accent); }
 .wp-now.flip b { left: auto; right: 12px; }
 @keyframes wp-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ink) 50%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
 .tf-guy { animation: tf-bob .8s steps(2) infinite; }
+/* 16-bit live field (field16.js): turned so the offense attacks up the screen, tilted like the 16-bit games */
+.tf16-tilt { transform: perspective(1100px) rotateX(18deg); transform-origin: 50% 100%; }
+.tf-field.tf16 { width: min(100%, 440px); margin: 0 auto; }
+.tf16 image { image-rendering: pixelated; }
+.tf16 .tf-big { font-size: 26px; }
+.tf16 .tf-sub { font-size: 12px; }
+.tf16-card .tf-dd { font-size: 18px; color: #fff; padding: 4px 8px 6px; background: #0a0a0e; box-shadow: inset 0 -4px 0 #c81020; text-shadow: 2px 2px 0 #000; }
 .tf-wrap { position: relative; }
 /* zoom + pan: the field scales inside a clipping box; one finger scrolls the page until you zoom in */
 .tf-zm { overflow: hidden; touch-action: pan-y; }
