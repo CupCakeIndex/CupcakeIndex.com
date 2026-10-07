@@ -337,6 +337,9 @@ def main():
         devs = devices(s)
         if a.what == "list":
             print(f"{len(devs)} device(s) with alerts on")
+            for d in devs:  # which push service (web.push.apple.com = iPhone/Mac Safari, fcm = Chrome/Android, windows/mozilla = Edge/Firefox), never the address itself
+                host = d["endpoint"].split("/")[2] if d["endpoint"].count("/") > 2 else "?"
+                print(f"   {host}: teams {len(d['teams'])}, alerts {', '.join(sorted(d['topics'])) or 'none'}")
             for t in (*GAME_TOPICS, "bully", "picks", "news"):
                 print(f"   {t}: {sum(t in d['topics'] for d in devs)}")
         else:
