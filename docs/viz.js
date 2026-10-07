@@ -400,14 +400,25 @@ const Viz = (() => {
       const list = rank(s, keys).filter((k) => val(s, k) > 0), n = Math.min(top, 12);
       const shown = list.slice(0, n), rest = list.slice(n).reduce((a, k) => a + val(s, k), 0);
       const total = list.reduce((a, k) => a + val(s, k), 0);
-      title = `Share of ${s[1].toLowerCase()}`;
+      title = `${who === "players" && st.team ? tm(st.team)[0] + ": " : ""}share of ${s[1].toLowerCase()}`.replace(/^s/, "S");
       cfg = { type: "doughnut", data: { labels: [...shown.map(short), ...(rest ? ["Everyone else"] : [])],
         datasets: [{ data: [...shown.map((k) => val(s, k)), ...(rest ? [rest] : [])], backgroundColor: [...shown.map((k, i) => PAL[i % PAL.length]), ...(rest ? [line] : [])], borderColor: C("--card"), borderWidth: 2 }] },
-        plugins: [{ id: "vzPie", afterDatasetsDraw(c) { // team logos on their slices
-          if (!showLogo || who !== "teams") return;
-          c.getDatasetMeta(0).data.forEach((arc, i) => { if (i < shown.length && arc.circumference > 0.3) { const p = arc.tooltipPosition(); drawLogo(c.ctx, shown[i], p.x, p.y, 24); } }); } }],
+        plugins: [{ id: "vzPie", afterDatasetsDraw(c) { // each slice's share (and team logos on team pies)
+          const ctx = c.ctx, data = c.data.datasets[0].data;
+          ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = "bold 12px JetBrains Mono";
+          c.getDatasetMeta(0).data.forEach((arc, i) => {
+            if (arc.circumference < 0.22) return; // too thin to label: the hover still shows it
+            const p = arc.tooltipPosition(), logo = showLogo && who === "teams" && i < shown.length && drawLogo(ctx, shown[i], p.x, p.y - 8, 22);
+            const t = `${Math.round((100 * data[i]) / total)}%`;
+            ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,.55)"; ctx.strokeText(t, p.x, p.y + (logo ? 12 : 0));
+            ctx.fillStyle = "#fff"; ctx.fillText(t, p.x, p.y + (logo ? 12 : 0));
+          });
+          ctx.restore(); } }],
         options: { ...base, scales: {}, plugins: { ...base.plugins, legend: { position: "bottom", labels: base.plugins.legend.labels, display: showNames },
-          tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${c.label}: ${fmt({ 3: { ...s[3], count: 0 } }, c.raw)} (${Math.round((100 * c.raw) / total)}%)` } } } } };
+          tooltip: { ...base.plugins.tooltip, callbacks: {
+            title: (c) => (c[0].dataIndex < shown.length ? name(shown[c[0].dataIndex]) : "Everyone else"),
+            label: (c) => `${Math.round((100 * c.raw) / total)}% of the ${who === "players" && st.team ? "team's" : "total"} ${s[1].toLowerCase()}`,
+            afterLabel: (c) => `(${fmt({ 3: { ...s[3], count: 0, d: st.per === "game" ? 1 : s[3].d } }, c.raw)} ${s[1].toLowerCase()}${perTxt(s)})` } } } } };
       body = { h: 420 };
       note = who === "players" && !st.team ? "Tip: pick a team in Filters to see how one team splits it up (who gets the carries, the targets...)." : "";
       if (!stat[3].count) note = `Pie charts need a total, so this shows ${s[1].toLowerCase()}. ` + note;
