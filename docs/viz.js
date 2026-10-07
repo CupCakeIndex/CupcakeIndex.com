@@ -312,7 +312,8 @@ const Viz = (() => {
     const UNITS = { epa_db: "dropbacks", pass_epa_play: "pass plays", rush_epa_play: "rushes", epa_rush: "carries", ypc: "carries", ypr: "catches",
       catch_pct: "targets", epa_tgt: "targets", fg_pct: "field goal tries", third: "third downs", ppa_play: "plays", win_pct: "games" };
     const unitOf = (s) => UNITS[s[0]] || (["ypa", "cmp_pct", "rating", "eff"].includes(s[0]) ? "pass attempts" : who === "teams" ? "plays" : "attempts");
-    const val = (s, k) => value(s, agg[k].S, agg[k].g, st.per);
+    const per = st.type === "pie" ? "total" : st.per; // a pie is a share of the whole: always season totals
+    const val = (s, k) => value(s, agg[k].S, agg[k].g, per);
     const rank = (s, list) => list.filter((k) => val(s, k) != null).sort((a, b) => (s[3].low ? 1 : -1) * (val(s, a) - val(s, b)) * (st.order === "worst" ? -1 : 1));
     const top = +st.top || 10;
     const name = (k) => who === "players" ? meta(k)?.[0] || k : tm(k)[0];
@@ -324,7 +325,7 @@ const Viz = (() => {
     const ink = C("--ink"), muted = C("--muted"), line = C("--line"), accent = C("--accent");
     const weeksTxt = `${w1 > 1 || w2 < 99 ? `Weeks ${w1}–${D.bowls && w2 >= D.bowls ? "bowls" : Math.min(w2, maxWk)}` : league === "nfl" ? "Regular season" : "Full season incl. bowls"}`;
     const seasonTxt = multi ? `${st.from}–${st.to}` : st.to;
-    const perTxt = (s) => (s[3].count && st.per === "game" ? " per game" : "");
+    const perTxt = (s) => (s[3].count && per === "game" ? " per game" : "");
     const lgTxt = league === "nfl" ? "NFL" : "College";
     let title = "", body = "", note = "";
     const sel = (id, opts, v) => `<select id="${id}">${opts.map(([k, l]) => `<option value="${esc(k)}"${String(k) === String(v) ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
@@ -418,7 +419,7 @@ const Viz = (() => {
           tooltip: { ...base.plugins.tooltip, callbacks: {
             title: (c) => (c[0].dataIndex < shown.length ? name(shown[c[0].dataIndex]) : "Everyone else"),
             label: (c) => `${Math.round((100 * c.raw) / total)}% of the ${who === "players" && st.team ? "team's" : "total"} ${s[1].toLowerCase()}`,
-            afterLabel: (c) => `(${fmt({ 3: { ...s[3], count: 0, d: st.per === "game" ? 1 : s[3].d } }, c.raw)} ${s[1].toLowerCase()}${perTxt(s)})` } } } } };
+            afterLabel: (c) => `(${fmt({ 3: { ...s[3], count: 0, d: per === "game" ? 1 : s[3].d } }, c.raw)} ${s[1].toLowerCase()}${perTxt(s)})` } } } } };
       body = { h: 420 };
       note = who === "players" && !st.team ? "Tip: pick a team in Filters to see how one team splits it up (who gets the carries, the targets...)." : "";
       if (!stat[3].count) note = `Pie charts need a total, so this shows ${s[1].toLowerCase()}. ` + note;
@@ -483,7 +484,7 @@ const Viz = (() => {
           : `<label class="vz-wide">${st.type === "scatter" ? "Across (X)" : "Stat"}${statSel("vz-stat", stat[0])}</label>${st.type === "scatter" ? `<label class="vz-wide">Up (Y)${statSel("vz-y", ystat[0])}</label>` : ""}`}
         <label>Seasons<span class="vz-pair">${sel("vz-from", seasons.map((s) => [s, s]), st.from)}<i>to</i>${sel("vz-to", seasons.map((s) => [s, s]), st.to)}</span></label>
         <label>Weeks<span class="vz-pair">${sel("vz-wk1", wkOpts, st.wk1)}<i>to</i>${sel("vz-wk2", wkOpts, st.wk2)}</span></label>
-        <label>Totals${seg("vz-per", [["game", "Per game"], ["total", "Total"]], st.per)}</label>
+        ${st.type === "pie" ? "" : `<label>Totals${seg("vz-per", [["game", "Per game"], ["total", "Total"]], st.per)}</label>`}
         ${st.type === "bar" ? `<label>Show${seg("vz-order", [["best", "Best"], ["worst", "Worst"]], st.order)}</label>` : ""}
         ${st.type === "line" && !multi ? `<label>Line${seg("vz-cum", [["", "Each week"], ["1", "Running total"]], st.cum)}</label>` : ""}
         <label>How many${sel("vz-top", [5, 10, 15, 25, 50].map((x) => [x, `Top ${x}`]), st.top)}</label>
