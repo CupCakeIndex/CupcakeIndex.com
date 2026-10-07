@@ -1,5 +1,14 @@
 [
   {
+    "version": "1.23.0",
+    "build": 208,
+    "date": "2026-10-06",
+    "items": [
+      "Visualize: team logos on the charts (next to each bar, as the dots on scatter charts, at the end of each line, and on team pie slices), plus Team logos and Names checkboxes to turn either off. Bars show their number at the end. Logos stay in the downloaded picture.",
+      "Fixed: college passing completions and attempts were reading as zero, which broke completion %, yards per attempt, passing efficiency and the QB radar for college players. The data now gets checked against ESPN's leaders (passing, rushing and receiving) every time it's built, and it won't publish if a stat comes out empty."
+    ]
+  },
+  {
     "version": "1.22.2",
     "build": 207,
     "date": "2026-10-06",

@@ -49,7 +49,17 @@ def site_teams():
     return json.loads((ROOT / "docs" / "data" / "teams.json").read_text(encoding="utf-8"))
 
 
+MUST = {"tcols": ["pts", "att", "cmp", "pass_yds", "rush_yds", "carries"],
+        "pcols": ["cmp", "att", "pass_yds", "pass_td", "carries", "rush_yds", "rec", "rec_yds", "tackles"]}
+
+
 def write(lg, season, d):
+    # a column that's zero for everyone means the source changed its format (college C/ATT once read as 0-0): stop, keep the old file
+    for cols, rows in (("tcols", "trows"), ("pcols", "prows")):
+        for c in MUST[cols]:
+            i = d[cols].index(c) + 3
+            if d[rows] and not any(r[i] for r in d[rows]):
+                raise RuntimeError(f"{lg} {season}: '{c}' is 0 for every row; not saving")
     OUT.mkdir(parents=True, exist_ok=True)
     d.update({"league": lg, "season": season, "updated": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")})
     f = OUT / f"{lg}_{season}.json"
@@ -161,9 +171,9 @@ def cfbd(path, cache, refresh, **params):
 
 
 def split(s):
-    """'20-31' -> (20, 31)."""
+    """'20-31' or '20/31' -> (20, 31). (CFBD writes team stats with a dash, player C/ATT and FG with a slash.)"""
     try:
-        a, b = str(s).split("-")[:2]
+        a, b = str(s).replace("/", "-").split("-")[:2]
         return n(a), n(b)
     except ValueError:
         return 0, 0
@@ -313,6 +323,39 @@ def check(lg, season):
                 bad += 1
                 print(f"  ! {d['teams'].get(key, [key])[0]} {k}: ours {have:g}, ESPN {w:g}")
     print(f"  check {lg} {season}: {len(sample)} teams vs ESPN, {bad} gap(s) over 2%")
+
+    # players: the top 5 passers, rushers and receivers on ESPN's leaderboard, stat by stat
+    pc = {k: i + 3 for i, k in enumerate(d["pcols"])}
+    ptot = defaultdict(lambda: defaultdict(float))
+    for r in d["prows"]:
+        for k in pc:
+            ptot[r[0]][k] += r[pc[k]]
+    CATS = {"passing": ("passing.passingYards", {"completions": "cmp", "passingAttempts": "att", "passingYards": "pass_yds", "passingTouchdowns": "pass_td", "interceptions": "int"}),
+            "rushing": ("rushing.rushingYards", {"rushingAttempts": "carries", "rushingYards": "rush_yds", "rushingTouchdowns": "rush_td"}),
+            "receiving": ("receiving.receivingYards", {"receptions": "rec", "receivingYards": "rec_yds", "receivingTouchdowns": "rec_td"})}
+    pbad = checked = 0
+    for cat, (sort, names) in CATS.items():
+        try:
+            j = requests.get(f"https://site.web.api.espn.com/apis/common/v3/sports/football/{sport}/statistics/byathlete",
+                             params={"category": f"offense:{cat}", "sort": f"{sort}:desc", "limit": 5, "season": season, "seasontype": 2}, timeout=20).json()
+            cols = next(c["names"] for c in j["categories"] if c["name"] == cat)
+        except Exception as e:
+            print(f"  ESPN player check skipped for {cat}: {e}")
+            continue
+        for a in j.get("athletes", []):
+            pid, who = str(a["athlete"]["id"]), a["athlete"]["displayName"]
+            vals = dict(zip(cols, next(c["totals"] for c in a["categories"] if c["name"] == cat)))
+            if pid not in ptot:
+                pbad += 1
+                print(f"  ! {who} ({cat} leader on ESPN) isn't in our data")
+                continue
+            checked += 1
+            for en, ours in names.items():
+                want, have = n(str(vals.get(en, "0")).replace(",", "")), ptot[pid][ours]
+                if abs(have - want) > max(2, 0.02 * abs(want)):
+                    pbad += 1
+                    print(f"  ! {who} {ours}: ours {have:g}, ESPN {want:g}")
+    print(f"  check {lg} {season}: {checked} leading players vs ESPN, {pbad} gap(s)")
 
 
 def main():

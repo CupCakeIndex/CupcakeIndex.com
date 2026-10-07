@@ -128,7 +128,7 @@ const Viz = (() => {
 
   // ---------------------------------------------------------------- state (all in the link)
   const DEF = { who: "teams", type: "bar", stat: "epa_play", y: "pts", from: "", to: "", wk1: "", wk2: "", per: "game", top: "10",
-    group: "", team: "", pos: "", pick: "", order: "best", cum: "", radar: "" };
+    group: "", team: "", pos: "", pick: "", order: "best", cum: "", radar: "", logo: "", names: "" }; // logo/names: "" = on, "0" = off
   let st = { ...DEF };
   const save = () => {
     const q = new URLSearchParams({ league, show: "visualize" });
@@ -153,6 +153,26 @@ const Viz = (() => {
       const k = D.league === "cfb" ? `cfb:${t.id}` : byName[t.team];
       if (k) D.ours[k] = { ci_rating: t.rating, ci_rank: t.power_rank, ci_sos: t.scores?.sos, ci_cupcake: t.scores?.cupcake, ci_resume: t.scores?.resume, ci_eff: t.scores?.efficiency };
     }
+  }
+  // team logos: ESPN's small logos (they allow drawing into a picture, so "Download picture" keeps them)
+  let LOGOS = null;
+  const imgs = new Map();
+  async function loadLogos() {
+    if (LOGOS) return;
+    const t = await getJSON("data/teams.json").catch(() => ({}));
+    LOGOS = {};
+    for (const lg of ["cfb", "nfl"]) for (const x of t[lg] || []) {
+      const path = lg === "nfl" ? (x.logo || "").replace("https://a.espncdn.com", "") : `/i/teamlogos/ncaa/500/${x.id}.png`;
+      if (path.startsWith("/i/")) LOGOS[`${lg}:${x.id}`] = `https://a.espncdn.com/combiner/i?img=${path}&w=80&h=80`;
+    }
+  }
+  function logoImg(key, redraw) {
+    const u = LOGOS?.[key];
+    if (!u) return null;
+    let im = imgs.get(u);
+    if (!im) { im = new Image(); im.crossOrigin = "anonymous"; im.src = u; imgs.set(u, im); }
+    if (!im.complete && redraw) im.addEventListener("load", redraw, { once: true });
+    return im.complete && im.naturalWidth ? im : null;
   }
   async function loadChartJs() {
     if (window.Chart) return;
@@ -203,7 +223,7 @@ const Viz = (() => {
     if (!seasons.length) { el.innerHTML = stSub() + `<div class="card">No chart data for ${league === "nfl" ? "the NFL" : "college"} yet. It's built every week with the rankings.</div>`; return; }
     if (!seasons.includes(+st.to)) st.to = String(seasons.at(-1));
     if (!seasons.includes(+st.from) || +st.from > +st.to) st.from = st.to;
-    try { await loadChartJs(); } catch { el.innerHTML = stSub() + `<div class="card">Couldn't load the chart library. Check your connection and try again.</div>`; return; }
+    try { await Promise.all([loadChartJs(), loadLogos()]); } catch { el.innerHTML = stSub() + `<div class="card">Couldn't load the chart library. Check your connection and try again.</div>`; return; }
     const span = seasons.filter((s) => s >= +st.from && s <= +st.to);
     const Ds = (await Promise.all(span.map(file))).filter(Boolean);
     await Promise.all(Ds.map(ours));
@@ -292,14 +312,28 @@ const Viz = (() => {
       plugins: { legend: { labels: { color: ink, font: { family: "JetBrains Mono", size: 11 } } }, tooltip: { titleFont: { family: "JetBrains Mono" }, bodyFont: { family: "JetBrains Mono" } } },
       scales: { x: { ticks: { color: muted, font: { family: "JetBrains Mono", size: 10 } }, grid: { color: line } }, y: { ticks: { color: muted, font: { family: "JetBrains Mono", size: 10 } }, grid: { color: line } } } };
     const hl = (k) => picks.includes(k);
+    const showLogo = st.logo !== "0", showNames = st.names !== "0" || !showLogo; // something has to say who's who
+    const redraw = () => chart?.draw();
+    const drawLogo = (ctx, k, x, y, sz) => { const im = logoImg(teamOf(k), redraw); if (im) ctx.drawImage(im, x - sz / 2, y - sz / 2, sz, sz); return !!im; };
     if (st.type === "bar") {
       const list = rank(stat, qualify(stat));
       const shown = [...new Set([...list.slice(0, top), ...picks.filter((k) => list.includes(k))])];
       title = `${stat[1]}${perTxt(stat)}`;
       cfg = { type: "bar", data: { labels: shown.map(short), datasets: [{ data: shown.map((k) => val(stat, k)), backgroundColor: shown.map((k) => hl(k) ? accent : color(k)),
         borderColor: shown.map((k) => (hl(k) ? ink : "transparent")), borderWidth: 2 }] },
-        options: { ...base, indexAxis: "y", plugins: { ...base.plugins, legend: { display: false }, tooltip: { ...base.plugins.tooltip, callbacks: { title: (c) => name(shown[c[0].dataIndex]), label: (c) => fmt(stat, c.raw, st.per) } } },
-          scales: { ...base.scales, y: { ...base.scales.y, ticks: { ...base.scales.y.ticks, autoSkip: false } } } } };
+        options: { ...base, indexAxis: "y", layout: { padding: { right: 56 } }, plugins: { ...base.plugins, legend: { display: false }, tooltip: { ...base.plugins.tooltip, callbacks: { title: (c) => name(shown[c[0].dataIndex]), label: (c) => fmt(stat, c.raw, st.per) } } },
+          scales: { ...base.scales, y: { ...base.scales.y, ticks: { ...base.scales.y.ticks, autoSkip: false, display: showNames, padding: showLogo ? 28 : 3 },
+            afterFit: (sc) => { if (showLogo) sc.width = Math.max(sc.width, 30); } } } },
+        plugins: [{ id: "vzBar", afterDatasetsDraw(c) { // logo by each name, the number at the end of each bar
+          const { ctx, chartArea: a } = c;
+          ctx.save(); ctx.font = "bold 10px JetBrains Mono"; ctx.textBaseline = "middle";
+          c.getDatasetMeta(0).data.forEach((b, i) => {
+            const v = c.data.datasets[0].data[i], sz = Math.min(20, b.height + 4);
+            if (showLogo) drawLogo(ctx, shown[i], a.left - sz / 2 - 4, b.y, sz);
+            ctx.fillStyle = ink; ctx.textAlign = v < 0 ? "right" : "left";
+            ctx.fillText(fmt(stat, v, st.per), b.x + (v < 0 ? -4 : 4), b.y);
+          });
+          ctx.restore(); } }] };
       body = { h: Math.max(260, shown.length * 26 + 60) };
       note = `${list.length} ${who} ranked${stat[3].den ? ` (at least 35% of the leader's ${who === "teams" ? "plays" : "attempts"})` : ""}.`;
       body.table = shown.map((k, i) => [i + 1, k, fmt(stat, val(stat, k), st.per)]);
@@ -325,7 +359,13 @@ const Viz = (() => {
       }
       cfg = { type: "line", data: { labels, datasets: sers.map((k, i) => ({ label: short(k), data: data(k), borderColor: PAL[i % PAL.length], backgroundColor: PAL[i % PAL.length],
         borderWidth: hl(k) || i === 0 ? 3 : 2, pointRadius: 3, spanGaps: true, tension: 0.25 })) },
-        options: { ...base, plugins: { ...base.plugins, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${c.dataset.label}: ${fmt({ 3: { ...stat[3], count: 0 } }, c.raw)}` } } } } };
+        options: { ...base, layout: { padding: { right: showLogo ? 26 : 0 } }, plugins: { ...base.plugins, legend: { ...base.plugins.legend, display: showNames }, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${c.dataset.label}: ${fmt({ 3: { ...stat[3], count: 0 } }, c.raw)}` } } } },
+        plugins: [{ id: "vzLine", afterDatasetsDraw(c) { // each line ends in its team's logo
+          if (!showLogo) return;
+          c.data.datasets.forEach((d, i) => {
+            const pts = c.getDatasetMeta(i).data, j = d.data.map((v) => v != null).lastIndexOf(true);
+            if (j >= 0) drawLogo(c.ctx, sers[i], pts[j].x + 14, pts[j].y, 20);
+          }); } }] };
       body = { h: 380 };
       note = picks.length ? "" : `The top ${sers.length} in ${stat[1].toLowerCase()}. Pick ${who} below to compare your own.`;
     } else if (st.type === "pie") {
@@ -337,7 +377,10 @@ const Viz = (() => {
       title = `Share of ${s[1].toLowerCase()}`;
       cfg = { type: "doughnut", data: { labels: [...shown.map(short), ...(rest ? ["Everyone else"] : [])],
         datasets: [{ data: [...shown.map((k) => val(s, k)), ...(rest ? [rest] : [])], backgroundColor: [...shown.map((k, i) => PAL[i % PAL.length]), ...(rest ? [line] : [])], borderColor: C("--card"), borderWidth: 2 }] },
-        options: { ...base, scales: {}, plugins: { ...base.plugins, legend: { position: "bottom", labels: base.plugins.legend.labels },
+        plugins: [{ id: "vzPie", afterDatasetsDraw(c) { // team logos on their slices
+          if (!showLogo || who !== "teams") return;
+          c.getDatasetMeta(0).data.forEach((arc, i) => { if (i < shown.length && arc.circumference > 0.3) { const p = arc.tooltipPosition(); drawLogo(c.ctx, shown[i], p.x, p.y, 24); } }); } }],
+        options: { ...base, scales: {}, plugins: { ...base.plugins, legend: { position: "bottom", labels: base.plugins.legend.labels, display: showNames },
           tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${c.label}: ${fmt({ 3: { ...s[3], count: 0 } }, c.raw)} (${Math.round((100 * c.raw) / total)}%)` } } } } };
       body = { h: 420 };
       note = who === "players" && !st.team ? "Tip: pick a team in Filters to see how one team splits it up (who gets the carries, the targets...)." : "";
@@ -348,7 +391,10 @@ const Viz = (() => {
       const label = new Set([...rank(stat, both).slice(0, 4), ...rank(ystat, both).slice(0, 4), ...rank(stat, both).slice(-2), ...picks]);
       const pts = both.map((k) => ({ x: val(stat, k), y: val(ystat, k), k }));
       const avg = (a) => a.reduce((s, x) => s + x, 0) / (a.length || 1), mx = avg(pts.map((p) => p.x)), my = avg(pts.map((p) => p.y));
-      cfg = { type: "scatter", data: { datasets: [{ data: pts, pointRadius: pts.map((p) => (hl(p.k) ? 7 : 5)), pointBackgroundColor: pts.map((p) => (hl(p.k) ? accent : color(p.k))), pointBorderColor: ink, pointBorderWidth: pts.map((p) => (hl(p.k) ? 2 : 0.5)) }] },
+      const named = !showNames ? new Set() : pts.length <= 40 ? new Set(pts.map((p) => p.k)) : label; // every name when there's room
+      cfg = { type: "scatter", data: { datasets: [{ data: pts, pointRadius: pts.map((p) => (showLogo ? 11 : hl(p.k) ? 7 : 5)), pointHoverRadius: showLogo ? 13 : 7,
+        pointBackgroundColor: pts.map((p) => (showLogo ? "transparent" : hl(p.k) ? accent : color(p.k))), pointBorderColor: pts.map((p) => (showLogo ? (hl(p.k) ? accent : "transparent") : ink)),
+        pointBorderWidth: pts.map((p) => (hl(p.k) ? 2 : showLogo ? 0 : 0.5)) }] },
         options: { ...base, layout: { padding: { right: 36, top: 8 } }, plugins: { ...base.plugins, legend: { display: false }, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${name(c.raw.k)}: ${fmt(stat, c.raw.x, st.per)}, ${fmt(ystat, c.raw.y, st.per)}` } } },
           scales: { x: { ...base.scales.x, reverse: !!stat[3].low, title: { display: true, text: stat[1] + perTxt(stat) + (stat[3].low ? " (better →)" : ""), color: muted } },
             y: { ...base.scales.y, reverse: !!ystat[3].low, title: { display: true, text: ystat[1] + perTxt(ystat) + (ystat[3].low ? " (better ↑)" : ""), color: muted } } } },
@@ -357,7 +403,11 @@ const Viz = (() => {
           ctx.save(); ctx.setLineDash([4, 4]); ctx.strokeStyle = muted; ctx.lineWidth = 1;
           ctx.beginPath(); ctx.moveTo(x.getPixelForValue(mx), a.top); ctx.lineTo(x.getPixelForValue(mx), a.bottom); ctx.moveTo(a.left, y.getPixelForValue(my)); ctx.lineTo(a.right, y.getPixelForValue(my)); ctx.stroke();
           ctx.setLineDash([]); ctx.font = "10px JetBrains Mono"; ctx.fillStyle = ink;
-          c.getDatasetMeta(0).data.forEach((p, i) => { if (label.has(pts[i].k)) ctx.fillText(short(pts[i].k), p.x + 7, p.y + 3); });
+          c.getDatasetMeta(0).data.forEach((p, i) => {
+            const sz = hl(pts[i].k) ? 26 : 20, logo = showLogo && drawLogo(ctx, pts[i].k, p.x, p.y, sz);
+            if (showLogo && !logo) { ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, 7); ctx.fillStyle = color(pts[i].k); ctx.fill(); ctx.fillStyle = ink; } // no logo (an FCS team): a dot
+            if (named.has(pts[i].k)) ctx.fillText(short(pts[i].k), p.x + (showLogo ? 13 : 7), p.y + 3);
+          });
           ctx.restore(); } }] };
       body = { h: 440 };
       note = `${both.length} ${who}. Dashed lines are the averages. ${stat[3].low || ystat[3].low ? "Axes are flipped where lower is better, so up and right is always good." : "Up and right is good."}`;
@@ -395,6 +445,7 @@ const Viz = (() => {
         ${st.type === "bar" ? `<label>Show${seg("vz-order", [["best", "Best"], ["worst", "Worst"]], st.order)}</label>` : ""}
         ${st.type === "line" && !multi ? `<label>Line${seg("vz-cum", [["", "Each week"], ["1", "Running total"]], st.cum)}</label>` : ""}
         <label>How many${sel("vz-top", [5, 10, 15, 25, 50].map((x) => [x, `Top ${x}`]), st.top)}</label>
+        ${st.type !== "radar" ? `<div class="vz-chks"><label><input type="checkbox" id="vz-logo"${st.logo !== "0" ? " checked" : ""}> Team logos</label><label><input type="checkbox" id="vz-names"${st.names !== "0" ? " checked" : ""}> ${who === "teams" ? "Team" : "Player"} names</label></div>` : ""}
       </div>
       <details class="vz-more"${st.group || st.team || st.pos || picks.length ? " open" : ""}><summary>Filters and highlights</summary><div class="vz-ctl">
         <label>${league === "nfl" ? "Division" : "Conference"}${sel("vz-group", [["", "All"], ...confs.map((c) => [c, c])], st.group)}</label>
@@ -431,6 +482,7 @@ const Viz = (() => {
     const on = (id, k, again = redo) => { const x = document.getElementById(id); if (x) x.onchange = () => { st[k] = x.value; if (k === "pos") st.radar = ""; again(); }; };
     on("vz-stat", "stat"); on("vz-y", "y"); on("vz-wk1", "wk1"); on("vz-wk2", "wk2"); on("vz-top", "top"); on("vz-group", "group"); on("vz-team", "team"); on("vz-pos", "pos");
     on("vz-from", "from", reload); on("vz-to", "to", reload);
+    ["logo", "names"].forEach((k) => { const x = document.getElementById("vz-" + k); if (x) x.onchange = () => { st[k] = x.checked ? "" : "0"; redo(); }; });
     const rs = document.getElementById("vz-radar");
     if (rs) rs.onchange = (e) => {
       const v = [...rs.querySelectorAll("input:checked")].map((o) => o.value);
