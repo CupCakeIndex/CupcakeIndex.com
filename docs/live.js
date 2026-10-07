@@ -459,9 +459,6 @@ const Live = (() => {
     const fd = down && dist && dist < toGo ? spot + dir * dist : null; // goal to go: no first-down line
     const X = (yl) => 100 + yl * 10; // 10 px per yard; 10-yard end zones
     const H = 300, col = (c) => (c === home ? tc.home : tc.away);
-    // 16-bit look (Settings > Live field style, field16.js): the same field turned so the offense attacks up the screen
-    const SIX = typeof Field16 !== "undefined" && Field16.on();
-    const viewDir = dir || (kicker ? (kicker === home ? 1 : -1) : 1), spinBack = viewDir > 0 ? 90 : -90; // sprites turn back upright
     const alt = (c) => (c.team.alternateColor ? "#" + c.team.alternateColor.replace("#", "") : "#ffffff");
     const r = (x, y, w, h, fill, extra = "") => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}"${extra}/>`;
     const base = [];
@@ -471,8 +468,7 @@ const Live = (() => {
     for (let yl = 1; yl < 100; yl++) if (yl % 5) base.push(r(X(yl) - 1, 96, 2, 8, "#ffffff", ' opacity=".5"') + r(X(yl) - 1, 196, 2, 8, "#ffffff", ' opacity=".5"'));
     for (let yl = 10; yl <= 90; yl += 10) {
       const n = yl > 50 ? 100 - yl : yl;
-      const up = (y) => (SIX ? ` transform="rotate(${spinBack} ${X(yl)} ${y})"` : ""); // 16-bit: numbers stay upright on the turned field
-      base.push(`<text x="${X(yl)}" y="40" class="tf-num"${up(40)}>${n}</text><text x="${X(yl)}" y="276" class="tf-num"${up(276)}>${n}</text>`);
+      base.push(`<text x="${X(yl)}" y="40" class="tf-num">${n}</text><text x="${X(yl)}" y="276" class="tf-num">${n}</text>`);
     }
     // end zones in team colors, checkerboard edge, team abbreviation
     for (const [c, x0] of [[home, 0], [away, 1100]]) {
@@ -498,17 +494,8 @@ const Live = (() => {
     // pixel players (idle bob, staggered): offense behind the ball, defense across it
     let k = 0;
     // who: { name, num, pos, pic, sure } -> hover/tap label (see the field's pointer handler in game())
-    const guy = (x, y, c, flip, who, role = "") => {
+    const guy = (x, y, c, flip, who) => {
       const jersey = col(c), helm = alt(c);
-      if (SIX) {
-        const up = (c === home ? 1 : -1) === viewDir; // attacking up the screen: we see their backs
-        const pose = role === "td" ? "celebrate" : /^(ol|c|dl)$/.test(role) ? (up ? "line_back" : "line_front") : up ? "back_stand" : "front_stand";
-        const uri = Field16.sprite(pose, Field16.kit(c === home, jersey, helm), who?.num, (k * 7 + (who?.num || 0)) % 4);
-        const tag16 = who ? ` data-name="${esc(who.name)}" data-num="${esc(who.num || "")}" data-pos="${esc(who.pos || "")}" data-pic="${esc(who.pic || "")}"`
-          + ` data-team="${esc(c.team.abbreviation || "")}" data-sure="${who.sure ? 1 : 0}"` : ` data-team="${esc(c.team.abbreviation || "")}"`;
-        return `<g class="tf-guy tf16-guy"${tag16} style="animation-delay:${-((k++ * 0.37) % 0.8).toFixed(2)}s"><g transform="translate(${x} ${y}) rotate(${spinBack}) scale(1.35 1.7)">`
-          + `<image href="${uri}" x="-8" y="-17" width="16" height="24" preserveAspectRatio="none" style="image-rendering:pixelated"/></g></g>`;
-      }
       const tag = who ? ` data-name="${esc(who.name)}" data-num="${esc(who.num || "")}" data-pos="${esc(who.pos || "")}" data-pic="${esc(who.pic || "")}"`
         + ` data-team="${esc(c.team.abbreviation || "")}" data-sure="${who.sure ? 1 : 0}"` : ` data-team="${esc(c.team.abbreviation || "")}"`;
       return `<g class="tf-guy"${tag} style="animation-delay:${-((k++ * 0.37) % 0.8).toFixed(2)}s">`
@@ -609,8 +596,8 @@ const Live = (() => {
     const formation = (at, o, odir, moves = () => null, len = D, begin = 0, cast = null) => {
       const [offC, defC] = cast || [castOff(o), castDef(o === home ? away : home)];
       const d = o === home ? away : home, out = [];
-      OFF_SET.forEach(([role, yd, y], i) => { const x = X(at) - odir * yd * 10; out.push(`<g>${motion(moves(role, x, y, true), len, begin)}${guy(x, y, o, odir < 0, offC[i], role)}</g>`); });
-      DEF_SET.forEach(([role, yd, y], i) => { const x = X(at) + odir * yd * 10; out.push(`<g>${motion(moves(role, x, y, false), len, begin)}${guy(x, y, d, odir > 0, defC[i], role)}</g>`); });
+      OFF_SET.forEach(([role, yd, y], i) => { const x = X(at) - odir * yd * 10; out.push(`<g>${motion(moves(role, x, y, true), len, begin)}${guy(x, y, o, odir < 0, offC[i])}</g>`); });
+      DEF_SET.forEach(([role, yd, y], i) => { const x = X(at) + odir * yd * 10; out.push(`<g>${motion(moves(role, x, y, false), len, begin)}${guy(x, y, d, odir > 0, defC[i])}</g>`); });
       return out.join("");
     };
     const bx = X(spot) - dir * 6;
@@ -625,7 +612,7 @@ const Live = (() => {
           <animateTransform attributeName="transform" type="translate" values="0 0;${(i % 3 - 1) * 30} ${H + 24}" dur="${d}s" begin="${b}s" repeatCount="2" fill="freeze"/></rect>`;
       }).join("");
       const sx0 = ez + 50;
-      const scorer = `<g opacity="0"><set attributeName="opacity" to="1" begin="${t}s"/><g>${guy(sx0, 150, team, !right, named(team, inPlay.wr || inPlay.rb || inPlay.cb), "td")}${ball(sx0 + 2, 120)}
+      const scorer = `<g opacity="0"><set attributeName="opacity" to="1" begin="${t}s"/><g>${guy(sx0, 150, team, !right, named(team, inPlay.wr || inPlay.rb || inPlay.cb))}${ball(sx0 + 2, 120)}
         <animateTransform attributeName="transform" type="translate" values="0 0;0 -18;0 0" dur=".45s" begin="${t}s" repeatCount="5"/></g>
         <animate attributeName="opacity" from="1" to="0" begin="${t + 2.4}s" dur=".4s" fill="freeze"/></g>`;
       return flash + scorer + confetti;
@@ -791,12 +778,7 @@ const Live = (() => {
 
     // phones: frame the action (old spot, new spot, first-down line) instead of all 120 yards; kickoffs and scores stay full
     let vbX = 0, vbW = 1200;
-    if (SIX) {
-      const xs = kicker ? [X(kicker === home ? 35 : 65), X(kicker === home ? 65 : 35)] : [X(spot), X(from), fd != null ? X(fd) : X(spot), ...(isTD ? [X(spot > 50 ? 110 : -10)] : [])];
-      const lo = Math.min(...xs) - 170, hi = Math.max(...xs) + 170;
-      vbW = Math.min(760, Math.max(460, hi - lo));
-      vbX = Math.max(0, Math.min(1200 - vbW, (lo + hi) / 2 - vbW / 2));
-    } else if (typeof matchMedia === "function" && matchMedia("(max-width: 600px)").matches && !kicker) {
+    if (typeof matchMedia === "function" && matchMedia("(max-width: 600px)").matches && !kicker) {
       const xs = [X(spot), X(from), fd != null ? X(fd) : X(spot)];
       const lo = Math.min(...xs) - 220, hi = Math.max(...xs) + 220;
       vbW = Math.min(1200, Math.max(640, hi - lo));
@@ -804,7 +786,7 @@ const Live = (() => {
     }
     const teamTag = (c) => `<span class="tf-team" style="--c:${col(c)}">${img(teamLogo(c.team), "xs")}${esc(c.team.abbreviation || "")}</span>`;
     const where = kicker ? `${esc(kicker.team.abbreviation || "")} KICKS OFF` : at.possessionText ? `BALL ON ${esc(at.possessionText)}` : "";
-    const ddText = isTD ? "TOUCHDOWN!" : down ? `${["", "1ST", "2ND", "3RD", "4TH"][down]} ${SIX ? "AND" : "&"} ${dist < toGo ? dist : "GOAL"}` : "";
+    const ddText = isTD ? "TOUCHDOWN!" : down ? `${["", "1ST", "2ND", "3RD", "4TH"][down]} & ${dist < toGo ? dist : "GOAL"}` : "";
     const lastText = play?.text ? play.text.trim() : "";
     // the play clock isn't running during a timeout, the two-minute warning, between quarters or at halftime:
     // when the latest entry in the feed is one of those, stop the bar and say why (until the next real play comes in)
@@ -815,18 +797,15 @@ const Live = (() => {
       : tId === "21" ? (to ? `TIMEOUT · ${toTeam} (#${to[1]})` : "TIMEOUT")
       : tId === "74" ? (/injur/i.test(stopTxt) ? "INJURY TIMEOUT" : "OFFICIAL TIMEOUT")
       : tId === "75" ? "TWO-MINUTE WARNING" : "";
-    return `<div class="card tecmo${SIX ? " tf16-card" : ""}" data-play="${esc(play.id)}" style="--tf-font:'${PIXEL_FONT}'">
+    return `<div class="card tecmo" data-play="${esc(play.id)}" style="--tf-font:'${PIXEL_FONT}'">
       <div class="tf-bar">
         <span>${off ? teamTag(off) + `<b class="tf-arrow">${dir > 0 ? "▶" : "◀"}</b>` : ""}</span>
         <span class="tf-dd">${ddText}</span>
         <span class="tf-where">${where}${toGo <= 20 && off && !isTD ? ` <b class="tf-red">RED ZONE</b>` : ""}</span>
       </div>
       <div class="tf-wrap" data-gid="${esc(gameId)}"><div class="tf-tip hidden"></div>${replayMode ? "" : (final ? hlButton(final) : replayMenu(s)) + zoomButtons}<div class="tf-cap hidden"></div><div class="tf-zm">
-      ${SIX ? `<div class="tf16-tilt">` : ""}<svg class="tf-field${SIX ? " tf16" : ""}" viewBox="${SIX ? `0 0 ${H} ${vbW.toFixed(0)}` : `${vbX.toFixed(0)} 0 ${vbW.toFixed(0)} ${H}`}" shape-rendering="crispEdges" role="img"
-        aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, where].filter(Boolean).join(", "))}">${SIX
-          ? `<g transform="${viewDir > 0 ? `translate(0 ${(vbX + vbW).toFixed(0)}) rotate(-90)` : `translate(${H} ${(-vbX).toFixed(0)}) rotate(90)`}">${base.join("")}${lines}${lineup}${anim ? "" : flagOnField}${replay}</g>`
-            + `<g transform="translate(0 ${(vbW / 2 - 150).toFixed(0)})">${banner.replace(/@BX0@/g, "8").replace(/@BW@/g, String(H - 16)).replace(/@BXC@/g, String(H / 2))}</g>`
-          : `${base.join("")}${lines}${lineup}${anim ? "" : flagOnField}${replay}${banner.replace(/@BX0@/g, (vbX + vbW / 2 - Math.min(700, vbW - 40) / 2).toFixed(0)).replace(/@BW@/g, Math.min(700, vbW - 40).toFixed(0)).replace(/@BXC@/g, (vbX + vbW / 2).toFixed(0))}`}</svg>${SIX ? "</div>" : ""}</div></div>
+      <svg class="tf-field" viewBox="${vbX.toFixed(0)} 0 ${vbW.toFixed(0)} ${H}" shape-rendering="crispEdges" role="img"
+        aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, where].filter(Boolean).join(", "))}">${base.join("")}${lines}${lineup}${anim ? "" : flagOnField}${replay}${banner.replace(/@BX0@/g, (vbX + vbW / 2 - Math.min(700, vbW - 40) / 2).toFixed(0)).replace(/@BW@/g, Math.min(700, vbW - 40).toFixed(0)).replace(/@BXC@/g, (vbX + vbW / 2).toFixed(0))}</svg></div></div>
       ${final ? `<p class="tf-hlnote"><b>FINAL</b> ${final.length ? `Tap PLAY HIGHLIGHTS to watch the game's top ${final.length} plays.` : ""}</p>`
         : brk ? `<div class="tf-clock" title="The play clock is stopped"><span class="tf-clabel"><b class="tf-stop">${esc(brk)}</b></span><span class="tf-track"><i class="stop"></i></span></div>`
         : `<div class="tf-clock" title="A rough 40-second play clock from when the last play reached us. ESPN's feed often runs 30+ seconds behind the stadium, so it can run out before the next play shows up. The field checks for a new play every 5 seconds and replays it as soon as it arrives">

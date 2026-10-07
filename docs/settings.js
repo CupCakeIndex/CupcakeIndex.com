@@ -37,7 +37,6 @@ const Settings = (() => {
       ${typeof Leaderboard !== "undefined" ? Leaderboard.section() : ""}
       ${typeof Profile !== "undefined" ? Profile.section() : ""}
       ${typeof Push !== "undefined" ? Push.section() : ""}
-      ${typeof Field16 !== "undefined" ? Field16.section() : ""}
       <h3>Appearance</h3>
       <p class="note">System follows your phone or computer's dark/light setting.</p>
       <div class="seg" id="set-mode" role="group" aria-label="Appearance">${MODES.map(([k, l]) =>
