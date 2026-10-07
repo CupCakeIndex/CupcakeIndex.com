@@ -22,7 +22,7 @@ const BASE_PRESETS = {
 const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", recent: "FORM", cupcake: "CUP", luck: "UNLK" };
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
 const RANK_VIEWS = new Set(["rankings", "schedules", "resume"]);
-const VIEWS = new Set(["rankings", "picks", "schedules", "resume", "shame", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily", "fantasy", "news", "takes", "games", "settings", "privacy"]);
+const VIEWS = new Set(["rankings", "picks", "schedules", "resume", "shame", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily", "fantasy", "news", "takes", "admin", "games", "settings", "privacy"]);
 // Sub-pages that light up a parent tab in the nav (the Daily player game lives under Games)
 const NAV_PARENT = { daily: "games" };
 
@@ -125,6 +125,7 @@ async function route() {
   if (lg !== league && LG) leagueWipe(lg); // switching CFB <-> NFL: a quick wipe across the screen
   if (lg !== league || !LG) setLeague(lg);
   Live.stop();
+  if (typeof Stats !== "undefined") Stats.count("views"); // analytics (stats.js, which loads after this file)
   document.querySelectorAll(".view").forEach((s) => s.classList.toggle("hidden", s.id !== "view-" + r.view));
   setNavActive(NAV_PARENT[r.view] || r.view);
   $("#gear").classList.toggle("active", r.view === "settings");
@@ -167,6 +168,8 @@ async function route() {
     News.render(r.params);
   } else if (r.view === "takes") {
     Takes.render(r.params);
+  } else if (r.view === "admin") {
+    Admin.render();
   } else if (Live[r.view]) {
     Live[r.view](r.arg, r.params);
   }

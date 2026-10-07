@@ -1659,6 +1659,12 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
   .vz-frame { padding: 8px; }
   .vz-reset { margin-left: 0; }
 }
+/* Analytics (admin.js) */
+.ad-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 8px; }
+.ad-tile { border: 1px solid var(--line); border-top: 3px solid var(--accent); background: var(--bg); padding: 10px 12px; }
+.ad-tile b { display: block; font-size: 26px; color: var(--accent); line-height: 1.1; }
+.ad-tile small { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.ad-chart { position: relative; height: 300px; margin-top: 16px; }
 /* Takes (takes.js): our X posts, on the Takes page and team/player Takes tabs */
 .tk-intro { margin: 4px 0 6px; font-size: 12px; }
 .tk-list { max-width: 640px; }

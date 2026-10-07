@@ -504,6 +504,7 @@ const Viz = (() => {
 
     chart?.destroy();
     chart = new Chart(document.getElementById("vz-chart"), cfg);
+    if (typeof Stats !== "undefined") Stats.count("charts"); // analytics: charts made
     save();
 
     // controls
@@ -566,7 +567,7 @@ const Viz = (() => {
     el.querySelector(".vz-picks").onclick = (e) => { const b = e.target.closest("[data-k]"); if (b) { st.pick = picks.filter((k) => k !== b.dataset.k).join(","); redo(); } };
     el.querySelector(".vz-ideas").onclick = (e) => { const b = e.target.closest("[data-i]"); if (!b) return; st = { ...DEF, from: st.from, to: st.to, ...IDEAS[league][+b.dataset.i][1] }; reload(); };
     document.getElementById("vz-reset").onclick = () => { st = { ...DEF }; reload(); };
-    document.getElementById("vz-png").onclick = () => picture().then((c) => { const a = document.createElement("a"); a.href = c.toDataURL("image/png"); a.download = `cupcake-index-${st.stat}.png`; a.click(); });
+    document.getElementById("vz-png").onclick = () => picture().then((c) => { if (typeof Stats !== "undefined") Stats.count("downloads"); const a = document.createElement("a"); a.href = c.toDataURL("image/png"); a.download = `cupcake-index-${st.stat}.png`; a.click(); });
     document.getElementById("vz-link").onclick = (e) => { navigator.clipboard?.writeText(location.href).then(() => { e.target.textContent = "Link copied"; setTimeout(() => (e.target.textContent = "Copy link"), 1500); }); };
     const sh = document.getElementById("vz-share");
     if (sh) sh.onclick = () => picture().then((c) => c.toBlob((b) => {

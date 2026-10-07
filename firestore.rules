@@ -2,9 +2,32 @@ rules_version = '2';
 // Cupcake Index. Paste this whole thing into Firebase console > Firestore Database > Rules, then Publish.
 service cloud.firestore {
   match /databases/{database}/documents {
+    // the site owner (Analytics page, #/admin): this Google account, with a verified email
+    function isOwner() {
+      return request.auth != null && request.auth.token.email == "thecupcakeindex.support@gmail.com" && request.auth.token.email_verified == true;
+    }
+    // a counter that may only go up, by 1 to 50 at a time (stats.js batches a visitor's counts)
+    function upBy(f) {
+      let before = resource == null ? 0 : resource.data.get(f, 0);
+      return !(f in request.resource.data) || request.resource.data[f] == before
+        || (request.resource.data[f] is int && request.resource.data[f] > before && request.resource.data[f] <= before + 50);
+    }
+    // analytics (docs/stats.js): one counter document per day; anyone can add to it, only the owner can read it
+    match /stats/{day} {
+      allow read: if isOwner();
+      allow create, update: if day.matches("20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]")
+        && request.resource.data.keys().hasOnly(["views", "visitors", "newVisitors", "charts", "downloads"])
+        && upBy("views") && upBy("visitors") && upBy("newVisitors") && upBy("charts") && upBy("downloads");
+    }
+    // "on the site now": each open browser checks in with the server's own time; only the owner can read them
+    match /live/{id} {
+      allow read: if isOwner();
+      allow create, update: if id.size() < 40 && request.resource.data.keys().hasOnly(["t"]) && request.resource.data.t == request.time;
+    }
     // accounts: each signed-in person can read and write ONLY their own document (users/<their uid>)
     match /users/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow list: if isOwner(); // the Analytics page counts accounts
     }
     // alerts (Settings > Alerts, docs/push.js): each device that turns alerts on saves its own document, named by a
     // hash of its push address, signed in or not. Nobody can read them from the site; only the alert sender
@@ -18,6 +41,7 @@ service cloud.firestore {
         && request.resource.data.topics is list && request.resource.data.topics.size() <= 10
         && request.resource.data.updated is string && request.resource.data.updated.size() < 40;
       allow delete: if true;
+      allow list: if isOwner(); // the Analytics page counts devices with alerts on
     }
     // card PC (cupcakeindex.com/pc): anyone can look; only the owner can add, edit or delete
     match /pc/{card} {
