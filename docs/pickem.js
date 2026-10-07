@@ -70,6 +70,7 @@ const Pickem = (() => {
 
   async function render(params, refresh = false) {
     const K = Live.kit, lg = league, my = K.token(), root = $("#view-picks");
+    if (params.get("board") === "1") return Leaderboard.render(root, lg); // Pick'em > Leaderboard (leaderboard.js)
     const q = new URLSearchParams();
     if (lg === "cfb") { q.set("groups", "80"); q.set("limit", "300"); }
     const wk = params.get("week"), yr = params.get("season");
@@ -119,6 +120,7 @@ const Pickem = (() => {
     cur = { lg, season, type, week, events, picks, preds, ranks, key, mine, due, lockedAt,
       weekLocked: !!lockedAt || (due != null && Date.now() > due), all: lg === "nfl" || params.get("all") === "1" };
     if (mine && picks.size) logWeek();
+    if (mine) Leaderboard.publish(lg, season, readLog(lg, season)); // your row on the leaderboard (only if you have a leaderboard name)
     draw();
     if (!wired) wire(root);
     if (mine) catchUp(lg, season, type, week); // grade earlier weeks you picked but haven't opened since they finished
@@ -157,6 +159,7 @@ const Pickem = (() => {
         if (g.w + g.l) { log[`${t}:${w}`] = g; writeLog(lg, season, log); }
       } catch (e) { /* ESPN hiccup: try again next visit */ }
     }
+    if (todo.length) Leaderboard.publish(lg, season, readLog(lg, season));
     if (todo.length && cur && cur.lg === lg && cur.season === season) draw();
   }
 
@@ -228,7 +231,8 @@ const Pickem = (() => {
     };
     const toggle = lg === "cfb" ? `<div class="presets pk-show">${[["", "Top 25 games"], ["1", "All FBS games"]].map(([v, t]) =>
       `<button data-show="${v}" class="${!v === !cur.all ? "on" : ""}">${t}</button>`).join("")}</div>` : "";
-    root.innerHTML = `<div class="card pk-card">
+    root.innerHTML = `<div class="subtabs"><a class="subtab on" href="${link("picks")}">My picks</a><a class="subtab" href="${link("picks", null, { board: 1 })}">Leaderboard</a></div>
+      <div class="card pk-card">
       <h2>Pick'em · ${esc(weekName())} <span class="muted">${esc(LEAGUE_NAME[lg] || lg)}</span></h2>
       ${cur.mine ? seasonPanel() : `<div class="pk-season muted">These are a friend's picks from a shared link. Make your own picks to start your record.</div>`}
       <p class="pk-status">${status}</p>

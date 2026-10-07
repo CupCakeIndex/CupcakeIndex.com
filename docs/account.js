@@ -5,7 +5,7 @@
 const Account = (() => {
   const CFG = window.FIREBASE_CONFIG;
   const SDK = "https://www.gstatic.com/firebasejs/10.12.2/";
-  const SYNCED = (k) => /^pickem-/.test(k) || k === "daily-nfl" || k === "daily-nfl-stats" || k === "fantasy-team" || k === "cupcake-profile" || k === "viz-presets";
+  const SYNCED = (k) => /^pickem-/.test(k) || k === "daily-nfl" || k === "daily-nfl-stats" || k === "fantasy-team" || k === "cupcake-profile" || k === "viz-presets" || k === "lb-name";
   let fb = null, user = null, status = "", timer = null, ready = null;
 
   const enabled = () => !!(CFG && CFG.apiKey && CFG.projectId);
@@ -106,6 +106,10 @@ const Account = (() => {
   }
   async function deleteAccount() {
     try {
+      // the Pick'em leaderboard name and rows go too (leaderboard.js)
+      const fs = fb.firestore(), rows = await fs.collection("leaderboard").where("uid", "==", user.uid).get().catch(() => null);
+      await Promise.all([...(rows?.docs || []).map((d) => d.ref.delete()),
+        ...(store.get("lb-name")?.key ? [fs.collection("names").doc(store.get("lb-name").key).delete()] : [])]).catch(() => {});
       await doc().delete();
       await user.delete();
       setStatus("Account deleted. Everything we stored for you is gone.");

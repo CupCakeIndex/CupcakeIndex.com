@@ -34,6 +34,7 @@ const Settings = (() => {
       <h2>Settings</h2>
       <p class="note set-tour-row">New here, or want a refresher? <button class="btn" id="set-tour" type="button">Take the quick tour</button></p>
       ${typeof Account !== "undefined" ? Account.section() : ""}
+      ${typeof Leaderboard !== "undefined" ? Leaderboard.section() : ""}
       ${typeof Profile !== "undefined" ? Profile.section() : ""}
       ${typeof Push !== "undefined" ? Push.section() : ""}
       <h3>Appearance</h3>

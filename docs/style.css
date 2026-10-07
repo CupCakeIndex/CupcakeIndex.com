@@ -1669,6 +1669,14 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
   .vz-frame { padding: 8px; }
   .vz-reset { margin-left: 0; }
 }
+/* Pick'em leaderboard + leaderboard name (leaderboard.js) */
+.lb-tbl { max-width: 640px; }
+.lb-tbl tr.lb-me td { background: var(--accent-soft); color: var(--accent); }
+.lb-set { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+.lb-set input { font: inherit; font-size: 14px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); padding: 6px 8px; min-width: 0; flex: 1 1 180px; max-width: 260px; }
+.lb-set small { flex-basis: 100%; }
+.lb-good { color: var(--good); }
+.lb-bad { color: var(--bad); }
 /* Quick tour (tour.js): a card at the bottom that walks through the real pages */
 .tour { position: fixed; z-index: 60; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom)); width: min(420px, calc(100vw - 32px));
   background: var(--card); color: var(--ink); border: 1px solid var(--accent); border-top-width: 3px; padding: 12px 14px; box-shadow: 0 8px 30px rgba(0,0,0,.45); animation: tour-in .2s ease-out; }
