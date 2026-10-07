@@ -16,7 +16,7 @@ on:
         description: "What to send"
         type: choice
         default: test
-        options: [test, auto, picks, list]
+        options: [test, auto, picks, list, announce]
 
 permissions:
   contents: read   # what's been sent is kept in Firebase (pushstate/log), not the repo

@@ -16,6 +16,7 @@ For everyone who wants them: bully (Bully of the Week, from the X post), picks (
     python src/push.py picks --force              # the Pick'em reminder, whatever the time
     python src/push.py post --meta out/social/today.json   # Bully of the Week / breaking news, from the X post just made
     python src/push.py test                       # a test alert to every device (Actions > Alerts > Run workflow)
+    python src/push.py announce                   # the new-features alert in ANNOUNCE below, once, to every device
     python src/push.py list                       # how many devices have alerts on (and for what)
 
 Secrets (GitHub > Settings > Secrets and variables > Actions):
@@ -50,6 +51,10 @@ MAX_NEWS_PER_DAY = 3      # breaking news alerts: same as the X posts (breaking.
 FINAL_HOURS = 8           # a game that kicked off longer ago than this is old news (GitHub skipped runs)
 SOON_MIN = 20             # "Kickoff soon" when the game starts within this many minutes
 GAME_TOPICS = ("start", "score", "final")
+# New-features alert (Actions > Alerts > Run workflow > announce). Each key goes out once; change the key for the next one.
+ANNOUNCE = {"key": "announce:2026-10-06-visualize", "title": "New: make your own charts",
+            "body": "Stats > Visualize: chart any stat, any team or player, any weeks. EPA, depth chart roles (WR1, WR2...), radar profiles and more.",
+            "url": "/#/stats?show=visualize", "tag": "announce"}
 
 
 # ---------- the sent log (one Firestore document) ----------
@@ -308,7 +313,7 @@ def from_post(meta_path, log):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("what", choices=["auto", "picks", "post", "test", "list"])
+    ap.add_argument("what", choices=["auto", "picks", "post", "test", "list", "announce"])
     ap.add_argument("--meta", help="post: the X post's meta file (out/social/today.json)")
     ap.add_argument("--force", action="store_true", help="picks: send the reminder whatever the time")
     ap.add_argument("--dry", action="store_true", help="show what would be sent, send nothing")
@@ -317,6 +322,16 @@ def main():
     s = None if a.dry else session()
     if s is None and not a.dry:
         print("Alerts aren't set up yet (VAPID_PRIVATE_KEY / FIREBASE_SERVICE_ACCOUNT secrets missing). Nothing sent.")
+        return
+    if a.what == "announce":  # everyone with alerts on, whatever topics they picked; only once per key
+        log, devs = Log(s), devices(s)
+        if log.has(ANNOUNCE["key"]):
+            print(f"Already sent {ANNOUNCE['key']}. Change the key in ANNOUNCE to send a new one.")
+            return
+        alert = {k: v for k, v in ANNOUNCE.items() if k != "key"}
+        print(f"{alert['title']} | {alert['body']} -> {send(s, devs, alert)} of {len(devs)} device(s)")
+        log.add(ANNOUNCE["key"])
+        log.save()
         return
     if a.what in ("list", "test"):
         devs = devices(s)
