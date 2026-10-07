@@ -73,6 +73,11 @@ const Viz = (() => {
     const c = (x) => Math.max(0, Math.min(2.375, x));
     return (c((S.cmp / S.att - 0.3) * 5) + c((S.pass_yds / S.att - 3) * 0.25) + c((S.pass_td / S.att) * 20) + c(2.375 - (S.int / S.att) * 25)) / 6 * 100;
   };
+  const covRating = (S) => { // the NFL passer rating formula on the throws at him (Pro Football Reference's coverage charting)
+    if (!S.cov_tgt) return null;
+    const c = (x) => Math.max(0, Math.min(2.375, x)), a = S.cov_tgt;
+    return (c((S.cov_cmp / a - 0.3) * 5) + c((S.cov_yds / a - 3) * 0.25) + c((S.cov_td / a) * 20) + c(2.375 - (S.cov_int / a) * 25)) / 6 * 100;
+  };
   const P = [ // players
     ["Passing", [
       ["pass_yds", "Passing yards", (S) => S.pass_yds, { count: 1, pos: "QB" }],
@@ -140,6 +145,20 @@ const Viz = (() => {
       ["third_stop", "3rd/4th-down stops", (S) => S.third_stop, { count: 1, need: ["third_stop"] }],
       ["rz_stop", "Red-zone stops", (S) => S.rz_stop, { count: 1, need: ["rz_stop"] }],
       ["dtakeaways", "Takeaways (INT + forced fumbles)", (S) => S.def_int + S.ff, { count: 1, need: ["ff"] }],
+    ]],
+    // who was in coverage on each throw: Pro Football Reference's charting (nflverse pfr_advstats)
+    ["Deep cuts: coverage (DBs)", [
+      ["cov_rating", "Passer rating allowed (coverage rating)", covRating, { den: (S) => S.cov_tgt, d: 1, low: 1, unit: "targets", need: ["cov_tgt"] }],
+      ["cov_win", "Coverage success % (targets not caught)", (S) => div(100 * (S.cov_tgt - S.cov_cmp), S.cov_tgt), { den: (S) => S.cov_tgt, pct: 1, unit: "targets", need: ["cov_tgt"] }],
+      ["cov_cmp_pct", "Completion % allowed", (S) => div(100 * S.cov_cmp, S.cov_tgt), { den: (S) => S.cov_tgt, pct: 1, low: 1, unit: "targets", need: ["cov_tgt"] }],
+      ["cov_ypt", "Yards allowed per target", (S) => div(S.cov_yds, S.cov_tgt), { den: (S) => S.cov_tgt, d: 1, low: 1, unit: "targets", need: ["cov_tgt"] }],
+      ["cov_tgt", "Targets in coverage", (S) => S.cov_tgt, { count: 1, need: ["cov_tgt"] }],
+      ["cov_yds", "Yards allowed in coverage", (S) => S.cov_yds, { count: 1, low: 1, need: ["cov_tgt"] }],
+      ["cov_td", "TDs allowed in coverage", (S) => S.cov_td, { count: 1, low: 1, need: ["cov_tgt"] }],
+      ["cov_yac", "Yards after catch allowed per catch", (S) => div(S.cov_yac, S.cov_cmp), { den: (S) => S.cov_cmp, d: 1, low: 1, unit: "catches allowed", need: ["cov_yac"] }],
+      ["pressure", "Pressures (sacks, hits, hurries)", (S) => S.pressure, { count: 1, need: ["pressure"] }],
+      ["miss_tkl", "Missed tackles", (S) => S.miss_tkl, { count: 1, low: 1, need: ["miss_tkl"] }],
+      ["miss_pct", "Missed tackle %", (S) => div(100 * S.miss_tkl, S.miss_tkl + S.pfr_tkl), { den: (S) => S.miss_tkl + S.pfr_tkl, pct: 1, low: 1, unit: "tackle tries", need: ["miss_tkl"] }],
     ]],
     ["Deep cuts: offense", [
       ["rush_succ_pct", "Run success %", (S) => div(100 * S.rush_succ, S.carries), { den: (S) => S.carries, pct: 1, unit: "carries", need: ["rush_succ"] }],
@@ -307,6 +326,14 @@ const Viz = (() => {
       ["Yards after catch leaders", P_({ type: "bar", stat: "yac", top: "15" })],
       ["Fantasy (PPR) leaders", P_({ type: "bar", stat: "ppr", top: "20" })],
       ["Sack leaders", P_({ type: "bar", stat: "def_sacks", per: "total", pos: "DEF", top: "15" })],
+      ["DB coverage: passer rating allowed (corners)", P_({ type: "bar", stat: "cov_rating", pos: "CB", top: "15" })],
+      ["DB coverage: success % vs yards per target (corners)", P_({ type: "scatter", stat: "cov_win", y: "cov_ypt", pos: "CB", top: "all" })],
+      ["DB coverage: safeties, passer rating allowed", P_({ type: "bar", stat: "cov_rating", pos: "S", top: "15" })],
+      ["DB coverage: rookie corners, success %", P_({ type: "bar", stat: "cov_win", pos: "CB", exp: "1", top: "15" })],
+      ["DB coverage: most picked on (targets)", P_({ type: "bar", stat: "cov_tgt", per: "total", pos: "CB", top: "15" })],
+      ["DB coverage: corner profiles (radar)", P_({ type: "radar", pos: "CB", top: "3" })],
+      ["Deep cuts: pressure leaders", P_({ type: "bar", stat: "pressure", per: "total", pos: "DEF", top: "15" })],
+      ["Deep cuts: missed tackles (most)", P_({ type: "bar", stat: "miss_tkl", per: "total", pos: "DEF", order: "worst", top: "15" })],
       ["Deep cuts: rookie LBs, run stops", P_({ type: "bar", stat: "run_stop", per: "total", pos: "LB", exp: "1", top: "15" })],
       ["Deep cuts: rookie LBs, stop rate vs run stops", P_({ type: "scatter", stat: "run_stop_rate", y: "run_stop", per: "total", pos: "LB", exp: "1", top: "all" })],
       ["Deep cuts: safeties who stop the run", P_({ type: "bar", stat: "run_stop", per: "total", pos: "S", top: "15" })],
@@ -345,7 +372,8 @@ const Viz = (() => {
   const saveMine = (v) => store.set(MINE, v);
   const RADAR = { teams: ["epa_play", "def_epa_play", "ypp", "third", "giveaways", "def_sacks", "pts"], players: {
     QB: ["pass_yds", "pass_td", "cmp_pct", "ypa", "int", "epa_db", "eff", "rush_yds"], RB: ["rush_yds", "ypc", "rush_td", "rec", "rec_yds", "epa_rush"],
-    WR: ["rec", "rec_yds", "rec_td", "ypr", "catch_pct", "epa_tgt", "yac"], DEF: ["tackles", "def_sacks", "tfl", "qb_hits", "pd", "def_int"], K: ["fg_made", "fg_pct"], "": ["scrim", "tds", "rec_yds", "rush_yds", "pass_yds"] } };
+    WR: ["rec", "rec_yds", "rec_td", "ypr", "catch_pct", "epa_tgt", "yac"],
+    CB: ["cov_rating", "cov_win", "cov_ypt", "cov_td", "ball", "def_int", "miss_pct"], S: ["cov_rating", "cov_win", "cov_ypt", "ball", "tackles", "run_stop", "miss_pct"], DEF: ["tackles", "def_sacks", "tfl", "qb_hits", "pd", "def_int"], K: ["fg_made", "fg_pct"], "": ["scrim", "tds", "rec_yds", "rush_yds", "pass_yds"] } };
 
   function draw(el, seasons, Ds) {
     const D = Ds.at(-1), who = st.who, multi = Ds.length > 1;
@@ -594,7 +622,7 @@ const Viz = (() => {
         ${st.type === "bar" ? `<label>Show${seg("vz-order", [["best", "Best"], ["worst", "Worst"]], st.order)}</label>` : ""}
         ${st.type === "line" && !multi ? `<label>Line${seg("vz-cum", [["", "Each week"], ["1", "Running total"]], st.cum)}</label>` : ""}
         <label>How many${sel("vz-top", [...[5, 10, 15, 20, 25, 50, 100].map((x) => [x, `Top ${x}`]), ["all", "All"]], st.top)}</label>
-        ${stat[3].den && st.type !== "pie" || (st.type === "radar" && who === "players") ? `<label>Minimum <small class="muted">${esc(st.type === "radar" ? { QB: "pass attempts", RB: "carries", WR: "catches", DEF: "tackles", K: "field goal tries" }[st.pos] || "touches" : unitOf(stat))}</small><input id="vz-min" type="number" min="0" inputmode="numeric" placeholder="auto ${st.type === "radar" ? "" : autoMin(stat)}" value="${esc(st.min)}"></label>` : ""}
+        ${stat[3].den && st.type !== "pie" || (st.type === "radar" && who === "players") ? `<label>Minimum <small class="muted">${esc(st.type === "radar" ? { QB: "pass attempts", RB: "carries", WR: "catches", DEF: "tackles", CB: "tackles", S: "tackles", K: "field goal tries" }[st.pos] || "touches" : unitOf(stat))}</small><input id="vz-min" type="number" min="0" inputmode="numeric" placeholder="auto ${st.type === "radar" ? "" : autoMin(stat)}" value="${esc(st.min)}"></label>` : ""}
         ${who === "players" && D.pcols.includes("left") ? `<div class="vz-chks"><label title="Games a player left by halftime (usually hurt, sometimes rested in a blowout). QBs: threw or ran in the first half and never after. Everyone else: a regular who played under half his side's snaps."><input type="checkbox" id="vz-noexit"${st.noexit ? " checked" : ""}> Leave out games they left by halftime</label></div>` : ""}
         ${st.type !== "radar" ? `<div class="vz-chks"><label><input type="checkbox" id="vz-logo"${st.logo !== "0" ? " checked" : ""}> Team logos</label><label><input type="checkbox" id="vz-names"${st.names !== "0" ? " checked" : ""}> ${who === "teams" ? "Team" : "Player"} names</label></div>` : ""}
       </div>

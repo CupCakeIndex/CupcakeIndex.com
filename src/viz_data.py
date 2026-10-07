@@ -101,6 +101,12 @@ PLAYER_COLS = ["cmp", "att", "pass_yds", "pass_td", "int", "sacked", "carries", 
 PLAYER_COLS_NFL = PLAYER_COLS + ["pass_epa", "rush_epa", "rec_epa", "air_yds", "yac", "ppr", "snaps", "left"]  # left: 1 = gone by halftime
 
 
+# Pro Football Reference's defensive charting (who was in coverage, pressures, missed tackles): our column -> theirs
+PFR_DEF = {"cov_tgt": "def_targets", "cov_cmp": "def_completions_allowed", "cov_yds": "def_yards_allowed", "cov_td": "def_receiving_td_allowed",
+           "cov_int": "def_ints", "cov_air": "def_air_yards_completed", "cov_yac": "def_yards_after_catch", "blitz": "def_times_blitzed",
+           "hurry": "def_times_hurried", "pressure": "def_pressures", "miss_tkl": "def_missed_tackles", "pfr_tkl": "def_tackles_combined"}
+
+
 def early_exits(season):
     """{(gsis id, game id)} for players who had a pass, run or target in the first half and none after halftime:
     hurt (or benched) by halftime. From nflverse play-by-play. Players who only came in later (relief QBs) aren't in it."""
@@ -214,17 +220,27 @@ def nfl(season):
     except Exception as e:
         print(f"  ! deep cuts unavailable ({e})")
         deep = {}
-    xi = {c: i for i, c in enumerate(deep_stats.XCOLS)}
+    # coverage, pressures and missed tackles: Pro Football Reference's charting (nflverse pfr_advstats), per game
+    pfr = {}
+    try:
+        for r in nflverse_csv(f"{NFLV}/pfr_advstats/advstats_week_def_{season}.csv", f"advstats_week_def_{season}.csv"):
+            pid = ids.get(r["pfr_player_id"])
+            if pid and r.get("game_type", "REG") == "REG":
+                pfr[(pid, int(r["week"]))] = {c: n(r.get(src)) for c, src in PFR_DEF.items() if n(r.get(src))}
+    except requests.HTTPError as e:
+        print(f"  ! PFR coverage stats unavailable ({e})")
+    xcols = deep_stats.XCOLS + list(PFR_DEF)
+    xi = {c: i for i, c in enumerate(xcols)}
     for row in prows:
-        x = deep.get((gsis[row[0]], row[1]), {})
-        row.append([v for c in deep_stats.XCOLS if c in x for v in (xi[c], x[c])])
+        x = {**deep.get((gsis[row[0]], row[1]), {}), **pfr.get((row[0], row[1]), {})}
+        row.append([v for c in xcols if c in x for v in (xi[c], x[c])])
     pl_csv = {r["gsis_id"]: r for r in nflverse_csv(f"{NFLV}/players/players.csv", "players.csv")}
     for pid, m in pmeta.items():
         p = pl_csv.get(gsis[pid])
         if p:
             m += deep_stats.extra(p, season)
     write("nfl", season, {"teams": tmeta, "tcols": TEAM_COLS_NFL, "trows": trows, "pcols": PLAYER_COLS_NFL, "pmeta": pmeta, "prows": prows,
-                          "xcols": deep_stats.XCOLS if deep else []})
+                          "xcols": xcols if deep or pfr else []})
 
 
 # ------------------------------------------------------------------ college (CFBD)
