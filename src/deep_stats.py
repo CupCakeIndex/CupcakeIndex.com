@@ -1,47 +1,33 @@
-"""Deep cuts (Stats > Deep cuts, docs/deep.js): super specific NFL player stats from nflverse play-by-play.
-docs/data/deep/nfl_<season>.json: one row per player with season totals (raw counts, so the page can divide).
+"""Deep cuts for Stats > Visualize (NFL): super specific player stats per game from nflverse play-by-play, added to
+docs/data/viz/nfl_<season>.json by viz_data.py (xcols + a sparse list on each player row; the page expands it).
 
 Run stops, stuffs, short-yardage stops, 3rd-down stops, red-zone stops, plus offense cuts (deep balls, 3rd-down
-conversions, goal-line carries, clutch EPA). Every player carries a role (EDGE, IDL, LB, CB, S, QB, RB, WR, TE)
-and his year in the league, so the page can show things like "run stops by rookie linebackers".
+conversions, goal-line carries, clutch EPA). extra() gives each player a role (EDGE, IDL, LB, CB, S, QB, RB, WR, TE),
+his year in the league and draft slot, so the page can show things like "run stops by rookie linebackers".
 
 A "stop" = the offense failed on that play: it gained under 40% of the yards needed on 1st down, under 60% on 2nd,
 or didn't convert on 3rd/4th (the usual success-rate rule, close to PFF's "run stop"). Fumbles lost count as stops.
 Everyone credited with the tackle (solo or assisted) gets the stop.
-
-    python src/deep_stats.py                  # this season (and any missing past season since FIRST)
-    python src/deep_stats.py --season 2025
 """
-import argparse
 import csv
 import gzip
-import json
-import sys
-from collections import Counter, defaultdict
-from datetime import datetime, timezone
-from pathlib import Path
+from collections import defaultdict
+from datetime import datetime
 
 import requests
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from viz_data import NFLV, RAW, nflverse_csv, season_now  # noqa: E402
+from viz_data import NFLV, RAW, season_now
 
-ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "docs" / "data" / "deep"
-FIRST = 2024
-
-COLS = [
-    # defense
-    "d_snaps", "tkl", "run_tkl", "run_stop", "run_tkl_yds", "stuff", "sy_tkl", "sy_stop", "pass_tkl", "pass_stop",
-    "third_stop", "rz_stop", "tfl", "sacks", "third_sacks", "qb_hits", "pd", "ints", "ff", "fr",
+XCOLS = [
+    # defense (tackles, sacks, TFL, hits, PD, INTs are already in the chart data)
+    "run_tkl", "run_stop", "run_tkl_yds", "stuff", "sy_tkl", "sy_stop", "pass_tkl", "pass_stop", "third_stop", "rz_stop",
+    "third_sacks", "ff", "fr",
     # running
-    "o_snaps", "carries", "rush_yds", "rush_succ", "rush_stuffed", "rush_10", "rush_td", "rush_epa", "sy_carries", "sy_conv",
-    "rz_carries", "gl_carries", "gl_td",
+    "rush_succ", "rush_stuffed", "rush_10", "sy_carries", "sy_conv", "rz_carries", "gl_carries", "gl_td",
     # receiving
-    "targets", "rec", "rec_yds", "rec_td", "yac", "deep_tgt", "deep_rec", "rec_20", "third_tgt", "third_conv", "rz_tgt", "rz_rec_td", "rec_epa",
+    "deep_tgt", "deep_rec", "rec_20", "third_tgt", "third_conv", "rz_tgt", "rz_rec_td",
     # passing
-    "dropbacks", "att", "cmp", "pass_yds", "pass_td", "int", "sacked", "hit", "deep_att", "deep_cmp", "deep_yds",
-    "third_db", "third_db_conv", "clutch_db", "clutch_epa", "pass_epa", "rz_att", "rz_pass_td", "games",
+    "dropbacks", "hit", "deep_att", "deep_cmp", "deep_yds", "third_db", "third_db_conv", "clutch_db", "clutch_epa", "rz_att", "rz_pass_td",
 ]
 
 
@@ -105,19 +91,17 @@ def pbp(season):
         yield from csv.DictReader(fh)
 
 
-def build(season):
+def per_game(season):
+    """{(gsis id, week): {column: value}} for the regular season."""
     S = defaultdict(lambda: defaultdict(float))
-    team = defaultdict(Counter)
-    games = defaultdict(set)
-    weeks = 0
     for row in pbp(season):
         if row.get("season_type") != "REG" or row.get("two_point_attempt") == "1":
             continue
         pt = row.get("play_type")
         if pt not in ("run", "pass") or not row.get("down") or row["down"] == "NA":
             continue
-        weeks = max(weeks, int(f(row["week"])))
-        off, dfn = row["posteam"], row["defteam"]
+        wk = int(f(row["week"]))
+        off = row["posteam"]
         down, togo, gain, yl = int(f(row["down"])), f(row["ydstogo"]), f(row["yards_gained"]), f(row["yardline_100"])
         epa, lost = f(row["epa"]), failed(row)
         late = down >= 3
@@ -129,8 +113,7 @@ def build(season):
         # ---- defense: tacklers on this play
         if not (row.get("interception") == "1" or row.get("fumble_lost") == "1"):  # after a turnover the offense makes the tackles
             for p in ids(row, *TACKLERS):
-                s = S[p]
-                team[p][dfn] += 1
+                s = S[p, wk]
                 s["tkl"] += 1
                 if run:
                     s["run_tkl"] += 1
@@ -148,31 +131,30 @@ def build(season):
                 if rz and lost:
                     s["rz_stop"] += 1
         for p in ids(row, "tackle_for_loss_1_player_id", "tackle_for_loss_2_player_id"):
-            S[p]["tfl"] += 1
+            S[p, wk]["tfl"] += 1
         for p in ids(row, "sack_player_id"):
-            S[p]["sacks"] += 1
-            S[p]["third_sacks"] += late
+            S[p, wk]["sacks"] += 1
+            S[p, wk]["third_sacks"] += late
         for p in ids(row, "half_sack_1_player_id", "half_sack_2_player_id"):
-            S[p]["sacks"] += 0.5
-            S[p]["third_sacks"] += 0.5 * late
+            S[p, wk]["sacks"] += 0.5
+            S[p, wk]["third_sacks"] += 0.5 * late
         for p in ids(row, "qb_hit_1_player_id", "qb_hit_2_player_id"):
-            S[p]["qb_hits"] += 1
+            S[p, wk]["qb_hits"] += 1
         for p in ids(row, "pass_defense_1_player_id", "pass_defense_2_player_id"):
-            S[p]["pd"] += 1
+            S[p, wk]["pd"] += 1
         for p in ids(row, "interception_player_id"):
-            S[p]["ints"] += 1
+            S[p, wk]["ints"] += 1
         for p in ids(row, "forced_fumble_player_1_player_id", "forced_fumble_player_2_player_id"):
             if row.get("forced_fumble_player_1_team") != off:
-                S[p]["ff"] += 1
+                S[p, wk]["ff"] += 1
         if row.get("fumble_lost") == "1":
             for p in ids(row, "fumble_recovery_1_player_id"):
-                S[p]["fr"] += 1
+                S[p, wk]["fr"] += 1
 
         # ---- running (designed runs and scrambles; kneels are their own play type)
         if run:
             for p in ids(row, "rusher_player_id"):
-                s = S[p]
-                team[p][off] += 1
+                s = S[p, wk]
                 s["carries"] += 1
                 s["rush_yds"] += f(row["rushing_yards"])
                 s["rush_succ"] += not lost
@@ -193,8 +175,7 @@ def build(season):
         # ---- passing
         deep = f(row["air_yards"]) >= 20
         for p in ids(row, "passer_player_id"):
-            s = S[p]
-            team[p][off] += 1
+            s = S[p, wk]
             s["dropbacks"] += 1
             s["pass_epa"] += epa
             s["sacked"] += sacked
@@ -222,9 +203,8 @@ def build(season):
         for p in ids(row, "receiver_player_id"):
             if sacked:
                 continue
-            s = S[p]
+            s = S[p, wk]
             c = row.get("complete_pass") == "1"
-            team[p][off] += 1
             s["targets"] += 1
             s["rec"] += c
             s["rec_yds"] += f(row["receiving_yards"])
@@ -242,65 +222,13 @@ def build(season):
                 s["rz_tgt"] += 1
                 s["rz_rec_td"] += row.get("pass_touchdown") == "1"
 
-    if not S:
-        print(f"  no {season} play-by-play yet")
-        return
-
-    # snaps and games, from nflverse snap counts (keyed by Pro Football Reference id)
-    players = {p["gsis_id"]: p for p in nflverse_csv(f"{NFLV}/players/players.csv", "players.csv")}
-    by_pfr = {p["pfr_id"]: g for g, p in players.items() if p.get("pfr_id")}
-    try:
-        snaps = nflverse_csv(f"{NFLV}/snap_counts/snap_counts_{season}.csv", f"snap_counts_{season}.csv")
-    except requests.HTTPError:
-        snaps = []
-    for r in snaps:
-        g = by_pfr.get(r["pfr_player_id"])
-        if g and r.get("game_type") == "REG":
-            S[g]["d_snaps"] += f(r["defense_snaps"])
-            S[g]["o_snaps"] += f(r["offense_snaps"])
-            if f(r["defense_snaps"]) or f(r["offense_snaps"]):
-                games[g].add(r["game_id"])
-
-    meta, rows = {}, []
-    for g, s in S.items():
-        p = players.get(g)
-        if not p:
-            continue
-        rl = role(p)
-        if not rl:
-            continue
-        s["games"] = len(games[g])
-        if not any(s[c] for c in COLS if c not in ("d_snaps", "o_snaps", "games")):
-            continue
-        rk = p.get("rookie_season") or p.get("draft_year")
-        yr = season - int(rk) + 1 if rk and rk.isdigit() else 0
-        rnd = p.get("draft_round")
-        draft = f"R{rnd} #{p['draft_pick']}" if rnd and rnd.isdigit() and int(p.get("draft_year") or 0) == int(rk or -1) else "UDFA"
-        tm = team[g].most_common(1)[0][0] if team[g] else p.get("latest_team", "")
-        meta[g] = [p["display_name"], rl, tm, max(yr, 0), draft, p.get("espn_id") or "", p.get("college_name") or ""]
-        rows.append([g] + [round(s[c], 2) if isinstance(s[c], float) and not s[c].is_integer() else int(s[c]) for c in COLS])
-
-    OUT.mkdir(parents=True, exist_ok=True)
-    d = {"season": season, "weeks": weeks, "cols": COLS, "players": meta, "rows": rows,
-         "updated": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")}
-    fo = OUT / f"nfl_{season}.json"
-    fo.write_text(json.dumps(d, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
-    print(f"  {fo.name}: {len(rows)} players through week {weeks}, {fo.stat().st_size // 1024} KB")
-    seasons = sorted(int(x.stem.split("_")[1]) for x in OUT.glob("nfl_*.json"))
-    (OUT / "index.json").write_text(json.dumps({"nfl": seasons}), encoding="utf-8")
+    return {k: {c: (round(v, 2) if not float(v).is_integer() else int(v)) for c, v in d.items() if v and c in XCOLS} for k, d in S.items()}
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--season", type=int)
-    a = ap.parse_args()
-    seasons = [a.season] if a.season else [s for s in range(FIRST, season_now() + 1)
-                                           if s == season_now() or not (OUT / f"nfl_{s}.json").exists()]
-    for s in seasons:
-        print(f"deep cuts nfl {s}")
-        build(s)
-
-
-if __name__ == "__main__":
-    sys.stdout.reconfigure(encoding="utf-8")
-    main()
+def extra(p, season):
+    """[role, year in the league (1 = rookie), drafted ("R1 #7" or "UDFA")] for a players.csv row."""
+    rk = p.get("rookie_season") or p.get("draft_year")
+    yr = season - int(rk) + 1 if rk and rk.isdigit() else 0
+    rnd = p.get("draft_round")
+    draft = f"R{rnd} #{p['draft_pick']}" if rnd and rnd.isdigit() and (p.get("draft_year") or "") == (rk or "x") else "UDFA"
+    return [role(p), max(yr, 0), draft]

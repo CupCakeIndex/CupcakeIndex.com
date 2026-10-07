@@ -185,7 +185,7 @@ def nfl(season):
         if pct > 0:
             shares[pid].append(pct)
     usual = {pid: median(v) for pid, v in shares.items() if len(v) >= 2}
-    pmeta, prows = {}, []
+    pmeta, prows, gsis = {}, [], {}
     for r in pl:
         if r["season_type"] != "REG":
             continue
@@ -204,8 +204,27 @@ def nfl(season):
         left = (r["position"] == "QB" and (r["player_id"], r.get("game_id")) in gone) \
             or (pct is not None and usual.get(pid, 0) >= 0.6 and pct < 0.5)  # QBs: no plays after halftime; others: a regular under half the snaps
         prows.append([pid, wk, key.get(r["team"], r["team"])] + vals + [snaps, 1 if left else 0])
+        gsis[pid] = r["player_id"]
     print(f"  {sum(x[-1] for x in prows)} player games left early (QBs by play-by-play, others by snaps); snaps for {sum(1 for x in prows if x[-2])} of {len(prows)}")
-    write("nfl", season, {"teams": tmeta, "tcols": TEAM_COLS_NFL, "trows": trows, "pcols": PLAYER_COLS_NFL, "pmeta": pmeta, "prows": prows})
+    # deep cuts (src/deep_stats.py): run stops, deep balls, clutch... as a sparse [column index, value, ...] list at the end of
+    # each player row (most are 0), plus role, year in the league and draft slot on each player
+    import deep_stats
+    try:
+        deep = deep_stats.per_game(season)
+    except Exception as e:
+        print(f"  ! deep cuts unavailable ({e})")
+        deep = {}
+    xi = {c: i for i, c in enumerate(deep_stats.XCOLS)}
+    for row in prows:
+        x = deep.get((gsis[row[0]], row[1]), {})
+        row.append([v for c in deep_stats.XCOLS if c in x for v in (xi[c], x[c])])
+    pl_csv = {r["gsis_id"]: r for r in nflverse_csv(f"{NFLV}/players/players.csv", "players.csv")}
+    for pid, m in pmeta.items():
+        p = pl_csv.get(gsis[pid])
+        if p:
+            m += deep_stats.extra(p, season)
+    write("nfl", season, {"teams": tmeta, "tcols": TEAM_COLS_NFL, "trows": trows, "pcols": PLAYER_COLS_NFL, "pmeta": pmeta, "prows": prows,
+                          "xcols": deep_stats.XCOLS if deep else []})
 
 
 # ------------------------------------------------------------------ college (CFBD)

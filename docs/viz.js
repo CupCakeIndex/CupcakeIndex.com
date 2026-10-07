@@ -121,6 +121,44 @@ const Viz = (() => {
       ["ppa_pass", "Passing PPA (full season)", (S) => S.ss_pass_epa, { d: 1, lg: "cfb", season: 1, pos: "QB" }],
       ["ppa_rush", "Rushing PPA (full season)", (S) => S.ss_rush_epa, { d: 1, lg: "cfb", season: 1 }],
     ]],
+    // Deep cuts (NFL, src/deep_stats.py from play-by-play). A "stop" = the offense failed on that play: under 40% of the
+    // yards needed on 1st down, 60% on 2nd, no conversion on 3rd/4th. Everyone credited on the tackle gets it.
+    ["Deep cuts: run defense", [
+      ["run_stop", "Run stops", (S) => S.run_stop, { count: 1, need: ["run_stop"] }],
+      ["run_stop_rate", "Run stops per 100 snaps", (S) => div(100 * S.run_stop, S.snaps), { den: (S) => S.snaps, d: 1, unit: "snaps", need: ["run_stop"] }],
+      ["stop_pct", "Stop % of run tackles", (S) => div(100 * S.run_stop, S.run_tkl), { den: (S) => S.run_tkl, pct: 1, unit: "run tackles", need: ["run_stop"] }],
+      ["stuff", "Stuffs (run tackles at or behind the line)", (S) => S.stuff, { count: 1, need: ["stuff"] }],
+      ["run_depth", "Avg gain on his run tackles", (S) => div(S.run_tkl_yds, S.run_tkl), { den: (S) => S.run_tkl, d: 1, low: 1, unit: "run tackles", need: ["run_tkl"] }],
+      ["sy_stop", "Short-yardage stops (3rd/4th & 2 or less)", (S) => S.sy_stop, { count: 1, need: ["sy_stop"] }],
+    ]],
+    ["Deep cuts: pass rush and coverage", [
+      ["sack_rate", "Sacks per 100 snaps", (S) => div(100 * S.def_sacks, S.snaps), { den: (S) => S.snaps, d: 1, unit: "snaps", need: ["third_sacks"] }],
+      ["third_sacks", "Drive-killing sacks (3rd/4th down)", (S) => S.third_sacks, { count: 1, d: 1, need: ["third_sacks"] }],
+      ["heat", "Sacks + QB hits", (S) => S.def_sacks + S.qb_hits, { count: 1, d: 1, need: ["third_sacks"] }],
+      ["ball", "Ball production (INT + passes defended)", (S) => S.def_int + S.pd, { count: 1, need: ["pass_stop"] }],
+      ["pass_stop", "Pass stops (tackled a catch short)", (S) => S.pass_stop, { count: 1, need: ["pass_stop"] }],
+      ["third_stop", "3rd/4th-down stops", (S) => S.third_stop, { count: 1, need: ["third_stop"] }],
+      ["rz_stop", "Red-zone stops", (S) => S.rz_stop, { count: 1, need: ["rz_stop"] }],
+      ["dtakeaways", "Takeaways (INT + forced fumbles)", (S) => S.def_int + S.ff, { count: 1, need: ["ff"] }],
+    ]],
+    ["Deep cuts: offense", [
+      ["rush_succ_pct", "Run success %", (S) => div(100 * S.rush_succ, S.carries), { den: (S) => S.carries, pct: 1, unit: "carries", need: ["rush_succ"] }],
+      ["stuffed_pct", "Stuffed % (runs for 0 or less)", (S) => div(100 * S.rush_stuffed, S.carries), { den: (S) => S.carries, pct: 1, low: 1, unit: "carries", need: ["rush_stuffed"] }],
+      ["rush_10", "Explosive runs (10+ yards)", (S) => S.rush_10, { count: 1, need: ["rush_10"] }],
+      ["sy_conv_pct", "Short-yardage conversion % (3rd/4th & 2 or less)", (S) => div(100 * S.sy_conv, S.sy_carries), { den: (S) => S.sy_carries, pct: 1, unit: "short-yardage carries", need: ["sy_conv"] }],
+      ["gl_carries", "Goal-line carries (inside the 5)", (S) => S.gl_carries, { count: 1, need: ["gl_carries"] }],
+      ["deep_rec", "Deep catches (20+ air yards)", (S) => S.deep_rec, { count: 1, need: ["deep_rec"] }],
+      ["deep_catch_pct", "Deep catch %", (S) => div(100 * S.deep_rec, S.deep_tgt), { den: (S) => S.deep_tgt, pct: 1, unit: "deep targets", need: ["deep_rec"] }],
+      ["rec_20", "Big plays (20+ yard catches)", (S) => S.rec_20, { count: 1, need: ["rec_20"] }],
+      ["third_conv", "3rd/4th-down conversion catches", (S) => S.third_conv, { count: 1, need: ["third_conv"] }],
+      ["third_rate", "3rd-down conversion % per target", (S) => div(100 * S.third_conv, S.third_tgt), { den: (S) => S.third_tgt, pct: 1, unit: "3rd-down targets", need: ["third_conv"] }],
+      ["rz_tgt", "Red-zone targets", (S) => S.rz_tgt, { count: 1, need: ["rz_tgt"] }],
+      ["deep_cmp_pct", "Deep ball completion % (QB)", (S) => div(100 * S.deep_cmp, S.deep_att), { den: (S) => S.deep_att, pct: 1, unit: "deep throws", need: ["deep_cmp"] }],
+      ["third_db_pct", "3rd/4th-down conversion % (QB)", (S) => div(100 * S.third_db_conv, S.third_db), { den: (S) => S.third_db, pct: 1, unit: "3rd-down dropbacks", need: ["third_db"] }],
+      ["clutch", "Clutch EPA per dropback (4th quarter, one-score game)", (S) => div(S.clutch_epa, S.clutch_db), { den: (S) => S.clutch_db, d: 2, unit: "clutch dropbacks", need: ["clutch_db"] }],
+      ["rz_td_pct", "Red-zone TD % (QB)", (S) => div(100 * S.rz_pass_td, S.rz_att), { den: (S) => S.rz_att, pct: 1, unit: "red-zone throws", need: ["rz_att"] }],
+      ["hit_pct", "Hit or sacked % (QB)", (S) => div(100 * S.hit, S.dropbacks), { den: (S) => S.dropbacks, pct: 1, low: 1, unit: "dropbacks", need: ["hit"] }],
+    ]],
   ];
   const statsFor = (who, D) => (who === "players" ? P : T).map(([g, list]) => [g, list.filter(([, , , o]) =>
     (!o.lg || o.lg === D.league) && (!o.need || o.need.every((c) => (who === "players" ? D.pcols : D.tcols).includes(c))))]).filter(([, l]) => l.length);
@@ -128,7 +166,7 @@ const Viz = (() => {
 
   // ---------------------------------------------------------------- state (all in the link)
   const DEF = { who: "teams", type: "bar", stat: "epa_play", y: "pts", from: "", to: "", wk1: "", wk2: "", per: "game", top: "10",
-    group: "", team: "", pos: "", pick: "", order: "best", cum: "", radar: "", logo: "", names: "", min: "", role: "", noexit: "" }; // logo/names: "" = on, "0" = off; min: "" = automatic
+    group: "", team: "", pos: "", pick: "", order: "best", cum: "", radar: "", logo: "", names: "", min: "", role: "", noexit: "", exp: "", draft: "" }; // logo/names: "" = on, "0" = off; min: "" = automatic
   let st = { ...DEF };
   const save = () => {
     const q = new URLSearchParams({ league, show: "visualize" });
@@ -138,7 +176,14 @@ const Viz = (() => {
 
   async function file(season) {
     const k = `${league}_${season}`;
-    if (!files.has(k)) files.set(k, getJSON(`data/viz/${k}.json`).catch(() => null));
+    if (!files.has(k)) files.set(k, getJSON(`data/viz/${k}.json`).then((D) => { // deep cuts: a sparse [column, value, ...] list ends each NFL player row
+      if (D?.xcols?.length) {
+        const n = D.pcols.length + 3;
+        D.pcols = D.pcols.concat(D.xcols);
+        for (const r of D.prows) { const x = r.length > n ? r.pop() : []; for (let i = 0; i < D.xcols.length; i++) r.push(0); for (let i = 0; i < x.length; i += 2) r[n + x[i]] = x[i + 1]; }
+      }
+      return D;
+    }).catch(() => null));
     return files.get(k);
   }
   // our model's numbers for that season (the latest rankings file), keyed like the chart data: CFB by id, NFL by name
@@ -208,6 +253,12 @@ const Viz = (() => {
     if (p) return "DEF";
     return S.att >= 10 ? "QB" : S.fg_att ? "K" : S.carries > S.rec && S.carries >= 5 ? "RB" : S.rec ? "WR" : "DEF"; // college defenders have no position on file
   };
+  // NFL players also carry [3] role (EDGE, IDL, LB, CB, S, TE...), [4] year in the league (1 = rookie), [5] drafted ("R2 #45" or "UDFA")
+  const FINE = { EDGE: "Edge rushers", IDL: "Interior D-line", LB: "Linebackers", CB: "Cornerbacks", S: "Safeties", TE: "Tight ends" };
+  const EXP = [["", "Everyone"], ["1", "Rookies"], ["2", "2nd year"], ["3", "3rd year"], ["1-2", "Rookies + 2nd year"], ["4+", "Vets (4+ years)"]];
+  const DRAFT = [["", "Any"], ["1", "1st round"], ["2-3", "Rounds 2-3"], ["4-7", "Rounds 4-7"], ["U", "Undrafted"]];
+  const expOk = (y, e) => y != null && (e === "1-2" ? y >= 1 && y <= 2 : e === "4+" ? y >= 4 : y === +e);
+  const draftOk = (dr, f) => { if (!dr) return false; const r = /^R(\d)/.exec(dr)?.[1]; return f === "U" ? !r : f === "1" ? r === "1" : f === "2-3" ? r === "2" || r === "3" : r >= "4"; };
   const fmt = (stat, v, per) => {
     if (v == null || Number.isNaN(v)) return "–";
     const o = stat[3], d = o.pct ? 1 : o.d ?? (o.count && per === "game" ? 1 : 0);
@@ -256,6 +307,19 @@ const Viz = (() => {
       ["Yards after catch leaders", P_({ type: "bar", stat: "yac", top: "15" })],
       ["Fantasy (PPR) leaders", P_({ type: "bar", stat: "ppr", top: "20" })],
       ["Sack leaders", P_({ type: "bar", stat: "def_sacks", per: "total", pos: "DEF", top: "15" })],
+      ["Deep cuts: rookie LBs, run stops", P_({ type: "bar", stat: "run_stop", per: "total", pos: "LB", exp: "1", top: "15" })],
+      ["Deep cuts: rookie LBs, stop rate vs run stops", P_({ type: "scatter", stat: "run_stop_rate", y: "run_stop", per: "total", pos: "LB", exp: "1", top: "all" })],
+      ["Deep cuts: safeties who stop the run", P_({ type: "bar", stat: "run_stop", per: "total", pos: "S", top: "15" })],
+      ["Deep cuts: undrafted run stoppers", P_({ type: "bar", stat: "run_stop", per: "total", pos: "DEF", draft: "U", top: "15" })],
+      ["Deep cuts: rookie edge rushers, sacks + hits", P_({ type: "bar", stat: "heat", per: "total", pos: "EDGE", exp: "1", top: "15" })],
+      ["Deep cuts: drive-killing sacks", P_({ type: "bar", stat: "third_sacks", per: "total", pos: "DEF", top: "15" })],
+      ["Deep cuts: rookie DBs, ball production", P_({ type: "bar", stat: "ball", per: "total", pos: "CB", exp: "1", top: "15" })],
+      ["Deep cuts: short-yardage backs", P_({ type: "bar", stat: "sy_conv_pct", pos: "RB", top: "15" })],
+      ["Deep cuts: who gets stuffed most (RBs)", P_({ type: "bar", stat: "stuffed_pct", pos: "RB", order: "worst", top: "15" })],
+      ["Deep cuts: rookie WRs, deep catches", P_({ type: "bar", stat: "deep_rec", per: "total", pos: "WR", exp: "1", top: "15" })],
+      ["Deep cuts: 3rd-down go-to guys", P_({ type: "bar", stat: "third_conv", per: "total", top: "15" })],
+      ["Deep cuts: clutch QBs", P_({ type: "bar", stat: "clutch", pos: "QB", top: "15" })],
+      ["Deep cuts: deep ball QBs", P_({ type: "bar", stat: "deep_cmp_pct", pos: "QB", top: "15" })],
     ],
     cfb: [
       ["Schedule vs cupcakes (the Schedules chart)", T_({ type: "scatter", stat: "ci_sos", y: "ci_cupcake", top: "all" })],
@@ -332,7 +396,9 @@ const Viz = (() => {
       if (st.group && t[3] !== st.group) return false;
       if (who === "players" && st.team && teamOf(k) !== st.team) return false;
       if (who === "players" && st.role) return role[k] === st.role;
-      if (who === "players" && st.pos && POS_OF(meta(k)?.[1], a.S) !== st.pos) return false;
+      if (who === "players" && st.pos && (FINE[st.pos] ? meta(k)?.[3] !== st.pos : POS_OF(meta(k)?.[1], a.S) !== st.pos)) return false;
+      if (who === "players" && st.exp && !expOk(meta(k)?.[4], st.exp)) return false;
+      if (who === "players" && st.draft && !draftOk(meta(k)?.[5], st.draft)) return false;
       return true;
     };
     let keys = Object.keys(agg).filter(ok);
@@ -348,7 +414,7 @@ const Viz = (() => {
     };
     const UNITS = { epa_db: "dropbacks", pass_epa_play: "pass plays", rush_epa_play: "rushes", epa_rush: "carries", ypc: "carries", ypr: "catches",
       catch_pct: "targets", epa_tgt: "targets", fg_pct: "field goal tries", third: "third downs", ppa_play: "plays", win_pct: "games" };
-    const unitOf = (s) => UNITS[s[0]] || (["ypa", "cmp_pct", "rating", "eff"].includes(s[0]) ? "pass attempts" : who === "teams" ? "plays" : "attempts");
+    const unitOf = (s) => UNITS[s[0]] || s[3].unit || (["ypa", "cmp_pct", "rating", "eff"].includes(s[0]) ? "pass attempts" : who === "teams" ? "plays" : "attempts");
     const per = st.type === "pie" ? "total" : st.per; // a pie is a share of the whole: always season totals
     const val = (s, k) => value(s, agg[k].S, agg[k].g, per);
     const rank = (s, list) => list.filter((k) => val(s, k) != null).sort((a, b) => (s[3].low ? 1 : -1) * (val(s, a) - val(s, b)) * (st.order === "worst" ? -1 : 1));
@@ -501,7 +567,7 @@ const Viz = (() => {
       body = { h: 440 };
       note = "100 = the best among everyone listed, 0 = the worst. Lower-is-better stats are flipped.";
     }
-    const sub = `${lgTxt} · ${seasonTxt} · ${weeksTxt}${st.group ? ` · ${st.group}` : ""}${st.team ? ` · ${tm(st.team)[0]}` : ""}${st.role ? ` · ${st.role}s` : st.pos ? ` · ${st.pos === "DEF" ? "Defense" : st.pos}` : ""}`;
+    const sub = `${lgTxt} · ${seasonTxt} · ${weeksTxt}${st.group ? ` · ${st.group}` : ""}${st.team ? ` · ${tm(st.team)[0]}` : ""}${st.role ? ` · ${st.role}s` : st.pos ? ` · ${st.pos === "DEF" ? "Defense" : FINE[st.pos] || st.pos}` : ""}${who === "players" && st.exp ? ` · ${EXP.find(([k]) => k === st.exp)?.[1]}` : ""}${who === "players" && st.draft ? ` · ${st.draft === "U" ? "Undrafted" : `Drafted: ${DRAFT.find(([k]) => k === st.draft)?.[1]}`}` : ""}`;
     const src = league === "nfl" ? "nflverse play-by-play (EPA)" : "CollegeFootballData.com (box scores; PPA = college EPA, garbage time left out)";
     const seasonOnly = [stat, ystat].some((s) => s[3].season) && (w1 > 1 || w2 < 99);
 
@@ -532,10 +598,12 @@ const Viz = (() => {
         ${who === "players" && D.pcols.includes("left") ? `<div class="vz-chks"><label title="Games a player left by halftime (usually hurt, sometimes rested in a blowout). QBs: threw or ran in the first half and never after. Everyone else: a regular who played under half his side's snaps."><input type="checkbox" id="vz-noexit"${st.noexit ? " checked" : ""}> Leave out games they left by halftime</label></div>` : ""}
         ${st.type !== "radar" ? `<div class="vz-chks"><label><input type="checkbox" id="vz-logo"${st.logo !== "0" ? " checked" : ""}> Team logos</label><label><input type="checkbox" id="vz-names"${st.names !== "0" ? " checked" : ""}> ${who === "teams" ? "Team" : "Player"} names</label></div>` : ""}
       </div>
-      <details class="vz-more"${st.group || st.team || st.pos || picks.length ? " open" : ""}><summary>Filters and highlights</summary><div class="vz-ctl">
+      <details class="vz-more"${st.group || st.team || st.pos || st.exp || st.draft || picks.length ? " open" : ""}><summary>Filters and highlights</summary><div class="vz-ctl">
         <label>${league === "nfl" ? "Division" : "Conference"}${sel("vz-group", [["", "All"], ...confs.map((c) => [c, c])], st.group)}</label>
         ${who === "players" ? `<label>Team${sel("vz-team", [["", "All teams"], ...Object.entries(D.teams).sort((a, b) => a[1][0].localeCompare(b[1][0])).map(([k, t]) => [k, t[0]])], st.team)}</label>
-          <label>Position${sel("vz-pos", [["", "All"], ["QB", "QB"], ["RB", "RB"], ["WR", "WR / TE"], ["K", "Kicker"], ["DEF", "Defense"]], st.pos)}</label>
+          <label>Position${sel("vz-pos", [["", "All"], ["QB", "QB"], ["RB", "RB"], ["WR", "WR / TE"], ...(D.xcols?.length ? [["TE", "TE only"]] : []), ["K", "Kicker"], ["DEF", "Defense"],
+            ...(D.xcols?.length ? Object.entries(FINE).filter(([k]) => k !== "TE").map(([k, l]) => [k, `Defense: ${l}`]) : [])], st.pos)}</label>
+          ${D.xcols?.length ? `<label>Experience${sel("vz-exp", EXP, st.exp)}</label><label>Drafted${sel("vz-draft", DRAFT, st.draft)}</label>` : ""}
           <label>Depth chart${sel("vz-role", [["", "Any"], ...["QB1", "QB2", "RB1", "RB2", "RB3", "WR1", "WR2", "WR3", "WR4", "TE1", "TE2"].map((r) => [r, r])], st.role)}</label>` : ""}
         <label class="vz-wide vz-findwrap">Highlight / compare<input id="vz-find" placeholder="Type a ${who === "teams" ? "team" : "player"}…" autocomplete="off" spellcheck="false"><div class="vz-sugg" id="vz-sugg" hidden></div></label>
         <div class="vz-picks">${picks.map((k) => `<button data-k="${esc(k)}" title="Remove">${esc(name(k))} ×</button>`).join("")}</div>
@@ -570,7 +638,7 @@ const Viz = (() => {
     const mi = document.getElementById("vz-min");
     if (mi) mi.onchange = () => { st.min = mi.value === "" ? "" : String(Math.max(0, Math.round(+mi.value) || 0)); redo(); };
     on("vz-role", "role");
-    on("vz-stat", "stat"); on("vz-y", "y"); on("vz-wk1", "wk1"); on("vz-wk2", "wk2"); on("vz-top", "top"); on("vz-group", "group"); on("vz-team", "team"); on("vz-pos", "pos");
+    on("vz-stat", "stat"); on("vz-y", "y"); on("vz-wk1", "wk1"); on("vz-wk2", "wk2"); on("vz-top", "top"); on("vz-group", "group"); on("vz-team", "team"); on("vz-pos", "pos"); on("vz-exp", "exp"); on("vz-draft", "draft");
     on("vz-from", "from", reload); on("vz-to", "to", reload);
     const nx = document.getElementById("vz-noexit");
     if (nx) nx.onchange = () => { st.noexit = nx.checked ? "1" : ""; redo(); };

@@ -1388,7 +1388,6 @@ const Live = (() => {
     if (params.get("show") === "projected") return projected(params);
     if (params.get("show") === "injuries") return injuries(params);
     if (params.get("show") === "visualize") return Viz.render(params); // viz.js
-    if (params.get("show") === "deep") return Deep.render(params); // deep.js
     const lg = league, my = token;
     const cat = STAT_CATS.find((c) => c.key === params.get("cat")) || STAT_CATS[0];
     const sort = params.get("sort") || cat.sort, dir = params.get("dir") || "desc";
@@ -1453,7 +1452,7 @@ const Live = (() => {
   // Every week ESPN's fantasy feed sets a projection ("line") for each player: passing yards, TDs, catches...
   // A player's fraud score compares what they actually did with their lines in the games they played,
   // stat by stat for their position, as a weighted % below expectation. Over-achievers are the same list flipped.
-  const stSubStats = (on) => `<div class="subtabs">` + [["leaders", "Leaders", {}], ["frauds", "Frauds", { show: "frauds" }], ["projected", "Projected", { show: "projected" }], ["injuries", "Injuries", { show: "injuries" }], ["deep", "Deep cuts", { show: "deep" }], ["visualize", "Visualize", { show: "visualize" }]]
+  const stSubStats = (on) => `<div class="subtabs">` + [["leaders", "Leaders", {}], ["frauds", "Frauds", { show: "frauds" }], ["projected", "Projected", { show: "projected" }], ["injuries", "Injuries", { show: "injuries" }], ["visualize", "Visualize", { show: "visualize" }]]
     .map(([k, l, q]) => `<a class="subtab${k === on ? " on" : ""}" href="${link("stats", null, q)}">${l}</a>`).join("") + `</div>`;
   const FR_POS = { 1: "QB", 2: "RB", 3: "WR", 4: "TE" };
   // [label, ESPN fantasy stat ids (summed), weight, minimum expected per game to count, higher is worse]
