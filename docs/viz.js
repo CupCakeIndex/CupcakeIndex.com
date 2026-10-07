@@ -315,7 +315,7 @@ const Viz = (() => {
     const per = st.type === "pie" ? "total" : st.per; // a pie is a share of the whole: always season totals
     const val = (s, k) => value(s, agg[k].S, agg[k].g, per);
     const rank = (s, list) => list.filter((k) => val(s, k) != null).sort((a, b) => (s[3].low ? 1 : -1) * (val(s, a) - val(s, b)) * (st.order === "worst" ? -1 : 1));
-    const top = +st.top || 10;
+    const top = st.top === "all" ? 9999 : +st.top || 10;
     const name = (k) => who === "players" ? meta(k)?.[0] || k : tm(k)[0];
     const short = (k) => who === "players" ? (meta(k)?.[0] || k).replace(/^(\S)\S*\s/, "$1. ") : tm(k)[1] || tm(k)[0];
     const color = (k) => tm(teamOf(k))[2] || "#888";
@@ -416,7 +416,9 @@ const Viz = (() => {
       note = who === "players" && !st.team ? "Tip: pick a team in Filters to see how one team splits it up (who gets the carries, the targets...)." : "";
       if (!stat[3].count) note = `Pie charts need a total, so this shows ${s[1].toLowerCase()}. ` + note;
     } else if (st.type === "scatter") {
-      const both = qualify(stat).filter((k) => qualify(ystat).includes(k)).filter((k) => val(stat, k) != null && val(ystat, k) != null);
+      const pool = qualify(stat).filter((k) => qualify(ystat).includes(k)).filter((k) => val(stat, k) != null && val(ystat, k) != null);
+      // How many: the top N by the stat across the bottom (X), plus anyone highlighted
+      const both = [...new Set([...rank(stat, pool).slice(0, top), ...picks.filter((k) => pool.includes(k))])];
       title = `${stat[1]}${perTxt(stat)} vs ${ystat[1].toLowerCase()}${perTxt(ystat)}`;
       const label = new Set([...rank(stat, both).slice(0, 4), ...rank(ystat, both).slice(0, 4), ...rank(stat, both).slice(-2), ...picks]);
       const pts = both.map((k) => ({ x: val(stat, k), y: val(ystat, k), k }));
@@ -440,7 +442,7 @@ const Viz = (() => {
           });
           ctx.restore(); } }] };
       body = { h: 440 };
-      note = `${both.length} ${who}${stat[3].den ? ` (at least ${minFor(stat)} ${unitOf(stat)} for ${stat[1].toLowerCase()})` : ""}. Dashed lines are the averages. ${stat[3].low || ystat[3].low ? "Axes are flipped where lower is better, so up and right is always good." : "Up and right is good."}`;
+      note = `${both.length < pool.length ? `Top ${both.length} of ${pool.length} ${who} by ${stat[1].toLowerCase()}` : `${both.length} ${who}`}${stat[3].den ? ` (at least ${minFor(stat)} ${unitOf(stat)} for ${stat[1].toLowerCase()})` : ""}. Dashed lines are the averages. ${stat[3].low || ystat[3].low ? "Axes are flipped where lower is better, so up and right is always good." : "Up and right is good."}`;
     } else { // radar: percentiles among everyone shown
       const want = who === "teams" ? RADAR.teams : RADAR.players[st.pos] || RADAR.players[""];
       const custom = st.radar ? st.radar.split(",") : want;
@@ -479,7 +481,7 @@ const Viz = (() => {
         ${st.type === "pie" ? "" : `<label>Totals${seg("vz-per", [["game", "Per game"], ["total", "Total"]], st.per)}</label>`}
         ${st.type === "bar" ? `<label>Show${seg("vz-order", [["best", "Best"], ["worst", "Worst"]], st.order)}</label>` : ""}
         ${st.type === "line" && !multi ? `<label>Line${seg("vz-cum", [["", "Each week"], ["1", "Running total"]], st.cum)}</label>` : ""}
-        <label>How many${sel("vz-top", [5, 10, 15, 25, 50].map((x) => [x, `Top ${x}`]), st.top)}</label>
+        <label>How many${sel("vz-top", [...[5, 10, 15, 20, 25, 50, 100].map((x) => [x, `Top ${x}`]), ["all", "All"]], st.top)}</label>
         ${stat[3].den && st.type !== "pie" || (st.type === "radar" && who === "players") ? `<label>Minimum <small class="muted">${esc(st.type === "radar" ? { QB: "pass attempts", RB: "carries", WR: "catches", DEF: "tackles", K: "field goal tries" }[st.pos] || "touches" : unitOf(stat))}</small><input id="vz-min" type="number" min="0" inputmode="numeric" placeholder="auto ${st.type === "radar" ? "" : autoMin(stat)}" value="${esc(st.min)}"></label>` : ""}
         ${who === "players" && D.pcols.includes("left") ? `<div class="vz-chks"><label title="A QB who threw or ran in the first half and never again after halftime: usually hurt, sometimes rested in a blowout"><input type="checkbox" id="vz-noexit"${st.noexit ? " checked" : ""}> Leave out games a QB left by halftime</label></div>` : ""}
         ${st.type !== "radar" ? `<div class="vz-chks"><label><input type="checkbox" id="vz-logo"${st.logo !== "0" ? " checked" : ""}> Team logos</label><label><input type="checkbox" id="vz-names"${st.names !== "0" ? " checked" : ""}> ${who === "teams" ? "Team" : "Player"} names</label></div>` : ""}
