@@ -163,7 +163,7 @@ const Viz = (() => {
     LOGOS = {};
     for (const lg of ["cfb", "nfl"]) for (const x of t[lg] || []) {
       const path = lg === "nfl" ? (x.logo || "").replace("https://a.espncdn.com", "") : `/i/teamlogos/ncaa/500/${x.id}.png`;
-      if (path.startsWith("/i/")) LOGOS[`${lg}:${x.id}`] = `https://a.espncdn.com/combiner/i?img=${path}&w=80&h=80`;
+      if (path.startsWith("/i/")) LOGOS[`${lg}:${x.id}`] = `https://a.espncdn.com/combiner/i?img=${path}&w=160&h=160`;
     }
   }
   function logoImg(key, redraw) {
@@ -308,7 +308,7 @@ const Viz = (() => {
 
     // the chart
     let cfg;
-    const base = { responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+    const base = { responsive: true, maintainAspectRatio: false, animation: { duration: 250 }, devicePixelRatio: Math.max(3, window.devicePixelRatio || 1), // drawn at 3x: sharp on any screen and in the downloaded picture
       plugins: { legend: { labels: { color: ink, font: { family: "JetBrains Mono", size: 11 } } }, tooltip: { titleFont: { family: "JetBrains Mono" }, bodyFont: { family: "JetBrains Mono" } } },
       scales: { x: { ticks: { color: muted, font: { family: "JetBrains Mono", size: 10 } }, grid: { color: line } }, y: { ticks: { color: muted, font: { family: "JetBrains Mono", size: 10 } }, grid: { color: line } } } };
     const hl = (k) => picks.includes(k);
