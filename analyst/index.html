@@ -1,0 +1,558 @@
+<title>Cupcake Analyst</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&display=swap">
+<style>
+/* Layout: one phone-width column. Paste box on top, the verdict stamp and receipts below, reply drafts last. */
+:root {
+  --bg: #0a0a0a; --panel: #131211; --line: #2a2522; --fg: #ece6e1; --dim: #9a8f87;
+  --accent: #ff6b2c; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+body { background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); margin: 0 }
+.wrap { max-width: 680px; margin: 0 auto; grid-template-columns: minmax(0, 1fr); padding-inline: 16px; padding-block: 18px 60px; display: grid; gap: 18px }
+header { display: grid; gap: 4px }
+.logo { font-weight: 800; font-size: 22px; letter-spacing: .02em }
+.logo span { color: var(--accent) }
+.sub { color: var(--dim); font-size: 12px }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px; display: grid; gap: 12px; min-width: 0 }
+label.h, h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: var(--dim); margin: 0; font-weight: 600 }
+textarea { width: 100%; min-height: 120px; resize: vertical; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 10px; font: 14px/1.5 var(--mono) }
+textarea:focus, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+button, .btn { font: 600 13px var(--mono); border-radius: 4px; padding: 10px 14px; border: 1px solid var(--line); background: transparent; color: var(--fg); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px }
+button.go { background: var(--accent); border-color: var(--accent); color: #140700 }
+button:disabled { opacity: .5; cursor: default }
+.chips { display: flex; flex-wrap: wrap; gap: 6px }
+.chip { text-align: left; font-size: 12px; padding: 6px 10px; border-radius: 99px; border: 1px dashed var(--line); color: var(--dim); background: none; font-weight: 400 }
+.shot { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--dim) }
+.shot img { width: 56px; height: 56px; object-fit: cover; border-radius: 4px; border: 1px solid var(--line) }
+.log { font-size: 12px; color: var(--dim); display: grid; gap: 2px; max-height: 160px; overflow: auto }
+.log div::before { content: "› "; color: var(--accent) }
+.stamp { display: inline-block; font-weight: 800; font-size: 20px; letter-spacing: .08em; padding: 6px 12px; border: 3px solid currentColor; border-radius: 4px; transform: rotate(-2deg); justify-self: start }
+.v-holds { color: var(--ok) } .v-mixed, .v-misleading { color: var(--warn) } .v-wrong { color: var(--bad) } .v-cant_check { color: var(--dim) }
+.headline { font-size: 16px; font-weight: 600; text-wrap: balance; margin: 0 }
+ul.claims, ul.miss { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px }
+.claims li { display: grid; gap: 2px; padding-left: 12px; border-left: 3px solid var(--line) }
+.claims li.v-holds { border-color: var(--ok) } .claims li.v-wrong { border-color: var(--bad) } .claims li.v-misleading, .claims li.v-mixed { border-color: var(--warn) }
+.claims b { color: var(--fg); font-weight: 600 }
+.claims .tag { font-size: 11px; font-weight: 800; letter-spacing: .08em }
+.claims .ev { color: var(--dim); font-size: 13px }
+.miss li { color: var(--fg) } .miss li::before { content: "– "; color: var(--accent) }
+.nums { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px }
+.nums td { padding: 6px 4px; border-bottom: 1px solid var(--line); vertical-align: top }
+.nums td:nth-child(2) { text-align: right; font-weight: 600; white-space: nowrap; color: var(--accent) }
+.nums .note { display: block; color: var(--dim); font-size: 11px }
+.scroll { overflow-x: auto }
+#chart svg { width: 100%; height: auto; display: block; border-radius: 4px }
+.reply { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px }
+.reply:first-of-type { border-top: 0; padding-top: 0 }
+.reply p { margin: 0; white-space: pre-wrap }
+.count { font-size: 11px; color: var(--dim) } .count.over { color: var(--bad) }
+.how { display: grid; gap: 8px; color: var(--dim); font-size: 13px; margin: 0; padding-left: 20px }
+.how b { color: var(--fg) }
+.note { color: var(--dim); font-size: 12px; margin: 0 }
+details summary { cursor: pointer; color: var(--dim); font-size: 12px }
+.hist { display: grid; gap: 6px; margin-top: 8px }
+.hist button { justify-content: flex-start; text-align: left; font-weight: 400; font-size: 12px; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block }
+.err { color: var(--bad); font-size: 13px; margin: 0 }
+@media (prefers-reduced-motion: reduce) { .stamp { transform: none } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="logo">CUPCAKE<span>_</span>ANALYST</div>
+    <div class="sub" id="fresh">Your private stat desk. Paste a take, get the receipts.</div>
+  </header>
+
+  <section class="card" aria-labelledby="in-h">
+    <label class="h" id="in-h" for="take">The take</label>
+    <textarea id="take" placeholder="Paste the post here. Example: &quot;Jayden Daniels is a bottom-10 QB this year and it isn't close.&quot;"></textarea>
+    <div class="chips" id="examples" aria-label="Example takes"></div>
+    <div class="shot" id="shot-row" hidden>
+      <img id="shot-img" alt="Screenshot to check">
+      <span id="shot-name"></span>
+      <button type="button" id="shot-clear">Remove</button>
+    </div>
+    <div class="row">
+      <button type="button" class="go" id="check">Check it</button>
+      <label class="btn" id="shot-btn" hidden>Add screenshot<input type="file" id="shot" accept="image/*" hidden></label>
+      <button type="button" id="stop" hidden>Stop</button>
+      <label class="note"><input type="checkbox" id="deep"> Think harder (slower)</label>
+    </div>
+    <div class="log" id="log" aria-live="polite"></div>
+    <p class="err" id="err" hidden></p>
+  </section>
+
+  <section class="card" id="how">
+    <h2>How it works</h2>
+    <ol class="how">
+      <li><b>Paste a post</b> or add a screenshot of it.</li>
+      <li>Claude looks up <b>only our numbers</b>: weekly stats (NFL 2022 on, college 2024 on), our rankings, schedules and cupcake data. No numbers from memory.</li>
+      <li>You get a verdict, the receipts, what the take leaves out, a chart, and two reply drafts to copy.</li>
+    </ol>
+    <p class="note">Runs on your Claude plan, so each check uses some of your usage. Nothing posts by itself.</p>
+  </section>
+
+  <section class="card" id="result" hidden aria-live="polite">
+    <div class="stamp" id="stamp"></div>
+    <p class="headline" id="headline"></p>
+    <div><h2>Claim by claim</h2></div>
+    <ul class="claims" id="claims"></ul>
+    <div id="miss-wrap"><h2>What it leaves out</h2><ul class="miss" id="miss"></ul></div>
+    <div id="nums-wrap"><h2>The numbers</h2><div class="scroll"><table class="nums" id="nums"></table></div></div>
+  </section>
+
+  <section class="card" id="chart-card" hidden>
+    <h2>Chart</h2>
+    <div id="chart"></div>
+    <div class="row"><button type="button" id="save-chart" hidden>Save chart image</button><span class="note" id="chart-note"></span></div>
+  </section>
+
+  <section class="card" id="replies-card" hidden>
+    <h2>Reply drafts</h2>
+    <div id="replies"></div>
+  </section>
+
+  <section class="card" id="hist-wrap">
+    <details><summary>Recent checks on this device</summary><div class="hist" id="hist"></div></details>
+  </section>
+</div>
+
+<script>
+(() => {
+"use strict";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+
+// ------------------------------------------------------------------ data (published with the page)
+let R = null; // rankings.json: {nfl, cfb, facts, viz}
+const files = {};
+async function base() {
+  if (!R) R = await (await fetch("data/rankings.json")).json();
+  return R;
+}
+async function load(lg, season) {
+  const k = `${lg}_${season}`;
+  if (!files[k]) files[k] = fetch(`data/viz/${k}.json`).then((r) => { if (!r.ok) throw new Error(`no ${lg} ${season} data`); return r.json(); }).then(expand);
+  return files[k];
+}
+function expand(D) { // the extra (sparse) player columns, the same way Stats > Visualize unpacks them
+  if (D.xcols?.length) {
+    const n = 3 + D.pcols.length;
+    D.pcols = D.pcols.concat(D.xcols);
+    for (const r of D.prows) { const x = r.length > n ? r.pop() : []; for (let i = 0; i < D.xcols.length; i++) r.push(0); for (let i = 0; i < x.length; i += 2) r[n + x[i]] = x[i + 1]; }
+    D.xcols = [];
+  }
+  D.pi = Object.fromEntries(D.pcols.map((c, i) => [c, i + 3]));
+  D.ti = Object.fromEntries(D.tcols.map((c, i) => [c, i + 3]));
+  D.maxWk = Math.max(...D.trows.map((r) => r[1]), 0);
+  return D;
+}
+const seasons = (lg) => (R?.viz?.[lg] || []).slice().sort((a, b) => b - a);
+const norm = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\b(jr|sr|ii|iii|iv)\b/g, "").replace(/\s+/g, " ").trim();
+const r1 = (x, d = 1) => (x == null || !isFinite(x) ? null : Math.round(x * 10 ** d) / 10 ** d);
+
+// rate stats: [label, numerator(s), denominator(s), scale, decimals]
+const RATES = {
+  cmp_pct: ["completion %", ["cmp"], ["att"], 100, 1], ypa: ["yards per attempt", ["pass_yds"], ["att"], 1, 2],
+  td_pct: ["TD %", ["pass_td"], ["att"], 100, 1], int_pct: ["INT %", ["int"], ["att"], 100, 1],
+  sack_pct: ["sack % (of dropbacks)", ["sacked"], ["att", "sacked"], 100, 1],
+  epa_per_dropback: ["EPA per dropback", ["pass_epa"], ["dropbacks"], 1, 3],
+  deep_cmp_pct: ["deep completion % (20+ air yds)", ["deep_cmp"], ["deep_att"], 100, 1],
+  third_down_conv_pct: ["3rd-down conversion % (passing)", ["third_db_conv"], ["third_db"], 100, 1],
+  ypc: ["yards per carry", ["rush_yds"], ["carries"], 1, 2], rush_epa_per_carry: ["rush EPA per carry", ["rush_epa"], ["carries"], 1, 3],
+  rush_success_pct: ["rush success %", ["rush_succ"], ["carries"], 100, 1],
+  catch_pct: ["catch %", ["rec"], ["targets"], 100, 1], ypr: ["yards per catch", ["rec_yds"], ["rec"], 1, 1],
+  yds_per_target: ["yards per target", ["rec_yds"], ["targets"], 1, 2], rec_epa_per_target: ["receiving EPA per target", ["rec_epa"], ["targets"], 1, 3],
+  yac_per_rec: ["YAC per catch", ["yac"], ["rec"], 1, 1], adot: ["avg depth of target", ["air_yds"], ["targets"], 1, 1],
+  fg_pct: ["field goal %", ["fg_made"], ["fg_att"], 100, 1],
+  cov_cmp_pct_allowed: ["completion % allowed in coverage", ["cov_cmp"], ["cov_tgt"], 100, 1],
+  cov_yds_per_target: ["yards per target allowed", ["cov_yds"], ["cov_tgt"], 1, 2],
+  missed_tackle_pct: ["missed tackle %", ["miss_tkl"], ["miss_tkl", "pfr_tkl"], 100, 1],
+};
+const TEAM_RATES = {
+  ppg: ["points per game", ["pts"], ["games"], 1, 1], opp_ppg: ["points allowed per game", ["opp_pts"], ["games"], 1, 1],
+  margin_pg: ["scoring margin per game", ["pts", "-opp_pts"], ["games"], 1, 1],
+  yds_per_play: ["yards per play", ["pass_yds", "rush_yds"], ["plays"], 1, 2],
+  pass_ypa: ["passing yards per attempt", ["pass_yds"], ["att"], 1, 2], ypc: ["yards per carry", ["rush_yds"], ["carries"], 1, 2],
+  epa_per_play: ["offensive EPA per play", ["pass_epa", "rush_epa"], ["plays"], 1, 3],
+  def_epa_per_play: ["EPA per play allowed (lower is better)", ["opp_epa"], ["opp_plays"], 1, 3],
+  cfb_epa_per_play: ["offensive EPA per play", ["epa"], ["adv_plays"], 1, 3], cfb_success_pct: ["offensive success %", ["succ"], ["adv_plays"], 100, 1],
+  cfb_def_epa_per_play: ["EPA per play allowed (lower is better)", ["def_epa"], ["def_adv_plays"], 1, 3],
+  cfb_def_success_pct: ["success % allowed (lower is better)", ["def_succ"], ["def_adv_plays"], 100, 1],
+  third_down_pct: ["3rd-down conversion %", ["third_conv"], ["third_att"], 100, 1],
+  turnover_margin: ["turnover margin", ["def_int", "def_fr", "-int", "-fum_lost"], [], 1, 0],
+  sacks_pg: ["sacks per game (defense)", ["def_sacks"], ["games"], 1, 2],
+};
+const LOWER_BETTER = new Set(["int", "int_pct", "sacked", "sack_pct", "fum_lost", "opp_pts", "opp_ppg", "def_epa_per_play", "cfb_def_epa_per_play", "cfb_def_success_pct", "opp_pass_yds", "opp_rush_yds", "opp_yds", "opp_epa", "pen", "pen_yds", "cov_cmp_pct_allowed", "cov_yds_per_target", "cov_yds", "cov_td", "missed_tackle_pct", "miss_tkl"]);
+function rate(sum, def) {
+  const add = (keys) => keys.reduce((a, k) => a + (k[0] === "-" ? -(sum[k.slice(1)] || 0) : sum[k] || 0), 0);
+  const den = def[2].length ? add(def[2]) : 1;
+  return den ? r1((add(def[1]) / den) * def[3], def[4]) : null;
+}
+
+// ------------------------------------------------------------------ lookups
+function teamKey(D, q) {
+  const n = norm(q);
+  let best = null;
+  for (const [k, m] of Object.entries(D.teams)) {
+    const names = [m[0], m[1]].map(norm);
+    if (names.includes(n)) return k;
+    if (!best && names.some((x) => x.split(" ").includes(n) || x.endsWith(" " + n) || x.startsWith(n + " "))) best = k;
+  }
+  return best;
+}
+function weeksOk(wk, a) { return (!a.weeks_from || wk >= a.weeks_from) && (!a.weeks_to || wk <= a.weeks_to); }
+function posGroup(m) { // pmeta: [name, pos, team, fine pos?, ...]
+  const p = (m?.[1] || "").toUpperCase(), f = (m?.[3] || "").toUpperCase();
+  if (["QB", "RB", "WR", "TE", "K", "P"].includes(p)) return p === "P" ? "K" : p;
+  if (p === "FB") return "RB";
+  return f || p || "";
+}
+function aggPlayers(D, a) { // pid -> {sum, games, teams}
+  const out = new Map(), cols = D.pcols;
+  for (const r of D.prows) {
+    if (!weeksOk(r[1], a)) continue;
+    let o = out.get(r[0]);
+    if (!o) out.set(r[0], (o = { sum: {}, games: 0, teams: new Set() }));
+    o.games++; o.teams.add(r[2]);
+    for (let i = 0; i < cols.length; i++) { const v = r[i + 3]; if (v) o.sum[cols[i]] = (o.sum[cols[i]] || 0) + v; }
+  }
+  return out;
+}
+function aggTeams(D, a) {
+  const out = new Map();
+  for (const r of D.trows) {
+    if (!weeksOk(r[1], a)) continue;
+    let o = out.get(r[0]);
+    if (!o) out.set(r[0], (o = { sum: { games: 0 }, w: 0, l: 0, t: 0, games: [] }));
+    o.sum.games++;
+    D.tcols.forEach((c, i) => { const v = r[i + 3]; if (v) o.sum[c] = (o.sum[c] || 0) + v; });
+    const p = r[D.ti.pts], q = r[D.ti.opp_pts];
+    p > q ? o.w++ : p < q ? o.l++ : o.t++;
+    o.games.push({ wk: r[1], opp: D.teams[r[2]]?.[0] || r[2], score: `${p}-${q}`, res: p > q ? "W" : p < q ? "L" : "T" });
+  }
+  return out;
+}
+function statValue(o, stat, perGame, rates) {
+  if (rates[stat]) return rate({ ...o.sum, games: o.games ?? o.sum.games }, rates[stat]);
+  const v = o.sum[stat] || 0, g = o.games ?? o.sum.games;
+  return perGame ? r1(v / g, 2) : r1(v, 2);
+}
+function rateDen(o, stat, rates) { const d = rates[stat]; return d && d[2].length ? d[2].reduce((a, k) => a + (o.sum[k] || 0), 0) : null; }
+
+// ------------------------------------------------------------------ tools Claude can call (they run here, on the page)
+const say = (s) => { const d = document.createElement("div"); d.textContent = s; $("log").append(d); $("log").scrollTop = 1e9; };
+const TOOLS = [
+  {
+    name: "find_player",
+    description: "Find a player by name. Returns matches with player_id, league (nfl or cfb), position, team and the seasons we have him in. Always call this before player_stats.",
+    inputSchema: { type: "object", properties: { name: { type: "string" }, league: { type: "string", enum: ["nfl", "cfb"] } }, required: ["name"] },
+    async execute({ name, league }) {
+      await base();
+      say(`Finding ${name}`);
+      const q = norm(name), toks = q.split(" ").filter(Boolean), hits = new Map();
+      for (const lg of league ? [String(league)] : ["nfl", "cfb"]) {
+        for (const s of seasons(lg)) {
+          const D = await load(lg, s);
+          for (const [pid, m] of Object.entries(D.pmeta)) {
+            const n = norm(m[0]);
+            if (!(n === q || toks.every((t) => n.split(" ").includes(t)))) continue;
+            const k = `${lg}:${pid}`;
+            const h = hits.get(k) || { player_id: pid, league: lg, name: m[0], position: m[1] || null, team: D.teams[m[2]]?.[0] || m[2], seasons: [] };
+            h.seasons.push(s);
+            hits.set(k, h);
+          }
+          if (hits.size && s < seasons(lg)[0] - 1) break; // found him: no need to open every old season
+        }
+      }
+      const out = [...hits.values()].slice(0, 8);
+      if (!out.length) throw new Error(`No player named "${name}" in our data (NFL ${seasons("nfl").at(-1)}+, college ${seasons("cfb").at(-1)}+).`);
+      return out;
+    },
+  },
+  {
+    name: "player_stats",
+    description: "One player's season (or a week range): games, totals, rate stats (completion %, EPA per dropback, yards per carry, catch %...), where he ranks among his position, and optionally his game-by-game lines.",
+    inputSchema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, player_id: { type: "string" }, season: { type: "integer" }, weeks_from: { type: "integer" }, weeks_to: { type: "integer" }, by_week: { type: "boolean" } }, required: ["league", "player_id", "season"] },
+    async execute(a) {
+      const lg = String(a.league), D = await load(lg, Number(a.season)), pid = String(a.player_id), m = D.pmeta[pid];
+      if (!m) throw new Error("That player has no games in that season.");
+      say(`Pulling ${m[0]}, ${a.season}${a.weeks_from || a.weeks_to ? ` (weeks ${a.weeks_from || 1}-${a.weeks_to || D.maxWk})` : ""}`);
+      const all = aggPlayers(D, a), me = all.get(pid);
+      if (!me) throw new Error("No games in that week range.");
+      const grp = posGroup(m);
+      const totals = Object.fromEntries(Object.entries(me.sum).filter(([k, v]) => v && k !== "left").map(([k, v]) => [k, r1(v, 2)]));
+      const rates = {};
+      for (const [k, d] of Object.entries(RATES)) { const v = rate(me.sum, d); if (v != null && rateDen(me, k, RATES)) rates[k] = v; }
+      // ranks among the same position (players with at least half the games of the busiest one)
+      const KEYS = { QB: ["pass_yds", "pass_td", "int", "cmp_pct", "ypa", "epa_per_dropback", "rush_yds", "sack_pct"], RB: ["rush_yds", "rush_td", "ypc", "rush_epa_per_carry", "rec_yds", "ppr"], WR: ["rec", "rec_yds", "rec_td", "targets", "yds_per_target", "catch_pct"], TE: ["rec", "rec_yds", "rec_td", "yds_per_target"], K: ["fg_made", "fg_pct"] };
+      const keys = KEYS[grp] || ["tackles", "def_sacks", "tfl", "qb_hits", "pd", "def_int", "pressure", "run_stop"];
+      const peers = [...all.entries()].filter(([id]) => posGroup(D.pmeta[id]) === grp || (!grp && true));
+      const maxG = Math.max(...peers.map(([, o]) => o.games));
+      const ranks = {};
+      for (const k of keys) {
+        let pool = peers.filter(([, o]) => o.games >= Math.max(1, maxG / 2));
+        if (RATES[k]) { const dmax = Math.max(...pool.map(([, o]) => rateDen(o, k, RATES) || 0)); pool = pool.filter(([, o]) => (rateDen(o, k, RATES) || 0) >= 0.35 * dmax); }
+        const vals = pool.map(([id, o]) => [id, statValue(o, k, false, RATES)]).filter(([, v]) => v != null);
+        const qualified = vals.some(([id]) => id === pid), mv = statValue(me, k, false, RATES);
+        if (mv == null) continue;
+        const lower = LOWER_BETTER.has(k);
+        const rank = 1 + vals.filter(([id, v]) => id !== pid && (lower ? v < mv : v > mv)).length;
+        // below the playing-time bar (missed games, low volume): where he'd slot in, flagged
+        ranks[k] = qualified ? `${rank} of ${vals.length}` : `would rank ${rank} of ${vals.length + 1} (below the games/volume minimum)`;
+      }
+      const out = { name: m[0], position: m[1] || null, group: grp || null, teams: [...me.teams].map((t) => D.teams[t]?.[0] || t), season: a.season, games: me.games,
+        data_through_week: D.maxWk, totals, rates, per_game: Object.fromEntries(Object.entries(totals).filter(([k]) => !/epa/.test(k) && k !== "snaps").slice(0, 14).map(([k, v]) => [k, r1(v / me.games, 1)])),
+        rank_among_position: ranks, ranks_note: `Ranked among ${grp || "all"} players with ${Math.ceil(maxG / 2)}+ games; rate stats also need 35% of the leader's volume.` };
+      if (m[5]) out.draft = m[5];
+      if (a.by_week) {
+        const opp = Object.fromEntries(D.trows.map((r) => [`${r[0]}|${r[1]}`, D.teams[r[2]]?.[1] || r[2]]));
+        const show = ["cmp", "att", "pass_yds", "pass_td", "int", "carries", "rush_yds", "rush_td", "rec", "targets", "rec_yds", "rec_td", "tackles", "def_sacks", "def_int", "pass_epa"];
+        out.games_list = D.prows.filter((r) => r[0] === pid && weeksOk(r[1], a)).map((r) => {
+          const g = { wk: r[1], opp: opp[`${r[2]}|${r[1]}`] || "" };
+          for (const c of show) if (D.pi[c] != null && r[D.pi[c]]) g[c] = r1(r[D.pi[c]], 2);
+          if (D.pi.left != null && r[D.pi.left]) g.left_early = true;
+          return g;
+        });
+      }
+      return out;
+    },
+  },
+  {
+    name: "leaderboard",
+    description: "Rank players or teams by one stat for a season or week range. Stats: any column name (pass_yds, rush_td, tackles, def_sacks, pressure, pts, opp_pts...) or a rate: " + Object.keys(RATES).join(", ") + " (players); " + Object.keys(TEAM_RATES).join(", ") + " (teams). Positions: QB RB WR TE K, or defense groups EDGE IDL LB CB S. Use include to always show certain players or teams.",
+    inputSchema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, season: { type: "integer" }, scope: { type: "string", enum: ["players", "teams"] }, stat: { type: "string" }, position: { type: "string" }, per_game: { type: "boolean" }, weeks_from: { type: "integer" }, weeks_to: { type: "integer" }, top: { type: "integer" }, min_games: { type: "integer" }, include: { type: "array", items: { type: "string" } } }, required: ["league", "season", "scope", "stat"] },
+    async execute(a) {
+      const lg = String(a.league), D = await load(lg, Number(a.season)), stat = String(a.stat), teams = a.scope === "teams";
+      const rates = teams ? TEAM_RATES : RATES;
+      if (!rates[stat] && !(teams ? D.ti : D.pi)[stat]) throw new Error(`Unknown stat "${stat}" for ${a.scope}. Columns: ${(teams ? D.tcols : D.pcols).join(", ")}`);
+      say(`Ranking ${teams ? "teams" : a.position ? a.position + "s" : "players"} by ${rates[stat]?.[0] || stat}, ${a.season}`);
+      const agg = teams ? aggTeams(D, a) : aggPlayers(D, a);
+      let pool = [...agg.entries()].map(([id, o]) => ({ id, o, g: teams ? o.sum.games : o.games }));
+      if (!teams && a.position) { const want = String(a.position).toUpperCase(); pool = pool.filter((p) => { const g = posGroup(D.pmeta[p.id]); return g === want || (want === "WR" && g === "WR") || (D.pmeta[p.id]?.[1] || "").toUpperCase() === want; }); }
+      const maxG = Math.max(...pool.map((p) => p.g), 1);
+      const minG = a.min_games ?? (teams ? 1 : Math.max(1, Math.ceil(maxG / 2)));
+      const everyone = pool;
+      pool = pool.filter((p) => p.g >= minG);
+      if (rates[stat] && rates[stat][2].length && !rates[stat][2].includes("games")) { const dmax = Math.max(...pool.map((p) => rateDen(p.o, stat, rates) || 0)); pool = pool.filter((p) => (rateDen(p.o, stat, rates) || 0) >= 0.35 * dmax); }
+      const lower = LOWER_BETTER.has(stat);
+      const rows = pool.map((p) => ({ ...p, v: teams ? (rates[stat] ? rate(p.o.sum, rates[stat]) : r1((p.o.sum[stat] || 0) / (a.per_game ? p.g : 1), 2)) : statValue(p.o, stat, a.per_game, rates) }))
+        .filter((p) => p.v != null).sort((x, y) => (lower ? x.v - y.v : y.v - x.v));
+      const label = (p) => teams ? D.teams[p.id]?.[0] || p.id : `${D.pmeta[p.id]?.[0]} (${[...p.o.teams].map((t) => D.teams[t]?.[1] || t).join("/")})`;
+      const fmt = (p, i) => ({ rank: 1 + rows.filter((q) => (lower ? q.v < p.v : q.v > p.v)).length, name: label(p), value: p.v, games: p.g, id: p.id });
+      const top = rows.slice(0, Math.min(Number(a.top) || 10, 25)).map(fmt);
+      const inc = (a.include || []).map(norm).filter(Boolean);
+      const val = (p) => (teams ? (rates[stat] ? rate(p.o.sum, rates[stat]) : r1((p.o.sum[stat] || 0) / (a.per_game ? p.g : 1), 2)) : statValue(p.o, stat, a.per_game, rates));
+      const extra = everyone.filter((p) => inc.some((q) => norm(label(p)).includes(q)) && !top.some((t) => t.id === p.id)).map((p) => ({ ...p, v: val(p) })).filter((p) => p.v != null)
+        .map((p) => ({ ...fmt(p), ...(rows.some((q) => q.id === p.id) ? {} : { below_minimum: true, note: "doesn't meet the games/volume minimum; rank shows where he'd slot in" }) }));
+      return { stat: rates[stat]?.[0] || stat, lower_is_better: lower, per_game: !!a.per_game, season: a.season, through_week: D.maxWk, qualified: rows.length, min_games: minG, top, also_requested: extra };
+    },
+  },
+  {
+    name: "team_stats",
+    description: "A team's season (or week range) from game stats: record, every game's score, totals, per-game and rate stats (points, yards per play, EPA per play, turnover margin...) with where each ranks among all teams.",
+    inputSchema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, season: { type: "integer" }, team: { type: "string" }, weeks_from: { type: "integer" }, weeks_to: { type: "integer" } }, required: ["league", "season", "team"] },
+    async execute(a) {
+      const lg = String(a.league), D = await load(lg, Number(a.season)), k = teamKey(D, a.team);
+      if (!k) throw new Error(`No team matching "${a.team}".`);
+      say(`Pulling ${D.teams[k][0]}, ${a.season}`);
+      const all = aggTeams(D, a), me = all.get(k);
+      if (!me) throw new Error("No games in that range.");
+      const stats = {}, ranks = {}, n = all.size;
+      const keys = [...Object.keys(TEAM_RATES).filter((x) => rate(me.sum, TEAM_RATES[x]) != null && TEAM_RATES[x][1].every((c) => c[0] === "-" || D.ti[c] != null || c === "games")), ...D.tcols];
+      for (const s of keys) {
+        const val = (o) => (TEAM_RATES[s] ? rate(o.sum, TEAM_RATES[s]) : r1((o.sum[s] || 0) / o.sum.games, 2));
+        const v = val(me);
+        if (v == null) continue;
+        stats[s + (TEAM_RATES[s] ? "" : "_pg")] = v;
+        const lower = LOWER_BETTER.has(s);
+        ranks[s] = 1 + [...all.values()].filter((o) => { const x = val(o); return x != null && (lower ? x < v : x > v); }).length;
+      }
+      return { team: D.teams[k][0], conference: D.teams[k][3], season: a.season, through_week: D.maxWk, record: `${me.w}-${me.l}${me.t ? "-" + me.t : ""}`, games: me.games, stats, rank_of: n, ranks, note: "ranks: 1 = best (for 'lower is better' stats, 1 = lowest)" };
+    },
+  },
+  {
+    name: "our_rankings",
+    description: "The Cupcake Index model's current rankings. With a team: its rank, AP rank, record, one-score record, model rating, factor scores (0-100: power, resume, efficiency, sos = schedule toughness, recent, cupcake = how padded the schedule is (higher = more padded, counts against), luck = higher means unlucky), its games with opponent rank and which wins were cupcakes, upcoming games with our win chance, and historical team facts. Without a team: the whole list.",
+    inputSchema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, team: { type: "string" } }, required: ["league"] },
+    async execute(a) {
+      const all = await base(), L = all[String(a.league)];
+      say(`Checking our ${a.league === "cfb" ? "college" : "NFL"} rankings${a.team ? ` for ${a.team}` : ""}`);
+      if (!a.team) return { season: L.season, week: L.week, teams: L.teams.map((t) => ({ rank: t.rank, team: t.team, record: t.record, ap: t.ap ?? undefined, rating: t.rating, sos: t.scores?.sos, cupcake: t.scores?.cupcake })).sort((x, y) => x.rank - y.rank) };
+      const q = norm(a.team);
+      const t = L.teams.find((x) => norm(x.team) === q) || L.teams.find((x) => norm(x.team).split(" ").includes(q) || norm(x.team).includes(q));
+      if (!t) throw new Error(`No team matching "${a.team}" in our rankings.`);
+      return { season: L.season, after_week: L.week, of: L.teams.length, ...t, facts: all.facts[a.league]?.[t.team] || [] };
+    },
+  },
+];
+
+// ------------------------------------------------------------------ the prompt
+function rules() {
+  const nfl = R.nfl, cfb = R.cfb;
+  return `You are the stat desk for The Cupcake Index (@CupcakeIndex on X), a football analytics account whose motto is "Bullying cupcakes isn't a résumé." Terry runs it. He pasted a take from X (text and/or a screenshot). Fact-check it like a sharp football statistician.
+
+Today is ${new Date().toISOString().slice(0, 10)}. Our data: weekly stats for NFL ${seasons("nfl").at(-1)}-${seasons("nfl")[0]} and college ${seasons("cfb").at(-1)}-${seasons("cfb")[0]} (regular season; current seasons are partial), our model rankings (NFL after week ${nfl.week}, college after week ${cfb.week} of ${cfb.season}).
+
+How to work:
+1. Pull out each checkable claim. Use the tools to get the real numbers: find_player before player_stats; leaderboard to put a number in context (rank among peers); team_stats and our_rankings for teams, schedules and cupcake padding. Make several calls in one round when you can.
+2. Only state numbers that came from a tool result. Never use numbers from memory. If our data can't answer a claim (injuries, contracts, career totals before our seasons, play-by-play detail we don't have, other sports), mark that claim "cant_check" and say what's missing.
+3. Look for the classic flaws: tiny sample, cherry-picked week range, counting stat vs rate stat, ignoring opponent quality (use our rankings and cupcake data), ignoring games missed, comparing different positions or eras, correlation sold as cause.
+4. No betting content: no spreads, lines, odds or picks. A win chance from our_rankings is fine.
+
+Reply with ONLY one JSON object, no other text:
+{"verdict": "holds" | "mixed" | "misleading" | "wrong" | "cant_check",
+ "headline": "one sentence summing it up",
+ "claims": [{"claim": "short restatement", "verdict": "holds|mixed|misleading|wrong|cant_check", "evidence": "the numbers that decide it, with ranks"}],
+ "missing": ["context the take leaves out", "..."],
+ "numbers": [{"label": "Daniels EPA/dropback, 2026", "value": "0.12", "note": "14th of 32 QBs"}],
+ "chart": {"title": "short title", "unit": "what the number is", "bars": [{"label": "name", "value": 1.23, "highlight": true}], "lower_is_better": false, "source": "weeks/season covered"} or null,
+ "replies": {"agree": "reply that backs the take with a stat", "pushback": "reply that corrects it with a stat"}}
+
+Chart: 4-12 bars from one leaderboard or comparison you actually pulled, highlight the player or team in the take. Replies: each under 260 characters, no links, no hashtags, confident and a little dry, lead with the number. If the take is plainly right, the pushback reply can add the nuance instead. Keep evidence tight: one or two sentences per claim.`;
+}
+
+// ------------------------------------------------------------------ UI
+const EXAMPLES = ["Jayden Daniels is a bottom-10 QB this year and it isn't close.", "Bijan Robinson is the best running back in football. Not debatable.", "Indiana's 5-0 start is fake, they haven't played anybody.", "The Commanders defense can't stop the run."];
+$("examples").innerHTML = EXAMPLES.map((e) => `<button type="button" class="chip">${esc(e)}</button>`).join("");
+$("examples").onclick = (e) => { const b = e.target.closest(".chip"); if (b) { $("take").value = b.textContent; $("take").focus(); } };
+
+let sample = null, downloads = null, image = null, ctl = null, lastChart = null;
+(async () => {
+  try {
+    await base();
+    const nflD = await load("nfl", seasons("nfl")[0]).catch(() => null);
+    $("fresh").textContent = `Stats through NFL week ${nflD?.maxWk ?? R.nfl.week} · Rankings: NFL week ${R.nfl.week}, college week ${R.cfb.week}`;
+  } catch (e) { $("fresh").textContent = "Couldn't load the stat files. Ask Claude to refresh the analyst."; }
+})();
+(async () => {
+  sample = await window.claude?.use("sample");
+  downloads = await window.claude?.use("downloads");
+  if (!sample) { showErr("Open this page inside Claude (claude.ai or the Claude app) to run checks."); $("check").disabled = true; return; }
+  const lim = await sample.limits().catch(() => null);
+  $("shot-btn").hidden = !lim?.images;
+  if (lim?.images) $("shot").accept = lim.images.mediaTypes.join(",");
+  if (!lim?.tools) { showErr("This Claude app can't run the stat lookups. Try claude.ai in a browser."); $("check").disabled = true; }
+})();
+
+function showErr(s) { $("err").textContent = s; $("err").hidden = !s; }
+function setImage(f) {
+  image = f || null;
+  $("shot-row").hidden = !image;
+  if (image) { $("shot-img").src = URL.createObjectURL(image); $("shot-name").textContent = image.name || "Pasted screenshot"; }
+}
+$("shot").onchange = (e) => setImage(e.target.files[0]);
+$("shot-clear").onclick = () => { setImage(null); $("shot").value = ""; };
+document.addEventListener("paste", (e) => { const f = [...(e.clipboardData?.files || [])].find((x) => x.type.startsWith("image/")); if (f && !$("shot-btn").hidden) { e.preventDefault(); setImage(f); } });
+$("stop").onclick = () => ctl?.abort();
+
+const ERR = { not_granted: "Claude access wasn't allowed for this page. Reload and allow it to run checks.", sampling_disabled: "Claude isn't available on this account right now.", rate_limited: "You've hit a Claude usage limit. Try again a bit later.", session_expired: "Sign in to Claude again, then retry.", image_rejected: "That image didn't work. Try a PNG or JPG screenshot.", refused: "Claude wouldn't check that one. Try rewording the take.", invalid_json: "The answer came back garbled. Tap Check it to try again.", prompt_too_large: "Too much data came back. Try a narrower take (one player or one team).", tools_unavailable: "This Claude app can't run the stat lookups. Try claude.ai in a browser." };
+
+$("check").onclick = async () => {
+  const take = $("take").value.trim();
+  if (!take && !image) { showErr("Paste a take or add a screenshot first."); return; }
+  showErr(""); $("log").innerHTML = ""; $("check").disabled = true; $("stop").hidden = false;
+  ctl = new AbortController();
+  const t0 = Date.now();
+  say("Reading the take" + (image ? " and the screenshot" : ""));
+  const tick = setInterval(() => { $("check").textContent = `Checking… ${Math.round((Date.now() - t0) / 1000)}s`; }, 1000);
+  try {
+    await base();
+    const input = rules() + "\n\nTHE TAKE:\n" + (take || "(see the screenshot)") + (image ? "\n\nA screenshot of the post is attached; read the take (and any numbers in it) from the image." : "");
+    const res = await sample.json(input, { tools: TOOLS, signal: ctl.signal, modelTier: $("deep").checked ? "complex" : "default", ...(image ? { images: [image] } : {}) });
+    if (!res || typeof res !== "object" || !res.verdict) throw { code: "invalid_json" };
+    say(`Done in ${Math.round((Date.now() - t0) / 1000)}s`);
+    render(res);
+    const h = (store.get("analyst-history") || []).filter((x) => x.take !== take);
+    store.set("analyst-history", [{ take: take || "(screenshot)", res, at: Date.now() }, ...h].slice(0, 12));
+    history();
+  } catch (e) {
+    if (e?.code !== "cancelled") showErr(ERR[e?.code] || "Something went wrong reaching Claude. Tap Check it to try again.");
+    else say("Stopped.");
+  } finally {
+    clearInterval(tick); $("check").textContent = "Check it"; $("check").disabled = false; $("stop").hidden = true;
+  }
+};
+
+const VLABEL = { holds: "HOLDS UP", mixed: "MIXED", misleading: "MISLEADING", wrong: "WRONG", cant_check: "CAN'T CHECK" };
+const vcls = (v) => "v-" + (VLABEL[v] ? v : "cant_check");
+function render(r) {
+  $("how").hidden = true;
+  $("result").hidden = false;
+  $("stamp").className = "stamp " + vcls(r.verdict);
+  $("stamp").textContent = VLABEL[r.verdict] || "CAN'T CHECK";
+  $("headline").textContent = r.headline || "";
+  $("claims").innerHTML = (r.claims || []).map((c) => `<li class="${vcls(c.verdict)}"><span class="tag ${vcls(c.verdict)}">${esc(VLABEL[c.verdict] || "CAN'T CHECK")}</span><b>${esc(c.claim)}</b><span class="ev">${esc(c.evidence)}</span></li>`).join("");
+  $("miss-wrap").hidden = !(r.missing || []).length;
+  $("miss").innerHTML = (r.missing || []).map((m) => `<li>${esc(m)}</li>`).join("");
+  $("nums-wrap").hidden = !(r.numbers || []).length;
+  $("nums").innerHTML = (r.numbers || []).map((n) => `<tr><td>${esc(n.label)}${n.note ? `<span class="note">${esc(n.note)}</span>` : ""}</td><td>${esc(n.value)}</td></tr>`).join("");
+  const bars = (r.chart?.bars || []).filter((b) => isFinite(+b.value)).slice(0, 12);
+  $("chart-card").hidden = bars.length < 2;
+  lastChart = bars.length >= 2 ? { ...r.chart, bars } : null;
+  if (lastChart) { $("chart").innerHTML = chartSvg(lastChart); $("save-chart").hidden = !downloads; $("chart-note").textContent = downloads ? "" : "Screenshot the chart to attach it."; }
+  const rp = r.replies || {};
+  $("replies-card").hidden = !rp.agree && !rp.pushback;
+  $("replies").innerHTML = [["agree", "Backs it up"], ["pushback", "Pushes back"]].filter(([k]) => rp[k]).map(([k, l]) => `<div class="reply"><h2>${l}</h2><p id="rp-${k}">${esc(rp[k])}</p>
+    <div class="row"><button type="button" data-copy="${k}">Copy</button><a class="btn" target="_blank" rel="noopener" href="https://x.com/intent/post?text=${encodeURIComponent(rp[k])}">Open in X</a><span class="count ${rp[k].length > 280 ? "over" : ""}">${rp[k].length}/280</span></div></div>`).join("");
+  $("result").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+}
+$("replies").onclick = async (e) => {
+  const b = e.target.closest("[data-copy]");
+  if (!b) return;
+  const p = $("rp-" + b.dataset.copy);
+  try { await navigator.clipboard.writeText(p.textContent); b.textContent = "Copied"; }
+  catch { const s = getSelection(), rg = document.createRange(); rg.selectNodeContents(p); s.removeAllRanges(); s.addRange(rg); b.textContent = "Selected, copy it"; }
+  setTimeout(() => (b.textContent = "Copy"), 2000);
+};
+
+// chart: horizontal bars, brand colors baked in so the saved picture looks the same everywhere
+function chartSvg(c) {
+  const W = 1000, rowH = 56, top = 120, n = c.bars.length, H = top + n * rowH + 70, labelW = 330, x0 = labelW + 20, x1 = W - 130;
+  const vals = c.bars.map((b) => +b.value), lo = Math.min(0, ...vals), hi = Math.max(0, ...vals), span = hi - lo || 1;
+  const X = (v) => x0 + ((v - lo) / span) * (x1 - x0);
+  const fmtv = (v) => (Math.abs(v) >= 100 ? Math.round(v).toLocaleString() : Math.abs(v) >= 10 ? v.toFixed(1) : v.toFixed(Math.abs(v) < 1 ? 3 : 2));
+  const rows = c.bars.map((b, i) => {
+    const v = +b.value, y = top + i * rowH, a = X(Math.min(0, v)), w = Math.max(2, Math.abs(X(v) - X(0)));
+    const col = b.highlight ? "#ff6b2c" : "#4a403a";
+    return `<text x="${labelW}" y="${y + 33}" text-anchor="end" font-size="24" fill="${b.highlight ? "#ffffff" : "#c9bfb8"}" font-weight="${b.highlight ? 800 : 400}">${esc(String(b.label).slice(0, 24))}</text>
+      <rect x="${a}" y="${y + 10}" width="${w}" height="${rowH - 20}" rx="3" fill="${col}"/>
+      <text x="${(v < 0 ? a : a + w) + (v < 0 ? -10 : 10)}" y="${y + 34}" text-anchor="${v < 0 ? "end" : "start"}" font-size="22" font-weight="600" fill="${b.highlight ? "#ff6b2c" : "#c9bfb8"}">${esc(fmtv(v))}</text>`;
+  }).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" font-family="JetBrains Mono, ui-monospace, Menlo, Consolas, monospace" role="img" aria-label="${esc(c.title)}">
+    <rect width="${W}" height="${H}" fill="#0a0a0a"/>
+    <text x="40" y="58" font-size="34" font-weight="800" fill="#ffffff">${esc(String(c.title || "").slice(0, 46))}</text>
+    <text x="40" y="92" font-size="20" fill="#9a8f87">${esc([c.unit, c.lower_is_better ? "lower is better" : ""].filter(Boolean).join(" · ").slice(0, 70))}</text>
+    ${lo < 0 ? `<line x1="${X(0)}" x2="${X(0)}" y1="${top}" y2="${top + n * rowH}" stroke="#2a2522" stroke-width="2"/>` : ""}
+    ${rows}
+    <text x="40" y="${H - 26}" font-size="18" fill="#9a8f87">${esc(String(c.source || "").slice(0, 60))}</text>
+    <text x="${W - 40}" y="${H - 26}" font-size="20" font-weight="800" text-anchor="end" fill="#ffffff">CUPCAKE<tspan fill="#ff6b2c">_</tspan>INDEX</text>
+  </svg>`;
+}
+$("save-chart").onclick = async () => {
+  if (!lastChart || !downloads) return;
+  const svg = chartSvg(lastChart), img = new Image();
+  img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  await img.decode().catch(() => {});
+  const vb = svg.match(/viewBox="0 0 (\d+) (\d+)"/), cv = document.createElement("canvas");
+  cv.width = +vb[1]; cv.height = +vb[2];
+  cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+  const blob = await new Promise((ok) => cv.toBlob(ok, "image/png"));
+  try { await downloads.save({ filename: (lastChart.title || "chart").replace(/[^\w -]/g, "").slice(0, 60) + ".png", data: blob }); $("chart-note").textContent = "Saved."; }
+  catch (e) { $("chart-note").textContent = e?.code === "declined" ? "" : "Couldn't save here. Screenshot the chart instead."; }
+};
+
+function history() {
+  const h = store.get("analyst-history") || [];
+  $("hist-wrap").hidden = !h.length;
+  $("hist").innerHTML = h.map((x, i) => `<button type="button" data-h="${i}">${esc(VLABEL[x.res?.verdict] || "")} · ${esc(x.take)}</button>`).join("");
+}
+$("hist").onclick = (e) => { const b = e.target.closest("[data-h]"); if (!b) return; const x = (store.get("analyst-history") || [])[+b.dataset.h]; if (x) { $("take").value = x.take === "(screenshot)" ? "" : x.take; render(x.res); } };
+history();
+})();
+</script>
