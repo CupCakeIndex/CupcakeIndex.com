@@ -43,6 +43,17 @@ const Viz = (() => {
       ["to_margin", "Turnover margin", (S) => S.def_int + S.def_fr - S.int - S.fum_lost, { count: 1, fmt: "+", need: ["def_fr"] }],
       ["tfl", "Tackles for loss", (S) => S.tfl, { count: 1, need: ["tfl"] }],
     ]],
+    // NFL play-by-play (src/deep_stats.py): throws by depth (air yards), YAC allowed; blitz rate from FTN's charting; missed tackles from PFR's
+    ["Pass defense and blitzing", [
+      ["short_ypt", "Yards allowed per short throw (5 air yards or less)", (S) => div(S.opp_short_yds, S.opp_short_att), { den: (S) => S.opp_short_att, d: 2, low: 1, unit: "short throws", need: ["opp_short_att"] }],
+      ["short_yds", "Short-throw yards allowed (5 air yards or less)", (S) => S.opp_short_yds, { count: 1, low: 1, need: ["opp_short_att"] }],
+      ["deep_cmp_allowed", "Deep completion % allowed (20+ air yards)", (S) => div(100 * S.opp_deep_cmp, S.opp_deep_att), { den: (S) => S.opp_deep_att, pct: 1, low: 1, unit: "deep throws", need: ["opp_deep_att"] }],
+      ["deep_yds_allowed", "Deep passing yards allowed (20+ air yards)", (S) => S.opp_deep_yds, { count: 1, low: 1, need: ["opp_deep_att"] }],
+      ["opp_cmp_pct", "Completion % allowed", (S) => div(100 * S.opp_cmp, S.opp_att), { den: (S) => S.opp_att, pct: 1, low: 1, unit: "throws", need: ["opp_att"] }],
+      ["yac_allowed", "Yards after catch allowed per catch", (S) => div(S.opp_yac, S.opp_cmp), { den: (S) => S.opp_cmp, d: 1, low: 1, unit: "catches allowed", need: ["opp_yac"] }],
+      ["blitz_rate", "Blitz rate (% of dropbacks, FTN charting)", (S) => div(100 * S.blitz_db, S.ftn_db), { den: (S) => S.ftn_db, pct: 1, unit: "charted dropbacks", need: ["blitz_db"] }],
+      ["team_miss_tkl", "Missed tackles (PFR charting)", (S) => S.miss_tkl, { count: 1, low: 1, need: ["miss_tkl"] }],
+    ]],
     ["Discipline and kicking", [
       ["pen", "Penalties", (S) => S.pen, { count: 1, low: 1 }],
       ["pen_yds", "Penalty yards", (S) => S.pen_yds, { count: 1, low: 1 }],
@@ -178,6 +189,24 @@ const Viz = (() => {
       ["rz_td_pct", "Red-zone TD % (QB)", (S) => div(100 * S.rz_pass_td, S.rz_att), { den: (S) => S.rz_att, pct: 1, unit: "red-zone throws", need: ["rz_att"] }],
       ["hit_pct", "Hit or sacked % (QB)", (S) => div(100 * S.hit, S.dropbacks), { den: (S) => S.dropbacks, pct: 1, low: 1, unit: "dropbacks", need: ["hit"] }],
     ]],
+    // pressures and bad throws: PFR's passing charting; blitzes: FTN's charting (5+ rushers or a DB/LB blitzing), both via nflverse
+    ["Deep cuts: QB under pressure and vs the blitz", [
+      ["pressured_pct", "Pressured % of dropbacks", (S) => div(100 * S.qb_pressured, S.dropbacks), { den: (S) => S.dropbacks, pct: 1, low: 1, unit: "dropbacks", need: ["qb_pressured"] }],
+      ["qb_pressured", "Times pressured", (S) => S.qb_pressured, { count: 1, low: 1, need: ["qb_pressured"] }],
+      ["bz_rate", "Blitzed % of dropbacks", (S) => div(100 * S.bz_db, S.ftn_db), { den: (S) => S.ftn_db, pct: 1, unit: "charted dropbacks", need: ["bz_db"] }],
+      ["bz_cmp_pct", "Completion % vs the blitz", (S) => div(100 * S.bz_cmp, S.bz_att), { den: (S) => S.bz_att, pct: 1, unit: "throws vs the blitz", need: ["bz_db"] }],
+      ["bz_ypa", "Yards per attempt vs the blitz", (S) => div(S.bz_yds, S.bz_att), { den: (S) => S.bz_att, d: 2, unit: "throws vs the blitz", need: ["bz_db"] }],
+      ["bz_rating", "Passer rating vs the blitz", (S) => rating({ att: S.bz_att, cmp: S.bz_cmp, pass_yds: S.bz_yds, pass_td: S.bz_td, int: S.bz_int }), { den: (S) => S.bz_att, d: 1, unit: "throws vs the blitz", need: ["bz_db"] }],
+      ["bz_epa", "EPA per dropback vs the blitz", (S) => div(S.bz_epa, S.bz_db), { den: (S) => S.bz_db, d: 3, unit: "blitzed dropbacks", need: ["bz_db"] }],
+      ["bad_throw_pct", "Bad throw %", (S) => div(100 * S.bad_throws, S.att), { den: (S) => S.att, pct: 1, low: 1, unit: "pass attempts", need: ["bad_throws"] }],
+    ]],
+    // offensive linemen come from the snap counts (no box-score stats); penalties = accepted ones called on him, from play-by-play
+    ["Offensive line and penalties", [
+      ["off_snaps", "Snaps played", (S) => S.snaps, { count: 1, need: ["pen"] }],
+      ["pen", "Penalties called on him", (S) => S.pen, { count: 1, low: 1, need: ["pen"] }],
+      ["pen_yds", "Penalty yards", (S) => S.pen_yds, { count: 1, low: 1, need: ["pen"] }],
+      ["pen_rate", "Penalties per 100 snaps", (S) => div(100 * S.pen, S.snaps), { den: (S) => S.snaps, d: 1, low: 1, unit: "snaps", need: ["pen"] }],
+    ]],
   ];
   const statsFor = (who, D) => (who === "players" ? P : T).map(([g, list]) => [g, list.filter(([, , , o]) =>
     (!o.lg || o.lg === D.league) && (!o.need || o.need.every((c) => (who === "players" ? D.pcols : D.tcols).includes(c))))]).filter(([, l]) => l.length);
@@ -269,6 +298,7 @@ const Viz = (() => {
     if (["RB", "FB", "HB"].includes(p)) return "RB";
     if (["WR", "TE"].includes(p)) return "WR";
     if (["K", "PK", "P"].includes(p)) return "K";
+    if (["T", "G", "C", "OT", "OG", "OL"].includes(p)) return "OL";
     if (p) return "DEF";
     return S.att >= 10 ? "QB" : S.fg_att ? "K" : S.carries > S.rec && S.carries >= 5 ? "RB" : S.rec ? "WR" : "DEF"; // college defenders have no position on file
   };
@@ -462,7 +492,7 @@ const Viz = (() => {
     const sel = (id, opts, v) => `<select id="${id}">${opts.map(([k, l]) => `<option value="${esc(k)}"${String(k) === String(v) ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
     const statSel = (id, v) => `<select id="${id}">${groups.map(([g, l]) => `<optgroup label="${esc(g)}">${l.map((s) => `<option value="${s[0]}"${s[0] === v ? " selected" : ""}>${esc(s[1])}</option>`).join("")}</optgroup>`).join("")}</select>`;
     const seg = (id, opts, v) => `<div class="seg vz-seg" id="${id}">${opts.map(([k, l]) => `<button data-v="${k}" class="${k === v ? "active" : ""}">${l}</button>`).join("")}</div>`;
-    const posOpts = [["", "All"], ["QB", "QB"], ["RB", "RB"], ["WR", "WR / TE"], ...(D.xcols?.length ? [["TE", "TE only"]] : []), ["K", "Kicker"], ["DEF", "Defense"],
+    const posOpts = [["", "All"], ["QB", "QB"], ["RB", "RB"], ["WR", "WR / TE"], ...(D.xcols?.length ? [["TE", "TE only"]] : []), ["K", "Kicker"], ...(D.xcols?.length ? [["OL", "O-line"]] : []), ["DEF", "Defense"],
       ...(D.xcols?.length ? Object.entries(FINE).filter(([k]) => k !== "TE").map(([k, l]) => [k, `Defense: ${l}`]) : [])];
     const wkOpts = [["", "–"], ...Array.from({ length: Math.max(maxWk, D.league === "nfl" ? 18 : 1) }, (_, i) => [i + 1, D.bowls && i + 1 >= D.bowls ? "Bowls" : i + 1])];
 
@@ -583,7 +613,7 @@ const Viz = (() => {
       const lead = rank(axes[0], qualify(axes[0]));
       const sers = (picks.length ? picks.filter((k) => agg[k]) : lead.slice(0, Math.min(top, 4))).slice(0, 5);
       // compare against real workloads only (a backup with 5 throws and 0 picks isn't the bar for interceptions)
-      const VOL = { QB: (S) => S.att, RB: (S) => S.carries, WR: (S) => S.rec, DEF: (S) => S.tackles, K: (S) => S.fg_att };
+      const VOL = { QB: (S) => S.att, RB: (S) => S.carries, WR: (S) => S.rec, DEF: (S) => S.tackles, K: (S) => S.fg_att, OL: (S) => S.snaps };
       const vol = who === "players" ? VOL[st.pos] || ((S) => S.att + S.carries + S.rec + S.tackles) : null;
       const most = vol ? Math.max(...keys.map((x) => vol(agg[x].S) || 0)) : 0;
       const regulars = vol ? keys.filter((x) => picks.includes(x) || (vol(agg[x].S) || 0) >= (st.min !== "" ? +st.min : most * 0.35)) : keys;

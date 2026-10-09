@@ -138,7 +138,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
 
 // ------------------------------------------------------------------ data (published with the page)
-let R = null; // rankings.json: {nfl, cfb, facts, viz}
+let R = null; // rankings.json: {nfl, cfb, facts, viz, hist (team-only NFL seasons before viz), status (NFL injuries + depth charts)}
 const files = {};
 async function base() {
   if (!R) R = await (await fetch("data/rankings.json")).json();
@@ -146,7 +146,8 @@ async function base() {
 }
 async function load(lg, season) {
   const k = `${lg}_${season}`;
-  if (!files[k]) files[k] = fetch(`data/viz/${k}.json`).then((r) => { if (!r.ok) throw new Error(`no ${lg} ${season} data`); return r.json(); }).then(expand);
+  const dir = (R?.viz?.[lg] || []).includes(+season) ? "viz" : "hist"; // older NFL seasons: team games only
+  if (!files[k]) files[k] = fetch(`data/${dir}/${k}.json`).then((r) => { if (!r.ok) throw new Error(`no ${lg} ${season} data`); return r.json(); }).then(expand);
   return files[k];
 }
 function expand(D) { // the extra (sparse) player columns, the same way Stats > Visualize unpacks them
@@ -162,6 +163,7 @@ function expand(D) { // the extra (sparse) player columns, the same way Stats > 
   return D;
 }
 const seasons = (lg) => (R?.viz?.[lg] || []).slice().sort((a, b) => b - a);
+const teamSeasons = (lg) => [...new Set([...(R?.viz?.[lg] || []), ...(R?.hist?.[lg] || [])])].sort((a, b) => b - a);
 const norm = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\b(jr|sr|ii|iii|iv)\b/g, "").replace(/\s+/g, " ").trim();
 const r1 = (x, d = 1) => (x == null || !isFinite(x) ? null : Math.round(x * 10 ** d) / 10 ** d);
 
@@ -182,7 +184,20 @@ const RATES = {
   cov_cmp_pct_allowed: ["completion % allowed in coverage", ["cov_cmp"], ["cov_tgt"], 100, 1],
   cov_yds_per_target: ["yards per target allowed", ["cov_yds"], ["cov_tgt"], 1, 2],
   missed_tackle_pct: ["missed tackle %", ["miss_tkl"], ["miss_tkl", "pfr_tkl"], 100, 1],
+  pressured_pct: ["pressured % of dropbacks (PFR)", ["qb_pressured"], ["dropbacks"], 100, 1],
+  blitzed_pct: ["blitzed % of dropbacks (FTN)", ["bz_db"], ["ftn_db"], 100, 1],
+  blitz_cmp_pct: ["completion % vs the blitz", ["bz_cmp"], ["bz_att"], 100, 1], blitz_ypa: ["yards per attempt vs the blitz", ["bz_yds"], ["bz_att"], 1, 2],
+  blitz_epa_per_dropback: ["EPA per dropback vs the blitz", ["bz_epa"], ["bz_db"], 1, 3],
+  bad_throw_pct: ["bad throw % (PFR)", ["bad_throws"], ["att"], 100, 1],
+  pen_per_100_snaps: ["penalties per 100 snaps", ["pen"], ["snaps"], 100, 1],
 };
+// passer rating (NFL formula) from a player's sums; prefix "bz_" = his throws vs the blitz
+function passerRating(S, pre = "") {
+  const a = S[pre ? pre + "att" : "att"] || 0;
+  if (!a) return null;
+  const c = (x) => Math.max(0, Math.min(2.375, x)), g = (k) => S[pre ? pre + ({ pass_yds: "yds", pass_td: "td" }[k] || k) : k] || 0;
+  return r1(((c((g("cmp") / a - 0.3) * 5) + c((g("pass_yds") / a - 3) * 0.25) + c((g("pass_td") / a) * 20) + c(2.375 - (g("int") / a) * 25)) / 6) * 100, 1);
+}
 const TEAM_RATES = {
   ppg: ["points per game", ["pts"], ["games"], 1, 1], opp_ppg: ["points allowed per game", ["opp_pts"], ["games"], 1, 1],
   margin_pg: ["scoring margin per game", ["pts", "-opp_pts"], ["games"], 1, 1],
@@ -196,8 +211,16 @@ const TEAM_RATES = {
   third_down_pct: ["3rd-down conversion %", ["third_conv"], ["third_att"], 100, 1],
   turnover_margin: ["turnover margin", ["def_int", "def_fr", "-int", "-fum_lost"], [], 1, 0],
   sacks_pg: ["sacks per game (defense)", ["def_sacks"], ["games"], 1, 2],
+  short_ypt_allowed: ["yards allowed per short throw (5 air yards or less)", ["opp_short_yds"], ["opp_short_att"], 1, 2],
+  deep_cmp_pct_allowed: ["deep completion % allowed (20+ air yards)", ["opp_deep_cmp"], ["opp_deep_att"], 100, 1],
+  cmp_pct_allowed: ["completion % allowed", ["opp_cmp"], ["opp_att"], 100, 1],
+  yac_per_catch_allowed: ["yards after catch allowed per catch", ["opp_yac"], ["opp_cmp"], 1, 2],
+  blitz_rate: ["blitz rate, % of dropbacks (FTN charting)", ["blitz_db"], ["ftn_db"], 100, 1],
+  missed_tackles_pg: ["missed tackles per game (PFR charting)", ["miss_tkl"], ["games"], 1, 1],
 };
-const LOWER_BETTER = new Set(["int", "int_pct", "sacked", "sack_pct", "fum_lost", "opp_pts", "opp_ppg", "def_epa_per_play", "cfb_def_epa_per_play", "cfb_def_success_pct", "opp_pass_yds", "opp_rush_yds", "opp_yds", "opp_epa", "pen", "pen_yds", "cov_cmp_pct_allowed", "cov_yds_per_target", "cov_yds", "cov_td", "missed_tackle_pct", "miss_tkl"]);
+const LOWER_BETTER = new Set(["int", "int_pct", "sacked", "sack_pct", "fum_lost", "opp_pts", "opp_ppg", "def_epa_per_play", "cfb_def_epa_per_play", "cfb_def_success_pct", "opp_pass_yds", "opp_rush_yds", "opp_yds", "opp_epa", "pen", "pen_yds", "cov_cmp_pct_allowed", "cov_yds_per_target", "cov_yds", "cov_td", "missed_tackle_pct", "miss_tkl",
+  "pressured_pct", "qb_pressured", "bad_throw_pct", "bad_throws", "pen", "pen_yds", "pen_per_100_snaps", "bz_int", "bz_sk",
+  "short_ypt_allowed", "opp_short_yds", "deep_cmp_pct_allowed", "opp_deep_yds", "opp_deep_cmp", "cmp_pct_allowed", "yac_per_catch_allowed", "opp_yac", "missed_tackles_pg"]);
 function rate(sum, def) {
   const add = (keys) => keys.reduce((a, k) => a + (k[0] === "-" ? -(sum[k.slice(1)] || 0) : sum[k] || 0), 0);
   const den = def[2].length ? add(def[2]) : 1;
@@ -220,6 +243,7 @@ function posGroup(m) { // pmeta: [name, pos, team, fine pos?, ...]
   const p = (m?.[1] || "").toUpperCase(), f = (m?.[3] || "").toUpperCase();
   if (["QB", "RB", "WR", "TE", "K", "P"].includes(p)) return p === "P" ? "K" : p;
   if (p === "FB") return "RB";
+  if (["T", "G", "C", "OT", "OG", "OL"].includes(p)) return "OL";
   return f || p || "";
 }
 function aggPlayers(D, a) { // pid -> {sum, games, teams}
@@ -298,8 +322,10 @@ const TOOLS = [
       const totals = Object.fromEntries(Object.entries(me.sum).filter(([k, v]) => v && k !== "left").map(([k, v]) => [k, r1(v, 2)]));
       const rates = {};
       for (const [k, d] of Object.entries(RATES)) { const v = rate(me.sum, d); if (v != null && rateDen(me, k, RATES)) rates[k] = v; }
+      if (me.sum.att) rates.passer_rating = passerRating(me.sum);
+      if (me.sum.bz_att) rates.passer_rating_vs_blitz = passerRating(me.sum, "bz_");
       // ranks among the same position (players with at least half the games of the busiest one)
-      const KEYS = { QB: ["pass_yds", "pass_td", "int", "cmp_pct", "ypa", "epa_per_dropback", "rush_yds", "sack_pct"], RB: ["rush_yds", "rush_td", "ypc", "rush_epa_per_carry", "rec_yds", "ppr"], WR: ["rec", "rec_yds", "rec_td", "targets", "yds_per_target", "catch_pct"], TE: ["rec", "rec_yds", "rec_td", "yds_per_target"], K: ["fg_made", "fg_pct"] };
+      const KEYS = { QB: ["pass_yds", "pass_td", "int", "cmp_pct", "ypa", "epa_per_dropback", "rush_yds", "sack_pct", "pressured_pct", "blitz_ypa"], OL: ["snaps", "pen", "pen_per_100_snaps"], RB: ["rush_yds", "rush_td", "ypc", "rush_epa_per_carry", "rec_yds", "ppr"], WR: ["rec", "rec_yds", "rec_td", "targets", "yds_per_target", "catch_pct"], TE: ["rec", "rec_yds", "rec_td", "yds_per_target"], K: ["fg_made", "fg_pct"] };
       const keys = KEYS[grp] || ["tackles", "def_sacks", "tfl", "qb_hits", "pd", "def_int", "pressure", "run_stop"];
       const peers = [...all.entries()].filter(([id]) => posGroup(D.pmeta[id]) === grp || (!grp && true));
       const maxG = Math.max(...peers.map(([, o]) => o.games));
@@ -315,9 +341,10 @@ const TOOLS = [
         // below the playing-time bar (missed games, low volume): where he'd slot in, flagged
         ranks[k] = qualified ? `${rank} of ${vals.length}` : `would rank ${rank} of ${vals.length + 1} (below the games/volume minimum)`;
       }
-      const out = { name: m[0], position: m[1] || null, group: grp || null, teams: [...me.teams].map((t) => D.teams[t]?.[0] || t), season: a.season, games: me.games,
+      const out = { name: m[0], position: m[1] || null, group: grp || null, ...(m[4] ? { year_in_league: m[4] } : {}), teams: [...me.teams].map((t) => D.teams[t]?.[0] || t), season: a.season, games: me.games,
         data_through_week: D.maxWk, totals, rates, per_game: Object.fromEntries(Object.entries(totals).filter(([k]) => !/epa/.test(k) && k !== "snaps").slice(0, 14).map(([k, v]) => [k, r1(v / me.games, 1)])),
         rank_among_position: ranks, ranks_note: `Ranked among ${grp || "all"} players with ${Math.ceil(maxG / 2)}+ games; rate stats also need 35% of the leader's volume.` };
+      if (grp === "OL") out.ol_note = "Offensive linemen: we have snaps and penalties called on him only. Pressures/sacks allowed by a lineman aren't in any free source.";
       if (m[5]) out.draft = m[5];
       if (a.by_week) {
         const opp = Object.fromEntries(D.trows.map((r) => [`${r[0]}|${r[1]}`, D.teams[r[2]]?.[1] || r[2]]));
@@ -334,37 +361,56 @@ const TOOLS = [
   },
   {
     name: "leaderboard",
-    description: "Rank players or teams by one stat for a season or week range. Stats: any column name (pass_yds, rush_td, tackles, def_sacks, pressure, pts, opp_pts...) or a rate: " + Object.keys(RATES).join(", ") + " (players); " + Object.keys(TEAM_RATES).join(", ") + " (teams). Positions: QB RB WR TE K, or defense groups EDGE IDL LB CB S. Use include to always show certain players or teams.",
-    inputSchema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, season: { type: "integer" }, scope: { type: "string", enum: ["players", "teams"] }, stat: { type: "string" }, position: { type: "string" }, per_game: { type: "boolean" }, weeks_from: { type: "integer" }, weeks_to: { type: "integer" }, top: { type: "integer" }, min_games: { type: "integer" }, include: { type: "array", items: { type: "string" } } }, required: ["league", "season", "scope", "stat"] },
+    description: "Rank players or teams by one stat for a season or week range. Stats: any column name (pass_yds, rush_td, tackles, def_sacks, pressure, pts, opp_pts, opp_short_yds...) or a rate: " + Object.keys(RATES).join(", ") + ", passer_rating, passer_rating_vs_blitz (players); " + Object.keys(TEAM_RATES).join(", ") + " (teams). Positions: QB RB WR TE K OL, or defense groups EDGE IDL LB CB S. include: names or player_ids/team names to always show. rookies_only / max_year_in_league filter players by experience. season_to: pool every season from season to season_to (e.g. season 2006, season_to 2026, weeks_to 4 = every team's first 4 games since 2006); NFL teams go back to 2006, players to 2022.",
+    inputSchema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, season: { type: "integer" }, season_to: { type: "integer" }, scope: { type: "string", enum: ["players", "teams"] }, stat: { type: "string" }, position: { type: "string" }, per_game: { type: "boolean" }, weeks_from: { type: "integer" }, weeks_to: { type: "integer" }, top: { type: "integer" }, min_games: { type: "integer" }, rookies_only: { type: "boolean" }, max_year_in_league: { type: "integer" }, include: { type: "array", items: { type: "string" } } }, required: ["league", "season", "scope", "stat"] },
     async execute(a) {
-      const lg = String(a.league), D = await load(lg, Number(a.season)), stat = String(a.stat), teams = a.scope === "teams";
-      const rates = teams ? TEAM_RATES : RATES;
-      if (!rates[stat] && !(teams ? D.ti : D.pi)[stat]) throw new Error(`Unknown stat "${stat}" for ${a.scope}. Columns: ${(teams ? D.tcols : D.pcols).join(", ")}`);
-      say(`Ranking ${teams ? "teams" : a.position ? a.position + "s" : "players"} by ${rates[stat]?.[0] || stat}, ${a.season}`);
-      const agg = teams ? aggTeams(D, a) : aggPlayers(D, a);
-      let pool = [...agg.entries()].map(([id, o]) => ({ id, o, g: teams ? o.sum.games : o.games }));
-      if (!teams && a.position) { const want = String(a.position).toUpperCase(); pool = pool.filter((p) => { const g = posGroup(D.pmeta[p.id]); return g === want || (want === "WR" && g === "WR") || (D.pmeta[p.id]?.[1] || "").toUpperCase() === want; }); }
-      const maxG = Math.max(...pool.map((p) => p.g), 1);
-      const minG = a.min_games ?? (teams ? 1 : Math.max(1, Math.ceil(maxG / 2)));
-      const everyone = pool;
-      pool = pool.filter((p) => p.g >= minG);
-      if (rates[stat] && rates[stat][2].length && !rates[stat][2].includes("games")) { const dmax = Math.max(...pool.map((p) => rateDen(p.o, stat, rates) || 0)); pool = pool.filter((p) => (rateDen(p.o, stat, rates) || 0) >= 0.35 * dmax); }
-      const lower = LOWER_BETTER.has(stat);
-      const rows = pool.map((p) => ({ ...p, v: teams ? (rates[stat] ? rate(p.o.sum, rates[stat]) : r1((p.o.sum[stat] || 0) / (a.per_game ? p.g : 1), 2)) : statValue(p.o, stat, a.per_game, rates) }))
-        .filter((p) => p.v != null).sort((x, y) => (lower ? x.v - y.v : y.v - x.v));
-      const label = (p) => teams ? D.teams[p.id]?.[0] || p.id : `${D.pmeta[p.id]?.[0]} (${[...p.o.teams].map((t) => D.teams[t]?.[1] || t).join("/")})`;
-      const fmt = (p, i) => ({ rank: 1 + rows.filter((q) => (lower ? q.v < p.v : q.v > p.v)).length, name: label(p), value: p.v, games: p.g, id: p.id });
-      const top = rows.slice(0, Math.min(Number(a.top) || 10, 25)).map(fmt);
-      const inc = (a.include || []).map(norm).filter(Boolean);
-      const val = (p) => (teams ? (rates[stat] ? rate(p.o.sum, rates[stat]) : r1((p.o.sum[stat] || 0) / (a.per_game ? p.g : 1), 2)) : statValue(p.o, stat, a.per_game, rates));
-      const extra = everyone.filter((p) => inc.some((q) => norm(label(p)).includes(q)) && !top.some((t) => t.id === p.id)).map((p) => ({ ...p, v: val(p) })).filter((p) => p.v != null)
-        .map((p) => ({ ...fmt(p), ...(rows.some((q) => q.id === p.id) ? {} : { below_minimum: true, note: "doesn't meet the games/volume minimum; rank shows where he'd slot in" }) }));
-      return { stat: rates[stat]?.[0] || stat, lower_is_better: lower, per_game: !!a.per_game, season: a.season, through_week: D.maxWk, qualified: rows.length, min_games: minG, top, also_requested: extra };
+      await base();
+      const lg = String(a.league), stat = String(a.stat), teams = a.scope === "teams", rates = teams ? TEAM_RATES : RATES;
+      const RTG = { passer_rating: "", passer_rating_vs_blitz: "bz_" };
+      const have = teams ? teamSeasons(lg) : seasons(lg), s0 = Number(a.season), s1 = Number(a.season_to) || s0;
+      const list = have.filter((x) => x >= Math.min(s0, s1) && x <= Math.max(s0, s1)).sort((x, y) => x - y);
+      if (!list.length) throw new Error(`No ${lg} ${teams ? "team" : "player"} data for ${s0}${s1 !== s0 ? "-" + s1 : ""}. We have ${have.at(-1)}-${have[0]}.`);
+      const multi = list.length > 1;
+      say(`Ranking ${teams ? "teams" : a.position ? a.position + "s" : "players"} by ${rates[stat]?.[0] || stat}, ${list[0]}${multi ? "-" + list.at(-1) : ""}`);
+      const inc = (a.include || []).map(String), incN = inc.map(norm).filter(Boolean);
+      let rows = [], extra = [], lower = LOWER_BETTER.has(stat) || false, through = 0, minUsed = 0;
+      for (const season of list) {
+        const D = await load(lg, season);
+        through = D.maxWk;
+        if (!rates[stat] && !(stat in RTG && !teams) && !(teams ? D.ti : D.pi)[stat]) { if (multi) continue; throw new Error(`Unknown stat "${stat}" for ${a.scope}. Columns: ${(teams ? D.tcols : D.pcols).join(", ")}`); }
+        const agg = teams ? aggTeams(D, a) : aggPlayers(D, a);
+        let pool = [...agg.entries()].map(([id, o]) => ({ id, o, g: teams ? o.sum.games : o.games, season }));
+        if (!teams && a.position) { const want = String(a.position).toUpperCase(); pool = pool.filter((p) => { const m = D.pmeta[p.id]; return posGroup(m) === want || (m?.[1] || "").toUpperCase() === want; }); }
+        if (!teams && (a.rookies_only || a.max_year_in_league)) { const mx = a.rookies_only ? 1 : Number(a.max_year_in_league); pool = pool.filter((p) => { const y = D.pmeta[p.id]?.[4]; return y && y <= mx; }); }
+        const maxG = Math.max(...pool.map((p) => p.g), 1);
+        const minG = a.min_games ?? (teams ? 1 : Math.max(1, Math.ceil(maxG / 2)));
+        minUsed = minG;
+        const label = (p) => (teams ? D.teams[p.id]?.[0] || p.id : `${D.pmeta[p.id]?.[0]} (${[...p.o.teams].map((t) => D.teams[t]?.[1] || t).join("/")})`) + (multi ? ` ${season}` : "");
+        const val = (p) => !teams && stat in RTG ? passerRating(p.o.sum, RTG[stat])
+          : teams ? (rates[stat] ? rate({ ...p.o.sum }, rates[stat]) : r1((p.o.sum[stat] || 0) / (a.per_game ? p.g : 1), 2)) : statValue(p.o, stat, a.per_game, rates);
+        const den = (p) => !teams && stat in RTG ? p.o.sum[RTG[stat] + "att"] || 0 : rateDen(p.o, stat, rates);
+        let q = pool.filter((p) => p.g >= minG);
+        if ((rates[stat] && rates[stat][2].length && !rates[stat][2].includes("games")) || (!teams && stat in RTG)) { const dmax = Math.max(...q.map((p) => den(p) || 0)); q = q.filter((p) => (den(p) || 0) >= 0.35 * dmax); }
+        const hit = (p) => inc.includes(String(p.id)) || incN.some((n) => norm(label(p)).includes(n));
+        for (const p of pool) {
+          const v = val(p);
+          if (v == null) continue;
+          const e = { id: p.id, season, name: label(p), value: v, games: p.g, requested: hit(p) || undefined };
+          if (q.includes(p)) rows.push(e); else if (e.requested) extra.push({ ...e, below_minimum: true, note: "doesn't meet the games/volume minimum; rank shows where he'd slot in" });
+        }
+      }
+      rows.sort((x, y) => (lower ? x.value - y.value : y.value - x.value));
+      const rankOf = (v) => 1 + rows.filter((r) => (lower ? r.value < v : r.value > v)).length;
+      const top = rows.slice(0, Math.min(Number(a.top) || 10, 25)).map((r) => ({ rank: rankOf(r.value), ...r, requested: undefined }));
+      const also = [...rows.filter((r) => r.requested && !top.some((t) => t.id === r.id && t.season === r.season)), ...extra].map((r) => ({ rank: rankOf(r.value), ...r, requested: undefined }));
+      const missing = inc.filter((x) => ![...rows, ...extra].some((r) => r.requested && (String(r.id) === x || norm(r.name).includes(norm(x)))));
+      return { stat: rates[stat]?.[0] || stat.replace(/_/g, " "), lower_is_better: lower, per_game: !!a.per_game, seasons: multi ? `${list[0]}-${list.at(-1)}` : list[0], through_week: through, qualified: rows.length, min_games: minUsed, top, also_requested: also,
+        ...(missing.length ? { not_found: missing, not_found_note: "No stats for these in this pool (check the id, position filter or week range)." } : {}) };
     },
   },
   {
     name: "team_stats",
-    description: "A team's season (or week range) from game stats: record, every game's score, totals, per-game and rate stats (points, yards per play, EPA per play, turnover margin...) with where each ranks among all teams.",
+    description: "A team's season (or week range) from game stats: record, every game's score, totals, per-game and rate stats (points, yards per play, EPA per play, turnover margin, short/deep passing allowed, YAC allowed, blitz rate...) with where each ranks among all teams. NFL seasons go back to 2006 (team stats only before 2022).",
     inputSchema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, season: { type: "integer" }, team: { type: "string" }, weeks_from: { type: "integer" }, weeks_to: { type: "integer" } }, required: ["league", "season", "team"] },
     async execute(a) {
       const lg = String(a.league), D = await load(lg, Number(a.season)), k = teamKey(D, a.team);
@@ -383,6 +429,20 @@ const TOOLS = [
         ranks[s] = 1 + [...all.values()].filter((o) => { const x = val(o); return x != null && (lower ? x < v : x > v); }).length;
       }
       return { team: D.teams[k][0], conference: D.teams[k][3], season: a.season, through_week: D.maxWk, record: `${me.w}-${me.l}${me.t ? "-" + me.t : ""}`, games: me.games, stats, rank_of: n, ranks, note: "ranks: 1 = best (for 'lower is better' stats, 1 = lowest)" };
+    },
+  },
+  {
+    name: "team_status",
+    description: "NFL only: a team's latest injury report (player, position, injury, game status like Out/Questionable/Doubtful, practice participation) and its current depth chart (starter and backup at each spot, e.g. QB, LT, LG, C, RG, RT). Use it for 'who is the starter', 'is he hurt', 'who replaced him' questions.",
+    inputSchema: { type: "object", properties: { team: { type: "string" } }, required: ["team"] },
+    async execute(a) {
+      const all = await base(), S = all.status?.nfl;
+      if (!S || !Object.keys(S.teams || {}).length) throw new Error("No injury or depth chart data in this snapshot.");
+      say(`Checking ${a.team} injuries and depth chart`);
+      const q = norm(a.team), names = Object.keys(S.teams);
+      const k = names.find((x) => norm(x) === q) || names.find((x) => norm(x).split(" ").includes(q) || norm(x).includes(q));
+      if (!k) throw new Error(`No NFL team matching "${a.team}".`);
+      return { team: k, injury_report_week: S.injury_week, depth_chart_as_of: S.teams[k].as_of, injuries: S.teams[k].injuries, depth_chart: S.teams[k].depth };
     },
   },
   {
@@ -406,10 +466,11 @@ function rules() {
   const nfl = R.nfl, cfb = R.cfb;
   return `You are the stat desk for The Cupcake Index (@CupcakeIndex on X), a football analytics account whose motto is "Bullying cupcakes isn't a résumé." Terry runs it. He pasted a take from X (text and/or a screenshot). Fact-check it like a sharp football statistician.
 
-Today is ${new Date().toISOString().slice(0, 10)}. Our data: weekly stats for NFL ${seasons("nfl").at(-1)}-${seasons("nfl")[0]} and college ${seasons("cfb").at(-1)}-${seasons("cfb")[0]} (regular season; current seasons are partial), our model rankings (NFL after week ${nfl.week}, college after week ${cfb.week} of ${cfb.season}).
+Today is ${new Date().toISOString().slice(0, 10)}. Our data: weekly stats for NFL ${seasons("nfl").at(-1)}-${seasons("nfl")[0]} and college ${seasons("cfb").at(-1)}-${seasons("cfb")[0]} (regular season; current seasons are partial), NFL team game stats back to ${teamSeasons("nfl").at(-1)}, our model rankings (NFL after week ${nfl.week}, college after week ${cfb.week} of ${cfb.season}), and the NFL injury report (week ${R.status?.nfl?.injury_week || "?"}) and depth charts.
+NFL extras: offensive linemen (snaps, penalties), penalties for every player, QB pressured % and bad throws (PFR charting), QB splits vs the blitz and team blitz rate (FTN charting), team passing allowed by depth (short = 5 air yards or less, deep = 20+) and YAC allowed, team missed tackles. Not in any free source we use: pressures/sacks allowed by individual linemen, pass-rush snaps, a QB's completions when pressured. Charting services (PFF, TruMedia, NGS) define blitzes and pressures differently, so expect small gaps vs their numbers and say so instead of calling the take wrong over a few percent.
 
 How to work:
-1. Pull out each checkable claim. Use the tools to get the real numbers: find_player before player_stats; leaderboard to put a number in context (rank among peers); team_stats and our_rankings for teams, schedules and cupcake padding. Make several calls in one round when you can.
+1. Pull out each checkable claim. Use the tools to get the real numbers: find_player before player_stats; leaderboard to put a number in context (rank among peers); team_stats and our_rankings for teams, schedules and cupcake padding; team_status for injuries and starters. For "worst/best since <year>" claims use leaderboard with season and season_to. Make several calls in one round when you can.
 2. Only state numbers that came from a tool result. Never use numbers from memory. If our data can't answer a claim (injuries, contracts, career totals before our seasons, play-by-play detail we don't have, other sports), mark that claim "cant_check" and say what's missing.
 3. Look for the classic flaws: tiny sample, cherry-picked week range, counting stat vs rate stat, ignoring opponent quality (use our rankings and cupcake data), ignoring games missed, comparing different positions or eras, correlation sold as cause.
 4. No betting content: no spreads, lines, odds or picks. A win chance from our_rankings is fine.

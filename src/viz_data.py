@@ -105,6 +105,10 @@ PLAYER_COLS_NFL = PLAYER_COLS + ["pass_epa", "rush_epa", "rec_epa", "air_yds", "
 PFR_DEF = {"cov_tgt": "def_targets", "cov_cmp": "def_completions_allowed", "cov_yds": "def_yards_allowed", "cov_td": "def_receiving_td_allowed",
            "cov_int": "def_ints", "cov_air": "def_air_yards_completed", "cov_yac": "def_yards_after_catch", "blitz": "def_times_blitzed",
            "hurry": "def_times_hurried", "pressure": "def_pressures", "miss_tkl": "def_missed_tackles", "pfr_tkl": "def_tackles_combined"}
+# ...and its passing charting (how often a QB was pressured, bad throws, drops): our column -> theirs
+PFR_PASS = {"qb_pressured": "times_pressured", "qb_blitzed": "times_blitzed", "bad_throws": "passing_bad_throws", "pass_drops": "passing_drops"}
+OL_POS = ("T", "G", "C", "OT", "OG", "OL")
+OLD = {"SD": "LAC", "STL": "LA", "OAK": "LV"}  # moved teams: old play-by-play abbreviation -> today's
 
 
 def early_exits(season):
@@ -129,16 +133,19 @@ def early_exits(season):
     return first - second
 
 
-def nfl(season):
+def nfl_teams(season):
+    """(team game rows, tmeta, key, deep cuts) for one season; None if nflverse has no team stats yet."""
+    import deep_stats
     teams = nflverse_csv(f"{NFLV}/stats_team/stats_team_week_{season}.csv", f"stats_team_week_{season}.csv")
     games = [g for g in nflverse_csv("https://github.com/nflverse/nfldata/raw/master/data/games.csv", "games.csv") if g["season"] == str(season)]
     if not teams:
         print(f"  no NFL team stats for {season} yet")
-        return
+        return None
     # nflverse abbreviations (LA, WAS...) -> the site's teams (ESPN ids) by full name
     nv = {r["team_abbr"]: r["team_name"] for r in nflverse_csv("https://github.com/nflverse/nflverse-pbp/raw/master/teams_colors_logos.csv", "teams.csv")}
     by_name = {t["name"]: t for t in site_teams()["nfl"]}
     key = {a: f"nfl:{by_name[nm]['id']}" for a, nm in nv.items() if nm in by_name}
+    key.update({old: key[new] for old, new in OLD.items() if new in key})
     tmeta = {f"nfl:{t['id']}": [t["name"], t["abbr"], t["color"], t["group"]] for t in by_name.values()}
 
     score = {}
@@ -162,6 +169,42 @@ def nfl(season):
                       f(o, "attempts") + f(o, "carries") + f(o, "sacks_suffered"), f(o, "passing_yards"), f(o, "rushing_yards"),
                       round(f(o, "passing_epa") + f(o, "rushing_epa"), 2), f(o, "passing_first_downs") + f(o, "rushing_first_downs"),
                       f(r, "fg_made"), f(r, "fg_att")])
+    # team pass defense from play-by-play (throws by depth, YAC allowed, blitz rate), in the same pass as the player cuts
+    T = {}
+    try:
+        deep = deep_stats.per_game(season, T)
+    except Exception as e:
+        print(f"  ! play-by-play cuts unavailable ({e})")
+        deep = {}
+    tk = {(key.get(a, a), w): v for (a, w), v in T.items()}
+    for row in trows:
+        x = tk.get((row[0], row[1]), {})
+        row += [x.get(c, 0) for c in deep_stats.TCOLS]
+    return trows, tmeta, key, deep
+
+
+def nfl_history(season):
+    """Team game rows only, for seasons before Visualize's (Cupcake Analyst: "worst start since 2006" checks).
+    Written to analyst/data/hist/nfl_<season>.json, not the site."""
+    import deep_stats
+    t = nfl_teams(season)
+    if not t:
+        return
+    trows, tmeta = t[0], t[1]
+    out = ROOT / "analyst" / "data" / "hist"
+    out.mkdir(parents=True, exist_ok=True)
+    f = out / f"nfl_{season}.json"
+    f.write_text(json.dumps({"league": "nfl", "season": season, "teams": tmeta, "tcols": TEAM_COLS_NFL + deep_stats.TCOLS, "trows": trows,
+                             "pcols": [], "pmeta": {}, "prows": []}, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
+    print(f"  {f.name}: {len(trows)} team games, {f.stat().st_size // 1024} KB")
+
+
+def nfl(season):
+    import deep_stats
+    t = nfl_teams(season)
+    if not t:
+        return
+    trows, tmeta, key, deep = t
 
     try:
         pl = nflverse_csv(f"{NFLV}/stats_player/stats_player_week_{season}.csv", f"stats_player_week_{season}.csv")
@@ -211,15 +254,23 @@ def nfl(season):
             or (pct is not None and usual.get(pid, 0) >= 0.6 and pct < 0.5)  # QBs: no plays after halftime; others: a regular under half the snaps
         prows.append([pid, wk, key.get(r["team"], r["team"])] + vals + [snaps, 1 if left else 0])
         gsis[pid] = r["player_id"]
-    print(f"  {sum(x[-1] for x in prows)} player games left early (QBs by play-by-play, others by snaps); snaps for {sum(1 for x in prows if x[-2])} of {len(prows)}")
-    # deep cuts (src/deep_stats.py): run stops, deep balls, clutch... as a sparse [column index, value, ...] list at the end of
-    # each player row (most are 0), plus role, year in the league and draft slot on each player
-    import deep_stats
-    try:
-        deep = deep_stats.per_game(season)
-    except Exception as e:
-        print(f"  ! deep cuts unavailable ({e})")
-        deep = {}
+    # offensive linemen have no box-score stats, so they're added from the snap counts (snaps, plus penalties below)
+    gsis_of = {r["pfr_id"]: r["gsis_id"] for r in nflverse_csv(f"{NFLV}/players/players.csv", "players.csv") if r.get("pfr_id") and r.get("gsis_id")}
+    have = {(x[0], x[1]) for x in prows}
+    ol = 0
+    for r in sc:
+        pid, wk = ids.get(r["pfr_player_id"]), int(r["week"])
+        if r.get("game_type") != "REG" or not pid or r.get("position") not in OL_POS or (pid, wk) in have or not n(r["offense_snaps"]):
+            continue
+        snaps, pct = snap[(pid, wk)]
+        pmeta.setdefault(pid, [r["player"], r["position"], key.get(r["team"], r["team"])])
+        gsis.setdefault(pid, gsis_of.get(r["pfr_player_id"], pid))
+        left = usual.get(pid, 0) >= 0.6 and pct < 0.5
+        prows.append([pid, wk, key.get(r["team"], r["team"])] + [0] * (len(PLAYER_COLS_NFL) - 2) + [snaps, 1 if left else 0])
+        ol += 1
+    print(f"  {sum(x[-1] for x in prows)} player games left early (QBs by play-by-play, others by snaps); snaps for {sum(1 for x in prows if x[-2])} of {len(prows)}; {ol} O-line games from snap counts")
+    # deep cuts (src/deep_stats.py, worked out in nfl_teams): run stops, deep balls, clutch... as a sparse [column index, value, ...]
+    # list at the end of each player row (most are 0), plus role, year in the league and draft slot on each player
     # coverage, pressures and missed tackles: Pro Football Reference's charting (nflverse pfr_advstats), per game
     pfr = {}
     try:
@@ -229,7 +280,20 @@ def nfl(season):
                 pfr[(pid, int(r["week"]))] = {c: n(r.get(src)) for c, src in PFR_DEF.items() if n(r.get(src))}
     except requests.HTTPError as e:
         print(f"  ! PFR coverage stats unavailable ({e})")
-    xcols = deep_stats.XCOLS + list(PFR_DEF)
+    try:
+        for r in nflverse_csv(f"{NFLV}/pfr_advstats/advstats_week_pass_{season}.csv", f"advstats_week_pass_{season}.csv"):
+            pid = ids.get(r["pfr_player_id"])
+            if pid and r.get("game_type", "REG") == "REG":
+                pfr.setdefault((pid, int(r["week"])), {}).update({c: n(r.get(src)) for c, src in PFR_PASS.items() if n(r.get(src))})
+    except requests.HTTPError as e:
+        print(f"  ! PFR passing charting unavailable ({e})")
+    # team missed tackles = the sum of its defenders' (PFR charting)
+    team_miss = defaultdict(int)
+    for row in prows:
+        team_miss[row[2], row[1]] += pfr.get((row[0], row[1]), {}).get("miss_tkl", 0)
+    for row in trows:
+        row.append(team_miss.get((row[0], row[1]), 0))
+    xcols = deep_stats.XCOLS + list(PFR_DEF) + list(PFR_PASS)
     xi = {c: i for i, c in enumerate(xcols)}
     for row in prows:
         x = {**deep.get((gsis[row[0]], row[1]), {}), **pfr.get((row[0], row[1]), {})}
@@ -239,7 +303,7 @@ def nfl(season):
         p = pl_csv.get(gsis[pid])
         if p:
             m += deep_stats.extra(p, season)
-    write("nfl", season, {"teams": tmeta, "tcols": TEAM_COLS_NFL, "trows": trows, "pcols": PLAYER_COLS_NFL, "pmeta": pmeta, "prows": prows,
+    write("nfl", season, {"teams": tmeta, "tcols": TEAM_COLS_NFL + deep_stats.TCOLS + ["miss_tkl"], "trows": trows, "pcols": PLAYER_COLS_NFL, "pmeta": pmeta, "prows": prows,
                           "xcols": xcols if deep or pfr else []})
 
 
@@ -448,7 +512,13 @@ def main():
     ap.add_argument("--league", choices=["nfl", "cfb", "all"], default="all")
     ap.add_argument("--season", type=int)
     ap.add_argument("--check", action="store_true")
+    ap.add_argument("--history", action="store_true", help="NFL team-only seasons 2006-2021 for Cupcake Analyst")
     a = ap.parse_args()
+    if a.history:
+        for s in range(2006, FIRST["nfl"]):
+            print(f"nfl {s} (history)")
+            nfl_history(s)
+        return
     for lg in (["nfl", "cfb"] if a.league == "all" else [a.league]):
         seasons = [a.season] if a.season else [s for s in range(FIRST[lg], season_now() + 1)
                                                  if s == season_now() or not (OUT / f"{lg}_{s}.json").exists()]

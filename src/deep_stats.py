@@ -28,7 +28,14 @@ XCOLS = [
     "deep_tgt", "deep_rec", "rec_20", "third_tgt", "third_conv", "rz_tgt", "rz_rec_td",
     # passing
     "dropbacks", "hit", "deep_att", "deep_cmp", "deep_yds", "third_db", "third_db_conv", "clutch_db", "clutch_epa", "rz_att", "rz_pass_td",
+    # vs the blitz (FTN charting, 2022+): ftn_db = his charted dropbacks, bz_ = dropbacks where 5+ rushed or a DB/LB blitzed
+    "ftn_db", "bz_db", "bz_att", "bz_cmp", "bz_yds", "bz_td", "bz_int", "bz_sk", "bz_epa",
+    # accepted penalties on him (offensive linemen too)
+    "pen", "pen_yds",
 ]
+# team pass defense per game (per_game(season, T)): throws by depth, yards after catch, blitzes (FTN)
+TCOLS = ["opp_att", "opp_cmp", "opp_yac", "opp_short_att", "opp_short_cmp", "opp_short_yds", "opp_deep_att", "opp_deep_cmp", "opp_deep_yds",
+         "opp_db", "ftn_db", "blitz_db"]
 
 
 def f(x):
@@ -77,6 +84,8 @@ def role(p):
         return "S"
     if pos == "FB":
         return "RB"
+    if pos in ("T", "G", "C", "OT", "OG", "OL"):
+        return "OL"
     return pos if pos in ("QB", "RB", "WR", "TE") else ""
 
 
@@ -91,12 +100,37 @@ def pbp(season):
         yield from csv.DictReader(fh)
 
 
-def per_game(season):
-    """{(gsis id, week): {column: value}} for the regular season."""
+def ftn(season):
+    """{(game id, play id): blitzers} from FTN's charting (in nflverse since 2022). A blitz = more than the 4 down linemen came
+    (n_blitzers > 0, FTN's own count of extra rushers)."""
+    if season < 2022:
+        return {}
+    from viz_data import nflverse_csv
+    try:
+        rows = nflverse_csv(f"{NFLV}/ftn_charting/ftn_charting_{season}.csv", f"ftn_charting_{season}.csv")
+    except requests.HTTPError:
+        return {}
+    return {(r["nflverse_game_id"], str(int(f(r["nflverse_play_id"])))): int(f(r["n_blitzers"])) for r in rows if r.get("n_blitzers") not in (None, "", "NA")}
+
+
+def per_game(season, T=None):
+    """{(gsis id, week): {column: value}} for the regular season. Pass a dict as T to also get team pass defense per
+    game: T[(defense abbr, week)] = {TCOLS column: value}."""
     S = defaultdict(lambda: defaultdict(float))
+    if T is None:
+        T = {}
+    T_ =defaultdict(lambda: defaultdict(float))
+    BZ = ftn(season)
     for row in pbp(season):
         if row.get("season_type") != "REG" or row.get("two_point_attempt") == "1":
             continue
+        # accepted penalties, on any play (false starts and holds are often "no_play")
+        if row.get("penalty") == "1" and row.get("penalty_player_id") not in (None, "", "NA"):
+            d = (row.get("desc") or "").lower()
+            if "declined" not in d and "offsetting" not in d:
+                s = S[row["penalty_player_id"], int(f(row["week"]))]
+                s["pen"] += 1
+                s["pen_yds"] += f(row.get("penalty_yards"))
         pt = row.get("play_type")
         if pt not in ("run", "pass") or not row.get("down") or row["down"] == "NA":
             continue
@@ -174,6 +208,24 @@ def per_game(season):
 
         # ---- passing
         deep = f(row["air_yards"]) >= 20
+        bz = BZ.get((row["game_id"], str(int(f(row["play_id"])))))
+        t = T_[row["defteam"], wk]
+        if row.get("qb_dropback") == "1":
+            t["opp_db"] += 1
+            if bz is not None:
+                t["ftn_db"] += 1
+                t["blitz_db"] += bz > 0
+        if row.get("pass_attempt") == "1" and not sacked:
+            c = row.get("complete_pass") == "1"
+            t["opp_att"] += 1
+            t["opp_cmp"] += c
+            t["opp_yac"] += f(row["yards_after_catch"]) if c else 0
+            if row.get("air_yards") not in (None, "", "NA"):  # throwaways and spikes have no depth
+                for band, ok in (("short", f(row["air_yards"]) <= 5), ("deep", deep)):
+                    if ok:
+                        t[f"opp_{band}_att"] += 1
+                        t[f"opp_{band}_cmp"] += c
+                        t[f"opp_{band}_yds"] += f(row["passing_yards"])
         for p in ids(row, "passer_player_id"):
             s = S[p, wk]
             s["dropbacks"] += 1
@@ -186,6 +238,18 @@ def per_game(season):
             if row.get("qtr") in ("4", "5") and abs(f(row["score_differential"])) <= 8:
                 s["clutch_db"] += 1
                 s["clutch_epa"] += epa
+            if bz is not None and row.get("qb_dropback") == "1":
+                s["ftn_db"] += 1
+                if bz > 0:
+                    s["bz_db"] += 1
+                    s["bz_epa"] += epa
+                    s["bz_sk"] += sacked
+                    if row.get("pass_attempt") == "1" and not sacked:
+                        s["bz_att"] += 1
+                        s["bz_cmp"] += row.get("complete_pass") == "1"
+                        s["bz_yds"] += f(row["passing_yards"])
+                        s["bz_td"] += row.get("pass_touchdown") == "1"
+                        s["bz_int"] += row.get("interception") == "1"
             if row.get("pass_attempt") == "1" and not sacked:
                 c = row.get("complete_pass") == "1"
                 s["att"] += 1
@@ -222,7 +286,10 @@ def per_game(season):
                 s["rz_tgt"] += 1
                 s["rz_rec_td"] += row.get("pass_touchdown") == "1"
 
-    return {k: {c: (round(v, 2) if not float(v).is_integer() else int(v)) for c, v in d.items() if v and c in XCOLS} for k, d in S.items()}
+    rnd = lambda v: round(v, 2) if not float(v).is_integer() else int(v)
+    T.clear()
+    T.update({k: {c: rnd(d.get(c, 0)) for c in TCOLS} for k, d in T_.items()})
+    return {k: {c: rnd(v) for c, v in d.items() if v and c in XCOLS} for k, d in S.items()}
 
 
 def extra(p, season):
