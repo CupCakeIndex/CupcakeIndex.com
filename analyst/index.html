@@ -57,6 +57,10 @@ ul.claims, ul.miss { margin: 0; padding: 0; list-style: none; display: grid; gap
 details summary { cursor: pointer; color: var(--dim); font-size: 12px }
 .hist { display: grid; gap: 6px; margin-top: 8px }
 .hist button { justify-content: flex-start; text-align: left; font-weight: 400; font-size: 12px; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block }
+.reply { grid-template-columns: minmax(0, 1fr); min-width: 0 }
+.reply-chart { min-width: 0 }
+.card { grid-template-columns: minmax(0, 1fr) }
+.reply-chart svg { width: 100%; height: auto; display: block; border-radius: 4px }
 .req { margin: 0; white-space: pre-wrap; font: 12px/1.5 var(--mono); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 10px; max-height: 220px; overflow: auto }
 .err { color: var(--bad); font-size: 13px; margin: 0 }
 @media (prefers-reduced-motion: reduce) { .stamp { transform: none } }
@@ -483,13 +487,19 @@ Reply with ONLY one JSON object, no other text:
  "claims": [{"claim": "short restatement", "verdict": "holds|mixed|misleading|wrong|cant_check", "evidence": "the numbers that decide it, with ranks"}],
  "missing": ["context the take leaves out", "..."],
  "numbers": [{"label": "Daniels EPA/dropback, 2026", "value": "0.12", "note": "14th of 32 QBs"}],
- "chart": {"title": "short title", "unit": "what the number is", "bars": [{"label": "name", "value": 1.23, "highlight": true}], "lower_is_better": false, "source": "weeks/season covered"} or null,
+ "charts": {"agree": CHART or null, "pushback": CHART or null},
  "replies": {"agree": "reply that backs the take with a stat", "pushback": "reply that corrects it with a stat"},
  "data_requests": [{"stat": "the stat we'd need, named plainly (e.g. pressures allowed by offensive linemen)", "kind": "missing_stat" | "data_issue", "why": "which claim needed it and what it would have settled", "where_it_might_come_from": "your best guess at a free source (nflverse, Pro Football Reference via nflverse, CollegeFootballData, ESPN) or 'unknown'"}]}
 
 data_requests: one entry for every claim you marked cant_check because our DATA lacks something (not for opinions or things no stat can settle), plus "data_issue" entries when a tool result looks wrong or incomplete (e.g. a starter showing 1 game or very few snaps). Empty list if nothing was missing.
 
-Chart: 4-12 bars from one leaderboard or comparison you actually pulled, highlight the player or team in the take. Replies: each under 260 characters, no links, no hashtags, confident and a little dry, lead with the number. If the take is plainly right, the pushback reply can add the nuance instead. Keep evidence tight: one or two sentences per claim.`;
+Charts: one to post with each reply. "agree" shows the numbers that back the take, "pushback" the numbers that cut against it (a different stat or framing, not the same chart twice). Use null only when nothing you pulled can make that side's point. CHART = {"type": "bar" | "line" | "scatter" | "pie" | "radar", "title": "short title", "unit": "what the numbers are", "lower_is_better": false, "source": "weeks/season covered, short", ...the fields for its type}. Pick the type that makes the point best, use only numbers you actually pulled, and highlight the player or team in the take (highlight: true):
+- bar (a ranking or comparison): "items": [{"label": "Giants", "value": 0.8, "highlight": true}], 4-12 items, sorted.
+- line (a trend week by week or season by season; use player_stats by_week or team_stats games): "x_labels": ["Wk 1", "Wk 2", ...], "series": [{"name": "Daniels", "values": [0.12, -0.05, null, ...], "highlight": true}], 1-6 series, values line up with x_labels (null = no game), optional "x_label"/"y_label".
+- scatter (two stats against each other, e.g. EPA per play vs points per game for every team): "points": [{"label": "WAS", "x": 0.05, "y": 24.1, "highlight": true}], 8-32 points, plus "x_label" and "y_label".
+- pie (shares of one whole, e.g. where a team's yards or touchdowns came from): "items" as for bar, 2-8 positive values.
+- radar (a profile of 1-3 players or teams on 4-8 stats): "axes": ["EPA/dropback", "YPA", ...], "series": [{"name": "Daniels", "values": [percentiles 0-100 vs his position, from the ranks you pulled], "highlight": true}].
+Keep labels short (team abbreviations or last names). Replies: each under 260 characters, no links, no hashtags, confident and a little dry, lead with the number. If the take is plainly right, the pushback reply can add the nuance instead. Keep evidence tight: one or two sentences per claim.`;
 }
 
 // ------------------------------------------------------------------ UI
@@ -497,7 +507,7 @@ const EXAMPLES = ["Jayden Daniels is a bottom-10 QB this year and it isn't close
 $("examples").innerHTML = EXAMPLES.map((e) => `<button type="button" class="chip">${esc(e)}</button>`).join("");
 $("examples").onclick = (e) => { const b = e.target.closest(".chip"); if (b) { $("take").value = b.textContent; $("take").focus(); } };
 
-let sample = null, downloads = null, image = null, ctl = null, lastChart = null;
+let sample = null, downloads = null, image = null, ctl = null, charts = {};
 (async () => {
   try {
     await base();
@@ -568,14 +578,15 @@ function render(r) {
   $("miss").innerHTML = (r.missing || []).map((m) => `<li>${esc(m)}</li>`).join("");
   $("nums-wrap").hidden = !(r.numbers || []).length;
   $("nums").innerHTML = (r.numbers || []).map((n) => `<tr><td>${esc(n.label)}${n.note ? `<span class="note">${esc(n.note)}</span>` : ""}</td><td>${esc(n.value)}</td></tr>`).join("");
-  const bars = (r.chart?.bars || []).filter((b) => isFinite(+b.value)).slice(0, 12);
-  $("chart-card").hidden = bars.length < 2;
-  lastChart = bars.length >= 2 ? { ...r.chart, bars } : null;
-  if (lastChart) { $("chart").innerHTML = chartSvg(lastChart); $("save-chart").hidden = !downloads; $("chart-note").textContent = downloads ? "" : "Screenshot the chart to attach it."; }
+  // one chart per reply (agree / pushback) so Terry can post either; checks saved before that had a single chart
+  charts = { agree: normChart(r.charts?.agree), pushback: normChart(r.charts?.pushback), one: normChart(r.chart) };
+  $("chart-card").hidden = !charts.one;
+  if (charts.one) { $("chart").innerHTML = chartSvg(charts.one); $("save-chart").hidden = !downloads; $("chart-note").textContent = downloads ? "" : "Screenshot the chart to attach it."; }
   const rp = r.replies || {};
   $("replies-card").hidden = !rp.agree && !rp.pushback;
   $("replies").innerHTML = [["agree", "Backs it up"], ["pushback", "Pushes back"]].filter(([k]) => rp[k]).map(([k, l]) => `<div class="reply"><h2>${l}</h2><p id="rp-${k}">${esc(rp[k])}</p>
-    <div class="row"><button type="button" data-copy="${k}">Copy</button><a class="btn" target="_blank" rel="noopener" href="https://x.com/intent/post?text=${encodeURIComponent(rp[k])}">Open in X</a><span class="count ${rp[k].length > 280 ? "over" : ""}">${rp[k].length}/280</span></div></div>`).join("");
+    <div class="row"><button type="button" data-copy="${k}">Copy</button><a class="btn" target="_blank" rel="noopener" href="https://x.com/intent/post?text=${encodeURIComponent(rp[k])}">Open in X</a><span class="count ${rp[k].length > 280 ? "over" : ""}">${rp[k].length}/280</span></div>
+    ${charts[k] ? `<div class="reply-chart">${chartSvg(charts[k])}</div><div class="row">${downloads ? `<button type="button" data-save="${k}">Save chart image</button>` : ""}<span class="note" id="note-${k}">${downloads ? "" : "Screenshot the chart to attach it."}</span></div>` : ""}</div>`).join("");
   const dr = (r.data_requests || []).filter((d) => d?.stat);
   $("req-card").hidden = !dr.length;
   $("req-list").innerHTML = dr.map((d) => `<li><b>${esc(d.kind === "data_issue" ? "Looks wrong: " : "")}${esc(d.stat)}</b> <span class="ev">${esc(d.why || "")}</span></li>`).join("");
@@ -602,6 +613,8 @@ $("req-copy").onclick = async () => {
   setTimeout(() => (b.textContent = "Copy request for Claude"), 2000);
 };
 $("replies").onclick = async (e) => {
+  const sv = e.target.closest("[data-save]");
+  if (sv) return saveChart(charts[sv.dataset.save], $("note-" + sv.dataset.save));
   const b = e.target.closest("[data-copy]");
   if (!b) return;
   const p = $("rp-" + b.dataset.copy);
@@ -610,41 +623,223 @@ $("replies").onclick = async (e) => {
   setTimeout(() => (b.textContent = "Copy"), 2000);
 };
 
-// chart: horizontal bars, brand colors baked in so the saved picture looks the same everywhere
-function chartSvg(c) {
-  const W = 1000, rowH = 56, top = 120, n = c.bars.length, H = top + n * rowH + 70, labelW = 330, x0 = labelW + 20, x1 = W - 130;
-  const vals = c.bars.map((b) => +b.value), lo = Math.min(0, ...vals), hi = Math.max(0, ...vals), span = hi - lo || 1;
-  const X = (v) => x0 + ((v - lo) / span) * (x1 - x0);
-  const fmtv = (v) => (Math.abs(v) >= 100 ? Math.round(v).toLocaleString() : Math.abs(v) >= 10 ? v.toFixed(1) : v.toFixed(Math.abs(v) < 1 ? 3 : 2));
-  const rows = c.bars.map((b, i) => {
-    const v = +b.value, y = top + i * rowH, a = X(Math.min(0, v)), w = Math.max(2, Math.abs(X(v) - X(0)));
-    const col = b.highlight ? "#ff6b2c" : "#4a403a";
-    return `<text x="${labelW}" y="${y + 33}" text-anchor="end" font-size="24" fill="${b.highlight ? "#ffffff" : "#c9bfb8"}" font-weight="${b.highlight ? 800 : 400}">${esc(String(b.label).slice(0, 24))}</text>
-      <rect x="${a}" y="${y + 10}" width="${w}" height="${rowH - 20}" rx="3" fill="${col}"/>
-      <text x="${(v < 0 ? a : a + w) + (v < 0 ? -10 : 10)}" y="${y + 34}" text-anchor="${v < 0 ? "end" : "start"}" font-size="22" font-weight="600" fill="${b.highlight ? "#ff6b2c" : "#c9bfb8"}">${esc(fmtv(v))}</text>`;
-  }).join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" font-family="JetBrains Mono, ui-monospace, Menlo, Consolas, monospace" role="img" aria-label="${esc(c.title)}">
-    <rect width="${W}" height="${H}" fill="#0a0a0a"/>
-    <text x="40" y="58" font-size="34" font-weight="800" fill="#ffffff">${esc(String(c.title || "").slice(0, 46))}</text>
-    <text x="40" y="92" font-size="20" fill="#9a8f87">${esc([c.unit, c.lower_is_better ? "lower is better" : ""].filter(Boolean).join(" · ").slice(0, 70))}</text>
-    ${lo < 0 ? `<line x1="${X(0)}" x2="${X(0)}" y1="${top}" y2="${top + n * rowH}" stroke="#2a2522" stroke-width="2"/>` : ""}
-    ${rows}
-    <text x="40" y="${H - 26}" font-size="18" fill="#9a8f87">${esc(String(c.source || "").slice(0, 60))}</text>
-    <text x="${W - 40}" y="${H - 26}" font-size="20" font-weight="800" text-anchor="end" fill="#ffffff">CUPCAKE<tspan fill="#ff6b2c">_</tspan>INDEX</text>
-  </svg>`;
+// charts: bar, line, scatter, pie, radar (the same kinds as Stats > Visualize), drawn as SVG with the brand colors baked in
+// so the saved picture looks the same everywhere. Every margin is sized from the text it has to hold (JetBrains Mono: a
+// character is 0.6 of the font size wide), so labels and values never run into each other or off the edge.
+const C = { bg: "#0a0a0a", ink: "#ffffff", soft: "#c9bfb8", dim: "#9a8f87", grid: "#2a2522", hi: "#ff6b2c", bar: "#4a403a" };
+const OTHERS = ["#c9bfb8", "#6fa8dc", "#93c47d", "#c27ba0", "#e0c068", "#8e7cc3", "#76a5af"]; // non-highlighted series
+const PIE = ["#8a7a6f", "#5e524a", "#b3a396", "#43392f", "#9c8b7e", "#6f6157", "#d0c4ba"];
+const TYPES = ["bar", "line", "scatter", "pie", "radar"];
+const tw = (s, size) => String(s).length * size * 0.6; // text width
+const fit = (s, n) => { s = String(s ?? ""); return s.length > n ? s.slice(0, Math.max(1, n - 1)) + "…" : s; };
+function wrap(s, n, lines) { // word-wrap into at most `lines` lines of n characters
+  const out = [];
+  let cur = "";
+  for (const w of String(s || "").split(/\s+/).filter(Boolean)) {
+    if (!cur) cur = w; else if ((cur + " " + w).length <= n) cur += " " + w; else { out.push(cur); cur = w; }
+  }
+  if (cur) out.push(cur);
+  if (out.length > lines) { out.length = lines; out[lines - 1] = fit(out[lines - 1] + " …", n); }
+  return out.map((l) => fit(l, n));
 }
-$("save-chart").onclick = async () => {
-  if (!lastChart || !downloads) return;
-  const svg = chartSvg(lastChart), img = new Image();
+const fmtv = (v) => { const a = Math.abs(v); if (Number.isInteger(v) && a < 1000) return String(v); return a >= 1000 ? Math.round(v).toLocaleString("en-US") : a >= 100 ? Math.round(v).toString() : a >= 10 ? v.toFixed(1) : a >= 1 ? v.toFixed(2) : v.toFixed(3); };
+function ticks(lo, hi, n = 5) { // round-number axis ticks covering lo..hi
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const raw = (hi - lo) / n, mag = 10 ** Math.floor(Math.log10(raw)), step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw);
+  const a = Math.floor(lo / step) * step, b = Math.ceil(hi / step) * step, out = [];
+  for (let v = a; v <= b + step / 2; v += step) out.push(+v.toFixed(10));
+  return out;
+}
+const T = (x, y, s, o = {}) => `<text x="${x}" y="${y}" font-size="${o.size || 20}"${o.anchor ? ` text-anchor="${o.anchor}"` : ""} fill="${o.fill || C.soft}"${o.weight ? ` font-weight="${o.weight}"` : ""}>${esc(s)}</text>`;
+
+// what Claude sent -> a chart we can draw, or null
+function normChart(c) {
+  if (!c || typeof c !== "object") return null;
+  const num = (v) => v != null && v !== "" && isFinite(+v);
+  let type = TYPES.includes(c.type) ? c.type : c.points ? "scatter" : c.axes ? "radar" : c.series ? "line" : "bar";
+  const items = (c.items || c.bars || []).filter((b) => b && num(b.value)).map((b) => ({ label: String(b.label ?? ""), value: +b.value, highlight: !!b.highlight }));
+  const series = (c.series || []).filter((s) => s && Array.isArray(s.values)).slice(0, 7).map((s) => ({ name: String(s.name ?? ""), highlight: !!s.highlight, values: s.values.map((v) => (num(v) ? +v : null)) }));
+  const out = { ...c, type, items: items.slice(0, type === "pie" ? 12 : 16), series };
+  if (type === "bar") return items.length >= 2 ? out : null;
+  if (type === "pie") return items.filter((b) => b.value > 0).length >= 2 ? { ...out, items: out.items.filter((b) => b.value > 0) } : null;
+  if (type === "line") { out.x_labels = (c.x_labels || []).map(String); return out.x_labels.length >= 2 && series.some((s) => s.values.filter((v) => v != null).length >= 2) ? out : null; }
+  if (type === "scatter") { out.points = (c.points || []).filter((p) => p && num(p.x) && num(p.y)).slice(0, 40).map((p) => ({ label: String(p.label ?? ""), x: +p.x, y: +p.y, highlight: !!p.highlight })); return out.points.length >= 3 ? out : null; }
+  if (type === "radar") { out.axes = (c.axes || []).map(String).slice(0, 10); out.series = series.slice(0, 3); return out.axes.length >= 3 && out.series.length ? out : null; }
+  return null;
+}
+
+function chartSvg(c) {
+  const W = 1000, L = 40;
+  // header: title (up to 2 lines) and the unit line
+  const title = wrap(c.title, Math.floor((W - 2 * L) / tw("x", 34)), 2);
+  const sub = [c.unit, c.lower_is_better ? "lower is better" : ""].filter(Boolean).join(" · ");
+  let y = 58, head = title.map((t, i) => T(L, y + i * 42, t, { size: 34, weight: 800, fill: C.ink })).join("");
+  y += (title.length - 1) * 42 + 34;
+  if (sub) { head += T(L, y, fit(sub, Math.floor((W - 2 * L) / tw("x", 20))), { size: 20, fill: C.dim }); y += 16; }
+  const top = y + 30;
+  const { body, h } = ({ bar: barBody, line: lineBody, scatter: scatterBody, pie: pieBody, radar: radarBody })[c.type](c, top, W);
+  // footer: source wraps (up to 2 lines) beside the wordmark
+  const brandW = tw("CUPCAKE_INDEX", 20) + 30, src = wrap(c.source, Math.floor((W - 2 * L - brandW) / tw("x", 18)), 2);
+  const fy = top + h + 40, H = Math.ceil(fy + (src.length > 1 ? 24 : 0) + 30);
+  const foot = src.map((s, i) => T(L, fy + i * 24, s, { size: 18, fill: C.dim })).join("")
+    + `<text x="${W - L}" y="${fy}" font-size="20" font-weight="800" text-anchor="end" fill="${C.ink}">CUPCAKE<tspan fill="${C.hi}">_</tspan>INDEX</text>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" font-family="JetBrains Mono, ui-monospace, Menlo, Consolas, monospace" role="img" aria-label="${esc(c.title)}">
+    <rect width="${W}" height="${H}" fill="${C.bg}"/>${head}${body}${foot}</svg>`;
+}
+
+function barBody(c, top, W) {
+  const it = c.items, rowH = 52, n = it.length, L = 40, R = 40;
+  const labelSize = 22, valSize = 20;
+  const maxLabel = Math.min(26, Math.max(...it.map((b) => b.label.length)));
+  const labelW = tw("x".repeat(maxLabel), labelSize);
+  const neg = it.filter((b) => b.value < 0), pos = it.filter((b) => b.value >= 0);
+  const negW = neg.length ? Math.max(...neg.map((b) => tw(fmtv(b.value), valSize))) + 14 : 0;
+  const posW = pos.length ? Math.max(...pos.map((b) => tw(fmtv(b.value), valSize))) + 14 : 0;
+  const x0 = L + labelW + 24 + negW, x1 = W - R - posW;
+  const vals = it.map((b) => b.value), lo = Math.min(0, ...vals), hi = Math.max(0, ...vals), span = hi - lo || 1;
+  const X = (v) => x0 + ((v - lo) / span) * (x1 - x0);
+  let s = lo < 0 ? `<line x1="${X(0)}" x2="${X(0)}" y1="${top - 6}" y2="${top + n * rowH}" stroke="${C.grid}" stroke-width="2"/>` : "";
+  it.forEach((b, i) => {
+    const yy = top + i * rowH, a = X(Math.min(0, b.value)), w = Math.max(2, Math.abs(X(b.value) - X(0))), mid = yy + rowH / 2 + 7;
+    s += T(L + labelW, mid, fit(b.label, 26), { size: labelSize, anchor: "end", fill: b.highlight ? C.ink : C.soft, weight: b.highlight ? 800 : 400 });
+    s += `<rect x="${a}" y="${yy + 9}" width="${w}" height="${rowH - 18}" rx="3" fill="${b.highlight ? C.hi : C.bar}"/>`;
+    s += b.value < 0 ? T(a - 10, mid, fmtv(b.value), { size: valSize, anchor: "end", weight: 600, fill: b.highlight ? C.hi : C.soft })
+      : T(a + w + 10, mid, fmtv(b.value), { size: valSize, weight: 600, fill: b.highlight ? C.hi : C.soft });
+  });
+  return { body: s, h: n * rowH };
+}
+
+// shared x/y frame for line and scatter
+function frame(xt, yt, X, Y, top, h, x0, x1, fy, xLabel, yLabel) {
+  let s = "";
+  for (const v of yt) s += `<line x1="${x0}" x2="${x1}" y1="${Y(v)}" y2="${Y(v)}" stroke="${C.grid}"/>` + T(x0 - 10, Y(v) + 6, fy(v), { size: 17, anchor: "end", fill: C.dim });
+  for (const [v, lab] of xt) s += T(X(v), top + h + 26, lab, { size: 17, anchor: "middle", fill: C.dim });
+  if (xLabel) s += T((x0 + x1) / 2, top + h + 54, fit(xLabel, 60), { size: 18, anchor: "middle", fill: C.soft });
+  if (yLabel) s += `<text transform="translate(22 ${top + h / 2}) rotate(-90)" font-size="18" text-anchor="middle" fill="${C.soft}">${esc(fit(yLabel, 40))}</text>`;
+  return s;
+}
+
+function lineBody(c, top, W) {
+  const xs = c.x_labels, ser = c.series, h = 460;
+  const all = ser.flatMap((s) => s.values).filter((v) => v != null);
+  const yt = ticks(Math.min(...all), Math.max(...all));
+  const nameW = Math.min(230, Math.max(...ser.map((s) => tw(fit(s.name, 16), 18)))) + 24;
+  const yw = Math.max(...yt.map((v) => tw(fmtv(v), 17))) + 18;
+  const x0 = 40 + yw + (c.y_label ? 28 : 0), x1 = W - 40 - nameW;
+  const X = (i) => x0 + (xs.length === 1 ? 0 : (i / (xs.length - 1)) * (x1 - x0)), Y = (v) => top + h - ((v - yt[0]) / (yt.at(-1) - yt[0] || 1)) * h;
+  const every = Math.ceil(xs.length / 12);
+  let s = frame(xs.map((l, i) => [i, fit(l, 6)]).filter(([i]) => i % every === 0 || i === xs.length - 1), yt, X, Y, top, h, x0, x1, fmtv, c.x_label, c.y_label);
+  let k = 0;
+  const ends = [];
+  for (const sr of [...ser].sort((a, b) => a.highlight - b.highlight)) { // highlighted line drawn last, on top
+    const col = sr.highlight ? C.hi : OTHERS[k++ % OTHERS.length];
+    const pts = sr.values.map((v, i) => (v == null ? null : [X(i), Y(v)]));
+    let d = "", pen = false;
+    for (const p of pts) { if (!p) { pen = false; continue; } d += `${pen ? "L" : "M"}${p[0].toFixed(1)} ${p[1].toFixed(1)}`; pen = true; }
+    s += `<path d="${d}" fill="none" stroke="${col}" stroke-width="${sr.highlight ? 5 : 3}" stroke-linejoin="round" stroke-linecap="round"/>`;
+    s += pts.filter(Boolean).map((p) => `<circle cx="${p[0]}" cy="${p[1]}" r="${sr.highlight ? 6 : 4}" fill="${col}"/>`).join("");
+    const last = pts.filter(Boolean).at(-1);
+    if (last && sr.name) ends.push({ y: last[1], name: fit(sr.name, 16), col, hi: sr.highlight, x: last[0] });
+  }
+  // end-of-line names, nudged apart so they never overlap
+  ends.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < ends.length; i++) ends[i].y = Math.max(ends[i].y, ends[i - 1].y + 24);
+  const over = ends.length ? ends.at(-1).y - (top + h) : 0;
+  if (over > 0) ends.forEach((e) => (e.y -= over));
+  for (let i = 0; i < ends.length; i++) if (i && ends[i].y < ends[i - 1].y + 24) ends[i].y = ends[i - 1].y + 24;
+  s += ends.map((e) => T(x1 + 14, e.y + 6, e.name, { size: 18, fill: e.col, weight: e.hi ? 800 : 400 })).join("");
+  return { body: s, h: h + (c.x_label ? 64 : 36) };
+}
+
+function scatterBody(c, top, W) {
+  const P = c.points, h = 520;
+  const pad = (a, b) => { const d = (b - a) * 0.06 || 1; return [a - d, b + d]; };
+  const xt = ticks(...pad(Math.min(...P.map((p) => p.x)), Math.max(...P.map((p) => p.x))));
+  const yt = ticks(...pad(Math.min(...P.map((p) => p.y)), Math.max(...P.map((p) => p.y))));
+  const yw = Math.max(...yt.map((v) => tw(fmtv(v), 17))) + 18;
+  const x0 = 40 + yw + (c.y_label ? 28 : 0), x1 = W - 60;
+  const X = (v) => x0 + ((v - xt[0]) / (xt.at(-1) - xt[0] || 1)) * (x1 - x0), Y = (v) => top + h - ((v - yt[0]) / (yt.at(-1) - yt[0] || 1)) * h;
+  let s = frame(xt.map((v) => [v, fmtv(v)]), yt, X, Y, top, h, x0, x1, fmtv, c.x_label, c.y_label);
+  const mx = P.reduce((a, p) => a + p.x, 0) / P.length, my = P.reduce((a, p) => a + p.y, 0) / P.length; // average lines
+  s += `<line x1="${X(mx)}" x2="${X(mx)}" y1="${top}" y2="${top + h}" stroke="${C.dim}" stroke-dasharray="6 6" opacity=".5"/><line x1="${x0}" x2="${x1}" y1="${Y(my)}" y2="${Y(my)}" stroke="${C.dim}" stroke-dasharray="6 6" opacity=".5"/>`;
+  const order = [...P].sort((a, b) => b.highlight - a.highlight);
+  s += [...order].reverse().map((p) => `<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="${p.highlight ? 11 : 8}" fill="${p.highlight ? C.hi : C.bar}" stroke="${p.highlight ? C.ink : C.soft}" stroke-width="${p.highlight ? 2 : 1}"/>`).join("");
+  // labels: highlighted first, then the rest wherever they fit (right of the dot, or left near the edge)
+  const boxes = P.map((p) => [X(p.x) - 11, Y(p.y) - 11, X(p.x) + 11, Y(p.y) + 11]);
+  for (const p of order) {
+    if (!p.label) continue;
+    const size = p.highlight ? 19 : 16, lab = fit(p.label, 18), w = tw(lab, size), cx = X(p.x), cy = Y(p.y);
+    for (const [lx, anchor] of [[cx + 15, "start"], [cx - 15, "end"]]) {
+      const b = anchor === "start" ? [lx, cy - size, lx + w, cy + 4] : [lx - w, cy - size, lx, cy + 4];
+      const own = boxes.filter((o) => !(o[0] === cx - 11 && o[1] === cy - 11)); // ignore its own dot
+      if (b[0] < x0 || b[2] > W - 10 || own.some((o) => !(b[2] < o[0] || b[0] > o[2] || b[3] < o[1] || b[1] > o[3]))) continue;
+      s += T(lx, cy + 6, lab, { size, anchor, fill: p.highlight ? C.ink : C.soft, weight: p.highlight ? 800 : 400 });
+      boxes.push(b);
+      break;
+    }
+  }
+  return { body: s, h: h + (c.x_label ? 64 : 36) };
+}
+
+function pieBody(c, top, W) {
+  let it = [...c.items].sort((a, b) => b.value - a.value);
+  if (it.length > 8) { const rest = it.slice(7); it = [...it.slice(0, 7), { label: "Everyone else", value: rest.reduce((a, b) => a + b.value, 0), highlight: false }]; }
+  const total = it.reduce((a, b) => a + b.value, 0), cx = 250, cy = top + 220, r = 210, r0 = 118;
+  let ang = -Math.PI / 2, k = 0, s = "";
+  const pt = (rad, a) => [cx + rad * Math.cos(a), cy + rad * Math.sin(a)].map((v) => v.toFixed(1)).join(" ");
+  const cols = it.map((b) => (b.highlight ? C.hi : PIE[k++ % PIE.length]));
+  it.forEach((b, i) => {
+    const a2 = ang + (b.value / total) * Math.PI * 2, big = a2 - ang > Math.PI ? 1 : 0;
+    s += it.length === 1 ? `<circle cx="${cx}" cy="${cy}" r="${(r + r0) / 2}" fill="none" stroke="${cols[i]}" stroke-width="${r - r0}"/>`
+      : `<path d="M${pt(r, ang)} A${r} ${r} 0 ${big} 1 ${pt(r, a2)} L${pt(r0, a2)} A${r0} ${r0} 0 ${big} 0 ${pt(r0, ang)}Z" fill="${cols[i]}" stroke="${C.bg}" stroke-width="3"/>`;
+    ang = a2;
+  });
+  s += T(cx, cy + 4, fmtv(total), { size: 30, anchor: "middle", weight: 800, fill: C.ink }) + T(cx, cy + 32, "total", { size: 17, anchor: "middle", fill: C.dim });
+  // legend: swatch, name, value, share
+  const lx = 530, rowH = Math.min(52, 440 / it.length);
+  it.forEach((b, i) => {
+    const yy = top + 20 + i * rowH;
+    s += `<rect x="${lx}" y="${yy}" width="18" height="18" rx="3" fill="${cols[i]}"/>`;
+    s += T(lx + 30, yy + 16, fit(b.label, 18), { size: 19, fill: b.highlight ? C.ink : C.soft, weight: b.highlight ? 800 : 400 });
+    s += T(W - 40, yy + 16, `${fmtv(b.value)} · ${Math.round((100 * b.value) / total)}%`, { size: 18, anchor: "end", fill: b.highlight ? C.hi : C.dim, weight: 600 });
+  });
+  return { body: s, h: Math.max(440, 20 + it.length * rowH) };
+}
+
+function radarBody(c, top, W) {
+  const A = c.axes, n = A.length, ser = c.series, cx = W / 2, R = 210, legend = 40, cy = top + legend + R + 50;
+  const P = (i, v) => { const a = -Math.PI / 2 + (i / n) * Math.PI * 2, rr = (Math.max(0, Math.min(100, v ?? 0)) / 100) * R; return [cx + rr * Math.cos(a), cy + rr * Math.sin(a)]; };
+  let s = "", k = 0;
+  // legend across the top
+  let lx = 40;
+  const cols = ser.map((sr) => (sr.highlight ? C.hi : OTHERS[k++ % OTHERS.length]));
+  ser.forEach((sr, i) => { const nm = fit(sr.name, 22); s += `<rect x="${lx}" y="${top}" width="18" height="18" rx="3" fill="${cols[i]}"/>` + T(lx + 28, top + 16, nm, { size: 18, fill: sr.highlight ? C.ink : C.soft, weight: sr.highlight ? 800 : 400 }); lx += 28 + tw(nm, 18) + 34; });
+  for (const ring of [25, 50, 75, 100]) s += `<polygon points="${A.map((_, i) => P(i, ring).join(",")).join(" ")}" fill="none" stroke="${C.grid}"/>`;
+  A.forEach((ax, i) => {
+    const a = -Math.PI / 2 + (i / n) * Math.PI * 2, [x, y] = P(i, 100), lx2 = cx + 1.14 * R * Math.cos(a), ly = cy + 1.14 * R * Math.sin(a), dx = lx2 - cx;
+    s += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${C.grid}"/>`;
+    s += T(lx2, ly + 6, fit(ax, 16), { size: 17, anchor: Math.abs(dx) < 20 ? "middle" : dx > 0 ? "start" : "end", fill: C.soft });
+  });
+  [...ser.keys()].sort((a, b) => ser[a].highlight - ser[b].highlight).forEach((i) => {
+    const sr = ser[i], pts = A.map((_, j) => P(j, sr.values[j]).map((v) => v.toFixed(1)).join(",")).join(" ");
+    s += `<polygon points="${pts}" fill="${cols[i]}" fill-opacity="${sr.highlight ? 0.28 : 0.12}" stroke="${cols[i]}" stroke-width="${sr.highlight ? 4 : 2.5}" stroke-linejoin="round"/>`;
+  });
+  s += T(cx, cy + R + 86, "percentile vs peers (center = 0, edge = 100)", { size: 16, anchor: "middle", fill: C.dim });
+  return { body: s, h: legend + 2 * R + 150 };
+}
+$("save-chart").onclick = () => saveChart(charts.one, $("chart-note"));
+async function saveChart(chart, note) {
+  if (!chart || !downloads) return;
+  const svg = chartSvg(chart), img = new Image();
   img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
   await img.decode().catch(() => {});
   const vb = svg.match(/viewBox="0 0 (\d+) (\d+)"/), cv = document.createElement("canvas");
   cv.width = +vb[1]; cv.height = +vb[2];
   cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
   const blob = await new Promise((ok) => cv.toBlob(ok, "image/png"));
-  try { await downloads.save({ filename: (lastChart.title || "chart").replace(/[^\w -]/g, "").slice(0, 60) + ".png", data: blob }); $("chart-note").textContent = "Saved."; }
-  catch (e) { $("chart-note").textContent = e?.code === "declined" ? "" : "Couldn't save here. Screenshot the chart instead."; }
-};
+  try { await downloads.save({ filename: (chart.title || "chart").replace(/[^\w -]/g, "").slice(0, 60) + ".png", data: blob }); note.textContent = "Saved."; }
+  catch (e) { note.textContent = e?.code === "declined" ? "" : "Couldn't save here. Screenshot the chart instead."; }
+}
 
 function history() {
   const h = store.get("analyst-history") || [];
