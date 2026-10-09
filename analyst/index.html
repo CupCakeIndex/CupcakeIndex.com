@@ -57,6 +57,7 @@ ul.claims, ul.miss { margin: 0; padding: 0; list-style: none; display: grid; gap
 details summary { cursor: pointer; color: var(--dim); font-size: 12px }
 .hist { display: grid; gap: 6px; margin-top: 8px }
 .hist button { justify-content: flex-start; text-align: left; font-weight: 400; font-size: 12px; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block }
+.req { margin: 0; white-space: pre-wrap; font: 12px/1.5 var(--mono); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 10px; max-height: 220px; overflow: auto }
 .err { color: var(--bad); font-size: 13px; margin: 0 }
 @media (prefers-reduced-motion: reduce) { .stamp { transform: none } }
 </style>
@@ -109,6 +110,14 @@ details summary { cursor: pointer; color: var(--dim); font-size: 12px }
     <h2>Chart</h2>
     <div id="chart"></div>
     <div class="row"><button type="button" id="save-chart" hidden>Save chart image</button><span class="note" id="chart-note"></span></div>
+  </section>
+
+  <section class="card" id="req-card" hidden>
+    <h2>Stats we're missing</h2>
+    <ul class="claims" id="req-list"></ul>
+    <p class="note">Paste this into Claude Code to get these stats added to the site:</p>
+    <pre class="req" id="req-prompt"></pre>
+    <div class="row"><button type="button" id="req-copy">Copy request for Claude</button></div>
   </section>
 
   <section class="card" id="replies-card" hidden>
@@ -412,7 +421,10 @@ Reply with ONLY one JSON object, no other text:
  "missing": ["context the take leaves out", "..."],
  "numbers": [{"label": "Daniels EPA/dropback, 2026", "value": "0.12", "note": "14th of 32 QBs"}],
  "chart": {"title": "short title", "unit": "what the number is", "bars": [{"label": "name", "value": 1.23, "highlight": true}], "lower_is_better": false, "source": "weeks/season covered"} or null,
- "replies": {"agree": "reply that backs the take with a stat", "pushback": "reply that corrects it with a stat"}}
+ "replies": {"agree": "reply that backs the take with a stat", "pushback": "reply that corrects it with a stat"},
+ "data_requests": [{"stat": "the stat we'd need, named plainly (e.g. pressures allowed by offensive linemen)", "kind": "missing_stat" | "data_issue", "why": "which claim needed it and what it would have settled", "where_it_might_come_from": "your best guess at a free source (nflverse, Pro Football Reference via nflverse, CollegeFootballData, ESPN) or 'unknown'"}]}
+
+data_requests: one entry for every claim you marked cant_check because our DATA lacks something (not for opinions or things no stat can settle), plus "data_issue" entries when a tool result looks wrong or incomplete (e.g. a starter showing 1 game or very few snaps). Empty list if nothing was missing.
 
 Chart: 4-12 bars from one leaderboard or comparison you actually pulled, highlight the player or team in the take. Replies: each under 260 characters, no links, no hashtags, confident and a little dry, lead with the number. If the take is plainly right, the pushback reply can add the nuance instead. Keep evidence tight: one or two sentences per claim.`;
 }
@@ -456,6 +468,7 @@ const ERR = { not_granted: "Claude access wasn't allowed for this page. Reload a
 $("check").onclick = async () => {
   const take = $("take").value.trim();
   if (!take && !image) { showErr("Paste a take or add a screenshot first."); return; }
+  lastTake = take || "(screenshot)";
   showErr(""); $("log").innerHTML = ""; $("check").disabled = true; $("stop").hidden = false;
   ctl = new AbortController();
   const t0 = Date.now();
@@ -500,8 +513,31 @@ function render(r) {
   $("replies-card").hidden = !rp.agree && !rp.pushback;
   $("replies").innerHTML = [["agree", "Backs it up"], ["pushback", "Pushes back"]].filter(([k]) => rp[k]).map(([k, l]) => `<div class="reply"><h2>${l}</h2><p id="rp-${k}">${esc(rp[k])}</p>
     <div class="row"><button type="button" data-copy="${k}">Copy</button><a class="btn" target="_blank" rel="noopener" href="https://x.com/intent/post?text=${encodeURIComponent(rp[k])}">Open in X</a><span class="count ${rp[k].length > 280 ? "over" : ""}">${rp[k].length}/280</span></div></div>`).join("");
+  const dr = (r.data_requests || []).filter((d) => d?.stat);
+  $("req-card").hidden = !dr.length;
+  $("req-list").innerHTML = dr.map((d) => `<li><b>${esc(d.kind === "data_issue" ? "Looks wrong: " : "")}${esc(d.stat)}</b> <span class="ev">${esc(d.why || "")}</span></li>`).join("");
+  $("req-prompt").textContent = dr.length ? requestPrompt(dr) : "";
   $("result").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
 }
+// a ready-to-paste request for Claude Code: add the missing stats to the site (and to this page's data)
+let lastTake = "";
+function requestPrompt(dr) {
+  const lines = dr.map((d, i) => `${i + 1}. ${d.kind === "data_issue" ? "[Data looks wrong] " : ""}${d.stat}\n   Needed for: ${d.why || "-"}\n   Possible source: ${d.where_it_might_come_from || "unknown"}`);
+  return `Cupcake Index stat request (from Cupcake Analyst, ${new Date().toISOString().slice(0, 10)})
+
+A take I fact-checked needed data we don't have:
+"${lastTake.slice(0, 400)}"
+
+${lines.join("\n")}
+
+Please check whether a free source has this (nflverse, Pro Football Reference via nflverse, CollegeFootballData, ESPN). If it does, add it to the site as a Stats > Visualize stat group, check it against a second source, and then refresh the analyst so it can use it. For anything marked "data looks wrong", find out why and fix it. If there's no free source, tell me and add it to my Obsidian note as an idea.`;
+}
+$("req-copy").onclick = async () => {
+  const b = $("req-copy"), p = $("req-prompt");
+  try { await navigator.clipboard.writeText(p.textContent); b.textContent = "Copied"; }
+  catch { const s = getSelection(), rg = document.createRange(); rg.selectNodeContents(p); s.removeAllRanges(); s.addRange(rg); b.textContent = "Selected, copy it"; }
+  setTimeout(() => (b.textContent = "Copy request for Claude"), 2000);
+};
 $("replies").onclick = async (e) => {
   const b = e.target.closest("[data-copy]");
   if (!b) return;
@@ -552,7 +588,7 @@ function history() {
   $("hist-wrap").hidden = !h.length;
   $("hist").innerHTML = h.map((x, i) => `<button type="button" data-h="${i}">${esc(VLABEL[x.res?.verdict] || "")} · ${esc(x.take)}</button>`).join("");
 }
-$("hist").onclick = (e) => { const b = e.target.closest("[data-h]"); if (!b) return; const x = (store.get("analyst-history") || [])[+b.dataset.h]; if (x) { $("take").value = x.take === "(screenshot)" ? "" : x.take; render(x.res); } };
+$("hist").onclick = (e) => { const b = e.target.closest("[data-h]"); if (!b) return; const x = (store.get("analyst-history") || [])[+b.dataset.h]; if (x) { lastTake = x.take; $("take").value = x.take === "(screenshot)" ? "" : x.take; render(x.res); } };
 history();
 })();
 </script>
