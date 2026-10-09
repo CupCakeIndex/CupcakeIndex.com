@@ -2459,6 +2459,11 @@ const Live = (() => {
     } catch (e) { return fail("player", e); }
     if (my !== token) return;
     const a = bio.athlete;
+    // college seasons for the game log (NFL players): ESPN keeps those games under his college athlete id
+    const cseason = lg === "nfl" ? params.get("cseason") : null, cid = lg === "nfl" ? a.collegeAthlete?.id : null;
+    const cgl = cid ? await api(`${WEB("cfb")}/athletes/${encodeURIComponent(cid)}/gamelog${cseason ? `?season=${encodeURIComponent(cseason)}` : ""}`, 3600000).catch(() => null) : null;
+    if (my !== token) return;
+    const logGl = cseason && cgl ? cgl : gl, logLg = logGl === cgl ? "cfb" : lg;
     const facts = [
       a.position?.displayName, a.displayJersey,
       [a.displayHeight, a.displayWeight].filter(Boolean).join(", "),
@@ -2486,21 +2491,21 @@ const Live = (() => {
     const summary = sumStats.map((x) => `<div class="stat"><small>${esc(x.displayName)}</small><b>${esc(x.displayValue)}</b>${x.rankDisplayValue ? `<small class="muted">${esc(x.rankDisplayValue)}</small>` : ""}</div>`).join("");
 
     let log = "";
-    if (gl?.seasonTypes?.length) {
-      const groups = (gl.categories || []).map((c) => `<th colspan="${c.count}" class="grp">${esc(c.displayName)}</th>`).join("");
-      log = gl.seasonTypes.map((stp) => {
+    if (logGl?.seasonTypes?.length) {
+      const groups = (logGl.categories || []).map((c) => `<th colspan="${c.count}" class="grp">${esc(c.displayName)}</th>`).join("");
+      log = logGl.seasonTypes.map((stp) => {
         const evs = stp.categories.flatMap((c) => c.events || []);
         if (!evs.length) return "";
         const rows = evs.map((ev) => {
-          const m = gl.events?.[ev.eventId] || {};
+          const m = logGl.events?.[ev.eventId] || {};
           return `<tr><td>${esc(m.week ?? "")}</td>
             <td><span class="tm">${esc(m.atVs || "")} ${img(m.opponent?.logo, "xs")} ${esc(m.opponent?.abbreviation || "")}</span></td>
-            <td><a href="${link("game", ev.eventId)}"><span class="${m.gameResult === "W" ? "W" : m.gameResult === "L" ? "L" : ""}">${esc(m.gameResult || "")}</span> ${esc(m.score || "")}</a></td>
+            <td><a href="${link("game", ev.eventId, { league: logLg })}"><span class="${m.gameResult === "W" ? "W" : m.gameResult === "L" ? "L" : ""}">${esc(m.gameResult || "")}</span> ${esc(m.score || "")}</a></td>
             ${ev.stats.map((v) => `<td class="num">${esc(v)}</td>`).join("")}</tr>`;
         }).join("");
         const tot = stp.summary?.stats?.[0]?.stats;
         return `<h4>${esc(stp.displayName)}</h4><div class="table-wrap"><table class="box">
-          <thead>${groups ? `<tr><th colspan="3"></th>${groups}</tr>` : ""}<tr><th>Wk</th><th>Opp</th><th>Result</th>${(gl.labels || []).map((l) => `<th class="num">${esc(l)}</th>`).join("")}</tr></thead>
+          <thead>${groups ? `<tr><th colspan="3"></th>${groups}</tr>` : ""}<tr><th>Wk</th><th>Opp</th><th>Result</th>${(logGl.labels || []).map((l) => `<th class="num">${esc(l)}</th>`).join("")}</tr></thead>
           <tbody>${rows}${tot ? `<tr class="tot"><td colspan="3">Totals</td>${tot.map((v) => `<td class="num">${esc(v)}</td>`).join("")}</tr>` : ""}</tbody></table></div>`;
       }).join("");
     }
@@ -2509,7 +2514,8 @@ const Live = (() => {
     // every season of the career: ESPN lists them on the game log (e.g. 1985-2004 for Jerry Rice)
     const seasonF = (gl?.filters || []).find((f) => f.name === "season");
     const firstYear = a.debutYear || thisYear - 25;
-    const noLogs = !seasonF?.options?.length && a.active === false; // retired and ESPN has no game logs at all (pre-1990s careers)
+    const cYears = ((cgl?.filters || []).find((f) => f.name === "season")?.options || []).map((o) => +o.value);
+    const noLogs = !seasonF?.options?.length && a.active === false && !cYears.length; // retired and ESPN has no game logs at all (pre-1990s careers)
     const years = seasonF?.options?.length ? seasonF.options.map((o) => +o.value) : noLogs ? [] : Array.from({ length: thisYear - firstYear + 1 }, (_, i) => thisYear - i);
     const shown = +(season || seasonF?.value || gl?.requestedSeason?.year || thisYear);
     // years in the league: active players get ESPN's current count; retired ones get filled in from their career record below
@@ -2536,7 +2542,7 @@ const Live = (() => {
       ${summary ? `<div class="stats wide">${summary}</div>${caughtUp ? `<p class="note muted">Added up from his game-by-game stats, so it includes his latest game. Ranks come back once the overnight totals update.</p>` : ""}` : ""}
       <div id="career-slot"><div class="card muted">Loading stats by year…</div></div>
       <div class="card"><div class="sc-bar"><h3>Game log</h3>
-        <select id="pl-season"${noLogs ? ` class="hidden"` : ""}>${years.map((y) => `<option${y === shown ? " selected" : ""}>${y}</option>`).join("")}</select></div>
+        <select id="pl-season"${noLogs ? ` class="hidden"` : ""}>${years.filter((y) => !cYears.includes(y)).map((y) => `<option${!cseason && y === shown ? " selected" : ""}>${y}</option>`).join("")}${cYears.map((y) => `<option value="c${y}"${String(y) === cseason ? " selected" : ""}>${y} (college)</option>`).join("")}</select></div>
         ${log || (noLogs ? `<p class="muted">ESPN doesn't have game-by-game logs for this player's career. Season totals, where ESPN has them, are in Stats by year above.</p>` : shown < 2000 ? `<p class="muted">ESPN doesn't have game-by-game logs for ${shown} (older seasons are spotty before the late 1990s). Season totals are in Stats by year above.</p>`
           : `<p class="muted">No games logged for this season.</p>`)}</div>
       ${injInfo(inj) ? injCard(inj, a.id, fa ? "" : a.team?.id)
@@ -2545,7 +2551,7 @@ const Live = (() => {
     if (my === token) outlookInto(lg, id, $("#career-slot"), season ? null : gl).catch(() => {});
     const toInj = params.get("inj") && $("#pl-inj");
     if (toInj) pulse(toInj);
-    $("#pl-season").onchange = (e) => { location.hash = link("player", id, { season: e.target.value }); };
+    $("#pl-season").onchange = (e) => { const v = e.target.value; location.hash = link("player", id, v[0] === "c" ? { cseason: v.slice(1) } : { season: v }); };
     const careers = await careersP;
     if (my !== token) return;
     const cst = { cat: params.get("cat"), metric: params.get("metric"), align: params.get("align"), from: params.get("from"), to: params.get("to"), lvl: params.get("lvl") };
