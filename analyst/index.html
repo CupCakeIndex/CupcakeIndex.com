@@ -361,7 +361,8 @@ const TOOLS = [
   },
   {
     name: "leaderboard",
-    description: "Rank players or teams by one stat for a season or week range. Stats: any column name (pass_yds, rush_td, tackles, def_sacks, pressure, pts, opp_pts, opp_short_yds...) or a rate: " + Object.keys(RATES).join(", ") + ", passer_rating, passer_rating_vs_blitz (players); " + Object.keys(TEAM_RATES).join(", ") + " (teams). Positions: QB RB WR TE K OL, or defense groups EDGE IDL LB CB S. include: names or player_ids/team names to always show. rookies_only / max_year_in_league filter players by experience. season_to: pool every season from season to season_to (e.g. season 2006, season_to 2026, weeks_to 4 = every team's first 4 games since 2006); NFL teams go back to 2006, players to 2022.",
+    // keep under 1 KB (the platform's limit for a tool description); the stat names are listed in the prompt
+    description: "Rank players or teams by one stat (a column name or a rate listed in the instructions) for a season or week range. Positions: QB RB WR TE K OL, or EDGE IDL LB CB S. include: names, player_ids or teams to always show. rookies_only / max_year_in_league filter by experience. season_to pools every season from season to season_to (season 2006, season_to 2026, weeks_to 4 = every team's first 4 games since 2006); NFL teams go back to 2006, players to 2022.",
     inputSchema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, season: { type: "integer" }, season_to: { type: "integer" }, scope: { type: "string", enum: ["players", "teams"] }, stat: { type: "string" }, position: { type: "string" }, per_game: { type: "boolean" }, weeks_from: { type: "integer" }, weeks_to: { type: "integer" }, top: { type: "integer" }, min_games: { type: "integer" }, rookies_only: { type: "boolean" }, max_year_in_league: { type: "integer" }, include: { type: "array", items: { type: "string" } } }, required: ["league", "season", "scope", "stat"] },
     async execute(a) {
       await base();
@@ -471,7 +472,8 @@ NFL extras: offensive linemen (snaps, penalties), penalties for every player, QB
 
 How to work:
 1. Pull out each checkable claim. Use the tools to get the real numbers: find_player before player_stats; leaderboard to put a number in context (rank among peers); team_stats and our_rankings for teams, schedules and cupcake padding; team_status for injuries and starters. For "worst/best since <year>" claims use leaderboard with season and season_to. Make several calls in one round when you can.
-2. Only state numbers that came from a tool result. Never use numbers from memory. If our data can't answer a claim (injuries, contracts, career totals before our seasons, play-by-play detail we don't have, other sports), mark that claim "cant_check" and say what's missing.
+2. Only state numbers that came from a tool result. Never use numbers from memory. If our data can't answer a claim (contracts, career totals before our seasons, play-by-play detail we don't have, other sports), mark that claim "cant_check" and say what's missing.
+Leaderboard stats: any column name (pass_yds, rush_td, tackles, def_sacks, pressure, pen, snaps, pts, opp_pts, opp_short_yds...) or a rate. Player rates: ${Object.keys(RATES).join(", ")}, passer_rating, passer_rating_vs_blitz. Team rates: ${Object.keys(TEAM_RATES).join(", ")}.
 3. Look for the classic flaws: tiny sample, cherry-picked week range, counting stat vs rate stat, ignoring opponent quality (use our rankings and cupcake data), ignoring games missed, comparing different positions or eras, correlation sold as cause.
 4. No betting content: no spreads, lines, odds or picks. A win chance from our_rankings is fine.
 
@@ -546,7 +548,7 @@ $("check").onclick = async () => {
     store.set("analyst-history", [{ take: take || "(screenshot)", res, at: Date.now() }, ...h].slice(0, 12));
     history();
   } catch (e) {
-    if (e?.code !== "cancelled") showErr(ERR[e?.code] || "Something went wrong reaching Claude. Tap Check it to try again.");
+    if (e?.code !== "cancelled") showErr(ERR[e?.code] || `Something went wrong reaching Claude${e?.code ? ` (${e.code})` : ""}. Tap Check it to try again.`);
     else say("Stopped.");
   } finally {
     clearInterval(tick); $("check").textContent = "Check it"; $("check").disabled = false; $("stop").hidden = true;
