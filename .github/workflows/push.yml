@@ -1,8 +1,9 @@
 name: Alerts
 
 # Phone/browser alerts (Settings > Alerts on the site) for the teams each person follows: "Kickoff soon",
-# every score change, and the final. Plus the Saturday-night "Pick'em locks tonight" reminder.
-# Bully of the Week and breaking-news alerts go out from bully.yml, social.yml and news.yml, right after their X posts.
+# every score change, and the final; injury status changes and the daily (10 AM Eastern) injury report.
+# Plus the Saturday-night "Pick'em locks tonight" reminder.
+# Bully of the Week alerts go out from bully.yml and social.yml right after their X posts; breaking news from news.yml.
 # See src/push.py. Every 5 minutes during the season (GitHub's shortest, and it sometimes runs late);
 # with no game about to start, on or just finished, a run is over in a few seconds.
 # Run it by hand: Actions > Alerts > Run workflow ("test" sends a test alert to every device).

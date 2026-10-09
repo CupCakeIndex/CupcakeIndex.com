@@ -1,4 +1,4 @@
-// Alerts (web push), Settings > Alerts: final scores for your teams, Bully of the Week, the Saturday Pick'em
+// Alerts (web push), Settings > Alerts: game alerts and injury news for your teams, Bully of the Week, the Saturday Pick'em
 // reminder and breaking news. Works in the browser on Android and computers, and on iPhone from the home-screen
 // app (iOS 16.4+). No sign-in needed: turning alerts on saves this device's push address, your teams and your
 // choices in Firestore at push/<id> (id = a hash of the address); src/push.py (GitHub Actions) reads them and sends.
@@ -6,8 +6,8 @@
 const Push = (() => {
   const KEY = "push-alerts"; // this device only (not synced to the account): {on, id, topics, sig}
   const VAPID = "BCoYCwq981pDksYrHkFcp_geF-yiXs1uJcDTgMOXtPmGf4ksXSrtq5Ay1RT__PWl-H750UWSgFfPaZXzf8V109s";
-  const TOPICS = [["start", "Kickoff: my teams' games are about to start"], ["score", "Score updates during my teams' games"], ["final", "Final scores for my teams"], ["bully", "Bully of the Week"], ["picks", "Pick'em reminder (Saturday night, before picks lock)"], ["news", "Breaking news (3 a day at most)"]];
-  const DEFAULT = { start: true, score: true, final: true, bully: true, picks: true, news: false };
+  const TOPICS = [["start", "Kickoff: my teams' games are about to start"], ["score", "Score updates during my teams' games"], ["final", "Final scores for my teams"], ["injury", "Injury updates for my teams (when a player is ruled out, upgraded or cleared)"], ["injreport", "Daily injury report for my teams (10 AM Eastern)"], ["bully", "Bully of the Week"], ["picks", "Pick'em reminder (Saturday night, before picks lock)"], ["news", "Breaking news"]];
+  const DEFAULT = { start: true, score: true, final: true, injury: true, injreport: false, bully: true, picks: true, news: false };
   const ASKED = "push-asked"; // the one-time "Turn on alerts?" prompt was shown on this device
   let status = "", busy = false;
 

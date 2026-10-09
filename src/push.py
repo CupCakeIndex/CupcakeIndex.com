@@ -9,11 +9,17 @@ Alerts for the teams you follow (push.yml, every 5 minutes during the season):
     start   "Kickoff soon": ~15 minutes before the game (or at kickoff, if GitHub ran late)
     score   every score change: "Alabama touchdown · ALA 14, AUB 7 · 4:12 - 2nd" (extra points ride along with the next update)
     final   the final score and both records
-For everyone who wants them: bully (Bully of the Week, from the X post), picks (Saturday-night Pick'em reminder), news.
+    injury  a player's status changes on ESPN's injury report ("Jayden Daniels (QB): Questionable → Active (good to go)")
+    injreport  the team's whole injury report, once a day (10 AM Eastern), for people who opt in
+For everyone who wants them: bully (Bully of the Week, from the X post), picks (Saturday-night Pick'em reminder),
+news (every headline breaking.py counts as big news, from news.yml every half hour; not only the 3 a day that go to X).
+No daily limit on any alert: each one goes out once, however many there are.
 
     python src/push.py auto                       # push.yml: game alerts + the Saturday Pick'em reminder
     python src/push.py auto --dry                 # what it would send right now (every game, not just followed ones)
     python src/push.py picks --force              # the Pick'em reminder, whatever the time
+    python src/push.py auto --report --dry        # also show today's injury reports, whatever the time
+    python src/push.py news                       # news.yml: breaking-news alerts
     python src/push.py post --meta out/social/today.json   # Bully of the Week / breaking news, from the X post just made
     python src/push.py test                       # a test alert to every device (Actions > Alerts > Run workflow)
     python src/push.py announce                   # the new-features alert in ANNOUNCE below, once, to every device
@@ -35,6 +41,7 @@ import datetime as dt
 import hashlib
 import json
 import os
+import re
 import sys
 from zoneinfo import ZoneInfo
 
@@ -48,10 +55,12 @@ ESPN = {"nfl": "https://site.api.espn.com/apis/site/v2/sports/football/nfl",
         "cfb": "https://site.api.espn.com/apis/site/v2/sports/football/college-football"}
 ET = ZoneInfo("America/New_York")
 KEEP_DAYS = 21
-MAX_NEWS_PER_DAY = 3      # breaking news alerts: same as the X posts (breaking.py: big news only, 3 a day)
 FINAL_HOURS = 8           # a game that kicked off longer ago than this is old news (GitHub skipped runs)
 SOON_MIN = 20             # "Kickoff soon" when the game starts within this many minutes
 GAME_TOPICS = ("start", "score", "final")
+INJ_STATE = f"{DOCS}/pushstate/injuries"   # every listed player's last status: {"nfl:4426348": "Questionable"}
+INJ_FRESH_HOURS = 12      # a status change ESPN logged longer ago than this is learned quietly (no alert)
+REPORT_HOUR = 10          # the daily injury report goes out in this hour, Eastern
 # New-features alert (Actions > Alerts > Run workflow > announce). Each key goes out once; change the key for the next one.
 ANNOUNCE = {"key": "announce:2026-10-06-visualize", "title": "New: make your own charts",
             "body": "Stats > Visualize: chart any stat, any team or player, any weeks. EPA, depth chart roles (WR1, WR2...), radar profiles and more.",
@@ -83,9 +92,6 @@ class Log:
 
     def add(self, key, extra=""):
         self.new[fid(key)] = f"{self.today}|{extra}"
-
-    def count_today(self, extra):
-        return sum(1 for v in {**self.f, **self.new}.values() if v == f"{self.today}|{extra}")
 
     def last_score(self, game):
         v = self._get(fid(game, "s"))
@@ -279,6 +285,126 @@ def game_items(games, followed, log):
     return items
 
 
+# ---------- injuries (ESPN's injury report) ----------
+STATUS_ORDER = ["Out", "Doubtful", "Questionable", "Injured Reserve", "Physically Unable to Perform", "Suspension"]
+SHORT_STATUS = {"Injured Reserve": "IR", "Physically Unable to Perform": "PUP"}
+
+
+def ago(iso, now):
+    """How long ago an ESPN timestamp was (a very long time if it can't be read)."""
+    try:
+        return now - dt.datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return dt.timedelta(days=999)
+
+
+def injuries():
+    """[{lg, team, tid, players: [{id, name, short, pos, status, date, note}]}], both leagues. Empty if ESPN is down."""
+    out = []
+    for lg, base in ESPN.items():
+        try:
+            teams = requests.get(f"{base}/injuries", timeout=30).json().get("injuries", [])
+        except (requests.RequestException, ValueError) as e:
+            print(f"{lg} injury report unavailable: {e}")
+            continue
+        for t in teams:
+            players = []
+            for i in t.get("injuries", []):
+                a = i.get("athlete", {})
+                link = next((m.group(1) for l in a.get("links", []) for m in [re.search(r"/id/(\d+)", l.get("href", ""))] if m), None)
+                aid = a.get("id") or link
+                if aid and i.get("status"):
+                    players.append({"id": str(aid), "name": a.get("displayName", ""), "short": a.get("shortName") or a.get("displayName", ""),
+                                    "pos": (a.get("position") or {}).get("abbreviation", ""), "status": i["status"],
+                                    "date": i.get("date", ""), "note": " ".join((i.get("shortComment") or "").split())})
+            out.append({"lg": lg, "team": t.get("displayName", ""), "tid": str(t.get("id", "")), "players": players})
+    return out
+
+
+def inj_state(s):
+    """The statuses seen last run, or None the very first time (then everything is learned and nothing is sent)."""
+    if s is None:
+        return {}
+    r = s.get(INJ_STATE, timeout=30)
+    if r.status_code == 404:
+        return None
+    r.raise_for_status()
+    return json.loads(r.json().get("fields", {}).get("j", {}).get("stringValue", "{}"))
+
+
+def save_inj_state(s, state):
+    if s is not None:
+        body = {"fields": {"j": {"stringValue": json.dumps(state, separators=(",", ":"))}}}
+        s.patch(INJ_STATE, json=body, timeout=30).raise_for_status()
+
+
+def injury_items(reports, state):
+    """Alerts for players whose status changed (or who just landed on the report), and the new state."""
+    now = dt.datetime.now(dt.timezone.utc)
+    items, new = [], {}
+    for t in reports:
+        for p in t["players"]:
+            k = f"{t['lg']}:{p['id']}"
+            new[k] = p["status"]
+            old = state.get(k)
+            if old == p["status"] or (old is None and p["status"] == "Active"):
+                continue
+            if ago(p["date"], now) > dt.timedelta(hours=INJ_FRESH_HOURS):  # old news (the job was off): just learn it
+                continue
+            who = f"{p['name']} ({p['pos']})" if p["pos"] else p["name"]
+            st = "Active (good to go)" if p["status"] == "Active" else p["status"]
+            items.append((f"inj:{k}:{p['status']}:{p['date']}", "injury", {f"{t['lg']}:{t['tid']}"},
+                          {"title": f"{who}: {old} → {st}" if old else f"{who}: {st}",
+                           "body": f"{t['team']}. {p['note']}".strip()[:240], "tag": f"inj-{k}",
+                           "url": f"/#/team/{t['tid']}?league={t['lg']}&tab=roster&hl={p['id']}"}, ""))
+    return items, new
+
+
+def report_items(reports, day):
+    """The daily injury report: one alert per team, for teams with someone on it."""
+    now = dt.datetime.now(dt.timezone.utc)
+    items = []
+    for t in reports:
+        groups = {}
+        for p in t["players"]:
+            if p["status"] != "Active" or ago(p["date"], now) <= dt.timedelta(hours=24):  # Active = back to full go in the last day
+                groups.setdefault(p["status"], []).append(p["short"])
+        if not groups:
+            continue
+        order = [k for k in STATUS_ORDER if k in groups] + sorted(k for k in groups if k not in STATUS_ORDER and k != "Active")
+        parts = []
+        for k in order:
+            names = groups[k]
+            if k in SHORT_STATUS and len(names) > 3:
+                parts.append(f"{SHORT_STATUS[k]}: {len(names)} players")
+            else:
+                parts.append(f"{SHORT_STATUS.get(k, k)}: {', '.join(names[:6])}{f' +{len(names) - 6} more' if len(names) > 6 else ''}")
+        if "Active" in groups:
+            parts.append(f"Good to go: {', '.join(groups['Active'][:6])}")
+        items.append((f"injreport:{day}:{t['lg']}:{t['tid']}", "injreport", {f"{t['lg']}:{t['tid']}"},
+                      {"title": f"{t['team']} injury report", "body": " ".join(x if x.endswith(".") else x + "." for x in parts),  # "D. Wise Jr." gets no second dot
+                       "tag": f"injreport-{t['lg']}-{t['tid']}", "url": f"/#/team/{t['tid']}?league={t['lg']}&tab=roster"}, ""))
+    return items
+
+
+def news_items(log):
+    """Every fresh headline breaking.py counts as big news (not only the 3 a day it posts to X).
+    The same team + kind of story on the same or the next day (ESPN and PFT writing up the same thing) goes out once."""
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "social"))
+    import breaking
+    today = dt.date.today()
+    items = []
+    for it in breaking.candidates():
+        key = "news:" + it["url"].split("?")[0]
+        same = [f"newsk:{it['kind']}:{it['teams'][0]}:{d.isoformat()}" for d in (today, today - dt.timedelta(days=1))]
+        if log.has(key) or any(log.has(x) for x in same):
+            continue
+        log.add(same[0])
+        url = "/#/news?all=1&story=" + quote(it["url"].split("?")[0], safe="")  # the News tab, with this story pinned on top
+        items.append((key, "news", None, {"title": "Breaking", "body": breaking.text_for(it).lstrip("🚨 "), "url": url, "tag": "news"}, ""))
+    return items
+
+
 def picks(force=False):
     now = dt.datetime.now(ET)
     if not force and not (now.weekday() == 5 and 21 <= now.hour <= 22):  # Saturday 9-11 PM Eastern; picks lock at 11:59
@@ -303,20 +429,13 @@ def from_post(meta_path, log):
         return [(m.get("key") or f"bully:{lg}:{dt.date.today().isocalendar()[1]}", "bully", None,
                  {"title": f"{'College' if lg == 'cfb' else 'NFL'} Bully of the Week", "body": text,
                   "url": f"/#/rankings?league={lg}", "tag": f"bully-{lg}"}, "")]
-    if day == "news":  # breaking.py
-        if log.count_today("news") >= MAX_NEWS_PER_DAY:
-            print("Already sent the most news alerts for today.")
-            return []
-        story = (m.get("key") or "")[5:] if (m.get("key") or "").startswith("news:") else ""
-        url = "/#/news?all=1" + (f"&story={quote(story, safe='')}" if story else "")  # the News tab, with this story pinned on top
-        return [(m.get("key") or f"news:{text[:80]}", "news", None,
-                 {"title": "Breaking", "body": text.lstrip("🚨 "), "url": url, "tag": "news"}, "news")]
-    return []
+    return []  # breaking news alerts come from news_items() (push.py news), not from the X post
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("what", choices=["auto", "picks", "post", "test", "list", "announce"])
+    ap.add_argument("what", choices=["auto", "news", "picks", "post", "test", "list", "announce"])
+    ap.add_argument("--report", action="store_true", help="auto: the daily injury reports, whatever the time")
     ap.add_argument("--meta", help="post: the X post's meta file (out/social/today.json)")
     ap.add_argument("--force", action="store_true", help="picks: send the reminder whatever the time")
     ap.add_argument("--dry", action="store_true", help="show what would be sent, send nothing")
@@ -343,7 +462,7 @@ def main():
             for d in devs:  # which push service (web.push.apple.com = iPhone/Mac Safari, fcm = Chrome/Android, windows/mozilla = Edge/Firefox), never the address itself
                 host = d["endpoint"].split("/")[2] if d["endpoint"].count("/") > 2 else "?"
                 print(f"   {host}: teams {len(d['teams'])}, alerts {', '.join(sorted(d['topics'])) or 'none'}")
-            for t in (*GAME_TOPICS, "bully", "picks", "news"):
+            for t in (*GAME_TOPICS, "injury", "injreport", "bully", "picks", "news"):
                 print(f"   {t}: {sum(t in d['topics'] for d in devs)}")
         else:
             n = send(s, devs, {"title": "Cupcake Index test alert", "body": "If you can read this, alerts work. 🧁", "url": "/#/settings", "tag": "test"})
@@ -356,11 +475,38 @@ def main():
         now = dt.datetime.now(dt.timezone.utc)
         hot = [g for g in games if live_window(*g, now)]
         print(f"{len(games)} games today, {len(hot)} starting soon, on or just finished")
-        if hot or picks(a.force):
+        # injuries: status changes since the last run, and the daily report in the REPORT_HOUR (once a day)
+        reports, state = injuries(), inj_state(s)
+        inj, new_state = injury_items(reports, state or {})
+        if state is None:
+            inj = []  # the very first run: learn the whole report quietly
+        got = {t["lg"] for t in reports}  # a league ESPN didn't answer for keeps its old statuses
+        new_state = {k: v for k, v in (state or {}).items() if k.split(":")[0] not in got} | new_state
+        et, report, loaded = dt.datetime.now(ET), [], False
+        if a.report or et.hour == REPORT_HOUR:
             if s is not None:
-                devs, log = devices(s), Log(s)
+                log, loaded = Log(s), True
+            if a.report or not log.has(f"injreport:{et.date()}"):
+                report = report_items(reports, et.date().isoformat())
+                log.add(f"injreport:{et.date()}")
+        print(f"{len(inj)} injury status change(s), {len(report)} team injury report(s)")
+        if hot or picks(a.force) or inj or report:
+            if s is not None:
+                devs = devices(s)
+                if not loaded:
+                    log = Log(s)
             followed = None if a.dry else {t for d in devs if d["topics"] & set(GAME_TOPICS) for t in d["teams"]}
-            items = (game_items(hot, followed, log) if followed is None or followed else []) + picks(a.force)
+            items = (game_items(hot, followed, log) if hot and (followed is None or followed) else []) + picks(a.force) + inj + report
+        elif loaded:
+            log.save()  # the report hour came with nothing to report: don't look again today
+        if s is not None and reports and new_state != state:
+            save_inj_state(s, new_state)
+    elif a.what == "news":
+        if s is not None:
+            log = Log(s)
+        items = news_items(log)
+        if items and s is not None:
+            devs = devices(s)
     elif a.what == "picks":
         items = picks(a.force)
         if s is not None:
