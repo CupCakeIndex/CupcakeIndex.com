@@ -61,7 +61,7 @@ details summary { cursor: pointer; color: var(--dim); font-size: 12px }
 .reply-chart { min-width: 0 }
 .card { grid-template-columns: minmax(0, 1fr) }
 .reply-chart svg { width: 100%; height: auto; display: block; border-radius: 4px }
-textarea.note-box { min-height: 64px }
+textarea.note-box { min-height: 88px }
 .opt { text-transform: none; letter-spacing: 0; font-weight: 400 }
 .req { margin: 0; white-space: pre-wrap; font: 12px/1.5 var(--mono); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 10px; max-height: 220px; overflow: auto }
 .err { color: var(--bad); font-size: 13px; margin: 0 }
@@ -90,6 +90,8 @@ textarea.note-box { min-height: 64px }
       <label class="btn" id="shot-btn" hidden>Add screenshot<input type="file" id="shot" accept="image/*" hidden></label>
       <button type="button" id="stop" hidden>Stop</button>
       <label class="note"><input type="checkbox" id="deep"> Think harder (slower)</label>
+      <label class="note"><input type="checkbox" id="sarcasm"> Sarcasm</label>
+      <label class="note"><input type="checkbox" id="humor"> Humor</label>
     </div>
     <div class="log" id="log" aria-live="polite"></div>
     <p class="err" id="err" hidden></p>
@@ -567,7 +569,7 @@ Charts: one to post with each reply. "agree" shows the numbers that back the tak
 - scatter (two stats against each other, e.g. EPA per play vs points per game for every team): "points": [{"label": "WAS", "x": 0.05, "y": 24.1, "highlight": true}], 8-32 points, plus "x_label" and "y_label".
 - pie (shares of one whole, e.g. where a team's yards or touchdowns came from): "items" as for bar, 2-8 positive values.
 - radar (a profile of 1-3 players or teams on 4-8 stats): "axes": ["EPA/dropback", "YPA", ...], "series": [{"name": "Daniels", "values": [percentiles 0-100 vs his position, from the ranks you pulled], "highlight": true}].
-Keep labels short (team abbreviations or last names). Replies: aim for under 280 characters so the whole reply shows without "Show more" (Terry has X Premium, so up to 600 is allowed when the receipt truly needs it), no links, no hashtags, confident and a little dry, lead with the number. If the take is plainly right, the pushback reply can add the nuance instead. Keep evidence tight: one or two sentences per claim.`;
+Keep labels short (team abbreviations or last names). Replies: aim for under 280 characters so the whole reply shows without "Show more" (Terry has X Premium, so up to 600 is allowed when the receipt truly needs it), no links, no hashtags, tone as set in REPLY TONE below, lead with the number. If the take is plainly right, the pushback reply can add the nuance instead. Keep evidence tight: one or two sentences per claim.`;
 }
 
 // ------------------------------------------------------------------ UI
@@ -604,6 +606,21 @@ $("shot-clear").onclick = () => { setImage(null); $("shot").value = ""; };
 document.addEventListener("paste", (e) => { const f = [...(e.clipboardData?.files || [])].find((x) => x.type.startsWith("image/")); if (f && !$("shot-btn").hidden) { e.preventDefault(); setImage(f); } });
 $("stop").onclick = () => ctl?.abort();
 
+// reply tone: Sarcasm / Humor switches (remembered on this device). They change the two reply drafts only;
+// the verdict, claims and numbers always stay straight.
+for (const id of ["sarcasm", "humor"]) {
+  $(id).checked = !!store.get("analyst-" + id);
+  $(id).onchange = () => store.set("analyst-" + id, $(id).checked);
+}
+function toneRule() {
+  const s = $("sarcasm").checked, h = $("humor").checked;
+  const tone = s && h ? "Sarcastic AND funny: deadpan mock-sincerity plus a real joke or comparison (a cupcake/bakery jab when it fits). Roast the take, never the person."
+    : s ? "Sarcastic: deadpan, mock-sincere, eye-roll energy (\"Bold strategy, ignoring the 4 games he missed\"). Roast the take, never the person."
+    : h ? "Funny, not mean: a light joke, playful comparison or football reference (a cupcake/bakery jab when it fits) wrapped around the number."
+    : "Straight: confident and a little dry, no jokes.";
+  return `REPLY TONE (applies to the two reply drafts only; verdict, claims, evidence and numbers stay plain and exact): ${tone} The number still comes first and stays exactly right. No insults about anyone's looks, family or identity, no slurs, nothing a brand account would regret.`;
+}
+
 const ERR = { not_granted: "Claude access wasn't allowed for this page. Reload and allow it to run checks.", sampling_disabled: "Claude isn't available on this account right now.", rate_limited: "You've hit a Claude usage limit. Try again a bit later.", session_expired: "Sign in to Claude again, then retry.", image_rejected: "That image didn't work. Try a PNG or JPG screenshot.", refused: "Claude wouldn't check that one. Try rewording the take.", invalid_json: "The answer came back garbled. Tap Check it to try again.", prompt_too_large: "Too much data came back. Try a narrower take (one player or one team).", tools_unavailable: "This Claude app can't run the stat lookups. Try claude.ai in a browser." };
 
 $("check").onclick = async () => {
@@ -618,7 +635,8 @@ $("check").onclick = async () => {
   try {
     await base();
     const input = rules() + "\n\nTHE TAKE:\n" + (take || "(see the screenshot)") + (image ? "\n\nA screenshot of the post is attached; read the take (and any numbers in it) from the image." : "")
-      + (note ? "\n\nTERRY'S NOTE (context or clarification from Terry, not part of the take; follow it when you check and write the replies):\n" + note : "");
+      + (note ? "\n\nTERRY'S NOTE (context or clarification from Terry, not part of the take; follow it when you check and write the replies):\n" + note : "")
+      + "\n\n" + toneRule();
     const res = await sample.json(input, { tools: TOOLS, signal: ctl.signal, modelTier: $("deep").checked ? "complex" : "default", ...(image ? { images: [image] } : {}) });
     if (!res || typeof res !== "object" || !res.verdict) throw { code: "invalid_json" };
     say(`Done in ${Math.round((Date.now() - t0) / 1000)}s`);
