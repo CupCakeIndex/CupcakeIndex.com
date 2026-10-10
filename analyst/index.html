@@ -354,6 +354,12 @@ const TOOLS = [
         rank_among_position: ranks, ranks_note: `Ranked among ${grp || "all"} players with ${Math.ceil(maxG / 2)}+ games; rate stats also need 35% of the leader's volume.` };
       if (grp === "OL") out.ol_note = "Offensive linemen: we have snaps and penalties called on him only. Pressures/sacks allowed by a lineman aren't in any free source.";
       if (m[5]) out.draft = m[5];
+      // season pace, like the site's Projected tab ("when: pace"): his per-game average times a full regular season
+      if (Number(a.season) === seasons(lg)[0]) {
+        const full = lg === "nfl" ? 17 : 12, keep = ["pass_yds", "pass_td", "int", "rush_yds", "rush_td", "rec", "rec_yds", "rec_td", "tackles", "def_sacks", "tfl", "def_int", "pd", "pressure", "fg_made"];
+        out.season_pace = Object.fromEntries(keep.filter((k) => me.sum[k]).map((k) => [k, Math.round((me.sum[k] / me.games) * full)]));
+        out.season_pace_note = `Per-game average x ${full} games (the site's Projected tab, "season pace"); assumes he plays every game left.`;
+      }
       if (a.by_week) {
         const opp = Object.fromEntries(D.trows.map((r) => [`${r[0]}|${r[1]}`, D.teams[r[2]]?.[1] || r[2]]));
         const show = ["cmp", "att", "pass_yds", "pass_td", "int", "carries", "rush_yds", "rush_td", "rec", "targets", "rec_yds", "rec_td", "tackles", "def_sacks", "def_int", "pass_epa"];
@@ -441,6 +447,64 @@ const TOOLS = [
     },
   },
   {
+    name: "scatter_data",
+    description: "Two stats for every team (or the top players at a position) in one call: the data for a scatter chart (offense vs defense, volume vs efficiency, record vs cupcake score...). Stats are the same names leaderboard takes; for teams also our model's rank, rating, sos and cupcake.",
+    inputSchema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, season: { type: "integer" }, scope: { type: "string", enum: ["players", "teams"] }, x_stat: { type: "string" }, y_stat: { type: "string" }, position: { type: "string" }, weeks_from: { type: "integer" }, weeks_to: { type: "integer" }, top: { type: "integer" } }, required: ["league", "season", "scope", "x_stat", "y_stat"] },
+    async execute(a) {
+
+      const MODEL = { rank: (t) => t.rank, rating: (t) => t.rating, sos: (t) => t.scores?.sos, cupcake: (t) => t.scores?.cupcake };
+      say(`Pulling ${a.x_stat} vs ${a.y_stat}`);
+      const pull = async (stat) => {
+        if (a.scope === "teams" && MODEL[stat]) {
+          const all = (await base())[String(a.league)];
+          return new Map(all.teams.map((t) => [norm(t.team), { name: t.team, value: MODEL[stat](t) }]));
+        }
+        const D = await load(String(a.league), Number(a.season)), teams = a.scope === "teams", rates = teams ? TEAM_RATES : RATES;
+        const agg = teams ? aggTeams(D, a) : aggPlayers(D, a);
+        let pool = [...agg.entries()].map(([id, o]) => ({ id, o, g: teams ? o.sum.games : o.games }));
+        if (!teams && a.position) { const want = String(a.position).toUpperCase(); pool = pool.filter((p) => posGroup(D.pmeta[p.id]) === want || (D.pmeta[p.id]?.[1] || "").toUpperCase() === want); }
+        if (!teams) { // the regulars: most volume at the position
+          const vol = (p) => p.o.sum.att + p.o.sum.carries + p.o.sum.targets + p.o.sum.tackles + (p.o.sum.snaps || 0) / 10 || 0;
+          pool = pool.sort((x, y) => vol(y) - vol(x)).slice(0, Math.min(Number(a.top) || 24, 32));
+        }
+        const val = (p) => teams ? (rates[stat] ? rate(p.o.sum, rates[stat]) : r1((p.o.sum[stat] || 0) / p.g, 2)) : statValue(p.o, stat, false, rates);
+        return new Map(pool.map((p) => { const nm = teams ? D.teams[p.id]?.[0] : D.pmeta[p.id]?.[0]; return [teams ? norm(nm) : p.id, { name: nm, short: teams ? D.teams[p.id]?.[1] : nm.split(" ").slice(-1)[0], value: val(p) }]; }));
+      };
+      const [X, Y] = await Promise.all([pull(String(a.x_stat)), pull(String(a.y_stat))]);
+      const pts = [];
+      for (const [k, x] of X) { const y = Y.get(k) || [...Y.values()].find((v) => norm(v.name) === norm(x.name)); if (y && x.value != null && y.value != null) pts.push({ label: x.short || y.short || x.name, name: x.name, x: x.value, y: y.value }); }
+      if (pts.length < 3) throw new Error("Not enough overlap between those two stats (check the stat names, position or weeks).");
+      return { x_stat: a.x_stat, y_stat: a.y_stat, x_lower_is_better: LOWER_BETTER.has(String(a.x_stat)), y_lower_is_better: LOWER_BETTER.has(String(a.y_stat)), note: a.scope === "teams" ? "teams: per game unless a rate" : "season totals unless a rate", points: pts };
+    },
+  },
+  {
+    name: "site_tab",
+    description: "Our site's live Stats tabs (NFL): 'injuries' = Injuries tab, every team's % healthy (weighted by who is hurt; rank 1 = most banged up), key players out and the report; 'frauds' = Frauds tab, skill players furthest below ESPN's weekly projections (score = % below); 'over_achievers' = the same list flipped. Optional team or position (QB RB WR TE).",
+    inputSchema: { type: "object", properties: { tab: { type: "string", enum: ["injuries", "frauds", "over_achievers"] }, team: { type: "string" }, position: { type: "string" }, top: { type: "integer" } }, required: ["tab"] },
+    async execute(a) {
+      const S = (await base()).site || {}, top = Math.min(Number(a.top) || 10, 25);
+      say(`Checking our ${a.tab === "injuries" ? "Injuries" : a.tab === "frauds" ? "Frauds" : "Over-achievers"} tab`);
+      if (a.tab === "injuries") {
+        const I = S.injuries;
+        if (!I) throw new Error("No Injuries tab snapshot in this data.");
+        const all = I.teams.map(({ hurt, ...t }) => t);
+        if (a.team) {
+          const q = norm(a.team), t = I.teams.find((x) => norm(x.team).split(" ").includes(q) || norm(x.team).includes(q));
+          if (!t) throw new Error(`No team matching "${a.team}".`);
+          return { as_of: I.as_of, ...t, of: I.teams.length, league_average_health: r1(all.reduce((s, x) => s + x.health, 0) / all.length, 1), how: "% healthy weighs who is hurt: a starting QB counts about 10x a punter; Out/IR = all of it, Doubtful 3/4, Questionable 1/4." };
+        }
+        return { as_of: I.as_of, most_banged_up: all.slice(0, top), healthiest: all.slice(-5).reverse() };
+      }
+      const F = S.frauds;
+      if (!F) throw new Error("No Frauds tab snapshot in this data.");
+      let list = F.players;
+      if (a.position) list = list.filter((p) => p.pos === String(a.position).toUpperCase());
+      if (a.team) { const q = norm(a.team); list = list.filter((p) => norm(p.team) === q || norm(p.name).includes(q)); }
+      if (a.tab === "over_achievers") list = [...list].reverse();
+      return { season: F.season, through_week: F.through_week, how: "score = weighted % below ESPN's weekly projections in the games he played (negative = beating them).", players: list.slice(0, top) };
+    },
+  },
+  {
     name: "team_status",
     description: "NFL only: a team's latest injury report (player, position, injury, game status like Out/Questionable/Doubtful, practice participation) and its current depth chart (starter and backup at each spot, e.g. QB, LT, LG, C, RG, RT). Use it for 'who is the starter', 'is he hurt', 'who replaced him' questions.",
     inputSchema: { type: "object", properties: { team: { type: "string" } }, required: ["team"] },
@@ -479,7 +543,7 @@ Today is ${new Date().toISOString().slice(0, 10)}. Our data: weekly stats for NF
 NFL extras: offensive linemen (snaps, penalties), penalties for every player, QB pressured % and bad throws (PFR charting), QB splits vs the blitz and team blitz rate (FTN charting), team passing allowed by depth (short = 5 air yards or less, deep = 20+) and YAC allowed, team missed tackles. Not in any free source we use: pressures/sacks allowed by individual linemen, pass-rush snaps, a QB's completions when pressured. Charting services (PFF, TruMedia, NGS) define blitzes and pressures differently, so expect small gaps vs their numbers and say so instead of calling the take wrong over a few percent.
 
 How to work:
-1. Pull out each checkable claim. Use the tools to get the real numbers: find_player before player_stats; leaderboard to put a number in context (rank among peers); team_stats and our_rankings for teams, schedules and cupcake padding; team_status for injuries and starters. For "worst/best since <year>" claims use leaderboard with season and season_to. Make several calls in one round when you can.
+1. Pull out each checkable claim. Use the tools to get the real numbers: find_player before player_stats; leaderboard to put a number in context (rank among peers); team_stats and our_rankings for teams, schedules and cupcake padding; team_status for injuries and starters. Our site's own tabs are worth citing because they're ours: site_tab "injuries" (every team's % healthy; use it for any take about a team being banged up, healthy, or excused by injuries), site_tab "frauds"/"over_achievers" (players vs their weekly projections; use it for "overrated", "bust", "breakout", fantasy takes), player_stats season_pace (the Projected tab; use it for "on pace for" takes), and scatter_data (the Visualize scatter: two stats for every team or the top players at a position in one call). In replies you can name them ("our injury tracker has WAS at 55% healthy, worst in the league"); no links. For "worst/best since <year>" claims use leaderboard with season and season_to. Make several calls in one round when you can.
 2. Only state numbers that came from a tool result. Never use numbers from memory. If our data can't answer a claim (contracts, career totals before our seasons, play-by-play detail we don't have, other sports), mark that claim "cant_check" and say what's missing.
 Leaderboard stats: any column name (pass_yds, rush_td, tackles, def_sacks, pressure, pen, snaps, pts, opp_pts, opp_short_yds...) or a rate. Player rates: ${Object.keys(RATES).join(", ")}, passer_rating, passer_rating_vs_blitz. Team rates: ${Object.keys(TEAM_RATES).join(", ")}.
 3. Look for the classic flaws: tiny sample, cherry-picked week range, counting stat vs rate stat, ignoring opponent quality (use our rankings and cupcake data), ignoring games missed, comparing different positions or eras, correlation sold as cause.
@@ -497,7 +561,7 @@ Reply with ONLY one JSON object, no other text:
 
 data_requests: one entry for every claim you marked cant_check because our DATA lacks something (not for opinions or things no stat can settle), plus "data_issue" entries when a tool result looks wrong or incomplete (e.g. a starter showing 1 game or very few snaps). Empty list if nothing was missing.
 
-Charts: one to post with each reply. "agree" shows the numbers that back the take, "pushback" the numbers that cut against it (a different stat or framing, not the same chart twice). Use null only when nothing you pulled can make that side's point. CHART = {"type": "bar" | "line" | "scatter" | "pie" | "radar", "title": "short title", "unit": "what the numbers are", "lower_is_better": false, "source": "weeks/season covered, short", ...the fields for its type}. Pick the type that makes the point best, use only numbers you actually pulled, and highlight the player or team in the take (highlight: true):
+Charts: one to post with each reply. "agree" shows the numbers that back the take, "pushback" the numbers that cut against it (a different stat or framing, not the same chart twice). Use null only when nothing you pulled can make that side's point. CHART = {"type": "bar" | "line" | "scatter" | "pie" | "radar", "title": "short title", "unit": "what the numbers are", "lower_is_better": false, "source": "weeks/season covered, short", ...the fields for its type}. Pick the type that makes the point best and don't default to bar: when a take is about two qualities (good offense but bad defense, volume vs efficiency, record vs schedule or cupcake score, health vs record) use a scatter from scatter_data; a trend over weeks is a line; a profile is a radar. The two charts should usually be different types. Use only numbers you actually pulled, and highlight the player or team in the take (highlight: true):
 - bar (a ranking or comparison): "items": [{"label": "Giants", "value": 0.8, "highlight": true}], 4-12 items, sorted.
 - line (a trend week by week or season by season; use player_stats by_week or team_stats games): "x_labels": ["Wk 1", "Wk 2", ...], "series": [{"name": "Daniels", "values": [0.12, -0.05, null, ...], "highlight": true}], 1-6 series, values line up with x_labels (null = no game), optional "x_label"/"y_label".
 - scatter (two stats against each other, e.g. EPA per play vs points per game for every team): "points": [{"label": "WAS", "x": 0.05, "y": 24.1, "highlight": true}], 8-32 points, plus "x_label" and "y_label".

@@ -82,6 +82,14 @@ def main():
     out["viz"] = json.load(open(os.path.join(DATA, "viz", "index.json"), encoding="utf-8"))
     hist = os.path.join(OUT, "hist")
     out["hist"] = {"nfl": sorted(int(f[4:8]) for f in os.listdir(hist) if f.startswith("nfl_"))} if os.path.isdir(hist) else {"nfl": []}
+    # the site's live Stats tabs (Injuries % healthy, Frauds / Over-achievers), same math as the site (src/site_tabs.py)
+    import site_tabs
+    out["site"] = {}
+    for k, fn in (("injuries", site_tabs.injuries), ("frauds", site_tabs.frauds)):
+        try:
+            out["site"][k] = fn()
+        except Exception as e:
+            print(f"  ! site tab {k} unavailable ({e})")
     try:
         out["status"] = {"nfl": nfl_status()}
     except Exception as e:  # nflverse down: the page just says it has no injury/depth data
