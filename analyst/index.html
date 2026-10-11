@@ -677,11 +677,17 @@ for (const id of ["sarcasm", "humor"]) {
 }
 function toneRule() {
   const s = $("sarcasm").checked, h = $("humor").checked;
-  const tone = s && h ? "Sarcastic AND funny: deadpan mock-sincerity plus a real joke or comparison (a cupcake/bakery jab when it fits). Roast the take, never the person."
-    : s ? "Sarcastic: deadpan, mock-sincere, eye-roll energy (\"Bold strategy, ignoring the 4 games he missed\"). Roast the take, never the person."
-    : h ? "Funny, not mean: a light joke, playful comparison or football reference (a cupcake/bakery jab when it fits) wrapped around the number."
+  // no quoted example lines here: Claude copies them word for word into every reply
+  const tone = s && h ? "Sarcastic AND funny: deadpan mock-sincerity plus a real joke or comparison that comes from this take's details. Roast the take, never the person."
+    : s ? "Sarcastic: deadpan and mock-sincere, the joke comes from the specific thing the take ignores (the games he missed, the soft schedule, the 2-week sample). Roast the take, never the person."
+    : h ? "Funny, not mean: a light joke, playful comparison or football reference built from this take's details and wrapped around the number."
     : "Straight: confident and a little dry, no jokes.";
-  return `REPLY TONE (applies to the two reply drafts only; verdict, claims, evidence and numbers stay plain and exact): ${tone} The number still comes first and stays exactly right. No insults about anyone's looks, family or identity, no slurs, nothing a brand account would regret.`;
+  // recent drafts (this device): their openings go in the prompt so new replies don't start the same way
+  const recent = (store.get("analyst-history") || []).slice(0, 8).flatMap((x) => [x.res?.replies?.agree, x.res?.replies?.pushback])
+    .filter(Boolean).map((r) => r.split(/\s+/).slice(0, 7).join(" "));
+  return `REPLY TONE (applies to the two reply drafts only; verdict, claims, evidence and numbers stay plain and exact): ${tone} The number still comes first and stays exactly right. No insults about anyone's looks, family or identity, no slurs, nothing a brand account would regret.
+NO STOCK REPLY LINES: never use "bold" in any form (bold take, bold strategy, bold claim), "hot take", "spicy", "interesting take", "respectfully", "let's be real", "the numbers say otherwise", "the receipts", "imagine", "tell me you... without telling me", "not the flex you think", or a cupcake/bakery joke unless the take is about a soft schedule. Write each reply fresh from this take's specifics. The two drafts must open differently: different first word, different sentence shape.`
+    + (recent.length ? `\nRecent replies Terry already has started like this. Don't reuse these openings or their signature phrases:\n${recent.map((r) => "- " + r + "...").join("\n")}` : "");
 }
 
 const ERR = { not_granted: "Claude access wasn't allowed for this page. Reload and allow it to run checks.", sampling_disabled: "Claude isn't available on this account right now.", rate_limited: "You've hit a Claude usage limit. Try again a bit later.", session_expired: "Sign in to Claude again, then retry.", image_rejected: "That image didn't work. Try a PNG or JPG screenshot.", refused: "Claude wouldn't check that one. Try rewording the take.", invalid_json: "The answer came back garbled. Tap Check it to try again.", prompt_too_large: "Too much data came back. Try a narrower take (one player or one team).", tools_unavailable: "This Claude app can't run the stat lookups. Try claude.ai in a browser." };
