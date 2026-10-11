@@ -345,6 +345,7 @@ const Viz = (() => {
       ["Best defenses (EPA per play allowed)", T_({ type: "bar", stat: "def_epa_play", top: "15" })],
       ["Turnover margin", T_({ type: "bar", stat: "to_margin", per: "total", top: "all" })],
       ["NFL-wide by week: penalties per game, season vs season", T_({ type: "line", scope: "league", stat: "pen" })],
+      ["NFL-wide by season: penalties per game since 1999", T_({ type: "bar", scope: "league", stat: "pen", from: "1999", to: "" })],
       ["Team profiles (radar)", T_({ type: "radar", top: "3" })],
       ["Top passers (EPA per dropback)", P_({ type: "bar", stat: "epa_db", pos: "QB", top: "15" })],
       ["QB efficiency vs volume", P_({ type: "scatter", stat: "epa_db", y: "pass_yds", pos: "QB", top: "all" })],
@@ -427,7 +428,7 @@ const Viz = (() => {
     // add up every season in the span (the same weeks in each)
     const agg = {};
     Ds.forEach((d) => {
-      const part = sum(d, who, w1, w2, st.type === "line");
+      const part = sum(d, who, w1, w2, st.type === "line" || st.scope === "league");
       for (const [k, o] of Object.entries(part)) {
         const a = agg[k] || (agg[k] = { S: {}, g: 0, wk: {}, team: o.team, seasons: {} });
         for (const c in o.S) a.S[c] = (a.S[c] || 0) + o.S[c];
@@ -491,7 +492,21 @@ const Viz = (() => {
     const weeksTxt = `${w1 > 1 || w2 < 99 ? `Weeks ${w1}–${D.bowls && w2 >= D.bowls ? "bowls" : Math.min(w2, maxWk)}` : league === "nfl" ? "Regular season" : "Full season incl. bowls"}`;
     const seasonTxt = multi ? `${st.from}–${st.to}` : st.to;
     const perTxt = (s) => (s[3].count && per === "game" ? " per game" : "");
-    const whole = st.type === "line" && who === "teams" && st.scope === "league"; // one line per season for the whole league
+    const whole = (st.type === "line" || st.type === "bar") && who === "teams" && st.scope === "league"; // the whole league: a line or a bar per season
+    const perTeam = stat[3].count ? per === "game" ? " per team per game" : " (all teams added up)" : "";
+    let partial = 0;
+    // the whole league (or division) week by week in one season: {week: {S: summed columns, n: team games}}. The week still
+    // being played (just Thursday night so far) is left out until most of its games are in.
+    const leagueWeeks = (d) => {
+      const out = {}, lastWk = Math.max(0, ...d.trows.map((r) => r[1]));
+      for (const k of keys) for (const [w, x] of Object.entries(agg[k].seasons[d.season]?.wk || {})) {
+        const o = out[w] || (out[w] = { S: {}, n: 0 });
+        o.n++; for (const c in x) o.S[c] = (o.S[c] || 0) + x[c];
+      }
+      const full = Math.max(0, ...Object.values(out).map((o) => o.n));
+      if (d.season === +idx[league]?.at(-1) && out[lastWk] && out[lastWk].n < full / 2) { delete out[lastWk]; partial++; }
+      return out;
+    };
     const lgTxt = league === "nfl" ? "NFL" : "College";
     let title = "", body = "", note = "";
     const sel = (id, opts, v) => `<select id="${id}">${opts.map(([k, l]) => `<option value="${esc(k)}"${String(k) === String(v) ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
@@ -510,7 +525,43 @@ const Viz = (() => {
     const showLogo = st.logo !== "0", showNames = st.names !== "0" || !showLogo; // something has to say who's who
     const redraw = () => chart?.draw();
     const drawLogo = (ctx, k, x, y, sz) => { const im = logoImg(teamOf(k), redraw); if (im) ctx.drawImage(im, x - sz / 2, y - sz / 2, sz, sz); return !!im; };
-    if (st.type === "bar") {
+    if (whole && st.type === "bar") { // one bar per season, the same weeks each year
+      const bars = Ds.map((d) => {
+        const L = leagueWeeks(d), S = {}; let n = 0;
+        for (const o of Object.values(L)) { n += o.n; for (const c in o.S) S[c] = (S[c] || 0) + o.S[c]; }
+        const v = n ? value(stat, S, n, per) : null;
+        return { s: d.season, v: v == null || Number.isNaN(v) ? null : v, wks: Object.keys(L).map(Number) };
+      });
+      const last = bars.length - 1, now = bars[last];
+      // the streak: how many seasons in a row the latest one keeps going the same way (up or down)
+      const dir = last > 0 && now.v != null && bars[last - 1].v != null ? Math.sign(now.v - bars[last - 1].v) : 0;
+      let streak = 0;
+      while (dir && streak < last && bars[last - streak].v != null && bars[last - streak - 1].v != null && Math.sign(bars[last - streak].v - bars[last - streak - 1].v) === dir) streak++;
+      const fade = (c, a) => (/^#[0-9a-f]{6}$/i.test(c) ? c + a : c);
+      const f2 = { 3: { ...stat[3], d: stat[3].count && per === "game" ? 2 : stat[3].d } }; // 7.52, not 7.5
+      title = `${stat[1]}${perTeam}, ${st.group || `${lgTxt}-wide`}, by season`;
+      cfg = { type: "bar", data: { labels: bars.map((b) => String(b.s)), datasets: [{ data: bars.map((b) => b.v),
+        backgroundColor: bars.map((b, i) => (i === last ? accent : i >= last - streak ? fade(accent, "8c") : fade(muted, "59"))), borderRadius: 3, borderSkipped: "bottom" }] },
+        options: { ...base, layout: { padding: { top: 22, right: 14 } }, plugins: { ...base.plugins, legend: { display: false }, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => fmt(f2, c.raw, per) } } },
+          scales: { ...base.scales, x: { ...base.scales.x, grid: { display: false } }, y: { ...base.scales.y, beginAtZero: true } } },
+        plugins: [{ id: "vzSeasons", afterDatasetsDraw(c) { // the number on top: every bar when there's room, else the streak, else just the latest (phones)
+          const { ctx } = c, pts = c.getDatasetMeta(0).data, gap = pts.length > 1 ? pts[1].x - pts[0].x : 99, roomy = gap >= 36;
+          ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillStyle = ink;
+          pts.forEach((b, i) => { const v = bars[i].v; if (v == null || !(roomy || i === last || (gap >= 30 && i >= last - streak))) return;
+            ctx.font = `${i === last ? "bold " : ""}10px JetBrains Mono`; ctx.fillText(fmt(f2, v, per), b.x, v < 0 ? b.base - 2 : b.y - 3); });
+          ctx.restore(); } }] };
+      body = { h: 380 };
+      const order = bars.filter((b) => b.v != null).sort((a, b) => b.v - a.v), place = order.indexOf(now) + 1;
+      const ord = (x) => x + ({ 1: "st", 2: "nd", 3: "rd" }[x % 100 > 10 && x % 100 < 14 ? 0 : x % 10] || "th");
+      const played = Math.max(0, ...now.wks), wkTip = multi && now.wks.length && w2 > played && bars.some((b) => Math.max(0, ...b.wks) > played);
+      note = `Each bar is one season: every ${st.group ? `${st.group} ` : ""}team's games in the weeks you picked added up${stat[3].count && per === "game" ? ", divided by the games played" : ""}.`
+        + (multi && now.v != null ? ` ${now.s}: ${fmt(f2, now.v, per)}, ${place === 1 ? "the highest" : `${ord(place)} highest`} of ${order.length} seasons.` : "")
+        + (streak >= 2 ? ` ${dir > 0 ? "Up" : "Down"} ${streak} seasons in a row (in orange).` : "")
+        + (wkTip ? ` ${now.s} has played ${played} weeks: set Weeks to ${now.wks[0] === 0 ? 0 : 1} to ${played} so every season covers the same weeks.` : "")
+        + (partial ? " A week with most of its games still to play is left out until it's done." : "")
+        + (multi ? "" : " Pick more seasons to compare years.");
+      body.table = [...bars].reverse().map((b) => [order.indexOf(b) + 1 || "–", String(b.s), fmt(f2, b.v, per)]);
+    } else if (st.type === "bar") {
       const list = rank(stat, qualify(stat));
       const shown = [...new Set([...list.slice(0, top), ...picks.filter((k) => list.includes(k))])];
       title = `${stat[1]}${perTxt(stat)}`;
@@ -532,21 +583,17 @@ const Viz = (() => {
       body = { h: Math.max(260, shown.length * 26 + 60) };
       note = `${list.length} ${who} ranked${stat[3].den ? ` (at least ${minFor(stat)} ${unitOf(stat)}${st.min === "" ? ", 35% of the leader's; change it with Minimum" : ""})` : ""}.`;
       body.table = shown.map((k, i) => [i + 1, k, fmt(stat, val(stat, k), st.per)]);
-    } else if (whole) { // the whole league (or division) added up week by week: one line per season
+    } else if (whole) { // line: one line per season, week by week
       const wks = [...new Set(Ds.flatMap((d) => d.trows.map((r) => r[1])))].filter((w) => w >= w1 && w <= w2).sort((a, b) => a - b);
       const bowls = Ds.find((d) => d.bowls)?.bowls;
-      title = `${stat[1]}${stat[3].count ? per === "game" ? " per team per game" : " (all teams added up)" : ""}, ${st.group || `${lgTxt}-wide`}, ${st.cum ? "adding up week by week" : "by week"}`;
-      let partial = 0;
+      title = `${stat[1]}${perTeam}, ${st.group || `${lgTxt}-wide`}, ${st.cum ? "adding up week by week" : "by week"}`;
       const sers = Ds.map((d) => {
-        const run = {}; let g = 0;
-        const games = (w) => keys.filter((k) => agg[k].seasons[d.season]?.wk[w]).length, full = Math.max(0, ...wks.map(games));
-        const lastWk = Math.max(0, ...d.trows.map((r) => r[1]));
+        const L = leagueWeeks(d), run = {}; let g = 0;
         return [String(d.season), wks.map((w) => {
-          const S = {}; let n = 0;
-          if (w === lastWk && d.season === +idx[league]?.at(-1) && games(w) && games(w) < full / 2) { partial++; return null; } // the week still being played (just Thursday night): left out
-          for (const k of keys) { const x = agg[k].seasons[d.season]?.wk[w]; if (!x) continue; n++; for (const c in x) S[c] = (S[c] || 0) + x[c]; }
-          if (st.cum && n) { g += n; for (const c in S) run[c] = (run[c] || 0) + S[c]; }
-          const v = n ? value(stat, st.cum ? run : S, st.cum ? g : n, per) : null; // no games that week (not played yet): no point
+          const o = L[w];
+          if (!o) return null; // no games that week (not played yet): no point
+          if (st.cum) { g += o.n; for (const c in o.S) run[c] = (run[c] || 0) + o.S[c]; }
+          const v = value(stat, st.cum ? run : o.S, st.cum ? g : o.n, per);
           return v == null || Number.isNaN(v) ? null : v;
         })];
       });
@@ -684,8 +731,8 @@ const Viz = (() => {
         <label>Seasons${who === "players" && idx.players?.[league] > (idx[league] || [])[0] ? ` <small class="muted">player stats start in ${idx.players[league]}</small>` : ""}<span class="vz-pair">${sel("vz-from", seasons.map((s) => [s, s]), st.from)}<i>to</i>${sel("vz-to", seasons.map((s) => [s, s]), st.to)}</span></label>
         <label>Weeks<span class="vz-pair">${sel("vz-wk1", wkOpts, st.wk1)}<i>to</i>${sel("vz-wk2", wkOpts, st.wk2)}</span></label>
         ${st.type === "pie" ? "" : `<label>Totals${seg("vz-per", [["game", "Per game"], ["total", "Total"]], st.per)}</label>`}
-        ${st.type === "bar" ? `<label>Show${seg("vz-order", [["best", "Best"], ["worst", "Worst"]], st.order)}</label>` : ""}
-        ${st.type === "line" && who === "teams" ? `<label>Lines${seg("vz-scope", [["", "Top teams"], ["league", `Whole ${league === "nfl" ? "NFL" : "league"}`]], st.scope)}</label>` : ""}
+        ${st.type === "bar" && !whole ? `<label>Show${seg("vz-order", [["best", "Best"], ["worst", "Worst"]], st.order)}</label>` : ""}
+        ${(st.type === "line" || st.type === "bar") && who === "teams" ? `<label>${st.type === "bar" ? "Bars" : "Lines"}${seg("vz-scope", [["", st.type === "bar" ? "Each team" : "Top teams"], ["league", `Whole ${league === "nfl" ? "NFL" : "league"}${st.type === "bar" ? " by season" : ""}`]], st.scope)}</label>` : ""}
         ${st.type === "line" && (!multi || whole) ? `<label>Line${seg("vz-cum", [["", "Each week"], ["1", whole && per === "game" ? "Running average" : "Running total"]], st.cum)}</label>` : ""}
         ${whole ? "" : `<label>How many${sel("vz-top", [...[5, 10, 15, 20, 25, 50, 100].map((x) => [x, `Top ${x}`]), ["all", "All"]], st.top)}</label>`}
         ${whole ? "" : stat[3].den && st.type !== "pie" || (st.type === "radar" && who === "players") ? `<label>Minimum <small class="muted">${esc(st.type === "radar" ? { QB: "pass attempts", RB: "carries", WR: "catches", DEF: "tackles", CB: "tackles", S: "tackles", K: "field goal tries" }[st.pos] || "touches" : unitOf(stat))}</small><input id="vz-min" type="number" min="0" inputmode="numeric" placeholder="auto ${st.type === "radar" ? "" : autoMin(stat)}" value="${esc(st.min)}"></label>` : ""}
@@ -706,7 +753,7 @@ const Viz = (() => {
         <div class="vz-mark">cupcakeindex.com · ${esc(league === "nfl" ? "data: nflverse" : "data: CollegeFootballData.com")}</div></div>
       ${seasonOnly ? `<p class="note">Our ratings and college PPA are season-long numbers (as of the latest rankings), so they ignore the weeks you picked.</p>` : ""}
       <div class="vz-actions">${Share.phone() && navigator.share ? "" : `<button class="btn" id="vz-png">Download picture</button>`}<button class="btn" id="vz-link">Copy link</button>${navigator.share ? `<button class="btn" id="vz-share">Share</button>` : ""}<button class="btn vz-reset" id="vz-reset">Start over</button></div>
-      ${body.table ? `<details class="vz-tbl"><summary>See the numbers</summary><table class="box"><tbody>${body.table.map(([i, k, v]) => `<tr><td class="num muted">${i}</td><td>${who === "players" && /^\d+$/.test(k) ? `<a href="#/player/${esc(k)}?league=${league}">${esc(name(k))}</a>` : who === "teams" ? `<a href="#/team/${esc(k.split(":")[1])}?league=${league}">${esc(name(k))}</a>` : esc(name(k))}</td><td class="num">${esc(v)}</td></tr>`).join("")}</tbody></table></details>` : ""}
+      ${body.table ? `<details class="vz-tbl"><summary>See the numbers</summary><table class="box"><tbody>${body.table.map(([i, k, v]) => `<tr><td class="num muted">${i}</td><td>${whole ? esc(k) : who === "players" && /^\d+$/.test(k) ? `<a href="#/player/${esc(k)}?league=${league}">${esc(name(k))}</a>` : who === "teams" ? `<a href="#/team/${esc(k.split(":")[1])}?league=${league}">${esc(name(k))}</a>` : esc(name(k))}</td><td class="num">${esc(v)}</td></tr>`).join("")}</tbody></table></details>` : ""}
       <p class="note">${st.role ? esc(`${st.role} = each team's ${(({ QB: "quarterback with the most pass attempts", RB: "back with the most carries + catches", WR: "wide receiver with the most targets", TE: "tight end with the most targets" })[st.role.slice(0, 2)]).replace("the most", st.role.endsWith("1") ? "the most" : `the ${{ 2: "2nd", 3: "3rd", 4: "4th" }[st.role.slice(2)]}-most`)} in the weeks you picked${league === "cfb" ? " (catches stand in for targets in college)" : ""}. `) : ""}${esc(note)} Source: ${esc(src)}. Rates are total ÷ total over the weeks you pick, not an average of weekly averages. Updated ${esc(new Date(D.updated).toLocaleDateString(undefined, { month: "short", day: "numeric" }))}.</p></div>`;
     function custom() { return st.radar ? st.radar.split(",") : who === "teams" ? RADAR.teams : RADAR.players[st.pos] || RADAR.players[""]; }
     function axes() { return custom().filter((k) => all.some((s) => s[0] === k)); }
@@ -791,6 +838,7 @@ const Viz = (() => {
       ...confs.map((c) => [c, league === "nfl" ? "Division" : "Conference", "group", () => { st.group = c; redo(); }]),
       ...[["bar", "Bar"], ["line", "Line"], ["pie", "Pie"], ["scatter", "Scatter"], ["radar", "Radar"]].map(([k, l]) => [`${l} chart`, "Chart type", "chart type", () => { st.type = k; st.radar = ""; redo(); }]),
       [`Whole ${lgTxt} by week`, "Line chart", "league wide nfl-wide trend week by week season vs season all teams", () => { setWho("teams"); st.type = "line"; st.scope = "league"; redo(); }],
+      [`Whole ${lgTxt} by season`, "Bar chart", "league wide nfl-wide trend year by year season vs season all teams history", () => { setWho("teams"); st.type = "bar"; st.scope = "league"; redo(); }],
     ];
     let qHits = [], qCur = -1;
     const qShow = () => {
@@ -874,7 +922,7 @@ const Viz = (() => {
         st.team && `Team: ${tm(st.team)[0]}`,
         st.role ? `Depth chart: ${st.role} (by use)` : st.pos && `Position: ${st.pos === "DEF" ? "Defense" : st.pos === "WR" ? "WR/TE" : st.pos}`,
         st.type === "bar" && `${st.order === "worst" ? "Worst" : "Top"} ${top}`,
-        whole ? `${st.group || "whole league"}, one line per season` : (st.type === "line" || st.type === "radar" || st.type === "pie") && !picks.length && `Top ${top}`,
+        whole ? `${st.group || "whole league"}, one ${st.type} per season` : (st.type === "line" || st.type === "radar" || st.type === "pie") && !picks.length && `Top ${top}`,
         picks.length && `Highlighted: ${picks.map(name).join(", ")}`,
         st.noexit && "games left by halftime left out",
         st.type === "line" && st.cum && "running total",
