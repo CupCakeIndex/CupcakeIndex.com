@@ -50,35 +50,36 @@
       2,
       3,
       4,
-      5
+      5,
+      6
      ],
      "accuracy": {
-      "games": 291,
-      "correct": 241,
+      "games": 345,
+      "correct": 273,
       "mae": 12.5,
       "vegas_su": {
-       "games": 291,
-       "correct": 247
+       "games": 345,
+       "correct": 282
       },
       "model_su_lined": {
-       "games": 291,
-       "correct": 241
+       "games": 345,
+       "correct": 273
       },
       "ats": {
-       "games": 285,
-       "correct": 145
+       "games": 336,
+       "correct": 177
       },
       "ats_strong": {
-       "games": 181,
-       "correct": 94
+       "games": 207,
+       "correct": 109
       },
-      "vegas_mae": 11.2
+      "vegas_mae": 11.4
      }
     }
    },
    "latest": {
     "season": 2026,
-    "week": 5
+    "week": 6
    },
    "factors": [
     {
@@ -127,14 +128,14 @@
     "cupcake": 5,
     "luck": 5
    },
-   "updated": "2026-10-06T13:22+00:00",
+   "updated": "2026-10-11T03:40+00:00",
    "modes": {
     "best": {
-     "power": 60,
+     "power": 55,
      "resume": 0,
      "efficiency": 30,
      "sos": 0,
-     "recent": 5,
+     "recent": 10,
      "cupcake": 5,
      "luck": 0
     },
@@ -143,19 +144,19 @@
      "sos": 25,
      "cupcake": 15
     },
-    "games": 934,
+    "games": 988,
     "accuracy": {
-     "best": 0.728051391862955,
-     "deserving": 0.6359743040685225,
-     "old_default": 0.7205567451820128,
-     "power_only": 0.7320471596998929
+     "best": 0.7236842105263158,
+     "deserving": 0.6346153846153846,
+     "old_default": 0.7125506072874493,
+     "power_only": 0.7223910840932117
     },
     "out_of_sample": {
      "trained_on": 2025,
      "tested_on": 2026,
-     "games": 220,
-     "best": 0.7636363636363637,
-     "old_default": 0.740909090909091
+     "games": 274,
+     "best": 0.7372262773722628,
+     "old_default": 0.708029197080292
     }
    }
   },
@@ -311,5 +312,5 @@
    }
   }
  },
- "updated": "2026-10-06T20:14+00:00"
+ "updated": "2026-10-11T03:40+00:00"
 }
