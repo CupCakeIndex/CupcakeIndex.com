@@ -214,7 +214,9 @@ const Viz = (() => {
 
   // ---------------------------------------------------------------- state (all in the link)
   const DEF = { who: "teams", type: "bar", stat: "epa_play", y: "pts", from: "", to: "", wk1: "", wk2: "", per: "game", top: "10",
-    group: "", team: "", pos: "", pick: "", order: "best", cum: "", scope: "", radar: "", logo: "", names: "", min: "", role: "", noexit: "", exp: "", draft: "" }; // logo/names: "" = on, "0" = off; min: "" = automatic
+    group: "", team: "", pos: "", pick: "", order: "best", cum: "", scope: "", radar: "", logo: "", names: "", min: "", role: "", noexit: "", exp: "", draft: "",
+    // Style and picture: scheme = colors, ttl/subt = your own title, bg/size = the downloaded picture; nums/grid/curve: "" = on, "0" = off; big/round: "1" = on
+    scheme: "", ttl: "", subt: "", bg: "", size: "", nums: "", grid: "", curve: "", big: "", round: "" }; // logo/names: "" = on, "0" = off; min: "" = automatic
   let st = { ...DEF };
   const save = () => {
     const q = new URLSearchParams({ league, show: "visualize" });
@@ -325,7 +327,7 @@ const Viz = (() => {
     const seasons = (idx[league] || []).filter((s) => st.who !== "players" || s >= pFrom);
     if (!seasons.length) { el.innerHTML = stSub() + `<div class="card">No chart data for ${league === "nfl" ? "the NFL" : "college"} yet. It's built every week with the rankings.</div>`; return; }
     if (!seasons.includes(+st.to)) st.to = String(seasons.at(-1));
-    if (!seasons.includes(+st.from) || +st.from > +st.to) st.from = +st.from < seasons[0] && +st.to >= seasons[0] ? String(seasons[0]) : st.to;
+    if (!seasons.includes(+st.from) || +st.from > +st.to) st.from = st.from && +st.from < seasons[0] && +st.to >= seasons[0] ? String(seasons[0]) : st.to; // players from a team-only season: their first season
     try { await Promise.all([loadChartJs(), loadLogos()]); } catch { el.innerHTML = stSub() + `<div class="card">Couldn't load the chart library. Check your connection and try again.</div>`; return; }
     const span = seasons.filter((s) => s >= +st.from && s <= +st.to);
     const Ds = (await Promise.all(span.map(file))).filter(Boolean);
@@ -484,11 +486,21 @@ const Viz = (() => {
     const top = st.top === "all" ? 9999 : +st.top || 10;
     const name = (k) => who === "players" ? meta(k)?.[0] || k : tm(k)[0];
     const short = (k) => who === "players" ? (meta(k)?.[0] || k).replace(/^(\S)\S*\s/, "$1. ") : tm(k)[1] || tm(k)[0];
-    const color = (k) => tm(teamOf(k))[2] || "#888";
-    const PAL = [accentOf(), "#4cc9f0", "#f72585", "#b5e48c", "#ffd166", "#9b5de5", "#00f5d4", "#ff8fab", "#90be6d", "#f4a261", "#577590", "#e9c46a"]; // lines, pie slices, radar: easy to tell apart
-    function accentOf() { return getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#ff6b2c"; }
     const css = getComputedStyle(document.body), C = (v) => css.getPropertyValue(v).trim();
-    const ink = C("--ink"), muted = C("--muted"), line = C("--line"), accent = C("--accent");
+    let ink = C("--ink"), muted = C("--muted"), line = C("--line"); // let: a light picture swaps them for a moment (picture())
+    const accent = C("--accent") || "#ff6b2c";
+    // Style > Colors: [name, highlight, color of every ordinary bar/dot (null = team colors), lines/pie/radar colors in order]
+    const SCHEMES = {
+      "": ["Site (team colors)", accent, null, [accent, "#4cc9f0", "#f72585", "#b5e48c", "#ffd166", "#9b5de5", "#00f5d4", "#ff8fab", "#90be6d", "#f4a261", "#577590", "#e9c46a"]],
+      mono: ["Gray + one highlight", accent, "#6e6e6e", [accent, "#d4d4d4", "#9c9c9c", "#747474", "#b8b8b8", "#5a5a5a"]],
+      ocean: ["Ocean", "#00c2ff", "#2b6f99", ["#00c2ff", "#4dd8c0", "#3d7bff", "#a3e9ff", "#2a9d8f", "#7a7fe0"]],
+      neon: ["Neon", "#39ff14", "#7b3cff", ["#39ff14", "#ff2bd6", "#00e5ff", "#fff200", "#ff7a00", "#b026ff"]],
+      sunset: ["Sunset", "#ffb703", "#a33a3a", ["#ffb703", "#fb8500", "#e63946", "#f4a261", "#ff5d8f", "#ffd6a5"]],
+    };
+    const [, hi, plain, PAL] = SCHEMES[st.scheme] || SCHEMES[""];
+    const color = (k) => plain || tm(teamOf(k))[2] || "#888";
+    const px = (n) => Math.round(n * (st.big ? 1.3 : 1)); // Bigger text
+    const gridOn = st.grid !== "0", numsOn = st.nums !== "0", tension = st.curve === "0" ? 0 : 0.25, radius = st.round ? 6 : 0;
     const weeksTxt = `${w1 > 1 || w2 < 99 ? `Weeks ${w1}–${D.bowls && w2 >= D.bowls ? "bowls" : Math.min(w2, maxWk)}` : league === "nfl" ? "Regular season" : "Full season incl. bowls"}`;
     const seasonTxt = multi ? `${st.from}–${st.to}` : st.to;
     const perTxt = (s) => (s[3].count && per === "game" ? " per game" : "");
@@ -519,8 +531,8 @@ const Viz = (() => {
     // the chart
     let cfg;
     const base = { responsive: true, maintainAspectRatio: false, animation: { duration: 250 }, devicePixelRatio: Math.max(3, window.devicePixelRatio || 1), // drawn at 3x: sharp on any screen and in the downloaded picture
-      plugins: { legend: { labels: { color: ink, font: { family: "JetBrains Mono", size: 11 } } }, tooltip: { titleFont: { family: "JetBrains Mono" }, bodyFont: { family: "JetBrains Mono" } } },
-      scales: { x: { ticks: { color: muted, font: { family: "JetBrains Mono", size: 10 } }, grid: { color: line } }, y: { ticks: { color: muted, font: { family: "JetBrains Mono", size: 10 } }, grid: { color: line } } } };
+      plugins: { legend: { labels: { color: ink, font: { family: "JetBrains Mono", size: px(11) } } }, tooltip: { titleFont: { family: "JetBrains Mono" }, bodyFont: { family: "JetBrains Mono" } } },
+      scales: { x: { ticks: { color: muted, font: { family: "JetBrains Mono", size: px(10) } }, grid: { color: line, display: gridOn } }, y: { ticks: { color: muted, font: { family: "JetBrains Mono", size: px(10) } }, grid: { color: line, display: gridOn } } } };
     const hl = (k) => picks.includes(k);
     const showLogo = st.logo !== "0", showNames = st.names !== "0" || !showLogo; // something has to say who's who
     const redraw = () => chart?.draw();
@@ -541,14 +553,14 @@ const Viz = (() => {
       const f2 = { 3: { ...stat[3], d: stat[3].count && per === "game" ? 2 : stat[3].d } }; // 7.52, not 7.5
       title = `${stat[1]}${perTeam}, ${st.group || `${lgTxt}-wide`}, by season`;
       cfg = { type: "bar", data: { labels: bars.map((b) => String(b.s)), datasets: [{ data: bars.map((b) => b.v),
-        backgroundColor: bars.map((b, i) => (i === last ? accent : i >= last - streak ? fade(accent, "8c") : fade(muted, "59"))), borderRadius: 3, borderSkipped: "bottom" }] },
+        backgroundColor: bars.map((b, i) => (i === last ? hi : i >= last - streak ? fade(hi, "8c") : plain || fade(muted, "59"))), borderRadius: radius, borderSkipped: "bottom" }] },
         options: { ...base, layout: { padding: { top: 22, right: 14 } }, plugins: { ...base.plugins, legend: { display: false }, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => fmt(f2, c.raw, per) } } },
           scales: { ...base.scales, x: { ...base.scales.x, grid: { display: false } }, y: { ...base.scales.y, beginAtZero: true } } },
         plugins: [{ id: "vzSeasons", afterDatasetsDraw(c) { // the number on top: every bar when there's room, else the streak, else just the latest (phones)
           const { ctx } = c, pts = c.getDatasetMeta(0).data, gap = pts.length > 1 ? pts[1].x - pts[0].x : 99, roomy = gap >= 36;
           ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillStyle = ink;
-          pts.forEach((b, i) => { const v = bars[i].v; if (v == null || !(roomy || i === last || (gap >= 30 && i >= last - streak))) return;
-            ctx.font = `${i === last ? "bold " : ""}10px JetBrains Mono`; ctx.fillText(fmt(f2, v, per), b.x, v < 0 ? b.base - 2 : b.y - 3); });
+          pts.forEach((b, i) => { const v = bars[i].v; if (!numsOn || v == null || !(roomy || i === last || (gap >= 30 && i >= last - streak))) return;
+            ctx.font = `${i === last ? "bold " : ""}${px(10)}px JetBrains Mono`; ctx.fillText(fmt(f2, v, per), b.x, v < 0 ? b.base - 2 : b.y - 3); });
           ctx.restore(); } }] };
       body = { h: 380 };
       const order = bars.filter((b) => b.v != null).sort((a, b) => b.v - a.v), place = order.indexOf(now) + 1;
@@ -565,17 +577,18 @@ const Viz = (() => {
       const list = rank(stat, qualify(stat));
       const shown = [...new Set([...list.slice(0, top), ...picks.filter((k) => list.includes(k))])];
       title = `${stat[1]}${perTxt(stat)}`;
-      cfg = { type: "bar", data: { labels: shown.map(short), datasets: [{ data: shown.map((k) => val(stat, k)), backgroundColor: shown.map((k) => hl(k) ? accent : color(k)),
+      cfg = { type: "bar", data: { labels: shown.map(short), datasets: [{ data: shown.map((k) => val(stat, k)), backgroundColor: shown.map((k) => hl(k) ? hi : color(k)), borderRadius: radius,
         borderColor: shown.map((k) => (hl(k) ? ink : "transparent")), borderWidth: 2 }] },
         options: { ...base, indexAxis: "y", layout: { padding: { right: 56 } }, plugins: { ...base.plugins, legend: { display: false }, tooltip: { ...base.plugins.tooltip, callbacks: { title: (c) => name(shown[c[0].dataIndex]), label: (c) => fmt(stat, c.raw, st.per) } } },
           scales: { ...base.scales, y: { ...base.scales.y, ticks: { ...base.scales.y.ticks, autoSkip: false, display: showNames, padding: showLogo ? 28 : 3 },
             afterFit: (sc) => { if (showLogo) sc.width = Math.max(sc.width, 30); } } } },
         plugins: [{ id: "vzBar", afterDatasetsDraw(c) { // logo by each name, the number at the end of each bar
           const { ctx, chartArea: a } = c;
-          ctx.save(); ctx.font = "bold 10px JetBrains Mono"; ctx.textBaseline = "middle";
+          ctx.save(); ctx.font = `bold ${px(10)}px JetBrains Mono`; ctx.textBaseline = "middle";
           c.getDatasetMeta(0).data.forEach((b, i) => {
             const v = c.data.datasets[0].data[i], sz = Math.min(20, b.height + 4);
             if (showLogo) drawLogo(ctx, shown[i], a.left - sz / 2 - 4, b.y, sz);
+            if (!numsOn) return;
             ctx.fillStyle = ink; ctx.textAlign = v < 0 ? "right" : "left";
             ctx.fillText(fmt(stat, v, st.per), b.x + (v < 0 ? -4 : 4), b.y);
           });
@@ -600,9 +613,9 @@ const Viz = (() => {
       const last = sers.length - 1;
       // many seasons: old to new runs from dim blue to the accent, so the color itself says the era
       const mix = (a, b, t) => "#" + [1, 3, 5].map((j) => Math.round(parseInt(a.slice(j, j + 2), 16) * (1 - t) + parseInt(b.slice(j, j + 2), 16) * t).toString(16).padStart(2, "0")).join("");
-      const shade = (i) => sers.length > 6 && /^#[0-9a-f]{6}$/i.test(accent) ? mix("#33415c", accent, i / last) : PAL[(last - i) % PAL.length];
+      const shade = (i) => sers.length > 6 && /^#[0-9a-f]{6}$/i.test(hi) ? mix("#33415c", hi, i / last) : PAL[(last - i) % PAL.length];
       cfg = { type: "line", data: { labels: wks.map((w) => (bowls && w >= bowls ? "Bowls" : `Wk ${w}`)), datasets: sers.map(([s, data], i) => ({ label: s, data,
-        borderColor: shade(i), backgroundColor: shade(i), borderWidth: i === last ? 3 : 2, pointRadius: sers.length > 6 ? 1.5 : 3, spanGaps: true, tension: 0.25 })) },
+        borderColor: shade(i), backgroundColor: shade(i), borderWidth: i === last ? 3 : 2, pointRadius: sers.length > 6 ? 1.5 : 3, spanGaps: true, tension })) },
         options: { ...base, plugins: { ...base.plugins, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${c.dataset.label}: ${fmt(stat, c.raw, per)}` } } } } };
       body = { h: 380 };
       note = `Each line is one season: every ${st.group ? `${st.group} ` : ""}team's games that week added up${stat[3].count && per === "game" ? ", then divided by the games played (bye weeks don't drag it down)" : ""}.${partial ? " A week with most of its games still to play is left out until it's done." : ""}${multi ? "" : " Pick more seasons to compare years."}`;
@@ -627,7 +640,7 @@ const Viz = (() => {
         };
       }
       cfg = { type: "line", data: { labels, datasets: sers.map((k, i) => ({ label: short(k), data: data(k), borderColor: PAL[i % PAL.length], backgroundColor: PAL[i % PAL.length],
-        borderWidth: hl(k) || i === 0 ? 3 : 2, pointRadius: 3, spanGaps: true, tension: 0.25 })) },
+        borderWidth: hl(k) || i === 0 ? 3 : 2, pointRadius: 3, spanGaps: true, tension })) },
         options: { ...base, layout: { padding: { right: showLogo ? 26 : 0 } }, plugins: { ...base.plugins, legend: { ...base.plugins.legend, display: showNames }, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${c.dataset.label}: ${fmt({ 3: { ...stat[3], count: 0 } }, c.raw)}` } } } },
         plugins: [{ id: "vzLine", afterDatasetsDraw(c) { // each line ends in its team's logo
           if (!showLogo) return;
@@ -667,7 +680,7 @@ const Viz = (() => {
       const avg = (a) => a.reduce((s, x) => s + x, 0) / (a.length || 1), mx = avg(pts.map((p) => p.x)), my = avg(pts.map((p) => p.y));
       const named = !showNames ? new Set() : pts.length <= 40 ? new Set(pts.map((p) => p.k)) : label; // every name when there's room
       cfg = { type: "scatter", data: { datasets: [{ data: pts, pointRadius: pts.map((p) => (showLogo ? 11 : hl(p.k) ? 7 : 5)), pointHoverRadius: showLogo ? 13 : 7,
-        pointBackgroundColor: pts.map((p) => (showLogo ? "transparent" : hl(p.k) ? accent : color(p.k))), pointBorderColor: pts.map((p) => (showLogo ? (hl(p.k) ? accent : "transparent") : ink)),
+        pointBackgroundColor: pts.map((p) => (showLogo ? "transparent" : hl(p.k) ? hi : color(p.k))), pointBorderColor: pts.map((p) => (showLogo ? (hl(p.k) ? hi : "transparent") : ink)),
         pointBorderWidth: pts.map((p) => (hl(p.k) ? 2 : showLogo ? 0 : 0.5)) }] },
         options: { ...base, layout: { padding: { right: 36, top: 8 } }, plugins: { ...base.plugins, legend: { display: false }, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${name(c.raw.k)}: ${fmt(stat, c.raw.x, st.per)}, ${fmt(ystat, c.raw.y, st.per)}` } } },
           scales: { x: { ...base.scales.x, reverse: !!stat[3].low, title: { display: true, text: stat[1] + perTxt(stat) + (stat[3].low ? " (better →)" : ""), color: muted } },
@@ -676,7 +689,7 @@ const Viz = (() => {
           const { ctx, chartArea: a, scales: { x, y } } = c;
           ctx.save(); ctx.setLineDash([4, 4]); ctx.strokeStyle = muted; ctx.lineWidth = 1;
           ctx.beginPath(); ctx.moveTo(x.getPixelForValue(mx), a.top); ctx.lineTo(x.getPixelForValue(mx), a.bottom); ctx.moveTo(a.left, y.getPixelForValue(my)); ctx.lineTo(a.right, y.getPixelForValue(my)); ctx.stroke();
-          ctx.setLineDash([]); ctx.font = "10px JetBrains Mono"; ctx.fillStyle = ink;
+          ctx.setLineDash([]); ctx.font = `${px(10)}px JetBrains Mono`; ctx.fillStyle = ink;
           c.getDatasetMeta(0).data.forEach((p, i) => {
             const sz = hl(pts[i].k) ? 26 : 20, logo = showLogo && drawLogo(ctx, pts[i].k, p.x, p.y, sz);
             if (showLogo && !logo) { ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, 7); ctx.fillStyle = color(pts[i].k); ctx.fill(); ctx.fillStyle = ink; } // no logo (an FCS team): a dot
@@ -701,12 +714,15 @@ const Viz = (() => {
       title = `${who === "teams" ? "Team" : "Player"} profiles (percentile among ${who}${st.pos ? ` at ${st.pos}` : ""})`;
       cfg = { type: "radar", data: { labels: axes.map((s) => s[1].replace(/ \(.+\)/, "")), datasets: sers.map((k, i) => ({ label: short(k), data: axes.map((s) => pctile(s, k)),
         borderColor: PAL[i % PAL.length], backgroundColor: PAL[i % PAL.length] + "33", borderWidth: 2, pointRadius: 2 })) },
-        options: { ...base, scales: { r: { min: 0, max: 100, ticks: { display: false, stepSize: 25 }, grid: { color: line }, angleLines: { color: line }, pointLabels: { color: ink, font: { family: "JetBrains Mono", size: 10 } } } },
+        options: { ...base, scales: { r: { min: 0, max: 100, ticks: { display: false, stepSize: 25 }, grid: { color: line }, angleLines: { color: line }, pointLabels: { color: ink, font: { family: "JetBrains Mono", size: px(10) } } } },
           plugins: { ...base.plugins, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${c.dataset.label}: ${axes[c.dataIndex][1]} ${fmt(axes[c.dataIndex], val(axes[c.dataIndex], sers[c.datasetIndex]), st.per)} (better than ${c.raw}%)` } } } } };
       body = { h: 440 };
       note = "100 = the best among everyone listed, 0 = the worst. Lower-is-better stats are flipped.";
     }
-    const sub = `${lgTxt} · ${seasonTxt} · ${weeksTxt}${st.group ? ` · ${st.group}` : ""}${st.team ? ` · ${tm(st.team)[0]}` : ""}${st.role ? ` · ${st.role}s` : st.pos ? ` · ${st.pos === "DEF" ? "Defense" : FINE[st.pos] || st.pos}` : ""}${who === "players" && st.exp ? ` · ${EXP.find(([k]) => k === st.exp)?.[1]}` : ""}${who === "players" && st.draft ? ` · ${st.draft === "U" ? "Undrafted" : `Drafted: ${DRAFT.find(([k]) => k === st.draft)?.[1]}`}` : ""}`;
+    const autoTitle = title;
+    if (st.ttl) title = st.ttl; // Style > Your title
+    const autoSub = `${lgTxt} · ${seasonTxt} · ${weeksTxt}${st.group ? ` · ${st.group}` : ""}${st.team ? ` · ${tm(st.team)[0]}` : ""}${st.role ? ` · ${st.role}s` : st.pos ? ` · ${st.pos === "DEF" ? "Defense" : FINE[st.pos] || st.pos}` : ""}${who === "players" && st.exp ? ` · ${EXP.find(([k]) => k === st.exp)?.[1]}` : ""}${who === "players" && st.draft ? ` · ${st.draft === "U" ? "Undrafted" : `Drafted: ${DRAFT.find(([k]) => k === st.draft)?.[1]}`}` : ""}`;
+    const sub = st.subt || autoSub;
     const src = league === "nfl" ? "nflverse play-by-play (EPA)" : "CollegeFootballData.com (box scores; PPA = college EPA, garbage time left out)";
     const seasonOnly = [stat, ystat].some((s) => s[3].season) && (w1 > 1 || w2 < 99);
 
@@ -748,6 +764,16 @@ const Viz = (() => {
         <label class="vz-wide vz-findwrap">Highlight / compare<input id="vz-find" placeholder="Type a ${who === "teams" ? "team" : "player"}…" autocomplete="off" spellcheck="false"><div class="vz-sugg" id="vz-sugg" hidden></div></label>
         <div class="vz-picks">${picks.map((k) => `<button data-k="${esc(k)}" title="Remove">${esc(name(k))} ×</button>`).join("")}</div>
       </div></details>
+      <details class="vz-more"${st.scheme || st.ttl || st.subt || st.bg || st.size || st.nums || st.grid || st.curve || st.big || st.round ? " open" : ""}><summary>Style and picture</summary><div class="vz-ctl">
+        <label>Colors${sel("vz-scheme", Object.entries(SCHEMES).map(([k, x]) => [k, x[0]]), st.scheme)}</label>
+        <label class="vz-wide">Your title<input id="vz-ttl" maxlength="80" placeholder="${esc(autoTitle)}" value="${esc(st.ttl)}" spellcheck="true"></label>
+        <label class="vz-wide">Your subtitle<input id="vz-subt" maxlength="100" placeholder="${esc(autoSub)}" value="${esc(st.subt)}" spellcheck="true"></label>
+        <label>Picture background${seg("vz-bg", [["", "Dark"], ["light", "Light"], ["clear", "See-through"]], st.bg)}</label>
+        <label>Picture size${sel("vz-size", [["", "Like the screen"], ["x", "X post (16:9)"], ["sq", "Square"], ["story", "Phone story (9:16)"]], st.size)}</label>
+        <div class="vz-chks">${[["nums", "Numbers on bars", 1], ["grid", "Gridlines", 1], ["curve", "Smooth lines", 1], ["round", "Rounded bars", 0], ["big", "Bigger text", 0]]
+          .map(([k, l, on]) => `<label><input type="checkbox" data-sty="${k}" data-on="${on}"${(on ? st[k] !== "0" : st[k]) ? " checked" : ""}> ${l}</label>`).join("")}</div>
+        <p class="muted vz-wide">Background and size are for Download picture and Share; the chart here stays as is.</p>
+      </div></details>
       <div class="vz-frame" id="vz-frame"><div class="vz-title"><b>${esc(title)}</b><small>${esc(sub)}</small></div>
         <div class="vz-canvas" style="height:${body.h}px"><canvas id="vz-chart"></canvas></div>
         <div class="vz-mark">cupcakeindex.com · ${esc(league === "nfl" ? "data: nflverse" : "data: CollegeFootballData.com")}</div></div>
@@ -768,7 +794,7 @@ const Viz = (() => {
     const redo = () => { if (st.who !== who) return reload(); save(); draw(el, seasons, Ds); }; // players and teams cover different seasons
     el.querySelectorAll(".vz-seg").forEach((g) => g.onclick = (e) => {
       const b = e.target.closest("button"); if (!b) return;
-      const k = { "vz-type": "type", "vz-who": "who", "vz-per": "per", "vz-order": "order", "vz-cum": "cum", "vz-scope": "scope" }[g.id];
+      const k = { "vz-type": "type", "vz-who": "who", "vz-per": "per", "vz-order": "order", "vz-cum": "cum", "vz-scope": "scope", "vz-bg": "bg" }[g.id];
       st[k] = b.dataset.v;
       if (k === "who") { st.pick = ""; st.team = ""; st.pos = ""; st.radar = ""; st.stat = b.dataset.v === "players" ? "scrim" : "epa_play"; st.y = b.dataset.v === "players" ? "tds" : "pts"; }
       if (k === "type") st.radar = "";
@@ -777,7 +803,9 @@ const Viz = (() => {
     const on = (id, k, again = redo) => { const x = document.getElementById(id); if (x) x.onchange = () => { st[k] = x.value; if (k === "pos") st.radar = ""; if (k === "stat" || k === "pos") st.min = ""; again(); }; };
     const mi = document.getElementById("vz-min");
     if (mi) mi.onchange = () => { st.min = mi.value === "" ? "" : String(Math.max(0, Math.round(+mi.value) || 0)); redo(); };
-    on("vz-role", "role");
+    on("vz-role", "role"); on("vz-scheme", "scheme"); on("vz-size", "size");
+    ["ttl", "subt"].forEach((k) => { const x = document.getElementById("vz-" + k); if (x) x.onchange = () => { st[k] = x.value.trim(); redo(); }; });
+    el.querySelectorAll("[data-sty]").forEach((x) => x.onchange = () => { st[x.dataset.sty] = +x.dataset.on ? (x.checked ? "" : "0") : (x.checked ? "1" : ""); redo(); });
     on("vz-stat", "stat"); on("vz-y", "y"); on("vz-wk1", "wk1"); on("vz-wk2", "wk2"); on("vz-top", "top"); on("vz-group", "group"); on("vz-team", "team"); on("vz-pos", "pos"); on("vz-exp", "exp"); on("vz-draft", "draft");
     on("vz-from", "from", reload); on("vz-to", "to", reload);
     const nx = document.getElementById("vz-noexit");
@@ -921,7 +949,7 @@ const Viz = (() => {
         st.group && (league === "nfl" ? "Division: " : "Conference: ") + st.group,
         st.team && `Team: ${tm(st.team)[0]}`,
         st.role ? `Depth chart: ${st.role} (by use)` : st.pos && `Position: ${st.pos === "DEF" ? "Defense" : st.pos === "WR" ? "WR/TE" : st.pos}`,
-        st.type === "bar" && `${st.order === "worst" ? "Worst" : "Top"} ${top}`,
+        st.type === "bar" && !whole && `${st.order === "worst" ? "Worst" : "Top"} ${top}`,
         whole ? `${st.group || "whole league"}, one ${st.type} per season` : (st.type === "line" || st.type === "radar" || st.type === "pie") && !picks.length && `Top ${top}`,
         picks.length && `Highlighted: ${picks.map(name).join(", ")}`,
         st.noexit && "games left by halftime left out",
@@ -938,24 +966,46 @@ const Viz = (() => {
       }
       return cur ? [...lines, cur] : lines;
     }
+    // Style > Picture: Dark (the card color), Light (white, dark text: the chart is redrawn in light colors for a moment)
+    // or See-through (no background, for dark posts); size: as on screen, or a fixed shape (the chart is laid out at that shape)
+    function recolor() {
+      const o = chart.options;
+      for (const sc of Object.values(o.scales || {})) {
+        if (sc.ticks) sc.ticks.color = muted; if (sc.grid) sc.grid.color = line; if (sc.title) sc.title.color = muted;
+        if (sc.pointLabels) sc.pointLabels.color = ink; if (sc.angleLines) sc.angleLines.color = line;
+      }
+      if (o.plugins?.legend?.labels) o.plugins.legend.labels.color = ink;
+      chart.update("none");
+    }
     async function picture() {
-      const cv = document.getElementById("vz-chart"), W = cv.width, H = cv.height, sc = W / cv.clientWidth, pad = 24 * sc, top = 70 * sc;
-      const probe = document.createElement("canvas").getContext("2d");
-      probe.font = `${10 * sc}px JetBrains Mono, monospace`;
-      const fine = wrap(probe, synopsis(), W);
-      const bot = 34 * sc + fine.length * 14 * sc + 6 * sc;
-      const out = document.createElement("canvas"); out.width = W + 2 * pad; out.height = H + top + bot;
+      const SIZES = { x: [1600, 900, 800], sq: [1350, 1350, 640], story: [1080, 1920, 420] }; // pixels wide, high, and the width it's laid out at
+      const size = SIZES[st.size], cv = document.getElementById("vz-chart"), box = cv.parentElement;
+      const was = [ink, muted, line, box.style.width, box.style.height];
+      if (st.bg === "light") { ink = "#141414"; muted = "#5c5c5c"; line = "#e4e4e4"; recolor(); }
+      const W = size ? size[0] : cv.width + 2 * 24 * (cv.width / cv.clientWidth), sc = size ? size[0] / size[2] : cv.width / cv.clientWidth, pad = 24 * sc;
+      const probe = document.createElement("canvas").getContext("2d"), font = (w, n) => `${w} ${n * sc}px JetBrains Mono, monospace`;
+      probe.font = font(700, 18); const tl = wrap(probe, title, W - 2 * pad);
+      probe.font = font(400, 12); const sl = wrap(probe, sub, W - 2 * pad);
+      probe.font = font(400, 10); const fine = wrap(probe, synopsis(), W - 2 * pad);
+      const top = (70 + (tl.length - 1) * 24 + (sl.length - 1) * 17) * sc, bot = (34 + fine.length * 14 + 6) * sc;
+      if (size) { box.style.width = `${(W - 2 * pad) / sc}px`; box.style.height = `${Math.max(120, (size[1] - top - bot) / sc)}px`; chart.resize(); chart.update("none"); }
+      const cw = W - 2 * pad, ch = size ? size[1] - top - bot : cv.height;
+      const out = document.createElement("canvas"); out.width = W; out.height = size ? size[1] : ch + top + bot;
       const x = out.getContext("2d");
-      x.fillStyle = C("--card") || "#111"; x.fillRect(0, 0, out.width, out.height);
+      if (st.bg !== "clear") { x.fillStyle = st.bg === "light" ? "#ffffff" : C("--card") || "#111"; x.fillRect(0, 0, out.width, out.height); }
       x.fillStyle = accent; x.fillRect(0, 0, out.width, 4 * sc);
-      x.fillStyle = ink; x.font = `700 ${18 * sc}px JetBrains Mono, monospace`; x.fillText(title, pad, 34 * sc);
-      x.fillStyle = muted; x.font = `${12 * sc}px JetBrains Mono, monospace`; x.fillText(sub, pad, 54 * sc);
-      x.drawImage(cv, pad, top);
-      x.fillStyle = muted; x.font = `${10 * sc}px JetBrains Mono, monospace`;
-      fine.forEach((line, i) => x.fillText(line, pad, top + H + 16 * sc + i * 14 * sc));
-      x.fillStyle = accent; x.font = `700 ${12 * sc}px JetBrains Mono, monospace`; x.fillText("CUPCAKE_INDEX", pad, out.height - 12 * sc);
-      x.fillStyle = muted; x.font = `${11 * sc}px JetBrains Mono, monospace`; x.textAlign = "right";
+      x.fillStyle = ink; x.font = font(700, 18); tl.forEach((t, i) => x.fillText(t, pad, (34 + i * 24) * sc));
+      x.fillStyle = muted; x.font = font(400, 12); sl.forEach((t, i) => x.fillText(t, pad, (54 + (tl.length - 1) * 24 + i * 17) * sc));
+      x.drawImage(cv, pad, top, cw, ch);
+      x.fillStyle = muted; x.font = font(400, 10);
+      fine.forEach((t, i) => x.fillText(t, pad, top + ch + 16 * sc + i * 14 * sc));
+      x.fillStyle = accent; x.font = font(700, 12); x.fillText("CUPCAKE_INDEX", pad, out.height - 12 * sc);
+      x.fillStyle = muted; x.font = font(400, 11); x.textAlign = "right";
       x.fillText(`cupcakeindex.com · ${league === "nfl" ? "data: nflverse" : "data: CollegeFootballData.com"}`, out.width - pad, out.height - 12 * sc);
+      // put the chart on the page back the way it was
+      [ink, muted, line] = was;
+      if (size) { box.style.width = was[3]; box.style.height = was[4]; chart.resize(); }
+      if (st.bg === "light" || size) recolor();
       return out;
     }
   }
