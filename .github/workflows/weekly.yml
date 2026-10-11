@@ -12,6 +12,10 @@ on:
     - cron: "27 7 * 11,12,1 0"
     # Sundays 11:23 UTC (7am Eastern): college only, a final pass with every Saturday game.
     - cron: "23 11 * 8-12,1 0"
+    # Sunday night, college only: picks up the new AP and Coaches polls (out Sunday afternoon; CFBD posts them a few hours later).
+    # 23:17 UTC = 7:17 PM EDT / 6:17 PM EST; 01:47 UTC Monday = 9:47 PM EDT / 8:47 PM EST Sunday (the backup try).
+    - cron: "17 23 * 8-12,1 0"
+    - cron: "47 1 * 8-12,1 1"
     # Mondays 13:07 UTC (9am Eastern), Aug-Jan only. Tuesday run picks up late stat corrections.
     # Minutes are off the top of the hour, when GitHub's scheduler is busiest (it skipped runs on Oct 4).
     - cron: "7 13 * 8-12,1 1"
