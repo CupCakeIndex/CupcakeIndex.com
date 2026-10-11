@@ -1,8 +1,8 @@
 """Stat posts for the X account: plain-English stats and "hot takes" about schedules and records.
 
 Each post is one stat anyone can follow (rushing yards, interceptions, who a team has actually beaten),
-a card with the leader's photo or logo and a top-5 bar chart, and tweet text. Hot takes end with a
-question to get replies. No links, no betting content, always 280 characters or fewer.
+a card with the leader's photo or logo and a top-5 bar chart, and tweet text. Hot takes end with our
+opinion (a statement, not a question; see the LLM Writing Tendencies note in Terry's vault). No links, no betting content, always 280 characters or fewer.
 Posting is done by post_to_x.py, same as the daily posts.
 
     python src/social/obscure.py                     # next stat in the rotation -> out/social/
@@ -236,7 +236,7 @@ def _():
                 "combined record of teams they've beaten",
                 f"{(f'AP #' + str(t['ap_rank']) + ' ') if t.get('ap_rank') else ''}{t['team']} is {t['record']}. The teams it has beaten are a combined {s}"
                 + (f", and {cups} of the wins came against cupcakes" if cups else "") + ".",
-                "Does a perfect record mean anything without a real test?", hot=True)
+                "Nobody has tested them yet.", hot=True)
 
 
 @stat("hot_cfb_beaten_nobody")
@@ -255,7 +255,7 @@ def _():
     return fact("cfb", "team", rows[:5], "Who have they beaten?", "AP Top 25 teams, by the combined record of the teams they've beaten",
                 "combined record of teams they've beaten",
                 f"AP #{t['ap_rank']} {t['team']} is {t['record']}. The teams it has beaten are a combined {s}.",
-                "Contender, or a résumé made of cupcakes?", hot=True)
+                "We'll believe it when they beat somebody good.", hot=True)
 
 
 @stat("hot_nfl_paper_record")
@@ -274,7 +274,7 @@ def _():
     return fact("nfl", "team", rows[:5], "Built on a soft schedule?", "Winning NFL teams, by the combined record of the teams they've beaten",
                 "combined record of teams they've beaten",
                 f"The {t['team']} are {t['record']}. The teams they've beaten are a combined {s}.",
-                "Real contender, or a soft schedule?", hot=True)
+                "We're not buying it yet.", hot=True)
 
 
 def schedule_left(league, top, hardest):
@@ -296,8 +296,8 @@ def _():
     t, _, s = r[0]
     return fact("cfb", "team", r, "The gauntlet ahead", "Our top 25, by the combined record of the opponents still on their schedule",
                 "combined record of opponents left",
-                f"No team in our top 25 has a tougher road left than #{t['power_rank']} {t['team']}: its remaining opponents are a combined {s}.",
-                "Who survives it?")
+                f"No team in our top 25 has a tougher road left than #{t['power_rank']} {t['team']}. Its remaining opponents are a combined {s}.",
+                None)
 
 
 @stat("cfb_easiest_left")
@@ -308,8 +308,8 @@ def _():
     t, _, s = r[0]
     return fact("cfb", "team", r, "Cruise control", "Our top 25, by the combined record of the opponents still on their schedule (easiest first)",
                 "combined record of opponents left",
-                f"#{t['power_rank']} {t['team']} has the easiest road left in our top 25: its remaining opponents are a combined {s}.",
-                "Should an easy path to the playoff count against them?", hot=True)
+                f"#{t['power_rank']} {t['team']} has the easiest road left in our top 25. Its remaining opponents are a combined {s}.",
+                "A path that soft should count against them.", hot=True)
 
 
 @stat("nfl_toughest_left")
@@ -320,7 +320,7 @@ def _():
     t, _, s = r[0]
     return fact("nfl", "team", r, "Brutal road ahead", "NFL teams, by the combined record of the opponents still on their schedule",
                 "combined record of opponents left",
-                f"The {t['team']} ({t['record']}) have the NFL's toughest schedule left: their remaining opponents are a combined {s}.")
+                f"The {t['team']} ({t['record']}) have the NFL's toughest schedule left. Their remaining opponents are a combined {s}.")
 
 
 @stat("nfl_easiest_left")
@@ -331,8 +331,8 @@ def _():
     t, _, s = r[0]
     return fact("nfl", "team", r, "Easy road ahead", "NFL teams, by the combined record of the opponents still on their schedule (easiest first)",
                 "combined record of opponents left",
-                f"The {t['team']} ({t['record']}) have the NFL's easiest schedule left: their remaining opponents are a combined {s}.",
-                "Playoff lock, or will they still find a way?", hot=True)
+                f"The {t['team']} ({t['record']}) have the NFL's easiest schedule left. Their remaining opponents are a combined {s}.",
+                "Anything short of the playoffs would be on them.", hot=True)
 
 
 @stat("hot_cfb_ap_overrated")
@@ -346,7 +346,7 @@ def _():
     return fact("cfb", "team", r, "The AP loves them. We don't.", "AP Top 25 teams we rank furthest below their poll spot",
                 "spots lower in our rankings",
                 f"{t['team']} ({t['record']}) is #{t['ap_rank']} in the AP poll. We have them #{t['power_rank']}.",
-                "Who's wrong, us or the voters?", hot=True) | {"big": str(r[0][1])}  # the gap is the headline; both ranks are in the line above
+                "The voters have this one wrong.", hot=True) | {"big": str(r[0][1])}  # the gap is the headline; both ranks are in the line above
 
 
 @stat("hot_cfb_ap_snub")
@@ -361,7 +361,7 @@ def _():
                 "spots higher in our rankings",
                 f"We have {t['team']} ({t['record']}) at #{t['power_rank']}. The AP has them "
                 + (f"at #{t['ap_rank']}." if t.get("ap_rank") else "unranked."),
-                "Who's wrong, us or the voters?", hot=True) | ({"big": str(r[0][1])} if t.get("ap_rank") else {"big": "Unranked", "big_unit": f"in the AP poll (we have them #{t['power_rank']})"})
+                "The voters will catch up.", hot=True) | ({"big": str(r[0][1])} if t.get("ap_rank") else {"big": "Unranked", "big_unit": f"in the AP poll (we have them #{t['power_rank']})"})
 
 
 @stat("hot_nfl_record_lies")
@@ -376,7 +376,7 @@ def _():
     return fact("nfl", "team", r, "Don't trust the record", "Winning teams our rankings put furthest below their record",
                 "spots below their record",
                 f"The {t['team']} are {t['record']}, but by how they actually play we rank them #{t['power_rank']}.",
-                "Is the record lying, or are we?", hot=True)
+                "The record is lying.", hot=True)
 
 
 @stat("hot_nfl_better_than_record")
@@ -388,7 +388,7 @@ def _():
     t = r[0][0]
     return fact("nfl", "team", r, "Better than the record", "Teams at .500 or worse, by our power ranking", "in our rankings",
                 f"The {t['team']} are {t['record']}, yet by how they actually play we rank them #{t['power_rank']}.",
-                "Sleeping giant, or a bad team with good stats?", hot=True)
+                "Don't be shocked when they go on a run.", hot=True)
 
 
 @stat("hot_nfl_close_calls")
@@ -404,7 +404,7 @@ def _():
         return None
     t, _, s = rows[0]
     return fact("nfl", "team", rows[:5], "Living on the edge", "Winning teams, by how many of their wins came by 8 points or fewer",
-                "wins by one score", f"The {t['team']} are {t['record']}, and {s} came by one score.", "Clutch, or lucky?", hot=True)
+                "wins by one score", f"The {t['team']} are {t['record']}, and {s} came by one score.", "That kind of luck tends to run out.", hot=True)
 
 
 @stat("nfl_one_score_games")
@@ -482,7 +482,7 @@ def vs_vegas(league):
     return fact(league, "team", [r[:3] for r in rows[:5]], "We'd take the points" if side_line(p, t["team"] == p["home"]) > 0 else "Lay the points",
                 f"{when}: the games where our model and the books disagree most (for fun, not betting advice)", "books' line · our model's line",
                 f"{when}: we like {s}. The books have {short(books_fav, league)} by {abs(p['vegas']):g}; our model has it {ours}.",
-                "Who's taking the other side? (For fun, not betting advice.)", hot=True) | {"big": s, "big_unit": "the books' line (our model's line in the chart)"}
+                "(For fun, not betting advice.)", hot=True) | {"big": s, "big_unit": "the books' line (our model's line in the chart)"}
 
 
 def upset_alert(league):
@@ -504,7 +504,7 @@ def upset_alert(league):
                 "underdog · our win chance",
                 f"The books have {short(t['team'], league)} as a {abs(p['vegas']):g}-point underdog against "
                 f"{short(fav, league)}. Our model gives them a {R.chance(ch)} chance to win.",
-                "Who's riding with the underdog? (For fun, not betting advice.)", hot=True) | {
+                "(For fun, not betting advice.)", hot=True) | {
         "big": R.chance(ch), "big_unit": f"our win chance as a {abs(p['vegas']):g}-point underdog"}
 
 
@@ -592,15 +592,15 @@ pct1 = lambda v: f"{v:.1f}%"
 
 deep("deep_rookie_lb_run_stops", "Rookie run stoppers", "Run stops by rookie linebackers", "run stops",
      lambda s: s["run_stop"], lambda p, wk: p["role"] == "LB" and rookie(p), n0,
-     lambda p, s, r: f"{p['name']} ({p['team']}) has {s} run stops, the most of any rookie linebacker. A run stop = he made the tackle "
-                     f"and the offense came up short on that play. {chasers(r)}")
+     lambda p, s, r: f"{p['name']} ({p['team']}) has {s} run stops, the most of any rookie linebacker. A run stop is a tackle that "
+                     f"leaves the offense short on a run. {chasers(r)}")
 deep("deep_run_stops", "Run stop kings", "Most run stops, every defender", "run stops",
      lambda s: s["run_stop"], lambda p, wk: p["role"] in ("LB", "EDGE", "IDL", "CB", "S"), n0,
-     lambda p, s, r: f"{p['name']} ({p['team']}) leads the NFL with {s} run stops: tackles on runs where the offense came up short. {chasers(r)}")
+     lambda p, s, r: f"{p['name']} ({p['team']}) leads the NFL with {s} run stops, tackles on runs where the offense came up short. {chasers(r)}")
 deep("deep_lb_stop_rate", "Run stops per 100 snaps", "Linebackers, 15+ snaps a week", "run stops per 100 snaps",
      lambda s: div(100 * s["run_stop"], s["snaps"]), lambda p, wk: p["role"] == "LB" and snaps(p, wk), n1,
      lambda p, s, r: f"{p['name']} ({p['team']}) makes {s} run stops every 100 snaps, best among NFL linebackers. "
-                     f"A run stop = his tackle left the offense short. {chasers(r)}")
+                     f"A run stop is a tackle that leaves the offense short on a run. {chasers(r)}")
 deep("deep_safety_run_stops", "Safeties who hit", "Most run stops by a safety", "run stops",
      lambda s: s["run_stop"], lambda p, wk: p["role"] == "S", n0,
      lambda p, s, r: f"{p['name']} ({p['team']}) has {s} run stops, the most of any NFL safety. Tackles on runs that came up short. {chasers(r)}")
@@ -624,7 +624,7 @@ deep("deep_third_down_stops", "Get off the field", "Tackles that stopped a 3rd o
      lambda p, s, r: f"{p['name']} ({p['team']}) has {s} tackles that stopped a 3rd or 4th down short of the sticks. Most in the NFL. {chasers(r)}")
 deep("deep_short_yardage_backs", "Short-yardage backs", "Conversion % on 3rd/4th & 2 or less, 1+ try a week", "conversion %",
      lambda s: div(100 * s["sy_conv"], s["sy_carries"]), lambda p, wk: p["role"] == "RB" and p["s"]["sy_carries"] >= wk, pct1,
-     lambda p, s, r: f"Need 2 yards or less on 3rd or 4th down? {p['name']} ({p['team']}) moves the chains {s} of the time, best among NFL backs. {chasers(r)}")
+     lambda p, s, r: f"On 3rd or 4th down with 2 yards or less to go, {p['name']} ({p['team']}) moves the chains {s} of the time, best among NFL backs. {chasers(r)}")
 deep("deep_goal_line_backs", "Goal-line backs", "Carries starting inside the 5", "goal-line carries",
      lambda s: s["gl_carries"], lambda p, wk: p["role"] in ("RB", "QB", "WR", "TE"), n0,
      lambda p, s, r: f"{p['name']} ({p['team']}) has {s} carries inside the 5-yard line, the most in the NFL. {chasers(r)}")
@@ -655,7 +655,7 @@ def _():
     td = g(p, PTD)
     return fact("nfl", "player", r, "Empty yards?", "Fewest touchdown passes for the yards, minimum 80 throws", "passing yards per TD pass",
                 f"{p['name']} ({p['team']}) has {g(p, PY):,.0f} passing yards and only {td:.0f} touchdown pass{'' if td == 1 else 'es'}.",
-                "Stat-sheet QB, or bad luck in the red zone?", hot=True)
+                "Those yards aren't turning into points.", hot=True)
 
 
 # ------------------------------------------------------------------ card
@@ -851,7 +851,7 @@ def _():
             + f" Also slipping: {f1['name']} ({f1['team']}), {f1['score']}% under.")
     return fact("nfl", "player", [(p, p["score"], f"{p['score']}% under") for p in rows[:5]], "Fraud watch",
                 "Per game vs. ESPN's weekly projections, in the stats that matter for each position",
-                "below his projections, per game", text, "Who's the biggest fraud in the league?") | {
+                "below his projections, per game", text, None) | {
         "tag": "FRAUD WATCH", "big": f"-{f0['score']}%", "costume": fraud_stamp, "key": f"weekly_frauds:W{cur - 1}"}
 
 
@@ -866,7 +866,7 @@ def _():
             f"Right behind him: {o1['name']} ({o1['team']}), {-o1['score']}% over.")
     return fact("nfl", "player", [(p, -p["score"], f"{-p['score']}% over") for p in rows[:5]], "Over-achievers",
                 "Per game vs. ESPN's weekly projections, in the stats that matter for each position",
-                "above his projections, per game", text, "Breakout star, or just a hot start?") | {
+                "above his projections, per game", text, "We'll see if it lasts.") | {
         "tag": "OVER-ACHIEVER", "big": f"+{-o0['score']}%", "key": f"weekly_overachievers:W{cur - 1}"}
 
 

@@ -65,6 +65,10 @@ textarea.note-box { min-height: 88px }
 .opt { text-transform: none; letter-spacing: 0; font-weight: 400 }
 .req { margin: 0; white-space: pre-wrap; font: 12px/1.5 var(--mono); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 10px; max-height: 220px; overflow: auto }
 .err { color: var(--bad); font-size: 13px; margin: 0 }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; justify-self: start }
+.seg button { border: 0; border-radius: 0; padding: 8px 14px; color: var(--dim) }
+.seg button[aria-pressed="true"] { background: var(--accent); color: #140700 }
+select { font: 13px var(--mono); background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 9px 10px }
 @media (prefers-reduced-motion: reduce) { .stamp { transform: none } }
 </style>
 
@@ -75,8 +79,20 @@ textarea.note-box { min-height: 88px }
   </header>
 
   <section class="card" aria-labelledby="in-h">
+    <div class="seg" role="group" aria-label="What you're checking">
+      <button type="button" id="mode-one" aria-pressed="true">One post</button>
+      <button type="button" id="mode-thread" aria-pressed="false">Thread</button>
+    </div>
     <label class="h" id="in-h" for="take">The take</label>
     <textarea id="take" placeholder="Paste the post here. Example: &quot;Jayden Daniels is a bottom-10 QB this year and it isn't close.&quot;"></textarea>
+    <div class="row" id="target-row" hidden>
+      <label class="note" for="target">Replying to</label>
+      <select id="target">
+        <option value="last">The last post</option>
+        <option value="first">The original post</option>
+        <option value="all">The whole thread</option>
+      </select>
+    </div>
     <label class="h" for="note">Your note <span class="opt">(optional)</span></label>
     <textarea id="note" class="note-box" placeholder="Context or what to focus on. Example: &quot;He means this season only&quot; or &quot;Check his numbers vs the blitz&quot;"></textarea>
     <div class="chips" id="examples" aria-label="Example takes"></div>
@@ -569,7 +585,33 @@ Charts: one to post with each reply. "agree" shows the numbers that back the tak
 - scatter (two stats against each other, e.g. EPA per play vs points per game for every team): "points": [{"label": "WAS", "x": 0.05, "y": 24.1, "highlight": true}], 8-32 points, plus "x_label" and "y_label".
 - pie (shares of one whole, e.g. where a team's yards or touchdowns came from): "items" as for bar, 2-8 positive values.
 - radar (a profile of 1-3 players or teams on 4-8 stats): "axes": ["EPA/dropback", "YPA", ...], "series": [{"name": "Daniels", "values": [percentiles 0-100 vs his position, from the ranks you pulled], "highlight": true}].
-Keep labels short (team abbreviations or last names). Replies: aim for under 280 characters so the whole reply shows without "Show more" (Terry has X Premium, so up to 600 is allowed when the receipt truly needs it), no links, no hashtags, tone as set in REPLY TONE below, lead with the number. If the take is plainly right, the pushback reply can add the nuance instead. Keep evidence tight: one or two sentences per claim.`;
+Keep labels short (team abbreviations or last names). Replies: aim for under 280 characters so the whole reply shows without "Show more" (Terry has X Premium, so up to 600 is allowed when the receipt truly needs it), no links, no hashtags, tone as set in REPLY TONE below, lead with the number. If the take is plainly right, the pushback reply can add the nuance instead. Keep evidence tight: one or two sentences per claim.
+
+WRITING STYLE (headline, evidence, missing and both replies). Write like a sharp fan typing on X, not a press release or a chatbot:
+- Plain words. Never use: delve, crucial, pivotal, robust, seamless, leverage, foster, underscore, bolster, nuanced, comprehensive, landscape, realm, testament, navigate, showcase, highlights, emphasizes, ensures, elevate, game-changer, "plays a key role", "it's worth noting", "when it comes to", "at the end of the day".
+- No em dashes. Use a comma, a period or parentheses.
+- No intensifiers (truly, incredibly, significantly, remarkably). Put the number there instead.
+- No "not just X, it's Y" or "this isn't about X, it's about Y" setups, no colon reveals ("The result:", "Here's the thing:"), no rhetorical questions you answer yourself, no "Whether you're..." lines, no balanced quotable pairs.
+- Don't default to three of anything. Use the real count.
+- No trailing "-ing" clause that adds a vague consequence (", highlighting...", ", proving that..."). End the sentence, or make the point its own sentence with the specific number.
+- No stacked hedges ("could potentially", "it could be argued"). Commit, or say exactly what our data can't settle.
+- No wrap-up sentence that restates the point, no "Overall", no upbeat closer. Stop when the point is made.
+- Mix short and long sentences. Contractions are fine. No "Great take", no "Let's look at the numbers", no emoji strings, no hashtags.
+- Name the source when you mean one ("PFF has him at...", "our injury tracker has..."), never "it has been noted".`;
+}
+
+// thread mode: the posts as Terry pasted them (blank line between posts), numbered top to bottom
+const THREAD_TARGET = { last: "the LAST post in the thread", first: "post 1 (the original post)", all: "the whole thread: answer the original poster's overall argument, written as a reply at the bottom of the thread" };
+function threadBlock(text, target, hasImage) {
+  const posts = text.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
+  const body = posts.length ? posts.map((x, i) => `[Post ${i + 1}]\n${x}`).join("\n\n") : "(see the screenshot)";
+  return `THE THREAD (${posts.length ? posts.length + " posts, " : ""}top to bottom; post 1 is the original):\n${body}`
+    + (hasImage ? "\n\nA screenshot of the thread is attached. Read every post top to bottom and number them in that order (skip ads, \"Show more replies\" and \"Discover more\"). Use it with the pasted text if both are there." : "")
+    + `\n\nTHREAD RULES: Terry is replying to ${THREAD_TARGET[target] || THREAD_TARGET.last}.
+- Check every checkable claim in the thread, not just that post. Start each "claim" with the post it came from ("Post 2: ...").
+- The top-level verdict and headline are about the post Terry is replying to (or the original poster's argument for the whole thread).
+- Both replies answer that post as one more reply in the conversation. Don't restate the take, don't repeat a number or point someone in the thread already made, and build on earlier posts when it helps ("the 61% in post 2 is right, but..."). No @handles; X adds them.
+- If someone in the thread already settled a claim correctly, say so in its evidence instead of re-arguing it.`;
 }
 
 // ------------------------------------------------------------------ UI
@@ -606,6 +648,27 @@ $("shot-clear").onclick = () => { setImage(null); $("shot").value = ""; };
 document.addEventListener("paste", (e) => { const f = [...(e.clipboardData?.files || [])].find((x) => x.type.startsWith("image/")); if (f && !$("shot-btn").hidden) { e.preventDefault(); setImage(f); } });
 $("stop").onclick = () => ctl?.abort();
 
+// One post / Thread switch (remembered on this device). Thread: paste the posts with a blank line between them
+// (or screenshot the thread), pick which post the reply answers, and the prompt gets the numbered thread.
+let mode = "one";
+function setMode(m) {
+  mode = m === "thread" ? "thread" : "one";
+  store.set("analyst-mode", mode);
+  $("mode-one").setAttribute("aria-pressed", mode === "one");
+  $("mode-thread").setAttribute("aria-pressed", mode === "thread");
+  $("target-row").hidden = mode !== "thread";
+  $("examples").hidden = mode === "thread";
+  $("in-h").textContent = mode === "thread" ? "The thread" : "The take";
+  $("take").placeholder = mode === "thread"
+    ? "Paste the thread top to bottom, with a blank line between posts. Or add a screenshot of the thread."
+    : "Paste the post here. Example: \"Jayden Daniels is a bottom-10 QB this year and it isn't close.\"";
+}
+$("mode-one").onclick = () => setMode("one");
+$("mode-thread").onclick = () => setMode("thread");
+$("target").value = store.get("analyst-target") || "last";
+$("target").onchange = () => store.set("analyst-target", $("target").value);
+setMode(store.get("analyst-mode"));
+
 // reply tone: Sarcasm / Humor switches (remembered on this device). They change the two reply drafts only;
 // the verdict, claims and numbers always stay straight.
 for (const id of ["sarcasm", "humor"]) {
@@ -625,8 +688,8 @@ const ERR = { not_granted: "Claude access wasn't allowed for this page. Reload a
 
 $("check").onclick = async () => {
   const take = $("take").value.trim(), note = $("note").value.trim();
-  if (!take && !image) { showErr("Paste a take or add a screenshot first."); return; }
-  lastTake = take || "(screenshot)";
+  if (!take && !image) { showErr(mode === "thread" ? "Paste the thread or add a screenshot of it first." : "Paste a take or add a screenshot first."); return; }
+  lastTake = (mode === "thread" ? "[thread] " : "") + (take || "(screenshot)");
   showErr(""); $("log").innerHTML = ""; $("check").disabled = true; $("stop").hidden = false;
   ctl = new AbortController();
   const t0 = Date.now();
@@ -634,7 +697,8 @@ $("check").onclick = async () => {
   const tick = setInterval(() => { $("check").textContent = `Checking… ${Math.round((Date.now() - t0) / 1000)}s`; }, 1000);
   try {
     await base();
-    const input = rules() + "\n\nTHE TAKE:\n" + (take || "(see the screenshot)") + (image ? "\n\nA screenshot of the post is attached; read the take (and any numbers in it) from the image." : "")
+    const input = rules() + "\n\n" + (mode === "thread" ? threadBlock(take, $("target").value, !!image)
+      : "THE TAKE:\n" + (take || "(see the screenshot)") + (image ? "\n\nA screenshot of the post is attached; read the take (and any numbers in it) from the image." : ""))
       + (note ? "\n\nTERRY'S NOTE (context or clarification from Terry, not part of the take; follow it when you check and write the replies):\n" + note : "")
       + "\n\n" + toneRule();
     const res = await sample.json(input, { tools: TOOLS, signal: ctl.signal, modelTier: $("deep").checked ? "complex" : "default", ...(image ? { images: [image] } : {}) });
@@ -642,7 +706,7 @@ $("check").onclick = async () => {
     say(`Done in ${Math.round((Date.now() - t0) / 1000)}s`);
     render(res);
     const h = (store.get("analyst-history") || []).filter((x) => x.take !== take);
-    store.set("analyst-history", [{ take: take || "(screenshot)", note, res, at: Date.now() }, ...h].slice(0, 12));
+    store.set("analyst-history", [{ take: take || "(screenshot)", note, res, at: Date.now(), mode, target: mode === "thread" ? $("target").value : undefined }, ...h].slice(0, 12));
     history();
   } catch (e) {
     if (e?.code !== "cancelled") showErr(ERR[e?.code] || `Something went wrong reaching Claude${e?.code ? ` (${e.code})` : ""}. Tap Check it to try again.`);
@@ -931,9 +995,9 @@ async function saveChart(chart, note) {
 function history() {
   const h = store.get("analyst-history") || [];
   $("hist-wrap").hidden = !h.length;
-  $("hist").innerHTML = h.map((x, i) => `<button type="button" data-h="${i}">${esc(VLABEL[x.res?.verdict] || "")} · ${esc(x.take)}</button>`).join("");
+  $("hist").innerHTML = h.map((x, i) => `<button type="button" data-h="${i}">${esc(VLABEL[x.res?.verdict] || "")} · ${x.mode === "thread" ? "THREAD · " : ""}${esc(x.take)}</button>`).join("");
 }
-$("hist").onclick = (e) => { const b = e.target.closest("[data-h]"); if (!b) return; const x = (store.get("analyst-history") || [])[+b.dataset.h]; if (x) { lastTake = x.take; $("take").value = x.take === "(screenshot)" ? "" : x.take; $("note").value = x.note || ""; render(x.res); } };
+$("hist").onclick = (e) => { const b = e.target.closest("[data-h]"); if (!b) return; const x = (store.get("analyst-history") || [])[+b.dataset.h]; if (x) { lastTake = x.take; $("take").value = x.take === "(screenshot)" ? "" : x.take; $("note").value = x.note || ""; setMode(x.mode); if (x.target) $("target").value = x.target; render(x.res); } };
 history();
 })();
 </script>
