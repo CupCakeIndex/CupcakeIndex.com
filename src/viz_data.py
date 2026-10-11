@@ -29,7 +29,8 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "data" / "viz"
 RAW = ROOT / "data" / "raw"
 NFLV = "https://github.com/nflverse/nflverse-data/releases/download"
-FIRST = {"nfl": 2022, "cfb": 2024}   # oldest season kept (history for line charts across seasons)
+FIRST = {"nfl": 1999, "cfb": 2024}   # oldest season kept (history for line charts across seasons; nflverse starts in 1999)
+PLAYERS = {"nfl": 2022, "cfb": 2024}  # oldest season with player stats: NFL seasons before it are team-only (nfl_team_only)
 
 
 def season_now():
@@ -56,7 +57,7 @@ MUST = {"tcols": ["pts", "att", "cmp", "pass_yds", "rush_yds", "carries"],
 def write(lg, season, d):
     # a column that's zero for everyone means the source changed its format (college C/ATT once read as 0-0): stop, keep the old file
     for cols, rows in (("tcols", "trows"), ("pcols", "prows")):
-        for c in MUST[cols]:
+        for c in MUST[cols] if d[rows] else ():  # team-only seasons have no player rows
             i = d[cols].index(c) + 3
             if d[rows] and not any(r[i] for r in d[rows]):
                 raise RuntimeError(f"{lg} {season}: '{c}' is 0 for every row; not saving")
@@ -74,7 +75,7 @@ def index():
     for f in files:
         lg, s = f.stem.split("_")
         seasons[lg].append(int(s))
-    (OUT / "index.json").write_text(json.dumps({k: sorted(v) for k, v in seasons.items()}), encoding="utf-8")
+    (OUT / "index.json").write_text(json.dumps({**{k: sorted(v) for k, v in seasons.items()}, "players": PLAYERS}), encoding="utf-8")
 
 
 # ------------------------------------------------------------------ NFL (nflverse)
@@ -153,7 +154,7 @@ def nfl_teams(season):
         if g["home_score"] != "":
             score[(g["game_id"], g["home_team"])] = (n(g["home_score"]), n(g["away_score"]))
             score[(g["game_id"], g["away_team"])] = (n(g["away_score"]), n(g["home_score"]))
-    rows = {(r["game_id"], r["team"]): r for r in teams if r["season_type"] == "REG"}  # regular season only, like ESPN's season totals
+    rows = {(r["game_id"], r["team"]): r for r in teams if r["season_type"] == "REG" and r["team"]}  # regular season only, like ESPN's season totals (1999 has a blank-team row)
     trows = []
     for (gid, tm), r in rows.items():
         o = rows.get((gid, r["opponent_team"]), {})
@@ -197,6 +198,21 @@ def nfl_history(season):
     f.write_text(json.dumps({"league": "nfl", "season": season, "teams": tmeta, "tcols": TEAM_COLS_NFL + deep_stats.TCOLS, "trows": trows,
                              "pcols": [], "pmeta": {}, "prows": []}, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
     print(f"  {f.name}: {len(trows)} team games, {f.stat().st_size // 1024} KB")
+
+
+def nfl_team_only(season):
+    """Team game rows only, for Visualize's older seasons (before PLAYERS["nfl"]): small files (~75 KB) so a chart can span
+    decades. Columns that are zero all season (FTN blitz charting starts in 2022, air yards are missing in the oldest
+    play-by-play) are left out, so the page hides those stats instead of charting zeros."""
+    import deep_stats
+    t = nfl_teams(season)
+    if not t:
+        return
+    trows, tmeta = t[0], t[1]
+    cols = TEAM_COLS_NFL + deep_stats.TCOLS
+    keep = [i for i, c in enumerate(cols) if c in TEAM_COLS_NFL or any(r[i + 3] for r in trows)]
+    trows = [r[:3] + [r[i + 3] for i in keep] for r in trows]
+    write("nfl", season, {"teams": tmeta, "tcols": [cols[i] for i in keep], "trows": trows, "pcols": [], "pmeta": {}, "prows": []})
 
 
 def nfl(season):
@@ -526,11 +542,12 @@ def main():
             if not a.check:
                 print(f"{lg} {s}")
                 try:
-                    (nfl if lg == "nfl" else cfb)(s)
+                    (cfb if lg == "cfb" else nfl if s >= PLAYERS["nfl"] else nfl_team_only)(s)
                 except SystemExit as e:  # no CFBD key
                     print(f"  skipped: {str(e).splitlines()[0]}")
                     continue
-            check(lg, s)
+            if s >= PLAYERS[lg]:  # ESPN's old seasons are patchy; the team-only files come from the same nflverse source
+                check(lg, s)
 
 
 if __name__ == "__main__":

@@ -321,10 +321,11 @@ const Viz = (() => {
     st = { ...DEF, ...Object.fromEntries([...params].filter(([k]) => k in DEF)) };
     el.innerHTML = stSub() + `<div class="card muted">Loading…</div>`;
     idx = idx || await getJSON("data/viz/index.json").catch(() => ({}));
-    const seasons = idx[league] || [];
+    const pFrom = idx.players?.[league] || 0; // NFL seasons before this are team-only (smaller files, back to 1999)
+    const seasons = (idx[league] || []).filter((s) => st.who !== "players" || s >= pFrom);
     if (!seasons.length) { el.innerHTML = stSub() + `<div class="card">No chart data for ${league === "nfl" ? "the NFL" : "college"} yet. It's built every week with the rankings.</div>`; return; }
     if (!seasons.includes(+st.to)) st.to = String(seasons.at(-1));
-    if (!seasons.includes(+st.from) || +st.from > +st.to) st.from = st.to;
+    if (!seasons.includes(+st.from) || +st.from > +st.to) st.from = +st.from < seasons[0] && +st.to >= seasons[0] ? String(seasons[0]) : st.to;
     try { await Promise.all([loadChartJs(), loadLogos()]); } catch { el.innerHTML = stSub() + `<div class="card">Couldn't load the chart library. Check your connection and try again.</div>`; return; }
     const span = seasons.filter((s) => s >= +st.from && s <= +st.to);
     const Ds = (await Promise.all(span.map(file))).filter(Boolean);
@@ -409,7 +410,8 @@ const Viz = (() => {
 
   function draw(el, seasons, Ds) {
     const D = Ds.at(-1), who = st.who, multi = Ds.length > 1;
-    const groups = statsFor(who, D), all = groups.flatMap(([, l]) => l);
+    const have = { league: D.league, tcols: D.tcols.filter((c) => Ds.every((d) => d.tcols.includes(c))), pcols: D.pcols }; // a stat shows if every season picked has it
+    const groups = statsFor(who, have), all = groups.flatMap(([, l]) => l);
     const stat = all.find((s) => s[0] === st.stat) || all[0];
     st.stat = stat[0];
     const ystat = all.find((s) => s[0] === st.y) || all.find((s) => s[0] !== stat[0]);
@@ -544,13 +546,16 @@ const Viz = (() => {
           if (w === lastWk && d.season === +idx[league]?.at(-1) && games(w) && games(w) < full / 2) { partial++; return null; } // the week still being played (just Thursday night): left out
           for (const k of keys) { const x = agg[k].seasons[d.season]?.wk[w]; if (!x) continue; n++; for (const c in x) S[c] = (S[c] || 0) + x[c]; }
           if (st.cum && n) { g += n; for (const c in S) run[c] = (run[c] || 0) + S[c]; }
-          const v = st.cum ? g ? value(stat, run, g, per) : null : n ? value(stat, S, n, per) : null;
+          const v = n ? value(stat, st.cum ? run : S, st.cum ? g : n, per) : null; // no games that week (not played yet): no point
           return v == null || Number.isNaN(v) ? null : v;
         })];
       });
       const last = sers.length - 1;
+      // many seasons: old to new runs from dim blue to the accent, so the color itself says the era
+      const mix = (a, b, t) => "#" + [1, 3, 5].map((j) => Math.round(parseInt(a.slice(j, j + 2), 16) * (1 - t) + parseInt(b.slice(j, j + 2), 16) * t).toString(16).padStart(2, "0")).join("");
+      const shade = (i) => sers.length > 6 && /^#[0-9a-f]{6}$/i.test(accent) ? mix("#33415c", accent, i / last) : PAL[(last - i) % PAL.length];
       cfg = { type: "line", data: { labels: wks.map((w) => (bowls && w >= bowls ? "Bowls" : `Wk ${w}`)), datasets: sers.map(([s, data], i) => ({ label: s, data,
-        borderColor: PAL[(last - i) % PAL.length], backgroundColor: PAL[(last - i) % PAL.length], borderWidth: i === last ? 3 : 2, pointRadius: 3, spanGaps: true, tension: 0.25 })) },
+        borderColor: shade(i), backgroundColor: shade(i), borderWidth: i === last ? 3 : 2, pointRadius: sers.length > 6 ? 1.5 : 3, spanGaps: true, tension: 0.25 })) },
         options: { ...base, plugins: { ...base.plugins, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${c.dataset.label}: ${fmt(stat, c.raw, per)}` } } } } };
       body = { h: 380 };
       note = `Each line is one season: every ${st.group ? `${st.group} ` : ""}team's games that week added up${stat[3].count && per === "game" ? ", then divided by the games played (bye weeks don't drag it down)" : ""}.${partial ? " A week with most of its games still to play is left out until it's done." : ""}${multi ? "" : " Pick more seasons to compare years."}`;
@@ -676,7 +681,7 @@ const Viz = (() => {
         <label>Of${seg("vz-who", [["teams", "Teams"], ["players", "Players"]], who)}</label>
         ${st.type === "radar" ? `<details class="vz-wide vz-rstats"><summary>Stats on the web (${axes().length}) · tap to change</summary><div id="vz-radar">${groups.map(([g, l]) => `<fieldset><legend>${esc(g)}</legend>${l.map((s) => `<label><input type="checkbox" value="${s[0]}"${custom().includes(s[0]) ? " checked" : ""}> ${esc(s[1])}</label>`).join("")}</fieldset>`).join("")}<p class="muted">Pick 3 to 8.</p></div></details>`
           : `<label class="vz-wide">${st.type === "scatter" ? "Across (X)" : "Stat"}${statSel("vz-stat", stat[0])}</label>${st.type === "scatter" ? `<label class="vz-wide">Up (Y)${statSel("vz-y", ystat[0])}</label>` : ""}`}
-        <label>Seasons<span class="vz-pair">${sel("vz-from", seasons.map((s) => [s, s]), st.from)}<i>to</i>${sel("vz-to", seasons.map((s) => [s, s]), st.to)}</span></label>
+        <label>Seasons${who === "players" && idx.players?.[league] > (idx[league] || [])[0] ? ` <small class="muted">player stats start in ${idx.players[league]}</small>` : ""}<span class="vz-pair">${sel("vz-from", seasons.map((s) => [s, s]), st.from)}<i>to</i>${sel("vz-to", seasons.map((s) => [s, s]), st.to)}</span></label>
         <label>Weeks<span class="vz-pair">${sel("vz-wk1", wkOpts, st.wk1)}<i>to</i>${sel("vz-wk2", wkOpts, st.wk2)}</span></label>
         ${st.type === "pie" ? "" : `<label>Totals${seg("vz-per", [["game", "Per game"], ["total", "Total"]], st.per)}</label>`}
         ${st.type === "bar" ? `<label>Show${seg("vz-order", [["best", "Best"], ["worst", "Worst"]], st.order)}</label>` : ""}
@@ -712,8 +717,8 @@ const Viz = (() => {
     save();
 
     // controls
-    const redo = () => { save(); draw(el, seasons, Ds); };
     const reload = () => { save(); render(new URLSearchParams(location.hash.split("?")[1] || "")); };
+    const redo = () => { if (st.who !== who) return reload(); save(); draw(el, seasons, Ds); }; // players and teams cover different seasons
     el.querySelectorAll(".vz-seg").forEach((g) => g.onclick = (e) => {
       const b = e.target.closest("button"); if (!b) return;
       const k = { "vz-type": "type", "vz-who": "who", "vz-per": "per", "vz-order": "order", "vz-cum": "cum", "vz-scope": "scope" }[g.id];
@@ -776,7 +781,7 @@ const Viz = (() => {
     const qItems = () => [
       ...PRESETS[league].map(([l, o]) => [l, "Preset", "chart idea", () => { st = { ...DEF, from: st.from, to: st.to, ...o }; reload(); }]),
       ...(mine()[league] || []).map((m) => [m.name, "Your preset", "mine saved", () => { st = { ...DEF, from: st.from, to: st.to, ...m.st }; reload(); }]),
-      ...["players", "teams"].flatMap((w) => statsFor(w, D).flatMap(([g, l]) => l.map((x) => [x[1], `${w === "players" ? "Player" : "Team"} stat · ${g}`, `${g} ${x[0]}`,
+      ...["players", "teams"].flatMap((w) => statsFor(w, have).flatMap(([g, l]) => l.map((x) => [x[1], `${w === "players" ? "Player" : "Team"} stat · ${g}`, `${g} ${x[0]}`,
         () => { setWho(w); if (st.type === "radar" || st.type === "pie" && !x[3].count) st.type = "bar"; st.stat = x[0]; st.min = ""; redo(); }]))),
       ...posOpts.filter(([k]) => k).map(([k, l]) => [l, "Position", `${k} position players`, () => { setWho("players"); st.pos = k; st.role = ""; st.min = ""; redo(); }]),
       ...(D.xcols?.length ? EXP.filter(([k]) => k).map(([k, l]) => [l, "Experience", "years experience rookie", () => { setWho("players"); st.exp = k; redo(); }]) : []),
