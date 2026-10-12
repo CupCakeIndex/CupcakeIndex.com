@@ -79,7 +79,10 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     out = {lg: rankings(lg) for lg in ("nfl", "cfb")}
     out["facts"] = {lg: json.load(open(os.path.join(DATA, lg, "facts.json"), encoding="utf-8")).get("teams", {}) for lg in ("nfl", "cfb")}
-    out["viz"] = json.load(open(os.path.join(DATA, "viz", "index.json"), encoding="utf-8"))
+    # the page reads "viz" as the seasons WITH player stats; the site's index also lists its team-only seasons
+    idx = json.load(open(os.path.join(DATA, "viz", "index.json"), encoding="utf-8"))
+    first = idx.get("players", {})
+    out["viz"] = {lg: [s for s in idx[lg] if s >= first.get(lg, 0)] for lg in ("nfl", "cfb")}
     hist = os.path.join(OUT, "hist")
     out["hist"] = {"nfl": sorted(int(f[4:8]) for f in os.listdir(hist) if f.startswith("nfl_"))} if os.path.isdir(hist) else {"nfl": []}
     # the site's live Stats tabs (Injuries % healthy, Frauds / Over-achievers), same math as the site (src/site_tabs.py)
