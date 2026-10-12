@@ -225,7 +225,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "248"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "249"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -579,7 +579,10 @@ function renderDrops() {
   const when = (at) => new Date(at).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
   const draw = () => {
     if (!document.body.contains(el)) return;
-    el.innerHTML = `<span class="drops-tag">Next rankings</span>` + ["cfb", "nfl"].map((k) => {
+    el.title = "When the next week's rankings come out (about; GitHub can run a few minutes late)." + (league === "cfb"
+      ? " A week counts once 90% of its games are final, so a late night can push it to the next try (about 3 hours later). It also refreshes Sunday morning and Sunday night for the new polls."
+      : " Tuesday morning adds Monday night's game.");
+    el.innerHTML = [league].map((k) => { // the league you're looking at (CFB or NFL toggle)
       const at = nextDrop(k), ms = at && at - Date.now();
       let txt;
       if (!at) txt = "next season";
@@ -589,10 +592,9 @@ function renderDrops() {
         txt = `<b>${d ? `${d}d ` : ""}${pad(h)}h ${pad(m)}m ${pad(sec)}s</b>` + (ms > 7 * 864e5 ? "" : ` <small>${esc(when(at))}</small>`);
         if (ms > 30 * 864e5) txt = `<b>${esc(new Date(at).toLocaleDateString(undefined, { month: "short", day: "numeric" }))}</b>`;
       }
-      return `<span class="drops-item${k === league ? " on" : ""}">${DROPS[k].name} ${txt}</span>`;
+      return `<span class="drops-tag">Next ${DROPS[k].name} rankings</span><span class="drops-item on">${txt}</span>`;
     }).join("");
   };
-  el.title = "When the next week's rankings come out (about; GitHub can run a few minutes late). College counts a week once 90% of its games are final, so a late night can push it to the next try (about 3 hours later). College also refreshes Sunday morning and Sunday night for the new polls.";
   draw();
   clearInterval(dropsTick);
   dropsTick = setInterval(draw, 1000);

@@ -24,6 +24,8 @@ const Account = (() => {
         if (was && (!u || u.uid !== was.uid)) { clearSynced(); CIT.apply(); Profile.header(); window.dispatchEvent(new HashChangeEvent("hashchange")); }
         user = u;
         badge();
+        // Admin tab (analytics, admin.js) only for the support account; firestore.rules guard the data itself
+        document.body.classList.toggle("is-owner", !!u && u.emailVerified && (u.email || "").toLowerCase() === "thecupcakeindex.support@gmail.com");
         rerender(); // show signed in/out right away; the first sync runs in the background
         if (u) {
           if (!was) toast(`Signed in as ${u.displayName || u.email || "you"}`);

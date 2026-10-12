@@ -882,6 +882,7 @@ img.wiki { object-position: 50% 20%; }
 .mm-item:hover::before, .mm-item:focus-visible::before, .mm-item.active::before { opacity: 1; }
 .mm-item.active { color: var(--accent); font-weight: 700; }
 .nav-narrow { display: none; }
+body:not(.is-owner) .owner-only { display: none !important; } /* Admin tab: support account only (account.js) */
 @media (max-width: 640px) {
   .tabs { gap: 0; flex-wrap: nowrap; }
   .nav-main { flex: 1; gap: 0; overflow-x: auto; scrollbar-width: none; }
