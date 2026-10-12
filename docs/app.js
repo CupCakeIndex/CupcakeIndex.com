@@ -225,7 +225,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "254"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "255"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -815,12 +815,13 @@ const schedTags = (g, nfl) => [g.fcs && '<span class="pill over">FCS</span>', !n
 
 // One schedule game as a mini version of the box score's scorebug; the whole thing links to the game.
 // g: { href, eid, wk, state: "pre"|"in"|"post", status, result: "W"|"L" (for the "me" team), neutral, tags, note, diff, winp,
-//      away/home: { name, abbr, logo, score, rank, color, me } }   (away on the left, like the real scorebug)
+//      away/home: { name, abbr, logo, score, rank, ap, color, me } }   (away on the left, like the real scorebug)
 function miniBug(g) {
   const side = (s, which) => {
     const lose = g.state === "post" && g.result && (s.me ? g.result === "L" : g.result === "W");
     const pic = safeUrl(s.logo) ? `<img src="${esc(thumb(s.logo, 24))}" alt="" loading="lazy" decoding="async" width="24" height="24">` : `<span class="logo-ph"></span>`;
-    const name = `<span class="mb-nm">${s.rank ? `<i>#${esc(s.rank)}</i>` : ""}<b class="full">${esc(s.name)}</b><b class="ab">${esc(s.abbr || s.name)}</b></span>`;
+    const rk = (s.rank ? `<i title="Our rank going into this game">#${esc(s.rank)}</i>` : "") + (s.ap ? `<i class="mb-ap" title="AP Poll rank going into this game">AP ${esc(s.ap)}</i>` : "");
+    const name = `<span class="mb-nm">${rk ? `<span class="mb-rk">${rk}</span>` : ""}<b class="full">${esc(s.name)}</b><b class="ab">${esc(s.abbr || s.name)}</b></span>`;
     const score = `<span class="mb-sc">${g.state === "pre" ? "" : esc(s.score ?? "")}</span>`;
     return `<span class="mb-tm ${which}${s.me ? " me" : ""}${lose ? " lose" : ""}">${which === "away" ? pic + name + score : score + name + pic}</span>`;
   };
@@ -999,18 +1000,26 @@ function openTeam(name) {
   const nfl = league === "nfl";
   // each game is a mini scorebug (away team on the left); ESPN abbreviations + kickoff times fill in after the panel opens
   const byName = new Map(DATA.teams.map((x) => [x.team, x]));
-  const ourRank = new Map(rankTeams(DATA.teams).map((x) => [x.team, x.rank]));
   const col = (c) => Live.kit.teamColor({ color: (c || "").replace("#", "") });
-  const sched = t.schedule.map((g) => {
+  // Each box shows both teams' ranks GOING INTO that game: ours from the week before, re-ranked with today's
+  // weights and rules (like the change column), and that week's AP poll. Upcoming games: this week's. Week 1 has
+  // no earlier rankings, so it shows none. `at` fills in once the older week files load (they're cached after).
+  const atWeek = new Map(); // game week -> Map(team -> { rank, ap })
+  const ranksOf = (d) => new Map(rankTeams(d.teams).map((x) => [x.team, { rank: x.rank, ap: x.ap_rank || null }]));
+  atWeek.set("now", ranksOf(DATA));
+  const at = (team, g) => (g.upcoming ? atWeek.get("now") : atWeek.get(g.week))?.get(team) || {};
+  const buildSched = () => t.schedule.map((g) => {
     const o = byName.get(g.opp) || {};
     const [pf, pa] = String(g.score || "").split("-");
-    const me = { name: t.team, logo: t.logo, rank: t.rank, color: col(t.color), score: pf, me: true };
-    const op = { name: g.opp, logo: o.logo, rank: g.fcs ? null : ourRank.get(g.opp) || g.opp_rank, color: col(o.color), score: pa };
+    const mine = at(t.team, g), theirs = g.fcs ? {} : at(g.opp, g);
+    const me = { name: t.team, logo: t.logo, rank: mine.rank, ap: mine.ap, color: col(t.color), score: pf, me: true };
+    const op = { name: g.opp, logo: o.logo, rank: theirs.rank, ap: theirs.ap, color: col(o.color), score: pa };
     const note = g.qb ? `QB ${esc(g.qb)}${g.qb !== t.usual_qb && t.usual_qb ? " ⚠" : ""}${g.rest_diff ? ` · ${g.rest_diff > 0 ? "+" : ""}${esc(g.rest_diff)} days rest vs. opp` : ""}` : "";
     return miniBug({ href: g.espn_id ? link("game", g.espn_id) : "", eid: g.espn_id, wk: g.week, state: g.upcoming ? "pre" : "post",
       status: g.upcoming ? "Preview" : "Final", result: g.result, neutral: g.loc === "N", away: g.loc === "H" ? op : me, home: g.loc === "H" ? me : op,
       tags: schedTags(g, nfl), note, diff: g.upcoming ? null : g.difficulty, winp: g.upcoming ? g.win_prob : null, why: g.upcoming ? g.why : null });
   }).join("");
+  const sched = buildSched();
   const bench = nfl ? "top-8 NFL team" : "top-25 team";
   $("#drawer-body").innerHTML = `
     <div class="d-head">${logo(t)}<div><h2>#${t.rank} ${esc(t.team)}</h2><span class="muted">${esc(t.conference || "")} · ${esc(t.record)}${t.ap_rank ? " · AP #" + esc(t.ap_rank) : ""}</span>
@@ -1030,11 +1039,26 @@ function openTeam(name) {
     ${LG.factors.map((f) => `<div class="frow" title="${esc(f.help)}"><span>${esc(f.label)}</span><span class="bar${f.invert ? " inv" : ""}"><i style="width:${+t.scores[f.key] || 0}%"></i></span><b class="num">${Math.round(t.scores[f.key])}</b></div>`).join("")}
     <p class="note">Power rating = points better than an average ${nfl ? "NFL" : "FBS"} team on a neutral field.${!nfl && t.scores.cupcake != null ? " Cupcake: higher = softer schedule for a team at this level, counting only games already played." : ""}</p>
     <h3>Schedule</h3>
-    <div class="mb-list">${sched}</div>
+    <div class="mb-list" id="d-sched" data-team="${esc(t.team)}">${sched}</div>
     <p class="note">Tap a game for the box score or preview. Diff (difficulty) is the chance a typical ${bench} would lose this game.${nfl ? " ⚠ = a different QB than the team's usual starter." : " Beating FCS teams is close to 0%."}</p>`;
   $("#drawer").classList.remove("hidden");
   document.body.classList.add("drawer-open"); // stop the page behind from scrolling on phones
   history.replaceState(history.state, "", link("rankings", null, { team: name }));
+  // played games: load the week before each one, then redraw the boxes with the ranks of that moment
+  const weeks = (LG.seasons[DATA.season]?.weeks || LG.seasons[$("#season").value]?.weeks || []).filter((w) => w < DATA.week);
+  const played = [...new Set(t.schedule.filter((g) => !g.upcoming).map((g) => g.week))];
+  const lg0 = league, season0 = $("#season").value;
+  Promise.all(played.map(async (wk) => {
+    const before = weeks.filter((w) => w < wk).pop();
+    if (before == null) return;
+    const d = await weekData(lg0, season0, before).catch(() => null);
+    if (d) atWeek.set(wk, ranksOf(d));
+  })).then(() => {
+    const box = $("#d-sched");
+    if (!box || league !== lg0 || box.dataset.team !== t.team) return; // the panel moved on to another team meanwhile
+    box.innerHTML = buildSched();
+    Live.teamId(league, t).then((id) => { if (id) Live.fillBugs(league, id, $("#drawer-body")); });
+  });
   Live.teamId(league, t).then((id) => {
     const a = $("#team-page-link");
     if (a && id) a.href = link("team", id); else if (a) a.remove();
