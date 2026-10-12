@@ -699,7 +699,14 @@ body:not(.show-breakdown) th.factors-col, body:not(.show-breakdown) td.factors {
 @media (max-width: 640px) {
   .weights { left: 0; right: 0; bottom: 0; width: auto; max-height: 78vh; border-radius: 12px 12px 0 0; }
   .weights-fab { right: 12px; bottom: 12px; }
-  .breakdown-btn { display: none; }
+  /* Breakdown on phones: factor columns come back and the table swipes sideways, rank + team pinned on the left */
+  body.show-breakdown #table th.factors-col, body.show-breakdown #table td.factors { display: table-cell !important; }
+  body.show-breakdown #table .mv { display: none; }
+  body.show-breakdown #table tr > :first-child { position: sticky; left: 0; z-index: 1; width: 28px; min-width: 28px; background: var(--card); }
+  body.show-breakdown #table tr > :nth-child(3) { position: sticky; left: 28px; z-index: 1; background: var(--card); box-shadow: 1px 0 0 var(--line); min-width: 120px; max-width: 150px; }
+  body.show-breakdown #table .team { min-width: 0; gap: 6px; }
+  body.show-breakdown #table .team .tcell { min-width: 0; }
+  body.show-breakdown #table .team .tname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
   #table { font-size: 12px; }
   #table td, #table th { padding: 7px 3px; }
   #table .rank { font-size: 15px !important; }
