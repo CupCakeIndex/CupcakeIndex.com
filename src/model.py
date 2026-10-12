@@ -440,7 +440,8 @@ def cupcake_of_week(games, ratings, week, cfg, fbs):
 
     Eligible: a win by 21+ (cotw_min_margin) over an opponent that is a cupcake for the winner (see cupcake_weight),
     and at least cotw_min_gap rating points worse than the winner (a real mismatch, not two bad teams).
-    Score = margin of victory + how far below an average FBS team the opponent is.
+    Score = margin of victory + the rating gap between the two teams (a big program crushing a much smaller one
+    beats a middling team crushing a bad one; before Oct 12 2026 it was margin + how bad the loser was).
     """
     rank = {t: i + 1 for i, t in enumerate(sorted(fbs, key=lambda t: -ratings[t]))}
     best = None
@@ -460,7 +461,7 @@ def cupcake_of_week(games, ratings, week, cfg, fbs):
                 continue
             score = (us - them if cfg.get("cotw_margin_only")  # NFL: biggest blowout, nothing else
                      else min(us - them, 35) + cfg["cotw_gap_weight"] * (ratings[t] - ro) if cfg.get("cotw_gap_weight")
-                     else (us - them) - ro)
+                     else (us - them) + (ratings[t] - ro))
             if best is None or score > best["score"]:
                 best = {"week": week, "team": t, "opp": x["away"] if home else x["home"], "fcs": o not in fbs,
                         "opp_rank": rank.get(o), "score_line": f"{us}-{them}", "margin": us - them,

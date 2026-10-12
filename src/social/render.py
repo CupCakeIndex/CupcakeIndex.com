@@ -339,7 +339,7 @@ def cfb_bully_now(today):
     """College Bully of the Week from this week's final scores (Thu-Sat), the morning after: the weekly rankings
     don't run until Monday. Same rules as model.cupcake_of_week, using the latest ratings (through last week):
     a 21+ point win over a cupcake for the winner (FCS, or a below-average FBS team 14+ points worse).
-    Score = margin + how far below an average FBS team the loser is."""
+    Score = margin + the rating gap between the two teams."""
     import yaml
     cfg = yaml.safe_load(open(os.path.join(ROOT, "src", "config.yaml"), encoding="utf-8"))["cfb"]["model"]
     cur, _, _ = latest("cfb")
@@ -371,7 +371,7 @@ def cfb_bully_now(today):
                 ro = o["rating"] if o else fcs.get((op["team"].get("location") or "").lower(), cfg["fcs_rating"])
                 if not weight(t["rating"], ro, not o) or t["rating"] - ro < cfg.get("cotw_min_gap", 0):
                     continue
-                score = (us - them) - ro
+                score = (us - them) + (t["rating"] - ro)
                 if best is None or score > best["score"]:
                     best = {"team": t["team"], "opp": o["team"] if o else op["team"].get("location", ""), "fcs": not o,
                             "opp_rank": o and o.get("power_rank"), "score_line": f"{us}-{them}", "margin": us - them, "score": round(score, 1),
