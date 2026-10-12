@@ -39,10 +39,11 @@ cfb:
 
 nfl:
   default_weights:
-    power: 30        # (was 35; 5 moved to Cupcake when NFL got its own Cupcake score)
+    power: 40        # (was 30; +10 from SOS, Oct 12 2026: Power already adjusts for opponents, so a big SOS weight
+                     # counted a hard schedule twice and lifted 0-5 Miami over 1-3-1 Washington)
     resume: 15       # Wins compared with what the #8 team would get against the same schedule
     efficiency: 25   # Opponent-adjusted EPA/play (offense minus defense)
-    sos: 15          # (was 10 + Cupcake 5; the NFL dropped Cupcake for strength of schedule, Oct 2026)
+    sos: 5           # (was 15, Oct 12 2026; see power)
     recent: 10
     luck: 5          # "Bad luck": one-score results count as coin flips
   model:
