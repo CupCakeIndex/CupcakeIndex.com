@@ -334,7 +334,7 @@ def build_week(fbs, games, advanced, polls, week, cfg, prior, rgames=None, node_
     detail = {}
     for t in teams:
         sched, perfs = [], []
-        wins = losses = fcs_n = weak_n = os_w = os_l = 0
+        wins = losses = ties = fcs_n = weak_n = os_w = os_l = os_t = 0
         xw = sor = cup_sum = 0.0
         opp_ratings = []
         for x in sorted((x for x in games if t in (x["home"], x["away"])), key=lambda x: (x["week"], x["start"] or "")):
@@ -355,18 +355,20 @@ def build_week(fbs, games, advanced, polls, week, cfg, prior, rgames=None, node_
                 row["rest_diff"] = int(rest - orest)  # + = extra rest vs. opponent
             if x["done"] and x["week"] <= week:
                 us, them = (x["hp"], x["ap"]) if home else (x["ap"], x["hp"])
-                won = us > them
+                won, tie = us > them, us == them  # a tie (NFL) counts as half a win, like the NFL standings
                 m = max(-cfg["margin_cap"], min(cfg["margin_cap"], us - them)) - loc_pts
                 perf = ro + m
                 p25 = phi((bench - ro + loc_pts) / cfg["game_sigma"])  # chance a top-25 team wins it
                 wins += won
-                losses += not won
-                sor += (1 - p25) if won else -p25
+                losses += not (won or tie)
+                ties += tie
+                sor += (1 - p25) if won else (0.5 - p25) if tie else -p25
                 wp = x["hwp"] if home else (1 - x["hwp"] if x["hwp"] is not None else None)
                 xw += float(wp) if wp is not None else phi((us - them) / 7)
                 if abs(us - them) <= cfg["one_score"]:
                     os_w += won
-                    os_l += not won
+                    os_l += not (won or tie)
+                    os_t += tie
                 if is_low(onode):
                     fcs_n += 1
                 elif cw > 0:
@@ -375,7 +377,7 @@ def build_week(fbs, games, advanced, polls, week, cfg, prior, rgames=None, node_
                 if not is_low(onode):  # Schedule = FBS opponents only; FCS games are the Cupcake score's job
                     opp_ratings.append(ro)
                 perfs.append(perf)
-                row.update(score=f"{us}-{them}", result="W" if won else "L", perf=round(perf, 1),
+                row.update(score=f"{us}-{them}", result="W" if won else "T" if tie else "L", perf=round(perf, 1),
                            difficulty=round(1 - p25, 2))
             else:
                 loc = 0 if x["neutral"] else (1 if home else -1)
@@ -383,21 +385,21 @@ def build_week(fbs, games, advanced, polls, week, cfg, prior, rgames=None, node_
                 row.update(upcoming=True, spread=round(spread, 1), win_prob=round(win_prob(cfg, spread), 2),
                            why=explain(parts, t, opp))
             sched.append(row)
-        n = wins + losses
+        n = wins + losses + ties
         raw["power"][t] = R[t]
         raw["resume"][t] = sor
         raw["efficiency"][t] = eff.get(t, 0.0) if ppa else R[t]
         raw["sos"][t] = float(np.mean(opp_ratings)) if opp_ratings else 0.0
         raw["recent"][t] = float(np.mean(perfs[-cfg["recent_games"]:])) if perfs else R[t]
         raw["cupcake"][t] = cup_sum / n if n else 0.0
-        raw["luck"][t] = -(wins - xw)
+        raw["luck"][t] = -(wins + 0.5 * ties - xw)
         qbs = [r["qb"] for r in sched if r.get("qb") and "result" in r]
         nxt = next((r for r in sched if r.get("upcoming")), None)
         detail[t] = {
             "usual_qb": max(set(qbs), key=qbs.count) if qbs else None,
             "next_qb": nxt.get("qb") if nxt else None,
-            "record": f"{wins}-{losses}", "wins": wins, "losses": losses,
-            "one_score": f"{os_w}-{os_l}", "luck_wins": round(wins - xw, 2),
+            "record": f"{wins}-{losses}" + (f"-{ties}" if ties else ""), "wins": wins, "losses": losses, "ties": ties,
+            "one_score": f"{os_w}-{os_l}" + (f"-{os_t}" if os_t else ""), "luck_wins": round(wins + 0.5 * ties - xw, 2),
             "fcs_games": fcs_n, "weak_games": weak_n, "schedule": sched,
         }
 

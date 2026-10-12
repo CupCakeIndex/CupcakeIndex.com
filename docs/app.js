@@ -225,7 +225,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "250"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "251"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -774,9 +774,10 @@ const NFL_PROFILES = {
 const profs = () => (league === "nfl" ? NFL_PROFILES : PROFILES);
 const HARD_SOS = 55, PADDED = 60; // score thresholds (50 = average)
 const HARD_NFL = 50; // NFL: above an average schedule = hard
-const winPct = (t) => (t.wins + t.losses ? t.wins / (t.wins + t.losses) : 0);
+const gp = (t) => t.wins + t.losses + (t.ties || 0); // games played (an NFL tie counts as half a win)
+const winPct = (t) => (gp(t) ? (t.wins + 0.5 * (t.ties || 0)) / gp(t) : 0);
 function profileOf(t) {
-  if (!(t.wins + t.losses)) return null;
+  if (!(gp(t))) return null;
   if (league === "nfl") {
     const hard = t.scores.sos >= HARD_NFL, winning = winPct(t) > 0.5;
     return hard ? (winning ? "gauntlet" : "barbell") : winning ? "walk" : "grind";
@@ -840,7 +841,7 @@ function bestWin(t) {
 }
 function isUntested(t) {
   const q = TESTED[league];
-  if (!q || t.rank > q.top || !(t.wins + t.losses)) return false;
+  if (!q || t.rank > q.top || !(gp(t))) return false;
   const b = bestWin(t);
   return !b || !b.opp_rank || b.fcs || b.opp_rank > q.quality;
 }
@@ -853,7 +854,7 @@ const untestedTag = (t) => isUntested(t)
 // NFL week files from before the NFL got a Cupcake score have no scores.cupcake: no meter.
 function cupMeter(t) {
   if (league === "nfl") return sosMeter(t);
-  if (t.scores.cupcake == null || !(t.wins + t.losses)) return "";
+  if (t.scores.cupcake == null || !(gp(t))) return "";
   const played = t.schedule.filter((g) => g.result);
   const cups = played.filter((g) => g.cupcake);
   const n = cups.length, heavy = n && n / played.length >= 0.5;
@@ -867,7 +868,7 @@ function cupMeter(t) {
 }
 // NFL: no cupcakes, just the schedule rank (#1 = hardest so far). The easiest 8 are shown in the accent color.
 function sosMeter(t) {
-  if (!(t.wins + t.losses)) return "";
+  if (!(gp(t))) return "";
   const n = DATA.teams.length, r = sosRankOf(t), easy = r > n - 8;
   const tip = `Schedule rank #${r} of ${n}: ${r === 1 ? "the hardest" : r === n ? "the easiest" : r <= n / 2 ? "a harder than average" : "an easier than average"} schedule so far`
     + ` (how good their opponents have been). #1 = hardest, #${n} = easiest.`;
@@ -913,7 +914,7 @@ function render() {
   const q = $("#search").value.trim().toLowerCase(), conf = $("#conf").value, top = $("#top25").checked, prof = $("#profile").value;
   let ordered = reverse ? [...ranked].reverse() : ranked;
   if (colSort) {
-    const pct = (t) => (t.wins + t.losses ? t.wins / (t.wins + t.losses) : 0);
+    const pct = winPct;
     const cmp = colSort.key === "ap" ? (a, b) => (a.ap_rank || 999) - (b.ap_rank || 999)
       : colSort.key === "diff" ? (a, b) => pointDiff(b).diff - pointDiff(a).diff
       : (a, b) => pct(b) - pct(a) || b.wins - a.wins || a.rank - b.rank;
@@ -970,7 +971,7 @@ function whyBullets(t) {
   if (strong.length) out.push("Strengths: " + strong.map((x) => `${x.label.toLowerCase()} (${Math.round(x.v)})`).join(", ") + ".");
   const weak = f.filter((x) => x.v < 40).slice(-2).reverse();
   if (weak.length) out.push("Weaknesses: " + weak.map((x) => `${x.label.toLowerCase()} (${Math.round(x.v)})`).join(", ") + ".");
-  const games = t.wins + t.losses, cups = t.fcs_games + t.weak_games;
+  const games = gp(t), cups = t.fcs_games + t.weak_games;
   const sr = sosRankOf(t), n = DATA.teams.length;
   if (league === "nfl" && games && sr > n - 8) out.push(`Easy road: the #${sr} schedule of ${n} so far (#1 = hardest)${winPct(t) > 0.5 ? `. A ${t.record} record against it proves less than it looks.` : "."}`);
   if (league === "nfl" && games && sr <= 8) out.push(`Tough road: the #${sr} schedule of ${n} so far (#1 = hardest)${winPct(t) > 0.5 ? `, and still ${t.record}.` : "."}`);
@@ -1336,7 +1337,7 @@ async function renderShame() {
 
   // 1. NFL (no cupcakes): the easiest schedules so far, winning records first
   if (nfl) {
-    const easy = [...cur.teams].filter((t) => t.wins + t.losses).sort((a, b) => a.raw.sos - b.raw.sos).slice(0, 10);
+    const easy = [...cur.teams].filter((t) => gp(t)).sort((a, b) => a.raw.sos - b.raw.sos).slice(0, 10);
     el("hs-season-title").textContent = `${lt.season} easiest schedules`;
     el("hs-season").innerHTML = easy.length ? `<ol class="hs-list">${easy.map((t) => `<li data-team="${esc(t.team)}">${logo(t)}<div><b>${esc(t.team)}</b>
         <small class="muted">${esc(t.record)} · ${esc(topHalfRec(t))} vs top-half teams</small></div><span class="hs-n" title="Schedule rank (#1 = hardest)">#${sosRankOf(t, cur.teams)}</span></li>`).join("")}</ol>`
