@@ -84,7 +84,9 @@ def main():
     first = idx.get("players", {})
     out["viz"] = {lg: [s for s in idx[lg] if s >= first.get(lg, 0)] for lg in ("nfl", "cfb")}
     hist = os.path.join(OUT, "hist")
-    out["hist"] = {"nfl": sorted(int(f[4:8]) for f in os.listdir(hist) if f.startswith("nfl_"))} if os.path.isdir(hist) else {"nfl": []}
+    # analyst/data/hist is gitignored, so a fresh checkout (the cloud refresh routine) won't have it: the page
+    # already has 2006-2021 published, so list those
+    out["hist"] = {"nfl": sorted(int(f[4:8]) for f in os.listdir(hist) if f.startswith("nfl_"))} if os.path.isdir(hist) else {"nfl": list(range(2006, first.get("nfl", 2022)))}
     # the site's live Stats tabs (Injuries % healthy, Frauds / Over-achievers), same math as the site (src/site_tabs.py)
     import site_tabs
     out["site"] = {}
