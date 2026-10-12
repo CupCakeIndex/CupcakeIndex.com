@@ -411,6 +411,7 @@ body.drawer-open { overflow: hidden; }
 .pill.over { color: #ef5a50; }
 .pill.under { color: #36b56f; }
 .pill.untested { color: #e3a23a; }
+.pill.h2h { color: #5aa9ef; cursor: help; } /* head-to-head move (app.js headToHead) */
 .pill.cup-badge { color: #fff; border-color: #c93b67; background: linear-gradient(180deg, #ee6b92, #c93b67); }
 
 .cotw { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; padding: 0; overflow: hidden;

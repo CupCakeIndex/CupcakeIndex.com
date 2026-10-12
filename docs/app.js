@@ -225,7 +225,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "247"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "248"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -666,16 +666,46 @@ function showWeights() {
     : only ? `Sorted by ${factor(only).label} only, ${soloDir === "hi" ? "high to low. Click the header again for low to high." : "low to high. Click the header again to go back to your blend."}` : "";
 }
 
-// Blended score. Inverted factors count as (100 - score).
-function composite(teams, w = weights, factors = LG.factors) {
+// Blended score. Inverted factors count as (100 - score). Then head-to-head (h2h): see headToHead.
+function composite(teams, w = weights, factors = LG.factors, h2h = w !== weights || !soloKey()) {
   const inv = new Set(factors.filter((f) => f.invert).map((f) => f.key));
   const total = Object.values(w).reduce((a, b) => a + b, 0);
   const val = (t, k) => (inv.has(k) ? 100 - (t.scores[k] ?? 50) : t.scores[k] ?? 50);
-  return teams
-    .map((t) => ({ ...t, comp: total ? Object.entries(w).reduce((s, [k, x]) => s + x * val(t, k), 0) / total : t.scores.power }))
-    .sort((a, b) => b.comp - a.comp || b.rating - a.rating)
-    .map((t, i) => ({ ...t, rank: i + 1 }));
+  const list = teams
+    .map((t) => ({ ...t, comp: total ? Object.entries(w).reduce((s, [k, x]) => s + x * val(t, k), 0) / total : t.scores.power, h2h: null }))
+    .sort((a, b) => b.comp - a.comp || b.rating - a.rating);
+  return (h2h ? headToHead(list) : list).map((t, i) => ({ ...t, rank: i + 1 }));
 }
+
+// Head-to-head: a team that beat another this season (more wins than losses against it) ranks right above it,
+// as long as its blended score is within H2H_GAP points (out of 100). A bigger gap means the loser is still clearly
+// better and stays ahead. One pass from the top of the table down, and each team moves at most once, so results
+// don't chain (A beat B who beat C doesn't carry A over C) and a loop (A beat B, B beat C, C beat A) can't spin.
+// Off when sorting by a single factor. The mover gets t.h2h = the team it moved above (shown as an H2H tag).
+const H2H_GAP = 10;
+function headToHead(list) {
+  const net = new Map(); // "winner|loser" -> wins minus losses
+  for (const t of list) for (const g of t.schedule || []) {
+    if (g.result !== "W" && g.result !== "L") continue;
+    const k = `${t.team}|${g.opp}`;
+    net.set(k, (net.get(k) || 0) + (g.result === "W" ? 1 : -1));
+  }
+  const moved = new Set();
+  for (let i = 0; i < list.length; i++) { // i = the loser's spot, top of the table first
+    const L = list[i];
+    for (let j = i + 1; j < list.length; j++) { // the best-scored winner below it gets the spot
+      const W = list[j];
+      if (moved.has(W.team) || !(net.get(`${W.team}|${L.team}`) > 0) || L.comp - W.comp > H2H_GAP) continue;
+      moved.add(W.team);
+      list.splice(j, 1); list.splice(i, 0, { ...W, h2h: L.team });
+      i++; // L is now one spot lower; carry on below it
+      break;
+    }
+  }
+  const at = new Map(list.map((t, i) => [t.team, i]));
+  return list.map((t) => (t.h2h && at.get(t.team) > at.get(t.h2h) ? { ...t, h2h: null } : t));
+}
+const h2hTag = (t) => t.h2h ? ` <span class="pill h2h" title="Beat ${esc(t.h2h)} head-to-head and is within ${H2H_GAP} points of them, so ranked right above them">H2H</span>` : "";
 
 // Ranking shown in the table. Sorting by an inverted factor alone (Cupcake) numbers teams by that
 // factor itself, so #1 = the softest schedule; everything else uses the blended ranking.
@@ -691,7 +721,7 @@ async function modelRanks(lg) {
   if (!info) return null;
   const d = await weekData(lg, info.latest.season, info.latest.week).catch(() => null);
   if (!d) return null;
-  const list = composite(d.teams, info.default_weights, info.factors); // "our #" everywhere = the Default ranking
+  const list = composite(d.teams, info.default_weights, info.factors, true); // "our #" everywhere = the Default ranking
   return { byName: new Map(list.map((t) => [t.team, t])), byId: new Map(list.filter((t) => t.id).map((t) => [String(t.id), t])), data: d };
 }
 
@@ -911,7 +941,7 @@ function render() {
       <td class="num rank">${t.rank}</td><td class="mv">${mv}</td>
       <td><div class="team">${logo(t)}<div class="tcell">
         <b class="tname" title="${esc(t.conference || "")}">${t.ap_rank ? `<span class="ap-rk" title="AP Poll rank">${esc(t.ap_rank)}</span>` : ""}${esc(t.team)}</b>
-        <div class="tmeta">${cupMeter(t)}${profileIcon(t)}${cotwTag(t)}${blended ? untestedTag(t) + apTag(t) : ""}</div>
+        <div class="tmeta">${cupMeter(t)}${profileIcon(t)}${cotwTag(t)}${h2hTag(t)}${blended ? untestedTag(t) + apTag(t) : ""}</div>
       </div></div></td>
       <td class="num"${t._liveIds?.size ? ` title="Includes ${t._liveIds.size === 1 ? "a game" : t._liveIds.size + " games"} played since the rankings update"` : ""}>${esc(t.record)}</td>
       <td class="num diff ${pd.diff > 0 ? "up" : pd.diff < 0 ? "down" : ""}" title="${pd.pf} scored, ${pd.pa} allowed">${pd.diff > 0 ? "+" : ""}${pd.diff}</td>
