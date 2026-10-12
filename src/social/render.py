@@ -420,12 +420,13 @@ def bully_card(today, leagues=("cfb", "nfl"), now=None):
         d.text((x + 32, TOP + 220), c["score_line"], font=font(96, "ExtraBold"), fill=ACCENT)
         opp = c["opp"] + (" (FCS)" if c.get("fcs") else "") + (f" · #{c['opp_rank']}" if c.get("opp_rank") and league == "cfb" else "")
         d.text((x + 32, TOP + 340), "over " + fit(d, opp, font(28, "Bold"), col_w - 140), font=font(28, "Bold"), fill=INK)
-        # bully score meter (college scores, margin + rating gap, run to about 130)
+        # bully score meter: college = margin + rating gap (runs to about 130), NFL = margin only
+        top = 130 if league == "cfb" else 50
         my = BOTTOM - 100
         d.text((x + 32, my - 36), "BULLY SCORE", font=font(18, "Bold"), fill=MUTED)
         d.text((x + col_w - 32, my - 40), f"{c['score']:.0f}", font=font(30, "ExtraBold"), fill=INK, anchor="ra")
         d.rectangle((x + 32, my, x + col_w - 32, my + 18), fill=(34, 34, 38))
-        d.rectangle((x + 32, my, x + 32 + int((col_w - 64) * min(c["score"], 130) / 130), my + 18), fill=ACCENT)
+        d.rectangle((x + 32, my, x + 32 + int((col_w - 64) * min(c["score"], top) / top), my + 18), fill=ACCENT)
         lines.append(f"{league.upper()}: {short(c['team'], league)} {c['score_line']} over {short(c['opp'], league)}"
                      + (" (FCS)" if c.get("fcs") else "") + ".")
     if not lines:
