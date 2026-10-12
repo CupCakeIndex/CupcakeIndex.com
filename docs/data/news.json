@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-12T03:32:58Z",
+ "updated": "2026-10-12T04:00:27Z",
  "teams": {
   "nfl:22": {
    "name": "Arizona Cardinals",
@@ -85,19 +85,19 @@
    "id": "34",
    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/hou.png"
   },
-  "nfl:11": {
-   "name": "Indianapolis Colts",
-   "short": "Colts",
-   "lg": "nfl",
-   "id": "11",
-   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ind.png"
-  },
   "nfl:30": {
    "name": "Jacksonville Jaguars",
    "short": "Jaguars",
    "lg": "nfl",
    "id": "30",
    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/jax.png"
+  },
+  "nfl:12": {
+   "name": "Kansas City Chiefs",
+   "short": "Chiefs",
+   "lg": "nfl",
+   "id": "12",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/kc.png"
   },
   "nfl:13": {
    "name": "Las Vegas Raiders",
@@ -253,6 +253,13 @@
    "id": "38",
    "logo": "https://cdn.collegefootballdata.com/logos/500/38.png"
   },
+  "cfb:150": {
+   "name": "Duke",
+   "short": "Duke",
+   "lg": "cfb",
+   "id": "150",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/150.png"
+  },
   "cfb:57": {
    "name": "Florida",
    "short": "Florida",
@@ -273,6 +280,13 @@
    "lg": "cfb",
    "id": "61",
    "logo": "https://cdn.collegefootballdata.com/logos/500/61.png"
+  },
+  "cfb:59": {
+   "name": "Georgia Tech",
+   "short": "Georgia Tech",
+   "lg": "cfb",
+   "id": "59",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/59.png"
   },
   "cfb:356": {
    "name": "Illinois",
@@ -456,13 +470,6 @@
    "id": "2579",
    "logo": "https://cdn.collegefootballdata.com/logos/500/2579.png"
   },
-  "cfb:24": {
-   "name": "Stanford",
-   "short": "Stanford",
-   "lg": "cfb",
-   "id": "24",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/24.png"
-  },
   "cfb:2633": {
    "name": "Tennessee",
    "short": "Tennessee",
@@ -536,6 +543,80 @@
  },
  "items": [
   {
+   "title": "Tua Tagovailoa replaces injured Michael Penix for overtime",
+   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/tua-tagovailoa-replaces-injured-michael-penix-for-overtime",
+   "source": "Pro Football Talk",
+   "league": "nfl",
+   "published": "2026-10-12T03:46:43Z",
+   "summary": "Penix has a rib injury.",
+   "image": "https://nbcsports.brightspotcdn.com/dims4/default/37ef000/2147483647/strip/false/crop/4781x2689+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F6e%2F47%2F99cdd16840debafdb68d896f8eab%2F2299238162.jpg",
+   "teams": []
+  },
+  {
+   "title": "JOL TV: Overreaction Sunday talking Tech’s win over Duke",
+   "url": "https://www.on3.com/sites/jackets-online/news/jol-tv-overreaction-sunday-talking-techs-win-over-duke/",
+   "source": "On3",
+   "league": "cfb",
+   "published": "2026-10-12T03:42:59Z",
+   "summary": "Watch JOL publisher Kelly Quinlan and staff writer Alex Farrer as they answer questions from users and discuss Georgia Tech's 28-25 win over Duke and what is next for the program. There is also some…",
+   "image": "https://on3static.com/cdn-cgi/image/height=1024,width=1024,quality=90,fit=scale-down,format=auto,metadata=none/uploads/dev/assets/cms/2026/10/11224226/2026-10-10T234601Z_791580637_MT1USATODAY30051522_RTRMADP_3_NCAA-FOOTBALL-DUKE-AT-GEORGIA-TECH.jpg",
+   "teams": [
+    "cfb:59",
+    "cfb:150"
+   ]
+  },
+  {
+   "title": "Podcast: Breaking down David Dotson, Eli King committing to SMU",
+   "url": "https://www.on3.com/teams/smu-mustangs/news/podcast-breaking-down-david-dotson-eli-king-committing-to-smu/",
+   "source": "On3",
+   "league": "cfb",
+   "published": "2026-10-12T03:39:18Z",
+   "summary": "Billy Embody breaks down the commitments to SMU Football from 4-star EDGE David Dotson and Alabama DB Eli King.",
+   "image": "https://on3static.com/cdn-cgi/image/height=1024,width=1024,quality=90,fit=scale-down,format=auto,metadata=none/uploads/dev/assets/cms/2026/10/11223726/reaction.png",
+   "teams": [
+    "cfb:333",
+    "cfb:2567"
+   ]
+  },
+  {
+   "title": "Two former Cardinals employees sue team, Michael Bidwill for racial discrimination",
+   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/two-former-cardinals-employees-sue-team-michael-bidwill-for-racial-discrimination",
+   "source": "Pro Football Talk",
+   "league": "nfl",
+   "published": "2026-10-12T03:38:57Z",
+   "summary": "On the same day the Cardinals set the franchise record for consecutive home losses at nine, word has emerged of another lawsuit against the team and owner Michael Bidwill.",
+   "image": "https://nbcsports.brightspotcdn.com/dims4/default/de79077/2147483647/strip/false/crop/3349x1884+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F0d%2Ff1%2Fb9a6afad43fea88b7dffe6e25e5e%2F2026-10-11t203135z-1720801443-mt1usatoday30059827-rtrmadp-3-arizona-cardinals-owner-michael-bidwill-walks-out-on-to-the.jpg",
+   "teams": [
+    "nfl:22"
+   ]
+  },
+  {
+   "title": "Are the Pack back? Green Bay, Jordan Love erupt in dominant win vs. Bears behind retooled offensive line",
+   "url": "https://www.cbssports.com/nfl/news/are-the-pack-back-green-bay-jordan-love-erupt-dominant-win-bears/",
+   "source": "CBS Sports",
+   "league": "nfl",
+   "published": "2026-10-12T03:38:08Z",
+   "summary": "Love's 367 yards passing are the most by a Packers QB vs. the Bears at Lambeau Field in series history",
+   "image": "https://sportshub.cbsistatic.com/i/2026/10/11/6749f207-98e9-45f8-afe8-d7a4ef057a08/gettyimages-2299209071.jpg",
+   "teams": [
+    "nfl:9",
+    "nfl:3"
+   ]
+  },
+  {
+   "title": "Chargers vs. Chiefs Opening Odds: Bolts face uphill battle in Week 6",
+   "url": "https://sports.yahoo.com/articles/chargers-vs-chiefs-opening-odds-033614128.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-12T03:36:14Z",
+   "summary": "The Los Angeles Chargers are turning the page to their next game against the Kansas City Chiefs.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/d82f81ed5d86de29f30888b031f36460.jpg",
+   "teams": [
+    "nfl:24",
+    "nfl:12"
+   ]
+  },
+  {
    "title": "Texas A&M commits high school football recap: Oct. 8-10 results, stats",
    "url": "https://www.on3.com/sites/aggie-yell/news/texas-am-aggies-commits-high-school-football-recap-oct-8-10-results-stats/",
    "source": "On3",
@@ -546,6 +627,16 @@
    "teams": [
     "cfb:245"
    ]
+  },
+  {
+   "title": "Predicting Week 8 Big Ten Football Game Times",
+   "url": "https://sports.yahoo.com/articles/predicting-week-8-big-ten-032658332.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-12T03:26:58Z",
+   "summary": "When we think games will kickoff.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/3b58f3844c4248aa1c24ec5a4b1d90e6.jpg",
+   "teams": []
   },
   {
    "title": "The Definitive Week 5 Review: Purdue’s running game, the defensive plan and more from the Boilermakers’ football’s win over Minnesota",
@@ -586,6 +677,19 @@
    ]
   },
   {
+   "title": "Utah remains one of Steeler Wesley’s top schools following Kansas visit",
+   "url": "https://sports.yahoo.com/articles/utah-remains-one-steeler-wesley-031026831.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-12T03:10:26Z",
+   "summary": "The 6-foot-5 prospect remains enamored with Salt Lake City’s family atmosphere and a versatile offensive scheme that prioritizes tight ends, keeping the Utes surging in his recruitment.",
+   "image": "",
+   "teams": [
+    "cfb:2305",
+    "cfb:254"
+   ]
+  },
+  {
    "title": "Commanders' OT meltdown puts plenty of players in an awkward spot",
    "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/commanders-ot-meltdown-puts-plenty-of-players-in-an-awkward-spot",
    "source": "Pro Football Talk",
@@ -609,6 +713,19 @@
     "cfb:245",
     "cfb:84",
     "cfb:158"
+   ]
+  },
+  {
+   "title": "Presser Rewind: Purdue 41 Minnesota 13",
+   "url": "https://sports.yahoo.com/articles/presser-rewind-purdue-41-minnesota-030013496.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-12T03:00:13Z",
+   "summary": "Purdue delivered a dominant, complete-game performance at Ross-Ade Stadium, overpowering Minnesota 41–13 to secure their second consecutive Big Ten victory. From the opening kickoff, the…",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/9ebbe4b98adf478555f318b4b83d4a7f.jpg",
+   "teams": [
+    "cfb:2509",
+    "cfb:135"
    ]
   },
   {
@@ -1056,18 +1173,6 @@
    ]
   },
   {
-   "title": "Nebraska intel: Cornhuskers make progress with flip target, buzzing with blue-chip DL",
-   "url": "https://www.on3.com/rivals/news/nebraska-intel-cornhuskers-make-progress-with-flip-target-buzzing-with-blue-chip-dl/",
-   "source": "On3",
-   "league": "cfb",
-   "published": "2026-10-12T01:48:33Z",
-   "summary": "Nebraska intel from an exciting weekend in Lincoln",
-   "image": "https://on3static.com/cdn-cgi/image/height=1024,width=1024,quality=90,fit=scale-down,format=auto,metadata=none/uploads/dev/assets/cms/2026/09/26192237/Untitled-design-8-10.png",
-   "teams": [
-    "cfb:158"
-   ]
-  },
-  {
    "title": "49ers beat the Seahawks on the road to be undefeated through five weeks and 3-0 in the NFC West; today was a good day",
    "url": "https://sports.yahoo.com/articles/49ers-beat-seahawks-road-undefeated-014533039.html",
    "source": "Yahoo Sports",
@@ -1103,18 +1208,6 @@
    "image": "https://media.zenfs.com/en/heavy_214/20923dd40fb55cbde0cc8a0fdc1830ec.jpg",
    "teams": [
     "cfb:52"
-   ]
-  },
-  {
-   "title": "Fall ball brings unfortunate setback for one of Ole Miss’ young sluggers",
-   "url": "https://www.on3.com/teams/ole-miss-rebels/news/fall-ball-brings-unfortunate-setback-for-one-of-ole-miss-young-sluggers/",
-   "source": "On3",
-   "league": "cfb",
-   "published": "2026-10-12T01:34:09Z",
-   "summary": "Ole Miss baseball's lineup depth has taken a hit, while a handful of the Rebels' transfer additions flashed in scrimmages on Sunday.",
-   "image": "https://on3static.com/cdn-cgi/image/height=1024,width=1024,quality=90,fit=scale-down,format=auto,metadata=none/uploads/dev/assets/cms/2026/05/19143229/2026-04-29T045929Z_1010715922_MT1USATODAY28836138_RTRMADP_3_OLE-MISS-HEAD-COACH-MIKE-BIANCO-LEANS-AGAINST-THE-DUGOUT.jpg",
-   "teams": [
-    "cfb:145"
    ]
   },
   {
@@ -1286,16 +1379,6 @@
    ]
   },
   {
-   "title": "Jaylen Warren runs wild on Indy in dynamic Week 5 performance",
-   "url": "https://sports.yahoo.com/articles/jaylen-warren-runs-wild-indy-005811919.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-12T00:58:11Z",
-   "summary": "Jaylen Warren sheds Indy for 188 total yards and two touchdowns in a Week 5 win.",
-   "image": "",
-   "teams": []
-  },
-  {
    "title": "Mike LaFleur: Marvin Harrison Jr. situation wasn't a distraction, not why we didn't play well",
    "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/mike-lafleur-marvin-harrison-jr-situation-wasnt-a-distraction-not-why-we-didnt-play-well",
    "source": "Pro Football Talk",
@@ -1336,19 +1419,6 @@
    ]
   },
   {
-   "title": "Are the Pack back? Green Bay, Jordan Love erupt in dominant win vs. Bears behind retooled offensive line",
-   "url": "https://www.cbssports.com/nfl/news/are-the-pack-back-green-bay-jordan-love-erupt-dominant-win-bears/",
-   "source": "CBS Sports",
-   "league": "nfl",
-   "published": "2026-10-12T00:44:07Z",
-   "summary": "Love's 367 yards passing are the most by a Packers QB vs. the Bears at Lambeau Field in series history",
-   "image": "https://sportshub.cbsistatic.com/i/2026/10/11/6749f207-98e9-45f8-afe8-d7a4ef057a08/gettyimages-2299209071.jpg",
-   "teams": [
-    "nfl:9",
-    "nfl:3"
-   ]
-  },
-  {
    "title": "Georgia Bulldogs beat Crimson Tide in Tuscaloosa, fans throw trash as players leave field",
    "url": "https://sports.yahoo.com/articles/georgia-bulldogs-beat-crimson-tide-154259952.html",
    "source": "Yahoo Sports",
@@ -1359,6 +1429,19 @@
    "teams": [
     "cfb:61",
     "cfb:333"
+   ]
+  },
+  {
+   "title": "'Brutal' - Nebraska Fans Annoyed With Late Week 7 Kickoff Time at Oregon",
+   "url": "https://sports.yahoo.com/articles/brutal-nebraska-fans-annoyed-week-002856661.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-12T00:28:56Z",
+   "summary": "Nebraska fans are very annoyed by it.",
+   "image": "",
+   "teams": [
+    "cfb:158",
+    "cfb:2483"
    ]
   },
   {
@@ -1505,6 +1588,19 @@
    ]
   },
   {
+   "title": "USC and UCLA Make Moves in Latest Big Ten Power Rankings After Big Road Wins",
+   "url": "https://sports.yahoo.com/articles/usc-ucla-moves-latest-big-234042420.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-11T23:40:42Z",
+   "summary": "Yet another week of Big Ten football that brought lots of surprises and near upsets.",
+   "image": "https://media.zenfs.com/en/usc_trojans_on_si_articles_602/615c7c2a070a4247f1d20bee6c588ef5.jpg",
+   "teams": [
+    "cfb:26",
+    "cfb:30"
+   ]
+  },
+  {
    "title": "Lions roll to 45-21 victory over Cardinals",
    "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/lions-roll-to-45-21-victory-over-cardinals",
    "source": "Pro Football Talk",
@@ -1519,7 +1615,7 @@
    ]
   },
   {
-   "title": "Mike Evans checked Seahawks defender’s jersey and asked ‘Who Are You?’ in trash talk masterclass",
+   "title": "Mike Evans’ checked Seahawks defender’s jersey and asked ‘Who Are You?’ in trash talk masterclass",
    "url": "https://www.sbnation.com/nfl/1132046/mike-evans-checked-seahawks-defenders-jersey-who-are-you-in-trash-talk",
    "source": "SB Nation",
    "league": "nfl",
@@ -1557,18 +1653,6 @@
    ]
   },
   {
-   "title": "Pat McAfee was right about Georgia football",
-   "url": "https://sports.yahoo.com/articles/pat-mcafee-georgia-football-232103893.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-11T23:21:03Z",
-   "summary": "The ESPN personality called his own shot on Saturday.",
-   "image": "https://media.zenfs.com/en/the_sporting_news_articles_584/f44418b1d96a7f718c09d2bf492eac6c",
-   "teams": [
-    "cfb:61"
-   ]
-  },
-  {
    "title": "Jahmyr Gibbs sets record for most TDs by a player under the age of 25",
    "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/jahmyr-gibbs-sets-record-for-most-tds-by-a-player-under-the-age-of-25",
    "source": "Pro Football Talk",
@@ -1577,19 +1661,6 @@
    "summary": "Earlier, Jahmyr Gibbs tied a longstanding record.",
    "image": "https://nbcsports.brightspotcdn.com/dims4/default/1614a35/2147483647/strip/false/crop/4530x2548+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2Fbd%2Fb3%2F3ee5283e4f8ab3d1ba71aaad8f06%2F2026-10-11t222018z-1789887911-mt1usatoday30060865-rtrmadp-3-nfl-detroit-lions-at-arizona-cardinals.jpg",
    "teams": []
-  },
-  {
-   "title": "How to Watch No. 6 Alabama at No. 14 Tennessee",
-   "url": "https://sports.yahoo.com/articles/watch-no-6-alabama-no-231110305.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-11T23:11:10Z",
-   "summary": "Everything you need to know, including TV and radio information, as the Crimson Tide heads to Knoxville for a top-15 showdown.",
-   "image": "https://media.zenfs.com/en/alabama_crimson_tide_on_si_articles_153/b4badd97fe911d230df572558ab6d24e.jpg",
-   "teams": [
-    "cfb:333",
-    "cfb:2633"
-   ]
   },
   {
    "title": "Falcons vs. Ravens odds, predictions, start time, betting preview: Sunday Night Football picks, best bets",
@@ -1618,32 +1689,6 @@
    ]
   },
   {
-   "title": "Final Takeaways From Penn State's Wayward Loss to USC in the White Out",
-   "url": "https://sports.yahoo.com/articles/final-takeaways-penn-states-wayward-230002931.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-11T23:00:02Z",
-   "summary": "The Nittany Lions' defense faltered for a second straight week, this time against Trojans quarterback Jayden Maiava.",
-   "image": "https://media.zenfs.com/en/penn_state_nittany_lions_on_si_505/129e865d46e8fac7422ead432bfacccf.jpg",
-   "teams": [
-    "cfb:213",
-    "cfb:30"
-   ]
-  },
-  {
-   "title": "3 Overreactions After Texas A&M's Loss to Missouri",
-   "url": "https://sports.yahoo.com/articles/3-overreactions-texas-ms-loss-230002439.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-11T23:00:02Z",
-   "summary": "After Texas A&M's 27-6 loss to Missouri, these were some of the over reactions.",
-   "image": "https://media.zenfs.com/en/texas_a_m_on_si_articles_602/9c90529df1dd21da1405247b6de748c8.jpg",
-   "teams": [
-    "cfb:245",
-    "cfb:142"
-   ]
-  },
-  {
    "title": "What Commanders' Dan Quinn, Jayden Daniels said after jarring end-of-game mistake in tie vs. Giants",
    "url": "https://www.cbssports.com/nfl/news/commanders-dan-quinn-jayden-daniels-respond-to-mistake-vs-giants/",
    "source": "CBS Sports",
@@ -1654,19 +1699,6 @@
    "teams": [
     "nfl:28",
     "nfl:19"
-   ]
-  },
-  {
-   "title": "PHOTO GALLERY: Notre Dame 58, Stanford 7 in a GREEN OUT",
-   "url": "https://sports.yahoo.com/articles/photo-gallery-notre-dame-58-225737563.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-11T22:57:37Z",
-   "summary": "Some of the best images from Notre Dame’s 58-7 blowout win over Stanford in South Bend.",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/780979bb53f86e4249b3edc6a6fb176b.jpg",
-   "teams": [
-    "cfb:87",
-    "cfb:24"
    ]
   },
   {
@@ -1870,19 +1902,6 @@
    ]
   },
   {
-   "title": "Aaron Rodgers joins Terry Bradshaw in team history with third three-TD game in a row",
-   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/aaron-rodgers-joins-terry-bradshaw-in-team-history-with-third-three-td-game-in-a-row",
-   "source": "Pro Football Talk",
-   "league": "nfl",
-   "published": "2026-10-11T19:48:43Z",
-   "summary": "Rodgers has the Steelers up 31-22 on the Colts in the fourth quarter.",
-   "image": "https://nbcsports.brightspotcdn.com/dims4/default/c8d1264/2147483647/strip/false/crop/3718x2091+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F6b%2Fff%2F122ef15245b68c3747725ca27c67%2F2299710877.jpg",
-   "teams": [
-    "nfl:23",
-    "nfl:11"
-   ]
-  },
-  {
    "title": "Ja’Marr Chase’s touchdown catch was so good it made the announcer’s voice crack",
    "url": "https://www.sbnation.com/nfl/1132012/jamarr-chase-touchdown-catch-video-bengals-dolphins-eric-collins",
    "source": "SB Nation",
@@ -1893,16 +1912,6 @@
    "teams": [
     "nfl:4"
    ]
-  },
-  {
-   "title": "Nick Sirianni: \"I lost us that game\"",
-   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/nick-sirianni-i-lost-us-that-game",
-   "source": "Pro Football Talk",
-   "league": "nfl",
-   "published": "2026-10-11T19:22:23Z",
-   "summary": "The NFL's decision to move the touchback from the 30 to the 35 continues to create some crazy end of game situations.",
-   "image": "https://nbcsports.brightspotcdn.com/dims4/default/8cae37e/2147483647/strip/false/crop/7395x4160+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F9c%2F0e%2Fb6d92db7449d89c5a20bd328cce6%2F2026-10-11t162956z-252231134-mt1usatoday30057135-rtrmadp-3-nfl-philadelphia-eagles-at-jacksonville-jaguars.jpg",
-   "teams": []
   },
   {
    "title": "College football odds, lines, schedule for Week 7: Notre Dame opens as favorite in top-10 battle at BYU",
