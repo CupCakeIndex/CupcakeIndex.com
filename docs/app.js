@@ -225,7 +225,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "246"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "247"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -551,6 +551,53 @@ function renderCotw() {
     ${c.espn_id ? `<a class="cotw-btn" href="${link("game", c.espn_id)}">Box score →</a>` : ""}`;
   $("#cotw").querySelector("[data-team]").onclick = (e) => { e.preventDefault(); openTeam(c.team); };
 }
+
+// ------------------------------------------------------------------ next rankings drop (countdown)
+// Mirrors the schedule in .github/workflows/weekly.yml (UTC, Aug-Jan only): college's new week on the first
+// Saturday-night try (Sunday 03:27 UTC Aug-Oct, 04:27 UTC Nov-Jan), NFL's on Monday 13:07 UTC. Change both together.
+const DROPS = {
+  cfb: { name: "College", dow: 0, at: (m) => (m >= 7 && m <= 9 ? [3, 27] : [4, 27]) },
+  nfl: { name: "NFL", dow: 1, at: () => [13, 7] },
+};
+const IN_SEASON = (m) => m >= 7 || m === 0; // Aug-Jan (getUTCMonth: 0 = Jan)
+function nextDrop(k, now = Date.now()) {
+  const d = DROPS[k], from = now - 30 * 6e4; // a run counts as "dropping now" for 30 minutes
+  for (let i = 0; i < 400; i++) {
+    const t = new Date(from + i * 864e5);
+    if (t.getUTCDay() !== d.dow || !IN_SEASON(t.getUTCMonth())) continue;
+    const [h, mi] = d.at(t.getUTCMonth());
+    const at = Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate(), h, mi);
+    if (at > from) return at;
+  }
+  return null;
+}
+let dropsTick = null;
+function renderDrops() {
+  const el = $("#drops");
+  if (!el) return;
+  const pad = (n) => String(n).padStart(2, "0");
+  const when = (at) => new Date(at).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
+  const draw = () => {
+    if (!document.body.contains(el)) return;
+    el.innerHTML = `<span class="drops-tag">Next rankings</span>` + ["cfb", "nfl"].map((k) => {
+      const at = nextDrop(k), ms = at && at - Date.now();
+      let txt;
+      if (!at) txt = "next season";
+      else if (ms <= 0) txt = `<b>dropping now</b>`;
+      else {
+        const d = Math.floor(ms / 864e5), h = Math.floor(ms / 36e5) % 24, m = Math.floor(ms / 6e4) % 60, sec = Math.floor(ms / 1e3) % 60;
+        txt = `<b>${d ? `${d}d ` : ""}${pad(h)}h ${pad(m)}m ${pad(sec)}s</b>` + (ms > 7 * 864e5 ? "" : ` <small>${esc(when(at))}</small>`);
+        if (ms > 30 * 864e5) txt = `<b>${esc(new Date(at).toLocaleDateString(undefined, { month: "short", day: "numeric" }))}</b>`;
+      }
+      return `<span class="drops-item${k === league ? " on" : ""}">${DROPS[k].name} ${txt}</span>`;
+    }).join("");
+  };
+  el.title = "When the next week's rankings come out (about; GitHub can run a few minutes late). College counts a week once 90% of its games are final, so a late night can push it to the next try (about 3 hours later). College also refreshes Sunday morning and Sunday night for the new polls.";
+  draw();
+  clearInterval(dropsTick);
+  dropsTick = setInterval(draw, 1000);
+}
+renderDrops();
 
 // ------------------------------------------------------------------ weights
 function buildSliders() {

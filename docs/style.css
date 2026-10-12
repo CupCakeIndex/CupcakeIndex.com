@@ -245,6 +245,12 @@ tr.tot td { font-weight: 700; border-top: 2px solid var(--line); }
 /* Cupcake Bully of the Week */
 .cotw { display: flex; gap: 12px; align-items: center; background: var(--card); border: 1px solid var(--line); border-left: 5px solid #e86fa6; border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; box-shadow: var(--shadow); }
 .cotw-icon { font-size: 30px; line-height: 1; }
+/* next rankings drop countdown (app.js renderDrops) */
+.drops { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; font-size: 12px; color: var(--muted); margin: 0 2px 10px; font-variant-numeric: tabular-nums; }
+.drops-tag { text-transform: uppercase; letter-spacing: .08em; font-size: 10.5px; font-weight: 700; }
+.drops-item b { color: var(--ink); font-weight: 700; }
+.drops-item.on b { color: var(--accent); }
+.drops-item small { font-size: 11px; }
 .cotw a[data-team] { font-weight: 800; }
 .pill.cup-badge { background: color-mix(in srgb, #e86fa6 18%, transparent); color: #e86fa6; }
 td.diff { font-weight: 600; font-variant-numeric: tabular-nums; }
