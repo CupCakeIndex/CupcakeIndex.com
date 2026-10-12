@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-12T08:02:07Z",
+ "updated": "2026-10-12T08:35:45Z",
  "teams": {
   "nfl:22": {
    "name": "Arizona Cardinals",
@@ -162,6 +162,13 @@
    "id": "19",
    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png"
   },
+  "nfl:20": {
+   "name": "New York Jets",
+   "short": "Jets",
+   "lg": "nfl",
+   "id": "20",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/nyj.png"
+  },
   "nfl:21": {
    "name": "Philadelphia Eagles",
    "short": "Eagles",
@@ -238,6 +245,13 @@
    "lg": "cfb",
    "id": "349",
    "logo": "https://cdn.collegefootballdata.com/logos/500/349.png"
+  },
+  "cfb:2": {
+   "name": "Auburn",
+   "short": "Auburn",
+   "lg": "cfb",
+   "id": "2",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/2.png"
   },
   "cfb:252": {
    "name": "BYU",
@@ -540,15 +554,41 @@
    "id": "154",
    "logo": "https://cdn.collegefootballdata.com/logos/500/154.png"
   },
-  "cfb:264": {
-   "name": "Washington",
-   "short": "Washington",
+  "cfb:277": {
+   "name": "West Virginia",
+   "short": "West Virginia",
    "lg": "cfb",
-   "id": "264",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/264.png"
+   "id": "277",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/277.png"
   }
  },
  "items": [
+  {
+   "title": "Numbers and Notes: Arizona",
+   "url": "https://www.on3.com/sites/wv-sports/news/numbers-and-notes-arizona/",
+   "source": "On3",
+   "league": "cfb",
+   "published": "2026-10-12T08:03:00Z",
+   "summary": "West Virginia fell to Arizona 52-31 at home and WVSports.com looks at some of the advanced statistics from the loss. --Across 35 passing dropbacks, Hawkins was under pressure on 14 and completed 3-9…",
+   "image": "https://on3static.com/cdn-cgi/image/height=1024,width=1024,quality=90,fit=scale-down,format=auto,metadata=none/uploads/dev/assets/cms/2026/10/10195127/2026-10-10T181649Z_1988744456_MT1USATODAY30047393_RTRMADP_3_NCAA-FOOTBALL-ARIZONA-AT-WEST-VIRGINIA-1.jpg",
+   "teams": [
+    "cfb:277",
+    "cfb:12"
+   ]
+  },
+  {
+   "title": "When does Georgia play Auburn this week? Game time, date, TV, streaming",
+   "url": "https://sports.yahoo.com/articles/does-georgia-play-auburn-week-080039715.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-12T08:00:39Z",
+   "summary": "Here's information for Georgia vs. Auburn including a game time, TV channel and streaming for Week 7 of the 2026 college football season",
+   "image": "",
+   "teams": [
+    "cfb:61",
+    "cfb:2"
+   ]
+  },
   {
    "title": "College Football Playoff Top 12 Prediction: Four First-Time Programs Projected In",
    "url": "https://sports.yahoo.com/articles/college-football-playoff-top-12-072343136.html",
@@ -882,6 +922,18 @@
    "teams": []
   },
   {
+   "title": "Ex-Jet Quincy Williams makes good on defensive warning to former team",
+   "url": "https://sports.yahoo.com/articles/ex-jet-quincy-williams-makes-040801178.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-12T04:08:01Z",
+   "summary": "Williams vowed to be a “nightmare playing against me’’ for the Jets if they didn’t re-sign him.",
+   "image": "https://media.zenfs.com/en/ny_post_sports_articles_389/588958a9f868329b5f06dd7aaed50ae5.jpg",
+   "teams": [
+    "nfl:20"
+   ]
+  },
+  {
    "title": "The Ravens hacked NFL overtime to beat the Falcons",
    "url": "https://www.sbnation.com/nfl/1132077/ravens-falcons-overtime-nfl",
    "source": "SB Nation",
@@ -892,6 +944,18 @@
    "teams": [
     "nfl:1",
     "nfl:33"
+   ]
+  },
+  {
+   "title": "Braelon Allen delivers game-winning Jets touchdown amid career day",
+   "url": "https://sports.yahoo.com/articles/braelon-allen-delivers-game-winning-040622739.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-12T04:06:22Z",
+   "summary": "Braelon Allen, he admitted afterward, was a little surprised.",
+   "image": "https://media.zenfs.com/en/ny_post_sports_articles_389/51d532239db7b0e1e4ff900cd47d99d4.jpg",
+   "teams": [
+    "nfl:20"
    ]
   },
   {
@@ -954,6 +1018,18 @@
    "teams": [
     "cfb:52",
     "cfb:2390"
+   ]
+  },
+  {
+   "title": "Jets’ David Bailey silences doubters with three-sack masterpiece: ‘Felt good’",
+   "url": "https://sports.yahoo.com/articles/jets-david-bailey-silences-doubters-035630796.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-12T03:56:30Z",
+   "summary": "This was the version of David Bailey the Jets have waited for.",
+   "image": "https://media.zenfs.com/en/ny_post_sports_articles_389/e1e005aace32e1195242fd1da127b4ba.jpg",
+   "teams": [
+    "nfl:20"
    ]
   },
   {
@@ -1381,31 +1457,6 @@
    ]
   },
   {
-   "title": "League office directed the ejection of Dre Greenlaw",
-   "url": "https://sports.yahoo.com/articles/league-office-directed-ejection-dre-022550694.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-12T02:25:50Z",
-   "summary": "Sunday's ejection of 49ers linebacker Dre Greenlaw came not at the behest of the officials on the field, but at the direction of the league office.",
-   "image": "",
-   "teams": [
-    "nfl:25"
-   ]
-  },
-  {
-   "title": "Derrick Henry 18-yard TD pulls Ravens closer, Falcons lead 17-15",
-   "url": "https://sports.yahoo.com/articles/derrick-henry-18-yard-td-022400733.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-12T02:24:00Z",
-   "summary": "Derrick Henry has found the end zone.",
-   "image": "",
-   "teams": [
-    "nfl:1",
-    "nfl:33"
-   ]
-  },
-  {
    "title": "Cash Taiese impressed with Utah’s offense following Kansas visit",
    "url": "https://sports.yahoo.com/articles/cash-taiese-impressed-utah-offense-022327737.html",
    "source": "Yahoo Sports",
@@ -1417,32 +1468,6 @@
     "cfb:2305",
     "cfb:242",
     "cfb:254"
-   ]
-  },
-  {
-   "title": "49ers edge Seahawks in thriller to take control of NFC West",
-   "url": "https://sports.yahoo.com/articles/49ers-edge-seahawks-thriller-control-022322342.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-12T02:23:22Z",
-   "summary": "It’s the greatest active rivalry in the NFL. And it produced another instant classic on cloudless fall Sunday at Lumen Field.",
-   "image": "https://media.zenfs.com/en/ny_post_sports_articles_389/8a57bd9c2707f2bd797fb380b1f786a0.jpg",
-   "teams": [
-    "nfl:26",
-    "nfl:25"
-   ]
-  },
-  {
-   "title": "After battling defending National Champ Indiana for four quarters, recruits left Nebraska impressed with the entire program",
-   "url": "https://www.on3.com/rivals/news/after-battling-defending-national-champ-indiana-for-four-quarters-recruits-left-nebraska-impressed-with-the-entire-program/",
-   "source": "On3",
-   "league": "cfb",
-   "published": "2026-10-12T02:22:22Z",
-   "summary": "Nebraska coach Matt Rhule and the Huskers program impressed top recruits in Lincoln on Saturday for the Indiana game.",
-   "image": "https://on3static.com/cdn-cgi/image/height=1024,width=1024,quality=90,fit=scale-down,format=auto,metadata=none/uploads/dev/assets/cms/2026/10/10170042/Z6B_2840.jpg",
-   "teams": [
-    "cfb:158",
-    "cfb:84"
    ]
   },
   {
@@ -1509,19 +1534,6 @@
    "teams": [
     "cfb:30",
     "cfb:213"
-   ]
-  },
-  {
-   "title": "Nate Bell continues to produce despite questions along offensive line | EWU notebook",
-   "url": "https://sports.yahoo.com/articles/nate-bell-continues-produce-despite-020300020.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-12T02:03:00Z",
-   "summary": "Oct. 11—Redshirt junior quarterback Nate Bell finished with another big passing night in Eastern Washington's 31-22 victory over Northern Colorado on Saturday, completing 25 of 37 attempts for 334…",
-   "image": "",
-   "teams": [
-    "cfb:264",
-    "cfb:38"
    ]
   },
   {
