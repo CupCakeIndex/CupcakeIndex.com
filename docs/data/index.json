@@ -128,7 +128,7 @@
     "cupcake": 5,
     "luck": 5
    },
-   "updated": "2026-10-12T02:02+00:00",
+   "updated": "2026-10-12T13:37+00:00",
    "modes": {
     "best": {
      "power": 55,
@@ -211,35 +211,36 @@
       1,
       2,
       3,
-      4
+      4,
+      5
      ],
      "accuracy": {
-      "games": 48,
-      "correct": 26,
-      "mae": 9.4,
+      "games": 61,
+      "correct": 35,
+      "mae": 9.7,
       "vegas_su": {
-       "games": 48,
-       "correct": 29
+       "games": 61,
+       "correct": 38
       },
       "model_su_lined": {
-       "games": 48,
-       "correct": 26
+       "games": 61,
+       "correct": 35
       },
       "ats": {
-       "games": 43,
-       "correct": 22
+       "games": 56,
+       "correct": 29
       },
       "ats_strong": {
-       "games": 10,
-       "correct": 4
+       "games": 14,
+       "correct": 7
       },
-      "vegas_mae": 9.1
+      "vegas_mae": 9.4
      }
     }
    },
    "latest": {
     "season": 2026,
-    "week": 4
+    "week": 5
    },
    "factors": [
     {
@@ -281,36 +282,36 @@
     "recent": 10,
     "luck": 5
    },
-   "updated": "2026-10-06T20:14+00:00",
+   "updated": "2026-10-12T13:37+00:00",
    "modes": {
     "best": {
-     "power": 65,
+     "power": 75,
      "resume": 0,
      "efficiency": 0,
      "sos": 0,
-     "recent": 35,
+     "recent": 25,
      "luck": 0
     },
     "deserving": {
      "resume": 71,
      "sos": 29
     },
-    "games": 303,
+    "games": 316,
     "accuracy": {
-     "best": 0.6270627062706271,
-     "deserving": 0.6270627062706271,
-     "old_default": 0.6204620462046204,
-     "power_only": 0.6357615894039735
+     "best": 0.620253164556962,
+     "deserving": 0.6265822784810127,
+     "old_default": 0.6234177215189873,
+     "power_only": 0.638095238095238
     },
     "out_of_sample": {
      "trained_on": 2025,
      "tested_on": 2026,
-     "games": 48,
-     "best": 0.5416666666666666,
-     "old_default": 0.5416666666666666
+     "games": 61,
+     "best": 0.5737704918032787,
+     "old_default": 0.5737704918032787
     }
    }
   }
  },
- "updated": "2026-10-12T02:02+00:00"
+ "updated": "2026-10-12T13:37+00:00"
 }
