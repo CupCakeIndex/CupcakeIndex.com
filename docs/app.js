@@ -225,7 +225,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "251"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "252"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -770,15 +770,20 @@ const NFL_PROFILES = {
   barbell: { badge: "TOUGH ROAD", short: "TOUGH", name: "Tough Road", desc: "Hard schedule, losing record. Better than it looks." },
   grind: { badge: "NO EXCUSES", short: "NO EXC", name: "No Excuses", desc: "Easy schedule and still losing." },
   walk: { badge: "EASY ROAD", short: "EASY", name: "Easy Road", desc: "Winning record against an easy schedule. The records to be most skeptical of." },
+  middle: { badge: "AVERAGE ROAD", short: "AVG", name: "Average Road", desc: "About an average schedule (within 3/4 of a point a game), so the record mostly speaks for itself." },
 };
 const profs = () => (league === "nfl" ? NFL_PROFILES : PROFILES);
 const HARD_SOS = 55, PADDED = 60; // score thresholds (50 = average)
 const HARD_NFL = 50; // NFL: above an average schedule = hard
+// NFL: a schedule within this many points a game of average (raw.sos = opponents' average power rating; the
+// league averages 0) is Average Road, so small differences don't decide between an easy and a hard road
+const AVG_ROAD = 0.75;
 const gp = (t) => t.wins + t.losses + (t.ties || 0); // games played (an NFL tie counts as half a win)
 const winPct = (t) => (gp(t) ? (t.wins + 0.5 * (t.ties || 0)) / gp(t) : 0);
 function profileOf(t) {
   if (!(gp(t))) return null;
   if (league === "nfl") {
+    if (t.raw?.sos != null && Math.abs(t.raw.sos) < AVG_ROAD) return "middle";
     const hard = t.scores.sos >= HARD_NFL, winning = winPct(t) > 0.5;
     return hard ? (winning ? "gauntlet" : "barbell") : winning ? "walk" : "grind";
   }
@@ -1065,17 +1070,27 @@ function renderSchedules() {
   const y0 = Math.min(...ys) - 12, y1 = Math.max(...ys) + 10;
   const px = (v) => ((v - x0) / (x1 - x0)) * 100, py = (v) => 100 - ((v - y0) / (y1 - y0)) * 100;
   const cx = px(xMid), cy = py(yMid);
+  // NFL: the Average Road band (AVG_ROAD points either side of average) as Schedule scores, the same math as
+  // to_scores in src/model.py (50 + 50/3 * z); college has no middle band, so both edges sit on the split line
+  let bl = cx, br = cx;
+  if (nfl) {
+    const r = all.map((t) => t.raw?.sos).filter((v) => v != null), mu = r.reduce((a, b) => a + b, 0) / (r.length || 1);
+    const sd = Math.sqrt(r.reduce((a, v) => a + (v - mu) ** 2, 0) / (r.length || 1)) || 1, sc = (v) => 50 + (50 / 3) * (v - mu) / sd;
+    bl = px(sc(-AVG_ROAD)); br = px(sc(AVG_ROAD));
+  }
   // positions are stored as 0-1 fractions; initZoom() turns them into pixels for the current zoom/pan
   const quad = (k, l, t, w, h, pos) => `<div class="sp-q sp-${k}" data-x0="${l / 100}" data-x1="${(l + w) / 100}" data-y0="${t / 100}" data-y1="${(t + h) / 100}"><span class="sp-ql ${pos}">${profileBadge(k)}<small>${(nfl ? SP_QDESC_NFL : SP_QDESC)[k]}</small></span></div>`;
   // dotted grid every 10 points (labels on the bottom and right edges) + dashed lines where the profiles split
   const tens = (a, b) => { const out = []; for (let v = Math.ceil(a / 10) * 10; v <= b; v += 10) out.push(v); return out; };
   const grid = tens(x0, x1).filter((v) => px(v) > 3 && px(v) < 96).map((v) => `<i class="sp-gl v" data-gx="${px(v) / 100}" data-l="${v}"></i>`).join("")
     + tens(y0, y1).filter((v) => v !== yMid && py(v) > 12 && py(v) < 90).map((v) => `<i class="sp-gl h" data-gy="${py(v) / 100}" data-l="${v}"></i>`).join("")
-    + `<i class="sp-gl v mid" data-gx="${cx / 100}"></i><i class="sp-gl h mid" data-gy="${cy / 100}"></i>`;
+    + (nfl ? `<i class="sp-gl v mid" data-gx="${bl / 100}"></i><i class="sp-gl v mid" data-gx="${br / 100}"></i>` : `<i class="sp-gl v mid" data-gx="${cx / 100}"></i>`)
+    + `<i class="sp-gl h mid" data-gy="${cy / 100}"></i>`;
   const byName = new Map(teams.map((t) => [t.team, t]));
   $("#sp-chart").innerHTML = `${grid}
-    ${quad("walk", 0, 0, cx, cy, "tl")}${quad(nfl ? "gauntlet" : "barbell", cx, 0, 100 - cx, cy, "tr")}
-    ${quad("grind", 0, cy, cx, 100 - cy, "bl")}${quad(nfl ? "barbell" : "gauntlet", cx, cy, 100 - cx, 100 - cy, "br")}
+    ${quad("walk", 0, 0, bl, cy, "tl")}${quad(nfl ? "gauntlet" : "barbell", br, 0, 100 - br, cy, "tr")}
+    ${quad("grind", 0, cy, bl, 100 - cy, "bl")}${quad(nfl ? "barbell" : "gauntlet", br, cy, 100 - br, 100 - cy, "br")}
+    ${nfl ? quad("middle", bl, 0, br - bl, 100, "tc") : ""}
     <span class="sp-axis sp-x">Schedule: harder →</span><span class="sp-axis sp-y">${nfl ? "Win %: higher →" : "Cupcake: more padded →"}</span>
     <div class="sp-zoom" role="group" aria-label="Zoom"><button data-z="in" aria-label="Zoom in">+</button><button data-z="out" aria-label="Zoom out">−</button><button data-z="reset">Reset</button></div>
     <div class="cc-tip"></div>
@@ -1104,7 +1119,7 @@ function renderSchedules() {
     <small>${counts[k].slice(0, 6).map((t) => `#${t.rank} ${esc(t.team)}`).join(", ")}${counts[k].length > 6 ? "…" : ""}</small></div>`).join("");
   renderSchedBars(teams, all, conf, focusTeam);
 }
-const SP_QDESC_NFL = { walk: "easy road, winning", gauntlet: "hard road, winning", grind: "easy road, losing", barbell: "hard road, losing" };
+const SP_QDESC_NFL = { walk: "easy road, winning", gauntlet: "hard road, winning", grind: "easy road, losing", barbell: "hard road, losing", middle: "about average, so the record speaks" };
 const SP_QDESC = { walk: "easy road, padded", barbell: "hard road, padded", grind: "easy road, no padding", gauntlet: "hard road, no padding" };
 
 // Hover box shared by the schedule charts (reuses the Stats-by-year .cc-tip look). x/y = anchor inside box.

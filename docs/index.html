@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://a.espncdn.com">
 <meta name="theme-color" content="#0f1216">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=251">
+<link rel="stylesheet" href="style.css?v=252">
 <script>
 // Appearance (Dark / Light / System) + theme from the Settings page, applied before first paint so the page never flashes.
 // html[data-theme] = "dark" | "light" (System is resolved here and follows the device live); html[data-theme-name] = theme key.
@@ -220,7 +220,7 @@ window.CIT = (function () {
       <div class="sc-bar"><h2>Schedule profiles</h2>
         <select id="sp-show" class="cfb-only"><option value="25">Our top 25</option><option value="50">Our top 50</option><option value="ap">AP Top 25</option><option value="all">All FBS</option></select>
         <select id="sp-conf"><option value="">All conferences</option></select></div>
-      <p class="note">Across: <b>Schedule</b>, how hard was your road? Up: <span class="cfb-only"><b>Cupcake</b>, how much did you pad it?</span><span class="nfl-only"><b>Win %</b>, did you win anyway?</span> Every team lands in one of four profiles. Tap a logo for the full breakdown. Zoom with pinch, +/−, double-click or Ctrl+scroll, then drag to move around.</p>
+      <p class="note">Across: <b>Schedule</b>, how hard was your road? Up: <span class="cfb-only"><b>Cupcake</b>, how much did you pad it?</span><span class="nfl-only"><b>Win %</b>, did you win anyway?</span> Every team lands in one of four profiles<span class="nfl-only">, or the middle band, <b>Average Road</b>, when its schedule is within 3/4 of a point a game of average</span>. Tap a logo for the full breakdown. Zoom with pinch, +/−, double-click or Ctrl+scroll, then drag to move around.</p>
       <div id="sp-chart" class="sp-chart"></div>
       <div class="sp-legend" id="sp-legend"></div>
       <p class="note"><a class="sp-viz" href="#/stats?show=visualize&amp;who=teams&amp;type=scatter&amp;stat=ci_sos&amp;y=win_pct">Make your own version in Stats &gt; Visualize →</a> Swap either axis for any stat.</p>
@@ -341,7 +341,7 @@ window.CIT = (function () {
       </ul>
       <h3>NFL</h3>
       <p>The NFL has its own rating model, built for a 17-game league where most games are close. Four differences from college: (1) last season's rating carries over all year instead of fading out after a few weeks, because NFL rosters carry over; (2) the rating blends scoring margin with opponent-adjusted EPA per play (how well a team moves the ball and stops it, play by play), which predicts next week better than scores alone; (3) recent weeks count a bit more than September; (4) a team starting someone other than its usual quarterback is marked down. Margins are capped at 17 points and home field is worth 1 point. We tested it on every game from 2020 to 2025 using only what was known before kickoff: it picked 64.4% of winners (the old settings: 62.6%; the sportsbooks' favorite: 66.8%). Résumé is measured against a top-8 team. Monday's update runs before Monday Night Football. Tuesday's update adds that game.</p>
-      <p><b>The NFL has no cupcakes.</b> Nobody in the NFL schedules a cupcake, so the NFL side uses <b>strength of schedule</b> instead. Under each team is its schedule rank (SOS #1 = hardest so far, #32 = easiest). NFL schedule profiles cross schedule with record: <b>Proven</b> (hard road, winning), <b>Easy Road</b> (winning on an easy schedule, the records to be most skeptical of), <b>Tough Road</b> (hard road, losing) and <b>No Excuses</b> (easy road, still losing). Résumé Check takes away wins over the bottom half of the league. The NFL <b>Bully of the Week</b> is simply the week's biggest blowout.</p>
+      <p><b>The NFL has no cupcakes.</b> Nobody in the NFL schedules a cupcake, so the NFL side uses <b>strength of schedule</b> instead. Under each team is its schedule rank (SOS #1 = hardest so far, #32 = easiest). NFL schedule profiles cross schedule with record: <b>Proven</b> (hard road, winning), <b>Easy Road</b> (winning on an easy schedule, the records to be most skeptical of), <b>Tough Road</b> (hard road, losing) and <b>No Excuses</b> (easy road, still losing). A schedule within 3/4 of a point a game of average is <b>Average Road</b>: the difference is too small to call the road easy or hard, so the record mostly speaks for itself. Résumé Check takes away wins over the bottom half of the league. The NFL <b>Bully of the Week</b> is simply the week's biggest blowout.</p>
       <h3>Early season</h3>
       <p>In the first few weeks there isn't enough data, so ratings start from a preseason guess: last year's rating scaled by returning production, plus roster talent. That guess fades to zero within a few weeks. After that it's pure on-field results.</p>
       <h3>Keeping it honest</h3>
@@ -362,24 +362,24 @@ window.CIT = (function () {
   </div>
 </div>
 
-<script src="app.js?v=251"></script>
-<script src="live.js?v=251"></script>
-<script src="daily.js?v=251"></script>
-<script src="share.js?v=251"></script>
-<script src="pickem.js?v=251"></script>
-<script src="fantasy.js?v=251"></script>
-<script src="news.js?v=251"></script>
-<script src="takes.js?v=251"></script>
-<script src="viz.js?v=251"></script>
-<script src="settings.js?v=251"></script>
-<script src="firebase-config.js?v=251"></script>
-<script src="account.js?v=251"></script>
-<script src="stats.js?v=251"></script>
-<script src="admin.js?v=251"></script>
-<script src="breakdown.js?v=251"></script>
-<script src="tour.js?v=251"></script>
-<script src="leaderboard.js?v=251"></script>
-<script src="profile.js?v=251"></script>
-<script src="push.js?v=251"></script>
+<script src="app.js?v=252"></script>
+<script src="live.js?v=252"></script>
+<script src="daily.js?v=252"></script>
+<script src="share.js?v=252"></script>
+<script src="pickem.js?v=252"></script>
+<script src="fantasy.js?v=252"></script>
+<script src="news.js?v=252"></script>
+<script src="takes.js?v=252"></script>
+<script src="viz.js?v=252"></script>
+<script src="settings.js?v=252"></script>
+<script src="firebase-config.js?v=252"></script>
+<script src="account.js?v=252"></script>
+<script src="stats.js?v=252"></script>
+<script src="admin.js?v=252"></script>
+<script src="breakdown.js?v=252"></script>
+<script src="tour.js?v=252"></script>
+<script src="leaderboard.js?v=252"></script>
+<script src="profile.js?v=252"></script>
+<script src="push.js?v=252"></script>
 </body>
 </html>

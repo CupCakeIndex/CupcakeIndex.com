@@ -303,6 +303,7 @@ body[data-league="nfl"] .cfb-only { display: none !important; }
 .sp-barbell { background: color-mix(in srgb, #e0a13a 11%, transparent); }
 .sp-grind { background: color-mix(in srgb, var(--muted) 8%, transparent); }
 .sp-gauntlet { background: color-mix(in srgb, var(--good) 11%, transparent); }
+.sp-middle { background: color-mix(in srgb, #6f9fd0 10%, transparent); } /* NFL Average Road band */
 .sp-ql { position: absolute; font-weight: 800; font-size: 13px; opacity: .85; white-space: nowrap; }
 .sp-ql.tl { top: 8px; left: 10px; } .sp-ql.tr { top: 8px; right: 10px; } .sp-ql.bl { bottom: 26px; left: 10px; } .sp-ql.br { bottom: 26px; right: 10px; }
 .sp-axis { position: absolute; font-size: 11px; color: var(--muted); }
@@ -388,6 +389,7 @@ body.drawer-open { overflow: hidden; }
 .prof-barbell { color: #d9962b; }
 .prof-grind { color: var(--muted); }
 .prof-walk { color: #e0527a; }
+.prof-middle { color: #6f9fd0; }
 .stat .prof-badge { font-size: 13px; }
 .sp-ql .prof-badge { font-size: 13px; background: var(--card); }
 .sp-leg .prof-badge { font-size: 13px; }
@@ -989,6 +991,7 @@ table.moves td:last-child { white-space: normal; min-width: 240px; }
 .sp-q { border-radius: 0; }
 .sp-ql { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
 .sp-ql.tr, .sp-ql.br { align-items: flex-end; }
+.sp-ql.tc { bottom: 26px; left: 50%; transform: translateX(-50%); align-items: center; text-align: center; }
 .sp-ql small { font-size: 10px; font-weight: 400; color: var(--muted); letter-spacing: .02em; }
 .sp-ql.bl, .sp-ql.br { bottom: 24px; }
 .sp-axis { background: var(--card); padding: 1px 6px; letter-spacing: .04em; text-transform: uppercase; font-size: 10px; }
