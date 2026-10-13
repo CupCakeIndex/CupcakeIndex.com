@@ -1555,8 +1555,7 @@ a.pk-wk:hover { border-color: var(--accent); }
 @keyframes gcv-tumble { 0% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(calc(var(--ktilt, 1) * -32deg)); animation-timing-function: ease-out; }
   50% { transform: rotateX(-40deg) translateY(calc(var(--u) * -17)) rotate(calc(var(--ktilt, 1) * 0deg)); animation-timing-function: ease-in; }
   100% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(calc(var(--ktilt, 1) * 32deg)); } }
-@keyframes gcv-hop { 0%, 25%, 50%, 75%, 100% { transform: rotateX(-40deg) translateY(calc(var(--u) * -.8)) rotate(calc(var(--tilt, 1) * -4deg)); }
-  12%, 37%, 62%, 87% { transform: rotateX(-40deg) translateY(calc(var(--u) * -2)) rotate(calc(var(--tilt, 1) * 4deg)); } }
+@keyframes gcv-hop { from, to { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(calc(var(--tilt, 1) * -8deg)); } } /* runs: carried low and smooth */
 @keyframes gcv-far { 50% { transform: scale(.45); opacity: .35; } }
 /* incomplete: a ghost ball flies downfield and fades */
 .gcv-ballp.ghost { animation: gcv-go 1s linear both; }
@@ -1576,8 +1575,7 @@ a.pk-wk:hover { border-color: var(--accent); }
 @keyframes gcv-intarc { 0% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(calc(var(--ktilt, 1) * -14deg)); animation-timing-function: ease-out; }
   30% { transform: rotateX(-40deg) translateY(calc(var(--u) * -12)) rotate(0deg); animation-timing-function: ease-in; }
   60% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(calc(var(--ktilt, 1) * 14deg)); }
-  65%, 75%, 85%, 95% { transform: rotateX(-40deg) translateY(calc(var(--u) * -2)) rotate(calc(var(--tilt, 1) * -6deg)); }
-  70%, 80%, 90%, 100% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1)) rotate(calc(var(--tilt, 1) * -8deg)); } }
+  70%, 100% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(calc(var(--tilt, 1) * -8deg)); } }
 /* the ball changed hands: the old team's badge rides along, then the new team's takes over when it's caught */
 .gcv-poss.out { animation: gcv-badge-out .3s calc(var(--sw) + var(--el, 0s)) both; }
 .gcv-poss.in { animation: gcv-badge-in .4s calc(var(--sw) + var(--el, 0s)) both; }
