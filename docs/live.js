@@ -1057,7 +1057,13 @@ const Live = (() => {
       `<rect class="gcv-turf" x="100" y="0" width="1000" height="${H}"/>`];
     for (let i = 0; i < 10; i += 2) svg.push(`<rect class="gcv-band" x="${X(i * 10)}" y="0" width="100" height="${H}"/>`);
     for (const [c, x0] of [[home, 0], [away, 1100]]) {
-      svg.push(`<rect class="gcv-ez${isTD && (x0 ? spot >= 50 : spot < 50) ? " td" : ""}" x="${x0}" y="0" width="100" height="${H}"/><text class="gcv-eztx" x="${x0 + 50}" y="${H / 2}" transform="rotate(${x0 ? 90 : -90} ${x0 + 50} ${H / 2})">${ab(c)}</text>`);
+      // each end zone in its team's look: a tint of their color, diagonal stripes, their logo as a watermark, their name
+      const tz = teamColor(c.team), rot = `rotate(${x0 ? 90 : -90} ${x0 + 50} ${H / 2})`, nm = String(c.team.name || c.team.abbreviation || "").toUpperCase();
+      svg.push(`<rect class="gcv-ez${isTD && (x0 ? spot >= 50 : spot < 50) ? " td" : ""}" x="${x0}" y="0" width="100" height="${H}" style="--tz:${tz}"/>
+        <pattern id="gcv-st-${x0}" width="18" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(${x0 ? -35 : 35})"><rect width="7" height="18" style="fill:${tz}" opacity=".22"/></pattern>
+        <rect x="${x0}" y="0" width="100" height="${H}" fill="url(#gcv-st-${x0})"/>
+        <image href="${esc(teamLogo(c.team))}" x="${x0 + 8}" y="${H / 2 - 42}" width="84" height="84" opacity=".16" transform="${rot}"/>
+        <text class="gcv-eztx" x="${x0 + 50}" y="${H / 2}" transform="${rot}" style="--tz:${tz}${nm.length > 8 ? ";font-size:22px" : ""}">${esc(nm)}</text>`);
     }
     if (off && toGo <= 20 && !isTD) svg.push(`<rect class="gcv-rzone" x="${dir > 0 ? X(80) : X(0)}" y="0" width="200" height="${H}"/>`); // red zone glows
     for (let yl = 0; yl <= 100; yl += 10) svg.push(`<line class="gcv-yl${yl === 50 ? " mid" : ""}${yl % 100 ? "" : " goal"}" x1="${X(yl)}" x2="${X(yl)}" y1="0" y2="${H}"/>`);
@@ -1453,6 +1459,22 @@ const Live = (() => {
     done();
   }
 
+  // Between full refreshes, check ESPN's tiny "situation" feed (~600 bytes, vs ~500 KB for the full game) every 2 s;
+  // as soon as it names a newer play than the one on screen, do the full refresh right away
+  let sitTimer = null;
+  function watchSituation(lg, id, params, newestId) {
+    clearInterval(sitTimer);
+    const my = token, lp = lg === "nfl" ? "nfl" : "college-football";
+    sitTimer = setInterval(async () => {
+      if (my !== token) return clearInterval(sitTimer); // left the page, or a refresh already started
+      if (document.hidden) return;
+      try {
+        const j = await (await fetch(`https://sports.core.api.espn.com/v2/sports/football/leagues/${lp}/events/${id}/competitions/${id}/situation?_=${Date.now()}`)).json();
+        const pid = (j.lastPlay?.$ref || "").match(/plays\/(\d+)/)?.[1];
+        if (pid && my === token && playNum(pid) > playNum(newestId)) { clearInterval(sitTimer); game(id, params, true); }
+      } catch (e) { /* the full 5-second check still runs */ }
+    }, 2000);
+  }
   async function game(id, params, refresh = false) {
     const lg = league, my = token;
     if (!refresh) loading("game");
@@ -1675,7 +1697,11 @@ const Live = (() => {
       bx.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b.dataset.bt === k));
       document.querySelectorAll("#boxscore .box-sec").forEach((sec) => sec.classList.toggle("hidden", sec.dataset.sec !== k));
     };
-    if (st === "in") poll((r) => game(id, params, r), 5000); // live: check every 5 s so a new play replays right after the snap
+    if (st === "in") { // live: a full check every 5 s, plus the tiny "situation" feed every 2 s to catch a new play sooner
+      poll((r) => game(id, params, r), 5000);
+      const dr = s.drives?.current || s.drives?.previous?.at(-1);
+      watchSituation(lg, id, params, dr?.plays?.at(-1)?.id);
+    }
   }
 
   // Where each win-probability point falls in game time (0 = kickoff, 1 = end of regulation, more for overtime),
