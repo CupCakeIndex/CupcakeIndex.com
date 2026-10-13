@@ -1568,6 +1568,17 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-ballp.hold .gcv-ball3 { animation: gcv-bob 1.6s ease-in-out var(--t, 0s) infinite, gcv-hold 1.7s var(--el, 0s) both; }
 .gcv-ballp.hold .gcv-shadow { animation: gcv-shrink 1.6s ease-in-out var(--t, 0s) infinite, gcv-hold 1.7s var(--el, 0s) both; }
 @keyframes gcv-hold { 0%, 80% { opacity: 0; } 100% { opacity: 1; } }
+/* across the field (from the play text): the ball goes out to that side, then is spotted back in the middle; an incompletion stays out there */
+.gcv-latw { position: absolute; left: 0; top: 0; transform-style: preserve-3d; }
+.gcv-latw.go { animation: gcv-lat 1s ease-in-out var(--el, 0s) both; }
+.gcv-latw.go.pass { animation-duration: 1.6s; }
+.gcv-latw.out { animation: gcv-latout 1s ease-out var(--el, 0s) both; }
+@keyframes gcv-lat { 0% { transform: none; } 60%, 75% { transform: translateY(calc(var(--latf, 0) * 26.67cqw * var(--zs, 1))); } 100% { transform: none; } }
+@keyframes gcv-latout { from { transform: none; } to { transform: translateY(calc(var(--latf, 0) * 26.67cqw * var(--zs, 1))); } }
+.gcv-ballp.pass.deep .gcv-ball3 { animation-name: gcv-arcdeep, gcv-bob; }
+@keyframes gcv-arcdeep { 0% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(calc(var(--tilt, 1) * -18deg)); animation-timing-function: ease-out; }
+  50% { transform: rotateX(-40deg) translateY(calc(var(--u) * -17)) rotate(0deg); animation-timing-function: ease-in; }
+  100% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(calc(var(--tilt, 1) * 18deg)); } }
 /* kickoff: into the end zone, then carried out to where the return ended */
 .gcv-ballp.move.ko { animation: gcv-move-ko 2.6s linear var(--el, 0s) both; }
 @keyframes gcv-move-ko { 0% { left: var(--kfrom, var(--from)); } 55% { left: var(--mid); animation-timing-function: ease-out; } }

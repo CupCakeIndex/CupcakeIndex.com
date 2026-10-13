@@ -975,15 +975,29 @@ const Live = (() => {
       const li = e.target.closest?.(".gcv-plays li[data-pid], .gcv-sim[data-pid]"), live = e.target.closest?.("[data-gcvlive]"), wrap = (li || live)?.closest(".gcv-wrap");
       if (!wrap) return;
       const gid = wrap.dataset.gid;
+      clearTimeout(gcvSeq.get(gid));
       if (live) { gcvReplay.delete(gid); gcvSeen.delete(gid); return redraw(wrap); }
-      const all = [...(gcvCtx.get(gid)?.[0]?.drives?.previous || []), ...(gcvCtx.get(gid)?.[0]?.drives?.current ? [gcvCtx.get(gid)[0].drives.current] : [])].flatMap((d) => d.plays || []);
-      const p = all.find((x) => String(x.id) === li.dataset.pid);
-      if (!p) return;
-      // start the ball where the play started, so it animates to where it ended
-      gcvSeen.set(gid, { play: "replay", spot: p.start?.yardLine ?? p.end?.yardLine });
-      gcvReplay.set(gid, li.dataset.pid);
-      redraw(wrap);
+      replayFrom(gid, li.dataset.pid, true);
     });
+    // replay a play, then every play after it in order (each animating from where the last ended); back to live once caught up
+    const gcvSeq = new Map(); // game id -> timer for the next replayed play
+    const replayFrom = (gid, pid, first) => {
+      const s0 = gcvCtx.get(gid)?.[0], all = [...(s0?.drives?.previous || []), ...(s0?.drives?.current ? [s0.drives.current] : [])]
+        .flatMap((d) => d.plays || []).filter((x) => x.text && !NOT_A_PLAY.has(String(x.type?.id || "")));
+      const i = all.findIndex((x) => String(x.id) === String(pid)), p = all[i], wrap = document.querySelector(`.gcv-wrap[data-gid="${gid}"]`);
+      if (!p || !wrap) return;
+      if (first) gcvSeen.set(gid, { play: "replay", spot: p.start?.yardLine ?? p.end?.yardLine }); // the first one starts where the play started
+      gcvReplay.set(gid, String(p.id));
+      redraw(wrap);
+      const nx = all[i + 1], wait = /touchdown/i.test(p.text) ? 6200 : /kickoff/i.test(p.type?.text || "") ? 4600 : 3800;
+      gcvSeq.set(gid, setTimeout(() => {
+        if (gcvReplay.get(gid) !== String(p.id)) return; // stopped or another play was picked
+        if (nx) return replayFrom(gid, nx.id, false);
+        gcvReplay.delete(gid); // caught up: back to live
+        const w = document.querySelector(`.gcv-wrap[data-gid="${gid}"]`);
+        if (w) redraw(w);
+      }, wait));
+    };
     document.addEventListener("click", (e) => {
       const b = e.target.closest("[data-gcv]"), wrap = b?.closest(".gcv-wrap");
       if (!wrap || b.dataset.gcv === gcvMode()) return;
@@ -1107,9 +1121,18 @@ const Live = (() => {
       : /fair catch/.test(ptype) ? "Fair catch" : /turnover on downs/.test(ptype) ? "Turnover on downs"
       : play.end?.down === 1 && (play.start?.down || 0) > 1 && moved && !/punt|kickoff/.test(ptype) ? "First down" : "";
     const callHtml = call ? `<div class="gcv-call${freshPlay ? " pop" : ""}${isPen ? " flag" : ""}">${esc(call)}</div>` : "";
+    // where across the field the play went, from the play text: "pass short right", "pass deep left", "left end", "up the middle"...
+    // (the offense's left or right; on screen that depends on which way they're going). The ball goes there, then is spotted back.
+    const ptx = (play.text || "").toLowerCase();
+    const pm2 = /pass (?:incomplete )?(short|deep) (left|right|middle)/.exec(ptx);
+    const rm2 = /\b(left|right) (end|tackle|guard)\b/.exec(ptx) || (/up the middle|\bmiddle\b/.test(ptx) ? [0, "middle", "guard"] : null);
+    const latMag = pm2 ? (pm2[1] === "deep" ? 0.8 : 0.55) : rm2 ? ({ end: 0.85, tackle: 0.45, guard: 0.25 })[rm2[2]] : 0;
+    const latSide = pm2 ? pm2[2] : rm2 ? rm2[1] : null;
+    const latf = !latSide || latSide === "middle" || !dir ? 0 : (latSide === "right" ? 1 : -1) * latMag * (dir > 0 ? 0.3 : -0.3); // share of the field's depth
+    const deep = pm2?.[1] === "deep";
     // incomplete: a ghost ball sails about 12 yards downfield and fades; the real ball stays at the line
     const incTo = Math.max(-5, Math.min(105, spot + dir * 12));
-    const ghost = freshPlay && isInc && dir ? `<i class="gcv-ballp ghost" style="--tilt:${dir < 0 ? -1 : 1};left:${pct(X(spot))};--to:${pct(X(incTo))}"><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i>` : "";
+    const ghost = freshPlay && isInc && dir ? `<i class="gcv-ballp ghost" style="--tilt:${dir < 0 ? -1 : 1};left:${pct(X(spot))};--to:${pct(X(incTo))}"><i class="gcv-latw out" style="--latf:${latf}"><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i></i>` : "";
     // a penalty: a yellow flag on the field at the spot (tossed in when the play is new)
     const flag = isPen ? `<i class="gcv-flagp${freshPlay ? " toss" : ""}" style="left:${pct(X(spot) + (dir || 1) * 18)}"><i class="gcv-flag"><svg viewBox="0 0 20 16" aria-hidden="true"><path d="M2 2 Q10 -1 18 3 L17 13 Q9 10 2 13 Z"/><circle cx="4" cy="12" r="2.2"/></svg></i></i>` : "";
     // field goals and extra points: kicked from the holder's spot toward the goalposts, through them (good) or wide (missed).
@@ -1124,7 +1147,7 @@ const Live = (() => {
       fgBall = `<i class="gcv-ballp fg${good ? "" : " miss"}" style="left:${pct(X(hold))};--hold:${pct(X(hold))};--to:${pct(X(kd > 0 ? 110 : -10))};--past:${pct(X(kd > 0 ? 116 : -16))};--kd:${kd};--fgd:${isFG ? 0 : bt + 0.8}s"><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i>`;
     }
     const posts = `<i class="gcv-post" style="left:0%">${POST}</i><i class="gcv-post r" style="left:100%">${POST}</i>`;
-    const stand = `${(dir || isTD) && !isFG && !(patTxt && !freshPlay) ? `<i class="gcv-ballp${fly ? ` move ${fly}` : ""}${ghost ? " hold" : ""}${patTxt ? " patout" : ""}"${from.replace('style="', `style="--tilt:${dir < 0 ? -1 : 1};--ktilt:${dir < 0 ? 1 : -1};${fly === "int" ? `--mid:${pct(X(intAt))};` : ""}${fly === "ko" ? `--mid:${pct(X(koKd > 0 ? 105 : -5))};${koFrom != null ? `--kfrom:${pct(X(koFrom))};` : ""}` : ""}`)}><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i>` : ""}${badges ? `<i class="gcv-lospin${moved ? " slide" : ""}" style="left:${pct(X(spot))}${moved ? `;--from:${pct(X(prevSpot))}` : ""}">${badges}</i>` : ""}`; // who has it: their logo above the field, on the line of scrimmage
+    const stand = `${(dir || isTD) && !isFG && !(patTxt && !freshPlay) ? `<i class="gcv-ballp${fly ? ` move ${fly}` : ""}${fly === "pass" && deep ? " deep" : ""}${ghost ? " hold" : ""}${patTxt ? " patout" : ""}"${from.replace('style="', `style="--tilt:${dir < 0 ? -1 : 1};--ktilt:${dir < 0 ? 1 : -1};${fly === "int" ? `--mid:${pct(X(intAt))};` : ""}${fly === "ko" ? `--mid:${pct(X(koKd > 0 ? 105 : -5))};${koFrom != null ? `--kfrom:${pct(X(koFrom))};` : ""}` : ""}`)}><i class="gcv-latw${latf && (fly === "pass" || fly === "run") ? ` go ${fly}` : ""}" style="--latf:${latf}"><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i></i>` : ""}${badges ? `<i class="gcv-lospin${moved ? " slide" : ""}" style="left:${pct(X(spot))}${moved ? `;--from:${pct(X(prevSpot))}` : ""}">${badges}</i>` : ""}`; // who has it: their logo above the field, on the line of scrimmage
     const ddText = isTD ? "Touchdown" : down ? `${["", "1st", "2nd", "3rd", "4th"][down]} & ${dist < toGo ? dist : "Goal"}` : "";
     // the whole game's play-by-play, newest drive first: who had it, how each drive ended (so a change of possession is clear)
     // (ESPN can list the drive in progress both as "current" and in "previous": keep one)
