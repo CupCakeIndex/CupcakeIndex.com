@@ -861,6 +861,12 @@ const Live = (() => {
   // "clean": a flat field strip and the drive's plays, drawn only with the theme's own colors and fonts (Settings > Theme)
   const GCV = [["8bit", "8-bit"], ["clean", "Clean"]];
   const gcvMode = () => (store.get("gamecast-view") === "clean" ? "clean" : "8bit");
+  // the Clean field's ball: leather shading, white stripes near the tips, laces that roll over the top like a spiral
+  const FOOTBALL = `<svg viewBox="0 0 60 36" aria-hidden="true"><defs><radialGradient id="gcv-lth" cx="42%" cy="28%" r="80%"><stop offset="0" stop-color="#c58450"/><stop offset=".5" stop-color="#8a4f26"/><stop offset="1" stop-color="#3f1f0b"/></radialGradient>
+    <clipPath id="gcv-bc"><path d="M3 18 Q30 -5 57 18 Q30 41 3 18Z"/></clipPath></defs><path d="M3 18 Q30 -5 57 18 Q30 41 3 18Z" fill="url(#gcv-lth)"/>
+    <g clip-path="url(#gcv-bc)"><rect x="12" y="0" width="2.5" height="36" fill="#f4efe6" opacity=".85"/><rect x="45.5" y="0" width="2.5" height="36" fill="#f4efe6" opacity=".85"/>
+    <g class="gcv-lace"><rect x="21" y="16.6" width="18" height="2" rx="1" fill="#f4efe6"/>${[23, 26.5, 30, 33.5, 37].map((x) => `<rect x="${x - 0.7}" y="14.6" width="1.4" height="6" rx=".7" fill="#f4efe6"/>`).join("")}</g>
+    <ellipse cx="26" cy="10" rx="14" ry="3.5" fill="#fff" opacity=".18"/></g></svg>`;
   const gcvSeen = new Map(); // game id -> {play, spot} last drawn (so a new play slides in from the old spot)
   const gcvCtx = new Map(); // game id -> latest fieldView arguments (to redraw right away when the look changes)
   function fieldView(s, comp, home, away, tc, gameId, people, final) {
@@ -909,7 +915,7 @@ const Live = (() => {
     const isTD = (!!play.scoringPlay || /TOUCHDOWN/.test(play.text || "")) && /touchdown/i.test(`${play.type?.text || ""} ${play.text || ""}`) && !/nullified|no play/i.test(play.text || "");
     const down = at.down >= 1 && at.down <= 4 && !isTD ? at.down : 0, dist = down ? at.distance || 0 : 0;
     const fd = down && dist && dist < toGo ? spot + dir * dist : null;
-    const X = (yl) => 100 + yl * 10, H = 360, pct = (x) => `${(x / 12).toFixed(2)}%`;
+    const X = (yl) => 100 + yl * 10, H = 320, pct = (x) => `${(x / 12).toFixed(2)}%`;
     // the drive so far, from its first snap (not the kickoff or punt that started it)
     const snap1 = newDrive ? null : (drive?.plays || []).find((p) => p.start?.yardLine != null && !/kickoff|punt/i.test(p.type?.text || "") && !NOT_A_PLAY.has(String(p.type?.id || "")));
     const start = snap1?.start?.yardLine;
@@ -917,7 +923,8 @@ const Live = (() => {
     const seen = gcvSeen.get(gameId), moved = !!seen && seen.play !== String(play.id) && seen.spot !== spot;
     gcvSeen.set(gameId, { play: String(play.id), spot });
     const dx = moved ? X(seen.spot) - X(spot) : 0;
-    const svg = [`<defs><filter id="gcv-glow" filterUnits="userSpaceOnUse" x="0" y="0" width="1200" height="${H}"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    const svg = [`<defs><filter id="gcv-glow" filterUnits="userSpaceOnUse" x="0" y="0" width="1200" height="${H}"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      <linearGradient id="gcv-dg"${dir < 0 ? ' x1="1" x2="0"' : ""}><stop offset="0" style="stop-color:var(--accent);stop-opacity:0"/><stop offset="1" style="stop-color:var(--accent);stop-opacity:.32"/></linearGradient>
       <radialGradient id="gcv-light" cx="50%" cy="40%" r="60%"><stop offset="0" stop-color="#fff" stop-opacity=".09"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>`,
       `<rect class="gcv-turf" x="100" y="0" width="1000" height="${H}"/>`];
     for (let i = 0; i < 10; i += 2) svg.push(`<rect class="gcv-band" x="${X(i * 10)}" y="0" width="100" height="${H}"/>`);
@@ -935,12 +942,10 @@ const Live = (() => {
     const slide = moved ? ` class="gcv-slide" style="--dx:${dx}px"` : "";
     if (!isTD) svg.push(`<g${slide}><line class="gcv-los" x1="${X(spot)}" x2="${X(spot)}" y1="8" y2="${H - 70}" filter="url(#gcv-glow)"/></g>`);
     if (fd != null) svg.push(`<line class="gcv-fd" x1="${X(fd)}" x2="${X(fd)}" y1="8" y2="${H - 70}" filter="url(#gcv-glow)"/>`);
-    // chevrons ahead of the ball, pulsing the way the offense is going
-    if (dir && !isTD) svg.push(`<g${slide}>${[0, 1, 2].map((i) => `<path class="gcv-chev" style="--d:${(i * 0.25).toFixed(2)}s" d="M${X(spot) + dir * (50 + i * 30)} ${H / 2 - 66} l${dir * 18} 22 l${-dir * 18} 22" filter="url(#gcv-glow)"/>`).join("")}</g>`);
     // standing pieces (real 3D, they stand up off the tilted field): the down box at the ball and the first-down stick
     const from = moved ? ` style="left:${pct(X(spot))};--from:${pct(X(seen.spot))}"` : ` style="left:${pct(X(spot))}"`;
     const stand = `${down ? `<i class="gcv-stick los${moved ? " move" : ""}"${from}><b>${down}</b></i>` : ""}${fd != null ? `<i class="gcv-stick fd" style="left:${pct(X(fd))}"><b></b></i>` : ""}
-      ${dir || isTD ? `<i class="gcv-ballp${moved ? " move" : ""}"${from}><i class="gcv-shadow"></i><i class="gcv-ball3"></i></i>` : ""}`;
+      ${dir || isTD ? `<i class="gcv-ballp${moved ? " move" : ""}"${from}><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i>` : ""}`;
     const ddText = isTD ? "Touchdown" : down ? `${["", "1st", "2nd", "3rd", "4th"][down]} & ${dist < toGo ? dist : "Goal"}` : "";
     const plays = newDrive ? [] : (drive?.plays || []).filter((p) => p.text && !NOT_A_PLAY.has(String(p.type?.id || ""))).slice(-8).reverse();
     // the looping glows and bobs are timed off the clock, so the redraw every few seconds doesn't make them jump

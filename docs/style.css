@@ -1489,55 +1489,56 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-off { display: inline-flex; align-items: center; gap: 6px; }
 .gcv-dd { font-family: var(--font-head); font-size: 20px; color: var(--accent); }
 .gcv-rz { color: var(--bad); }
-.gcv-stands { container-type: inline-size; perspective: 900px; perspective-origin: 50% -10%; margin: -10px 0 18px; } /* seen from the stands at the 50: the far sideline tips away */
-.gcv-3d { position: relative; transform-style: preserve-3d; transform: rotateX(40deg); transform-origin: 50% 100%; }
-.gcv-3d::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 16px; transform-origin: 50% 0; transform: rotateX(-90deg); /* the slab's front edge */
-  background: linear-gradient(var(--line), color-mix(in srgb, var(--line) 30%, #000)); box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 35%, transparent); }
+.gcv-stands { container-type: inline-size; max-width: 640px; margin: -6px auto 16px; perspective: 900px; perspective-origin: 50% -10%; } /* seen from the stands at the 50: the far sideline tips away */
+.gcv-3d { --u: 1cqw; position: relative; transform-style: preserve-3d; transform: rotateX(40deg); transform-origin: 50% 100%; }
+.gcv-3d::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 16px; transform-origin: 50% 0; transform: rotateX(-90deg); height: 10px; /* the slab's front edge */
+  background: linear-gradient(var(--line), color-mix(in srgb, var(--line) 30%, #000)); }
 .gcv-field { display: block; width: 100%; height: auto; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: var(--radius-sm, 0); background: var(--bg);
-  box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 22%, transparent), inset 0 0 40px color-mix(in srgb, var(--accent) 8%, transparent); }
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 14%, transparent); }
 .gcv-turf { fill: var(--bg); }
 .gcv-band { fill: var(--ink); opacity: .035; }
 .gcv-ez { fill: color-mix(in srgb, var(--accent) 10%, var(--card)); }
-.gcv-eztx { fill: var(--accent); opacity: .8; font: 700 44px var(--font-head); text-anchor: middle; dominant-baseline: middle; letter-spacing: .08em; }
+.gcv-eztx { fill: var(--accent); opacity: .75; font: 700 30px var(--font-head); text-anchor: middle; dominant-baseline: middle; letter-spacing: .08em; }
 .gcv-yl { stroke: var(--line); stroke-width: 2; }
 .gcv-yl.mid { stroke: var(--muted); }
-.gcv-yl.goal { stroke: var(--accent); stroke-width: 3; filter: url(#gcv-glow); }
-.gcv-num { fill: var(--muted); font: 44px var(--font-head); text-anchor: middle; }
+.gcv-yl.goal { stroke: var(--accent); stroke-width: 3; }
+.gcv-num { fill: var(--muted); opacity: .8; font: 24px var(--font-head); text-anchor: middle; }
 .gcv-rzone { fill: var(--bad); animation: gcv-breathe 2.4s ease-in-out var(--t, 0s) infinite; }
 @keyframes gcv-breathe { 0%, 100% { opacity: .05; } 50% { opacity: .16; } }
-.gcv-drive { fill: var(--accent); opacity: .2; transform-box: fill-box; }
+.gcv-drive { fill: url(#gcv-dg); transform-box: fill-box; }
 .gcv-drive.grow { animation: gcv-grow 1s cubic-bezier(.3, .7, .3, 1) both; }
 @keyframes gcv-grow { from { transform: scaleX(var(--s0)); } }
-.gcv-los { stroke: var(--ink); stroke-width: 5; }
-.gcv-fd { stroke: var(--accent); stroke-width: 5; stroke-dasharray: 14 8; animation: gcv-march 1.2s linear var(--t, 0s) infinite, gcv-flicker 2.2s ease-in-out var(--t, 0s) infinite; }
+.gcv-los { stroke: var(--ink); stroke-width: 4; }
+.gcv-fd { stroke: var(--accent); stroke-width: 4; stroke-dasharray: 14 8; animation: gcv-march 1.2s linear var(--t, 0s) infinite, gcv-flicker 2.2s ease-in-out var(--t, 0s) infinite; }
 @keyframes gcv-march { to { stroke-dashoffset: -44; } }
 @keyframes gcv-flicker { 0%, 100% { opacity: 1; } 50% { opacity: .65; } }
 .gcv-slide { animation: gcv-slide 1s cubic-bezier(.3, .7, .3, 1) both; }
 @keyframes gcv-slide { from { transform: translateX(var(--dx)); } }
-.gcv-chev { fill: none; stroke: var(--accent); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; animation: gcv-chev 1.2s ease-in-out calc(var(--t, 0s) + var(--d, 0s)) infinite; }
-@keyframes gcv-chev { 0%, 100% { opacity: .15; } 40% { opacity: 1; } }
 /* standing pieces: placed on the field, then turned to face you (like sprites in a game) */
 .gcv-stick, .gcv-ballp { position: absolute; transform-style: preserve-3d; }
 .gcv-stick { bottom: 0; width: 0; height: 0; }
-.gcv-stick::before { content: ""; position: absolute; left: -2px; bottom: 0; width: max(3px, .55cqw); height: 9cqw; transform-origin: 50% 100%; transform: rotateX(-40deg); background: linear-gradient(var(--ink), var(--muted)); }
-.gcv-stick b { position: absolute; left: -2.3cqw; bottom: 0; width: 4.6cqw; height: 3.4cqw; transform-origin: 50% 100%; transform: rotateX(-40deg) translateY(-8cqw);
-  display: grid; place-items: center; font: 700 max(10px, 2.3cqw) var(--font-head); color: var(--on-accent, #000); background: var(--ink); box-shadow: 0 0 14px color-mix(in srgb, var(--ink) 60%, transparent); }
-.gcv-stick.fd::before { background: linear-gradient(var(--accent), color-mix(in srgb, var(--accent) 50%, #000)); }
-.gcv-stick.fd b { width: 2.6cqw; left: -1.3cqw; height: 2.6cqw; border-radius: 50%; background: var(--accent); box-shadow: 0 0 16px var(--accent); animation: gcv-flicker 2.2s ease-in-out var(--t, 0s) infinite; }
+.gcv-stick::before { content: ""; position: absolute; left: -1px; bottom: 0; width: 2px; height: calc(var(--u) * 7); transform-origin: 50% 100%; transform: rotateX(-40deg); background: var(--muted); }
+.gcv-stick b { position: absolute; left: calc(var(--u) * -1.5); bottom: 0; width: calc(var(--u) * 3); height: calc(var(--u) * 2.4); transform-origin: 50% 100%; transform: rotateX(-40deg) translateY(calc(var(--u) * -6.6));
+  display: grid; place-items: center; font: 700 max(9px, calc(var(--u) * 1.6)) var(--font-head); color: var(--ink); background: var(--card); border: 1px solid var(--muted); }
+.gcv-stick.fd::before { background: var(--accent); }
+.gcv-stick.fd b { width: calc(var(--u) * 1.4); left: calc(var(--u) * -.7); height: calc(var(--u) * 1.4); background: var(--accent); border-color: var(--accent); }
 .gcv-ballp { top: 40%; width: 0; height: 0; }
 .gcv-ballp.move, .gcv-stick.move { animation: gcv-move 1s cubic-bezier(.3, .7, .3, 1) both; }
 @keyframes gcv-move { from { left: var(--from); } }
-.gcv-shadow { position: absolute; left: -2.5cqw; top: -1cqw; width: 5cqw; height: 2cqw; border-radius: 50%; background: radial-gradient(rgba(0, 0, 0, .55), transparent 70%); animation: gcv-shrink 1.6s ease-in-out var(--t, 0s) infinite; }
-.gcv-ball3 { position: absolute; left: -2.4cqw; bottom: 0; width: 4.8cqw; height: 3cqw; border-radius: 50%; transform-origin: 50% 100%;
-  background: radial-gradient(circle at 35% 30%, #fff 0, color-mix(in srgb, var(--accent) 70%, #fff) 18%, var(--accent) 45%, color-mix(in srgb, var(--accent) 45%, #000) 100%);
-  box-shadow: 0 0 18px var(--accent), 0 0 40px color-mix(in srgb, var(--accent) 50%, transparent); animation: gcv-bob 1.6s ease-in-out var(--t, 0s) infinite; }
-@keyframes gcv-bob { 0%, 100% { transform: rotateX(-40deg) translateY(-1.2cqw); } 50% { transform: rotateX(-40deg) translateY(-2.8cqw); } }
+.gcv-shadow { position: absolute; left: calc(var(--u) * -2.4); top: calc(var(--u) * -.9); width: calc(var(--u) * 4.8); height: calc(var(--u) * 1.8); border-radius: 50%; background: radial-gradient(rgba(0, 0, 0, .55), transparent 70%); animation: gcv-shrink 1.6s ease-in-out var(--t, 0s) infinite; }
+.gcv-ball3 { position: absolute; left: calc(var(--u) * -3.2); bottom: 0; width: calc(var(--u) * 6.4); height: calc(var(--u) * 3.84); transform-origin: 50% 100%; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 45%, transparent)); animation: gcv-bob 1.6s ease-in-out var(--t, 0s) infinite; }
+.gcv-ball3 svg { display: block; width: 100%; height: 100%; }
+.gcv-lace { animation: gcv-roll .8s linear var(--t, 0s) infinite; }
+@keyframes gcv-roll { 0% { transform: translateY(-13px); opacity: 0; } 25%, 75% { opacity: 1; } 100% { transform: translateY(13px); opacity: 0; } }
+@keyframes gcv-bob { 0%, 100% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(-8deg); } 50% { transform: rotateX(-40deg) translateY(calc(var(--u) * -2.6)) rotate(-4deg); } }
 @keyframes gcv-shrink { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(.7); opacity: .6; } }
-.gcv-dd { text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 70%, transparent); }
+.gcv-dd { text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 40%, transparent); }
 .gcv-dd.pop { animation: gcv-pop .6s ease-out; }
 @keyframes gcv-pop { 0% { transform: scale(1.35); opacity: .3; } 100% { transform: scale(1); opacity: 1; } }
 .gcv.td .gcv-ez { animation: gcv-td .5s ease-in-out 6 alternate; }
 @keyframes gcv-td { to { fill: color-mix(in srgb, var(--accent) 45%, var(--card)); } }
+/* phones: the field is small, so its labels, markers and ball are drawn bigger */
+@container (max-width: 480px) { .gcv-3d { --u: 1.6cqw; } .gcv-num { font-size: 44px; } .gcv-eztx { font-size: 40px; } }
 .gcv-key { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 12px; }
 .gcv-key i { display: inline-block; width: 14px; height: 3px; margin-right: 6px; vertical-align: middle; background: var(--ink); }
 .gcv-key i.fd { background: var(--accent); }
