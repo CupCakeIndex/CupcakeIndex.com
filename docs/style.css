@@ -1512,7 +1512,7 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-band { fill: var(--ink); opacity: .035; }
 .gcv-ez { fill: var(--card); }
 .gcv-ezline { fill: none; stroke-width: 1.5; opacity: .5; } /* a thin border in the team's color */
-.gcv-ezlogo { opacity: .95; } /* the logo glows (SVG filter gcv-neon in live.js) */
+.gcv-ezlogo { opacity: .95; }
 .gcv-yl { stroke: var(--line); stroke-width: 2; }
 .gcv-yl.mid { stroke: var(--muted); }
 .gcv-tick { stroke: var(--muted); stroke-width: 2; opacity: .7; }

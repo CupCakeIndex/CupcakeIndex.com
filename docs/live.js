@@ -879,6 +879,11 @@ const Live = (() => {
   const gcvReplay = new Map();
   let gcvSpeed = store.get("gamecast-speed") === 2 ? 2 : 1; // replay speed // game id -> play id being replayed in the Clean view (until "Back to live")
   const gcvTip = new Map(); // game id -> the sim-line play being looked at (kept through the refresh every few seconds)
+  // end zone logo: ESPN's version made to sit on the team's own color, else the dark-background one (dark mode), else the usual one
+  const ezLogo = (t) => {
+    const L = t?.logos || [], has = (r) => L.find((l) => (l.rel || []).includes(r))?.href;
+    return has("primary_logo_on_primary_color") || (document.documentElement.dataset.theme === "dark" && has("dark")) || teamLogo(t);
+  };
   const gcvSeen = new Map(); // game id -> {play, spot} last drawn (so a new play slides in from the old spot)
   const gcvCtx = new Map(); // game id -> latest fieldView arguments (to redraw right away when the look changes)
   function fieldView(s, comp, home, away, tc, gameId, people, final) {
@@ -1062,19 +1067,18 @@ const Live = (() => {
     const dx = moved ? X(prevSpot) - X(spot) : 0;
     const svg = [`<defs><filter id="gcv-glow" filterUnits="userSpaceOnUse" x="0" y="0" width="1200" height="${H}"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
       <linearGradient id="gcv-dg"${dir < 0 ? ' x1="1" x2="0"' : ""}><stop offset="0" style="stop-color:var(--accent);stop-opacity:0"/><stop offset="1" style="stop-color:var(--accent);stop-opacity:.32"/></linearGradient>
-      <filter id="gcv-neon" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b"/><feColorMatrix in="b" type="matrix" values="1.3 0 0 0 .05  0 1.3 0 0 .05  0 0 1.3 0 .05  0 0 0 .8 0" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
       <radialGradient id="gcv-light" cx="50%" cy="40%" r="60%"><stop offset="0" stop-color="#fff" stop-opacity=".09"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>`,
       `<rect class="gcv-turf" x="100" y="0" width="1000" height="${H}"/>`];
     for (let i = 0; i < 10; i += 2) svg.push(`<rect class="gcv-band" x="${X(i * 10)}" y="0" width="100" height="${H}"/>`);
     for (const [c, x0] of [[home, 0], [away, 1100]]) {
       // each end zone: the team's color, deepest at the back line and fading toward the goal line, a thin border in it,
-      // and their logo turned to read from the sideline, with a soft glow
+      // and their logo turned to read from the sideline (the team's own version made to sit on their color)
       const tz = teamColor(c.team), rot = `rotate(${x0 ? 90 : -90} ${x0 + 50} ${H / 2})`;
       svg.push(`<linearGradient id="gcv-ezg-${x0}" x1="${x0 ? 1 : 0}" x2="${x0 ? 0 : 1}"><stop offset="0" style="stop-color:${tz};stop-opacity:.55"/><stop offset="1" style="stop-color:${tz};stop-opacity:.18"/></linearGradient>
         <rect class="gcv-ez${isTD && (x0 ? spot >= 50 : spot < 50) ? " td" : ""}" x="${x0}" y="0" width="100" height="${H}" style="--tz:${tz}"/>
         <rect x="${x0}" y="0" width="100" height="${H}" fill="url(#gcv-ezg-${x0})"/>
         <rect class="gcv-ezline" x="${x0 + 5}" y="5" width="90" height="${H - 10}" style="stroke:${tz}"/>
-        <image class="gcv-ezlogo" href="${esc(teamLogo(c.team))}" x="${x0 + 2}" y="${H / 2 - 48}" width="96" height="96" transform="${rot}" filter="url(#gcv-neon)"/>`);
+        <image class="gcv-ezlogo" href="${esc(ezLogo(c.team))}" x="${x0 + 2}" y="${H / 2 - 48}" width="96" height="96" transform="${rot}"/>`);
     }
     if (off && toGo <= 20 && !isTD) svg.push(`<rect class="gcv-rzone" x="${dir > 0 ? X(80) : X(0)}" y="0" width="200" height="${H}"/>`); // red zone glows
     for (let yl = 0; yl <= 100; yl += 10) svg.push(`<line class="gcv-yl${yl === 50 ? " mid" : ""}${yl % 100 ? "" : " goal"}" x1="${X(yl)}" x2="${X(yl)}" y1="0" y2="${H}"/>`);
