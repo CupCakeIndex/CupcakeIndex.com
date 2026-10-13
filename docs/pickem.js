@@ -41,7 +41,7 @@ const Pickem = (() => {
   const badges = () => { try { return JSON.parse(store.get("pickem-badges") || "[]") || []; } catch (e) { return []; } };
   function checkPerfect(lg, season, type, week, key, events, picks, g) {
     const lockedAt = +store.get(`${key}-lock`) || 0, slateN = +store.get(`${key}-slate`) || 0, due = deadline(events);
-    if (!g.done || g.l || !lockedAt || !slateN || (due && lockedAt > due) || g.w < slateN || picks.size < slateN) return;
+    if (!g.done || g.l || !g.w || !lockedAt || !slateN || (due && lockedAt > due) || g.w + (g.v || 0) < slateN || picks.size < slateN) return; // a tie is void, so it doesn't break a perfect week
     const list = badges(), wk = `${type}:${week}`;
     if (list.some((b) => b.lg === lg && b.season === +season && b.wk === wk)) return;
     list.push({ lg, season: +season, wk, n: g.w });
@@ -50,19 +50,20 @@ const Pickem = (() => {
   }
   // grade one week's stored picks: your record, the model's record on the same games, and the W/L sequence by kickoff
   function gradeWeek(events, picks, preds) {
-    let w = 0, l = 0, mw = 0, ml = 0, seq = "", pending = 0;
+    let w = 0, l = 0, v = 0, mw = 0, ml = 0, seq = "", pending = 0;
     events.slice().sort((a, b) => new Date(a.date) - new Date(b.date)).forEach((e) => {
       const id = picks.get(String(e.id));
       if (!id) return;
-      const won = state(e) === "post" && comp(e).competitors.find((c) => c.winner);
-      if (!won) { pending++; return; }
+      if (state(e) !== "post") { pending++; return; }
+      const won = comp(e).competitors.find((c) => c.winner);
+      if (!won) { v++; return; } // a tie is void: doesn't count either way
       const right = String(won.team.id) === id;
       right ? w++ : l++;
       seq += right ? "W" : "L";
       const pr = preds.get(String(e.id));
       if (pr) ((pr.home_win_prob >= 0.5) === (won.homeAway === "home") ? mw++ : ml++);
     });
-    return { w, l, mw, ml, seq, done: !pending && w + l > 0 };
+    return { w, l, v, mw, ml, seq, done: !pending && w + l + v > 0 };
   }
   const tname = (lg, t) => (lg === "nfl" ? t.shortDisplayName : t.location || t.shortDisplayName);
   const apRank = (c) => { const r = c.curatedRank?.current; return r && r <= 25 ? r : null; };
@@ -74,7 +75,7 @@ const Pickem = (() => {
       const id = picks.get(String(e.id));
       if (!id || state(e) !== "post") return;
       const won = comp(e).competitors.find((c) => c.winner);
-      if (!won) return; // a tie (or no result yet) isn't graded
+      if (!won) return; // a tie is void
       String(won.team.id) === id ? w++ : l++;
     });
     return [w, l];
@@ -144,7 +145,7 @@ const Pickem = (() => {
   function logWeek() {
     const { lg, season, type, week, events, picks, preds } = cur;
     const log = readLog(lg, season), g = gradeWeek(events, picks, preds);
-    if (g.w + g.l || log[`${type}:${week}`]) { log[`${type}:${week}`] = g; writeLog(lg, season, log); }
+    if (g.w + g.l + g.v || log[`${type}:${week}`]) { log[`${type}:${week}`] = g; writeLog(lg, season, log); }
     checkPerfect(lg, season, type, week, cur.key, events, picks, g);
   }
 
@@ -169,7 +170,7 @@ const Pickem = (() => {
           ((await weekData(lg, season, w - 1).catch(() => null))?.predictions || []).forEach((p) => preds.set(String(p.espn_id), p));
         }
         const g = gradeWeek(sb.events || [], picks, preds);
-        if (g.w + g.l) { log[`${t}:${w}`] = g; writeLog(lg, season, log); }
+        if (g.w + g.l + g.v) { log[`${t}:${w}`] = g; writeLog(lg, season, log); }
         checkPerfect(lg, season, t, w, k, sb.events || [], picks, g);
       } catch (e) { /* ESPN hiccup: try again next visit */ }
     }
@@ -230,8 +231,9 @@ const Pickem = (() => {
       + (lockTxt ? ` · <span class="pk-lock${weekLocked ? " on" : ""}">${lockTxt}</span>` : "");
     const team = (e, c) => {
       const t = c.team, id = String(t.id), on = picks.get(String(e.id)) === id, st = state(e), ours = K.ourTeam(ranks, lg, t);
-      const mark = on && st === "post" && comp(e).competitors.some((x) => x.winner) ? (c.winner ? `<b class="pk-mark W">✓</b>` : `<b class="pk-mark L">✗</b>`) : "";
-      return `<button class="pk-team${on ? " on" : ""}${st === "post" ? (c.winner ? " win" : " lose") : ""}" data-team="${esc(id)}" aria-pressed="${on}"${locked(e) ? " disabled" : ""}>
+      const tie = st === "post" && !comp(e).competitors.some((x) => x.winner);
+      const mark = on && st === "post" ? (tie ? `<b class="pk-mark V" title="Tie: this pick is void">VOID</b>` : c.winner ? `<b class="pk-mark W">✓</b>` : `<b class="pk-mark L">✗</b>`) : "";
+      return `<button class="pk-team${on ? " on" : ""}${st === "post" && !tie ? (c.winner ? " win" : " lose") : ""}" data-team="${esc(id)}" aria-pressed="${on}"${locked(e) ? " disabled" : ""}>
         ${K.img(K.teamLogo(t), "sm")}${apRank(c) ? `<span class="ap-rk">${apRank(c)}</span>` : ""}
         <b class="pk-n">${esc(tname(lg, t))}</b><small class="muted">${esc(c.records?.[0]?.summary || "")}</small>
         ${ours ? `<span class="our-rk" title="Cupcake Index rank">#${ours.rank}</span>` : ""}
@@ -258,7 +260,7 @@ const Pickem = (() => {
         ${cur.mine && !weekLocked ? `<button data-act="lock" class="pk-lockbtn"${picks.size ? "" : " disabled"}>🔒 Lock in my picks</button>` : ""}${Share.menuHtml()}</div>
       ${list.length ? `<div class="pk-grid">${list.map(game).join("")}</div>` : `<p class="muted">No games this week.</p>`}
       <p class="note">Tap a team to pick it; tap again to undo. Each game locks at kickoff, and the whole week locks Saturday at 11:59 PM Eastern (or as soon as you tap Lock in). Next week's games show up Sunday for college and Monday at 11:59 PM Eastern for the NFL.
-        Your picks get a ✓ or ✗ when the game is final and add to your season record, which stays in this browser unless you clear its data.
+        Your picks get a ✓ or ✗ when the game is final and add to your season record (a tie is void and doesn't count), which stays in this browser unless you clear its data.
         Pick every game, lock in before the deadline and get them all right for the permanent 🏅 Perfect Pick'em badge.
         Picks are saved in this browser and in the page link, so Share › Copy Link sends your slate to a friend. "model" = our ratings' win chance for the team they favor. Just for fun.</p></div>`;
   }
@@ -344,6 +346,7 @@ const Pickem = (() => {
             if (st === "pre" && cw > 240) text(c.records?.[0]?.summary || "", gx + cw - 10, mid, F(400, fs * 0.8), C.muted, "right"); // record before kickoff
             if (st !== "pre") text(String(c.score ?? ""), gx + cw - 10 - (graded && on ? fs * 1.4 : 0), mid, F(c.winner ? 700 : 400, fs), c.winner ? C.ink : C.muted, "right");
             if (graded && on) text(c.winner ? "✓" : "✗", gx + cw - 10, mid, F(700, fs), c.winner ? C.good : C.bad, "right");
+            else if (st === "post" && on) text("VOID", gx + cw - 10, mid, F(700, fs * 0.6), C.muted, "right"); // a tie
           });
         });
         x.textBaseline = "alphabetic";

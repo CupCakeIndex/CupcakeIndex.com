@@ -1291,6 +1291,7 @@ a.game-tile:hover { border-color: var(--accent); }
 .pk-mark { width: 1.2em; text-align: center; }
 .pk-mark.W { color: var(--good); }
 .pk-mark.L { color: var(--bad); }
+.pk-mark.V { width: auto; font-size: 0.7em; color: var(--muted); letter-spacing: 0.05em; }
 .pk-hint { font-size: 11px; margin-top: 4px; text-align: right; }
 /* Share menu (Copy Link / Save Image) */
 .share { position: relative; display: inline-flex; }
