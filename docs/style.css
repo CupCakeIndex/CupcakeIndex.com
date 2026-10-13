@@ -1489,18 +1489,55 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-off { display: inline-flex; align-items: center; gap: 6px; }
 .gcv-dd { font-family: var(--font-head); font-size: 20px; color: var(--accent); }
 .gcv-rz { color: var(--bad); }
-.gcv-stands { perspective: 900px; perspective-origin: 50% 0; margin-top: -14px; } /* seen from the stands at the 50: the far sideline tips away */
-.gcv-field { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: var(--radius-sm, 0); background: var(--bg); transform: rotateX(38deg); transform-origin: 50% 100%; }
+.gcv-stands { container-type: inline-size; perspective: 900px; perspective-origin: 50% -10%; margin: -10px 0 18px; } /* seen from the stands at the 50: the far sideline tips away */
+.gcv-3d { position: relative; transform-style: preserve-3d; transform: rotateX(40deg); transform-origin: 50% 100%; }
+.gcv-3d::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 16px; transform-origin: 50% 0; transform: rotateX(-90deg); /* the slab's front edge */
+  background: linear-gradient(var(--line), color-mix(in srgb, var(--line) 30%, #000)); box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 35%, transparent); }
+.gcv-field { display: block; width: 100%; height: auto; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: var(--radius-sm, 0); background: var(--bg);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 22%, transparent), inset 0 0 40px color-mix(in srgb, var(--accent) 8%, transparent); }
 .gcv-turf { fill: var(--bg); }
-.gcv-ez { fill: var(--card); }
-.gcv-eztx { fill: var(--muted); font: 700 44px var(--font-head); text-anchor: middle; dominant-baseline: middle; letter-spacing: .08em; }
+.gcv-band { fill: var(--ink); opacity: .035; }
+.gcv-ez { fill: color-mix(in srgb, var(--accent) 10%, var(--card)); }
+.gcv-eztx { fill: var(--accent); opacity: .8; font: 700 44px var(--font-head); text-anchor: middle; dominant-baseline: middle; letter-spacing: .08em; }
 .gcv-yl { stroke: var(--line); stroke-width: 2; }
 .gcv-yl.mid { stroke: var(--muted); }
+.gcv-yl.goal { stroke: var(--accent); stroke-width: 3; filter: url(#gcv-glow); }
 .gcv-num { fill: var(--muted); font: 44px var(--font-head); text-anchor: middle; }
-.gcv-drive { fill: var(--accent); opacity: .14; }
-.gcv-los { stroke: var(--ink); stroke-width: 4; }
-.gcv-fd { stroke: var(--accent); stroke-width: 4; stroke-dasharray: 10 6; }
-.gcv-ball { fill: var(--accent); }
+.gcv-rzone { fill: var(--bad); animation: gcv-breathe 2.4s ease-in-out var(--t, 0s) infinite; }
+@keyframes gcv-breathe { 0%, 100% { opacity: .05; } 50% { opacity: .16; } }
+.gcv-drive { fill: var(--accent); opacity: .2; transform-box: fill-box; }
+.gcv-drive.grow { animation: gcv-grow 1s cubic-bezier(.3, .7, .3, 1) both; }
+@keyframes gcv-grow { from { transform: scaleX(var(--s0)); } }
+.gcv-los { stroke: var(--ink); stroke-width: 5; }
+.gcv-fd { stroke: var(--accent); stroke-width: 5; stroke-dasharray: 14 8; animation: gcv-march 1.2s linear var(--t, 0s) infinite, gcv-flicker 2.2s ease-in-out var(--t, 0s) infinite; }
+@keyframes gcv-march { to { stroke-dashoffset: -44; } }
+@keyframes gcv-flicker { 0%, 100% { opacity: 1; } 50% { opacity: .65; } }
+.gcv-slide { animation: gcv-slide 1s cubic-bezier(.3, .7, .3, 1) both; }
+@keyframes gcv-slide { from { transform: translateX(var(--dx)); } }
+.gcv-chev { fill: none; stroke: var(--accent); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; animation: gcv-chev 1.2s ease-in-out calc(var(--t, 0s) + var(--d, 0s)) infinite; }
+@keyframes gcv-chev { 0%, 100% { opacity: .15; } 40% { opacity: 1; } }
+/* standing pieces: placed on the field, then turned to face you (like sprites in a game) */
+.gcv-stick, .gcv-ballp { position: absolute; transform-style: preserve-3d; }
+.gcv-stick { bottom: 0; width: 0; height: 0; }
+.gcv-stick::before { content: ""; position: absolute; left: -2px; bottom: 0; width: max(3px, .55cqw); height: 9cqw; transform-origin: 50% 100%; transform: rotateX(-40deg); background: linear-gradient(var(--ink), var(--muted)); }
+.gcv-stick b { position: absolute; left: -2.3cqw; bottom: 0; width: 4.6cqw; height: 3.4cqw; transform-origin: 50% 100%; transform: rotateX(-40deg) translateY(-8cqw);
+  display: grid; place-items: center; font: 700 max(10px, 2.3cqw) var(--font-head); color: var(--on-accent, #000); background: var(--ink); box-shadow: 0 0 14px color-mix(in srgb, var(--ink) 60%, transparent); }
+.gcv-stick.fd::before { background: linear-gradient(var(--accent), color-mix(in srgb, var(--accent) 50%, #000)); }
+.gcv-stick.fd b { width: 2.6cqw; left: -1.3cqw; height: 2.6cqw; border-radius: 50%; background: var(--accent); box-shadow: 0 0 16px var(--accent); animation: gcv-flicker 2.2s ease-in-out var(--t, 0s) infinite; }
+.gcv-ballp { top: 40%; width: 0; height: 0; }
+.gcv-ballp.move, .gcv-stick.move { animation: gcv-move 1s cubic-bezier(.3, .7, .3, 1) both; }
+@keyframes gcv-move { from { left: var(--from); } }
+.gcv-shadow { position: absolute; left: -2.5cqw; top: -1cqw; width: 5cqw; height: 2cqw; border-radius: 50%; background: radial-gradient(rgba(0, 0, 0, .55), transparent 70%); animation: gcv-shrink 1.6s ease-in-out var(--t, 0s) infinite; }
+.gcv-ball3 { position: absolute; left: -2.4cqw; bottom: 0; width: 4.8cqw; height: 3cqw; border-radius: 50%; transform-origin: 50% 100%;
+  background: radial-gradient(circle at 35% 30%, #fff 0, color-mix(in srgb, var(--accent) 70%, #fff) 18%, var(--accent) 45%, color-mix(in srgb, var(--accent) 45%, #000) 100%);
+  box-shadow: 0 0 18px var(--accent), 0 0 40px color-mix(in srgb, var(--accent) 50%, transparent); animation: gcv-bob 1.6s ease-in-out var(--t, 0s) infinite; }
+@keyframes gcv-bob { 0%, 100% { transform: rotateX(-40deg) translateY(-1.2cqw); } 50% { transform: rotateX(-40deg) translateY(-2.8cqw); } }
+@keyframes gcv-shrink { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(.7); opacity: .6; } }
+.gcv-dd { text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 70%, transparent); }
+.gcv-dd.pop { animation: gcv-pop .6s ease-out; }
+@keyframes gcv-pop { 0% { transform: scale(1.35); opacity: .3; } 100% { transform: scale(1); opacity: 1; } }
+.gcv.td .gcv-ez { animation: gcv-td .5s ease-in-out 6 alternate; }
+@keyframes gcv-td { to { fill: color-mix(in srgb, var(--accent) 45%, var(--card)); } }
 .gcv-key { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 12px; }
 .gcv-key i { display: inline-block; width: 14px; height: 3px; margin-right: 6px; vertical-align: middle; background: var(--ink); }
 .gcv-key i.fd { background: var(--accent); }
@@ -1509,6 +1546,10 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-plays li.now { color: var(--ink); }
 .gcv-k { display: inline-block; min-width: 64px; margin-right: 8px; font-weight: 700; color: var(--accent); text-transform: capitalize; }
 .gcv-last { margin: 10px 0 0; font-size: 13px; }
+.gcv-plays li.now { border-left: 3px solid var(--accent); padding-left: 8px; box-shadow: inset 12px 0 18px -12px color-mix(in srgb, var(--accent) 60%, transparent); }
+.gcv-plays li.now.in { animation: gcv-in .6s ease-out both; }
+@keyframes gcv-in { from { transform: translateX(-14px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .gcv *, .gcv *::before { animation: none !important; } }
 @media (max-width: 560px) { .gcv-dd { font-size: 16px; } .gcv-k { min-width: 0; } }
 .mb-foot { flex-wrap: wrap; }
 .mb-why { flex-basis: 100%; font-size: 10.5px; color: var(--muted); line-height: 1.35; padding-bottom: 2px; }
