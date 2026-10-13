@@ -1059,7 +1059,8 @@ const Live = (() => {
       const tip = `${dd(p) ? dd(p) + ": " : ""}${clean(p.text)}`, on = gcvTip.get(gameId) === tip ? " on" : "";
       const lx = a <= b ? x - 8 : x + w + 8, anchor = a <= b ? "end" : "start"; // label at the start of the bar
       svg.push(`<g class="gcv-sim ${cls}${grow}${on}" data-tip="${esc(tip)}"><rect class="hit" x="${x - 10}" y="${y - 4}" width="${w + 70}" height="${h + 8}"/>
-        <rect class="bar" x="${x}" y="${y}" width="${w}" height="${h}" rx="${(h / 2).toFixed(1)}" style="transform-origin:${a <= b ? "left" : "right"}"/>
+        <rect class="bar" x="${x}" y="${y}" width="${w}" height="${h}" rx="${(h / 2).toFixed(1)}" style="transform-origin:${a <= b ? "left" : "right"}"/>${a !== b ? (() => { const sd = b > a ? 1 : -1, len = Math.min(h * 0.8, w * 0.5), bx = b - sd * len; // arrowhead, tip on the end spot
+          return `<path class="tip" d="M${bx.toFixed(1)} ${(y - h * 0.2).toFixed(1)} L${b} ${(y + h / 2).toFixed(1)} L${bx.toFixed(1)} ${(y + h * 1.2).toFixed(1)} Z"/>`; })() : ""}
         <text x="${lx}" y="${(y + h / 2).toFixed(1)}" text-anchor="${anchor}">${yds > 0 ? "+" : ""}${yds}</text></g>`);
     });
     if (!isTD) svg.push(`<g${slide}><line class="gcv-los" x1="${X(spot)}" x2="${X(spot)}" y1="0" y2="${H}" filter="url(#gcv-glow)"/></g>`);

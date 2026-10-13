@@ -1523,6 +1523,11 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-sim .bar { fill: var(--accent); opacity: .55; transform-box: fill-box; transition: opacity .15s; }
 .gcv-sim.loss .bar { fill: var(--bad); opacity: .45; }
 .gcv-sim.none .bar { fill: var(--muted); opacity: .5; }
+.gcv-sim .tip { fill: var(--accent); opacity: .55; transition: opacity .15s; } /* arrowhead: which way the play went */
+.gcv-sim.loss .tip { fill: var(--bad); opacity: .45; }
+.gcv-sim:hover .tip, .gcv-sim.on .tip { opacity: 1; }
+.gcv-sim.grow .tip { animation: gcv-tipin .25s ease-out calc(.7s + var(--el, 0s)) both; }
+@keyframes gcv-tipin { from { opacity: 0; } }
 .gcv-sim text { fill: var(--muted); font: 700 20px var(--font-head); dominant-baseline: middle; }
 .gcv-sim:hover .bar, .gcv-sim.on .bar { opacity: 1; filter: url(#gcv-glow); }
 .gcv-sim:hover text, .gcv-sim.on text { fill: var(--ink); }
