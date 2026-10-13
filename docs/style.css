@@ -1487,7 +1487,7 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-pick .muted { font-size: 12px; margin-right: 2px; }
 .gcv-bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px; } /* 3 equal sides: the middle stays centered */
 .gcv-bar > :last-child { justify-self: end; text-align: right; }
-.gcv-live { position: absolute; right: 0; top: 0; z-index: 3; padding: 3px 10px; font: 700 11px var(--font-head); letter-spacing: .05em; text-transform: uppercase; color: var(--accent); background: var(--card); border: 1px solid var(--accent); cursor: pointer; }
+.gcv-live { padding: 3px 10px; font: 700 11px var(--font-head); letter-spacing: .05em; text-transform: uppercase; color: var(--accent); background: var(--card); border: 1px solid var(--accent); cursor: pointer; }
 .gcv-plays li[data-pid] { cursor: pointer; }
 .gcv-plays li[data-pid]:hover { color: var(--ink); background: color-mix(in srgb, var(--accent) 6%, transparent); }
 .gcv-plays li.rp-on { color: var(--ink); border-left: 3px solid var(--accent); padding-left: 8px; background: color-mix(in srgb, var(--accent) 10%, transparent); }
@@ -1496,7 +1496,7 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-mid { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .gcv-clock { font: 700 12px var(--font-head); color: var(--ink); letter-spacing: .06em; padding: 1px 8px; border: 1px solid var(--line); background: var(--bg); font-variant-numeric: tabular-nums; }
 .gcv-rz { color: var(--bad); }
-.gcv-stands { position: relative; container-type: inline-size; max-width: 920px; margin: 0 auto 8px; padding: 44px 0 14px; overflow: hidden; touch-action: pan-y; }
+.gcv-stands { position: relative; container-type: inline-size; max-width: 920px; margin: 0 auto 8px; padding: 44px 4% 14px; overflow: hidden; touch-action: pan-y; }
 .gcv-stands.zoomed { touch-action: none; }
 .gcv-zoom { width: calc(100% * var(--zs, 1)); perspective: calc(900px * var(--zs, 1)); perspective-origin: 50% -10%; transform: translate(var(--zx, 0px), var(--zy, 0px)); } /* seen from the stands at the 50: the far sideline tips away */
 .gcv-3d { --u: 1cqw; position: relative; transform-style: preserve-3d; transform: rotateX(40deg); transform-origin: 50% 100%; }
@@ -1535,9 +1535,8 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-fd { stroke: var(--accent); stroke-width: 4; stroke-dasharray: 14 8; animation: gcv-march 1.2s linear var(--t, 0s) infinite, gcv-flicker 2.2s ease-in-out var(--t, 0s) infinite; }
 @keyframes gcv-march { to { stroke-dashoffset: -44; } }
 @keyframes gcv-flicker { 0%, 100% { opacity: 1; } 50% { opacity: .65; } }
-/* after the ball stops (--bt), the line of scrimmage slides over, then the first-down marker */
+/* after the ball stops (--bt), the line of scrimmage and the first-down marker slide over together */
 .gcv-slide { animation: gcv-slide .7s cubic-bezier(.3, .7, .3, 1) calc(var(--bt, 0s) + var(--el, 0s)) both; }
-.gcv-slide.fd { animation-delay: calc(var(--bt, 0s) + .35s + var(--el, 0s)); }
 @keyframes gcv-slide { from { transform: translateX(var(--dx)); } }
 /* the ball (and who has it): placed on the field, then turned to face you (like a sprite in a game) */
 .gcv-ballp { position: absolute; transform-style: preserve-3d; top: 58%; width: 0; height: 0; }
@@ -1596,24 +1595,26 @@ a.pk-wk:hover { border-color: var(--accent); }
 @keyframes gcv-badge-in { from { opacity: 0; box-shadow: 0 0 0 0 var(--tc); } 50% { opacity: 1; box-shadow: 0 0 22px 6px var(--tc); } }
 /* goalposts at the back of each end zone, and field goals / extra points kicked through them (or wide) */
 .gcv-post { position: absolute; top: 50%; width: 0; height: 0; transform-style: preserve-3d; }
-.gcv-post svg { position: absolute; left: calc(var(--u) * -2); bottom: 0; width: calc(var(--u) * 4); height: calc(var(--u) * 8); transform-origin: 50% 100%; transform: rotateX(-40deg); overflow: visible; }
+/* goalposts face you like the ball does (the drawing itself shows the crossbar along the goal line); the right one is mirrored */
+.gcv-post svg { position: absolute; left: calc(var(--u) * -2.2); bottom: 0; width: calc(var(--u) * 4.4); height: calc(var(--u) * 10); transform-origin: 50% 100%; transform: rotateX(-40deg); overflow: visible; }
+.gcv-post.r svg { transform: rotateX(-40deg) scaleX(-1); }
 .gcv-post path { stroke: var(--accent); filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent) 60%, transparent)); }
-/* field goals and extra points: the ball shows up at the holder's spot standing on end, then is kicked end over end through the uprights (or wide) */
-.gcv-ballp.fg { animation: gcv-fgmove 2.1s linear calc(var(--fgd, 0s) + var(--el, 0s)) both, gcv-fgvis 2.1s linear calc(var(--fgd, 0s) + var(--el, 0s)) both; }
+/* field goals and extra points: the ball shows up at the holder's spot standing on end, then is kicked, spinning around its own
+   center, in an arc that drops through the uprights above the crossbar (at the posts' depth) and carries on past them; a miss goes wide */
+.gcv-ballp.fg { animation: gcv-fgmove 2.2s linear calc(var(--fgd, 0s) + var(--el, 0s)) both, gcv-fgvis 2.2s linear calc(var(--fgd, 0s) + var(--el, 0s)) both; }
 .gcv-ballp.fg.miss { animation-name: gcv-fgwide, gcv-fgvis; }
-@keyframes gcv-fgmove { 0%, 33% { left: var(--hold); animation-timing-function: cubic-bezier(.3, .5, .6, 1); } 86%, 100% { left: var(--to); } }
-@keyframes gcv-fgwide { 0%, 33% { left: var(--hold); top: 58%; animation-timing-function: cubic-bezier(.3, .5, .6, 1); } 86%, 100% { left: var(--to); top: 24%; } }
-@keyframes gcv-fgvis { 0% { opacity: 0; } 12%, 84% { opacity: 1; } 100% { opacity: 0; } }
-.gcv-ballp.fg .gcv-ball3 { animation: gcv-fgspin 2.1s linear calc(var(--fgd, 0s) + var(--el, 0s)) both; }
-.gcv-ballp.fg.miss .gcv-ball3 { animation-name: gcv-fgmiss; }
-.gcv-ballp.fg .gcv-shadow { animation: gcv-fgshadow 2.1s linear calc(var(--fgd, 0s) + var(--el, 0s)) both; }
-@keyframes gcv-fgspin { 0%, 33% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(-90deg); animation-timing-function: ease-out; }
-  60% { transform: rotateX(-40deg) translateY(calc(var(--u) * -11)) rotate(calc(-90deg + var(--kd, 1) * 300deg)); animation-timing-function: ease-in; }
-  86%, 100% { transform: rotateX(-40deg) translateY(calc(var(--u) * -7)) rotate(calc(-90deg + var(--kd, 1) * 540deg)); } }
-@keyframes gcv-fgmiss { 0%, 33% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(-90deg); animation-timing-function: ease-out; }
-  60% { transform: rotateX(-40deg) translateY(calc(var(--u) * -10)) rotate(calc(-90deg + var(--kd, 1) * 250deg)); animation-timing-function: ease-in; }
-  86%, 100% { transform: rotateX(-40deg) translateY(calc(var(--u) * -4)) rotate(calc(-90deg + var(--kd, 1) * 400deg)); } }
-@keyframes gcv-fgshadow { 0%, 33% { transform: scale(1); opacity: 1; } 60% { transform: scale(.45); opacity: .35; } 100% { transform: scale(.6); opacity: .5; } }
+@keyframes gcv-fgmove { 0%, 30% { left: var(--hold); top: 58%; animation-timing-function: cubic-bezier(.25, .4, .6, 1); } 80% { left: var(--to); top: 50%; } 100% { left: var(--past); top: 50%; } }
+@keyframes gcv-fgwide { 0%, 30% { left: var(--hold); top: 58%; animation-timing-function: cubic-bezier(.25, .4, .6, 1); } 80% { left: var(--to); top: 26%; } 100% { left: var(--past); top: 20%; } }
+@keyframes gcv-fgvis { 0% { opacity: 0; } 10%, 86% { opacity: 1; } 100% { opacity: 0; } }
+.gcv-ballp.fg .gcv-ball3 { animation: gcv-fgarc 2.2s linear calc(var(--fgd, 0s) + var(--el, 0s)) both; }
+.gcv-ballp.fg .gcv-ball3 svg { transform-origin: 50% 50%; animation: gcv-fgtwirl 2.2s linear calc(var(--fgd, 0s) + var(--el, 0s)) both; }
+.gcv-ballp.fg .gcv-shadow { animation: gcv-fgshadow 2.2s linear calc(var(--fgd, 0s) + var(--el, 0s)) both; }
+@keyframes gcv-fgarc { 0%, 30% { transform: rotateX(-40deg) translateY(calc(var(--u) * -.6)); animation-timing-function: ease-out; }
+  55% { transform: rotateX(-40deg) translateY(calc(var(--u) * -10)); animation-timing-function: ease-in; }
+  80% { transform: rotateX(-40deg) translateY(calc(var(--u) * -3.4)); }
+  100% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.8)); } }
+@keyframes gcv-fgtwirl { 0%, 30% { transform: rotate(-90deg); } 100% { transform: rotate(calc(-90deg + var(--kd, 1) * 720deg)); } }
+@keyframes gcv-fgshadow { 0%, 30% { transform: scale(1); opacity: 1; } 55% { transform: scale(.45); opacity: .3; } 100% { transform: scale(.7); opacity: .5; } }
 /* after a touchdown with an extra point, the ball fades out of the end zone before the kick */
 .gcv-ballp.patout { animation: none; }
 .gcv-ballp.patout.move { animation: gcv-move 1s cubic-bezier(.3, .7, .3, 1) var(--el, 0s) both, gcv-patout .3s calc(var(--bt, 1s) + .4s + var(--el, 0s)) both; }
