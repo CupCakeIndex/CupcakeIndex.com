@@ -1584,6 +1584,16 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-ballp.ghost .gcv-ball3 { animation: gcv-arc 1s both, gcv-fade 1.5s both; }
 .gcv-ballp.ghost .gcv-shadow { animation: gcv-far 1s ease-in-out both, gcv-fade 1.5s both; }
 @keyframes gcv-fade { 0%, 65% { opacity: 1; } 100% { opacity: 0; } }
+/* two-point try (live.js cleanField twoBall): shows up on the 2 at --t0 (after the touchdown ball fades), snapped half a second
+   later, then run (hop) or thrown (arc) to --to; an incompletion sails out of the end zone and fades */
+.gcv-ballp.two { animation: gcv-2show .25s linear calc(var(--t0) + var(--el, 0s)) both, gcv-go 1s linear calc(var(--t0) + .5s + var(--el, 0s)) both; }
+.gcv-ballp.two.pass { animation-duration: .25s, 1.1s; }
+@keyframes gcv-2show { from { opacity: 0; } }
+.gcv-ballp.two .gcv-ball3 { animation: gcv-hop 1s calc(var(--t0) + .5s + var(--el, 0s)) both; }
+.gcv-ballp.two.pass .gcv-ball3 { animation: gcv-arc 1.1s calc(var(--t0) + .5s + var(--el, 0s)) both; }
+.gcv-ballp.two.pass .gcv-shadow { animation: gcv-far 1.1s ease-in-out calc(var(--t0) + .5s + var(--el, 0s)) both; }
+.gcv-ballp.two.inc .gcv-ball3 { animation: gcv-arc 1.1s calc(var(--t0) + .5s + var(--el, 0s)) both, gcv-fade 1.7s calc(var(--t0) + .5s + var(--el, 0s)) both; }
+.gcv-ballp.two.inc .gcv-shadow { animation: gcv-far 1.1s ease-in-out calc(var(--t0) + .5s + var(--el, 0s)) both, gcv-fade 1.7s calc(var(--t0) + .5s + var(--el, 0s)) both; }
 /* ...while the real ball is hidden, then spotted back at the line once the pass falls (one ball, not two) */
 .gcv-ballp.hold .gcv-ball3 { animation: gcv-bob 1.6s ease-in-out var(--t, 0s) infinite, gcv-hold 1.7s var(--el, 0s) both; }
 .gcv-ballp.hold .gcv-shadow { animation: gcv-shrink 1.6s ease-in-out var(--t, 0s) infinite, gcv-hold 1.7s var(--el, 0s) both; }
@@ -1731,7 +1741,7 @@ details[open] > .gcv-dh::before { transform: rotate(90deg); }
 /* no animation (Windows "Animation effects" off, common on VMs): show how the play ended, not every piece at once. The pieces that
    normally fade away go (the touchdown ball before the extra point, the kick, the incomplete pass, the "+6" / "Good +1"), and the
    replay score shows its final number instead of every step stacked */
-@media (prefers-reduced-motion: reduce) { .gcv .gcv-ballp.patout, .gcv .gcv-ballp.fg, .gcv .gcv-ballp.ghost, .gcv .gcv-pts, .gcv-score .stk > .out { display: none; } }
+@media (prefers-reduced-motion: reduce) { .gcv .gcv-ballp.patout, .gcv .gcv-ballp.fg, .gcv .gcv-ballp.ghost, .gcv .gcv-ballp.two, .gcv .gcv-pts, .gcv-score .stk > .out { display: none; } }
 @media (max-width: 560px) { .gcv-dd { font-size: 16px; } .gcv-k { min-width: 0; } .gcv-score img { display: none; } .gcv-score .n { font-size: 16px; } }
 .mb-foot { flex-wrap: wrap; }
 .mb-why { flex-basis: 100%; font-size: 10.5px; color: var(--muted); line-height: 1.35; padding-bottom: 2px; }
