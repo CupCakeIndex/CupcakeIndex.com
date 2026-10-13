@@ -861,12 +861,16 @@ const Live = (() => {
   // "clean": a flat field strip and the drive's plays, drawn only with the theme's own colors and fonts (Settings > Theme)
   const GCV = [["8bit", "8-bit"], ["clean", "Clean"]];
   const gcvMode = () => (store.get("gamecast-view") === "clean" ? "clean" : "8bit");
-  // the Clean field's ball: leather shading, white stripes near the tips, laces that roll over the top like a spiral
-  const FOOTBALL = `<svg viewBox="0 0 60 36" aria-hidden="true"><defs><radialGradient id="gcv-lth" cx="42%" cy="28%" r="80%"><stop offset="0" stop-color="#c58450"/><stop offset=".5" stop-color="#8a4f26"/><stop offset="1" stop-color="#3f1f0b"/></radialGradient>
-    <clipPath id="gcv-bc"><path d="M3 18 Q30 -5 57 18 Q30 41 3 18Z"/></clipPath></defs><path d="M3 18 Q30 -5 57 18 Q30 41 3 18Z" fill="url(#gcv-lth)"/>
-    <g clip-path="url(#gcv-bc)"><rect x="12" y="0" width="2.5" height="36" fill="#f4efe6" opacity=".85"/><rect x="45.5" y="0" width="2.5" height="36" fill="#f4efe6" opacity=".85"/>
-    <g class="gcv-lace"><rect x="21" y="16.6" width="18" height="2" rx="1" fill="#f4efe6"/>${[23, 26.5, 30, 33.5, 37].map((x) => `<rect x="${x - 0.7}" y="14.6" width="1.4" height="6" rx=".7" fill="#f4efe6"/>`).join("")}</g>
-    <ellipse cx="26" cy="10" rx="14" ry="3.5" fill="#fff" opacity=".18"/></g></svg>`;
+  // the Clean field's ball, drawn in the theme's own colors: card-colored body with an accent outline, seam and stripes,
+  // laces in the text color that roll over the top like a spiral, and a soft accent shine for depth
+  const FOOTBALL = `<svg viewBox="0 0 60 36" aria-hidden="true"><defs><radialGradient id="gcv-lth" cx="40%" cy="26%" r="75%"><stop offset="0" style="stop-color:var(--accent);stop-opacity:.55"/><stop offset=".6" style="stop-color:var(--accent);stop-opacity:.12"/><stop offset="1" style="stop-color:var(--accent);stop-opacity:0"/></radialGradient>
+    <clipPath id="gcv-bc"><path d="M3 18 Q30 -5 57 18 Q30 41 3 18Z"/></clipPath></defs>
+    <path d="M3 18 Q30 -5 57 18 Q30 41 3 18Z" style="fill:var(--card)"/><path d="M3 18 Q30 -5 57 18 Q30 41 3 18Z" fill="url(#gcv-lth)"/>
+    <g clip-path="url(#gcv-bc)"><path d="M6 22 Q30 31 54 22" style="fill:none;stroke:var(--accent);stroke-width:1;opacity:.45"/>
+    <rect x="12" y="0" width="2.4" height="36" style="fill:var(--accent);opacity:.8"/><rect x="45.6" y="0" width="2.4" height="36" style="fill:var(--accent);opacity:.8"/>
+    <g class="gcv-lace" style="fill:var(--ink)"><rect x="21" y="16.6" width="18" height="1.8" rx=".9"/>${[23, 26.5, 30, 33.5, 37].map((x) => `<rect x="${x - 0.6}" y="14.8" width="1.2" height="5.4" rx=".6"/>`).join("")}</g></g>
+    <path d="M3 18 Q30 -5 57 18 Q30 41 3 18Z" style="fill:none;stroke:var(--accent);stroke-width:1.6"/></svg>`;
+  const gcvTip = new Map(); // game id -> the sim-line play being looked at (kept through the refresh every few seconds)
   const gcvSeen = new Map(); // game id -> {play, spot} last drawn (so a new play slides in from the old spot)
   const gcvCtx = new Map(); // game id -> latest fieldView arguments (to redraw right away when the look changes)
   function fieldView(s, comp, home, away, tc, gameId, people, final) {
@@ -880,6 +884,17 @@ const Live = (() => {
   function wireGcv() {
     if (gcvWired) return;
     gcvWired = true;
+    // sim lines: hovering (or tapping) a bar shows that play under the field
+    const simTip = (g) => {
+      const card = g?.closest(".gcv") || document.querySelector(".gcv"), tip = card?.querySelector(".gcv-tip");
+      card?.querySelectorAll(".gcv-sim.on").forEach((x) => x !== g && x.classList.remove("on"));
+      if (!tip) return;
+      const gid = card.closest(".gcv-wrap")?.dataset.gid;
+      if (g) { g.classList.add("on"); tip.textContent = g.dataset.tip; tip.hidden = false; gcvTip.set(gid, g.dataset.tip); } else { tip.hidden = true; gcvTip.delete(gid); }
+    };
+    document.addEventListener("mouseover", (e) => { const g = e.target.closest?.(".gcv-sim"); if (g || e.target.closest?.(".gcv-field")) simTip(g); });
+    document.addEventListener("mouseleave", (e) => { if (e.target.classList?.contains("gcv-field")) simTip(null); }, true);
+    document.addEventListener("click", (e) => { const g = e.target.closest?.(".gcv-sim"); if (g) simTip(g); else if (e.target.closest?.(".gcv-field")) simTip(null); });
     document.addEventListener("click", (e) => {
       const b = e.target.closest("[data-gcv]"), wrap = b?.closest(".gcv-wrap");
       if (!wrap || b.dataset.gcv === gcvMode()) return;
@@ -945,23 +960,55 @@ const Live = (() => {
       svg.push(`<rect class="gcv-drive${moved ? " grow" : ""}" x="${a}" y="16" width="${w}" height="${H - 92}" style="--s0:${s0.toFixed(3)};transform-origin:${X(start) < X(spot) ? "left" : "right"}"/>`);
     }
     const slide = moved ? ` class="gcv-slide" style="--dx:${dx}px"` : "";
-    if (!isTD) svg.push(`<g${slide}><line class="gcv-los" x1="${X(spot)}" x2="${X(spot)}" y1="8" y2="${H - 70}" filter="url(#gcv-glow)"/></g>`);
-    if (fd != null) svg.push(`<line class="gcv-fd" x1="${X(fd)}" x2="${X(fd)}" y1="8" y2="${H - 70}" filter="url(#gcv-glow)"/>`);
+    // small pointers on both sidelines: white at the ball, accent at the first-down spot
+    const ptr = (x, cls) => `<path class="gcv-ptr ${cls}" d="M${x - 9} 0 h18 l-9 14 z"/><path class="gcv-ptr ${cls}" d="M${x - 9} ${H} h18 l-9 -14 z"/>`;
+    if (!isTD) svg.push(`<g${slide}>${ptr(X(spot), "los")}</g>`);
+    if (fd != null) svg.push(ptr(X(fd), "fd"));
+    // sim lines: the drive's last few plays as bars from where each started to where it ended (hover or tap one for the play)
+    const sims = newDrive ? [] : (drive?.plays || []).filter((p) => p.start?.yardLine != null && p.end?.yardLine != null && p.text
+      && !NOT_A_PLAY.has(String(p.type?.id || "")) && !/kickoff|punt/i.test(p.type?.text || "")).slice(-6);
+    const laneH = (H - 120) / Math.max(sims.length, 4);
+    sims.forEach((p, i) => {
+      const a = X(p.start.yardLine), b = X(p.end.yardLine), yds = Math.round((p.end.yardLine - p.start.yardLine) * (dir || 1));
+      const y = 30 + i * laneH, h = Math.max(14, laneH * 0.62), x = Math.min(a, b), w = Math.max(8, Math.abs(b - a));
+      const cls = yds > 0 ? "gain" : yds < 0 ? "loss" : "none", grow = moved && i === sims.length - 1 ? " grow" : "";
+      const tip = `${dd(p) ? dd(p) + ": " : ""}${clean(p.text)}`, on = gcvTip.get(gameId) === tip ? " on" : "";
+      const lx = yds ? (yds * (dir || 1) > 0 ? x + w + 8 : x - 8) : x + w + 8, anchor = yds && yds * (dir || 1) < 0 ? "end" : "start";
+      svg.push(`<g class="gcv-sim ${cls}${grow}${on}" data-tip="${esc(tip)}"><rect class="hit" x="${x - 10}" y="${y - 4}" width="${w + 70}" height="${h + 8}"/>
+        <rect class="bar" x="${x}" y="${y}" width="${w}" height="${h}" rx="${(h / 2).toFixed(1)}" style="transform-origin:${a <= b ? "left" : "right"}"/>
+        <text x="${lx}" y="${(y + h / 2).toFixed(1)}" text-anchor="${anchor}">${yds > 0 ? "+" : ""}${yds}</text></g>`);
+    });
+    if (!isTD) svg.push(`<g${slide}><line class="gcv-los" x1="${X(spot)}" x2="${X(spot)}" y1="0" y2="${H}" filter="url(#gcv-glow)"/></g>`);
+    if (fd != null) svg.push(`<line class="gcv-fd" x1="${X(fd)}" x2="${X(fd)}" y1="0" y2="${H}" filter="url(#gcv-glow)"/>`);
     // standing pieces (real 3D, they stand up off the tilted field): the down box at the ball and the first-down stick
     const from = moved ? ` style="left:${pct(X(spot))};--from:${pct(X(seen.spot))}"` : ` style="left:${pct(X(spot))}"`;
-    const stand = `${down ? `<i class="gcv-stick los${moved ? " move" : ""}"${from}><b>${down}</b></i>` : ""}${fd != null ? `<i class="gcv-stick fd" style="left:${pct(X(fd))}"><b></b></i>` : ""}
-      ${dir || isTD ? `<i class="gcv-ballp${moved ? " move" : ""}"${from}><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i>` : ""}`;
+    // how the ball gets to the new spot: passes arc, kicks and punts sail end over end, runs hop along the ground
+    const ptype = `${play.type?.text || ""} ${play.text || ""}`.toLowerCase();
+    const fly = !moved ? "" : /punt|kickoff|field goal/.test(ptype) ? "kick" : /\bpass\b/.test(ptype) && !/sack/.test(ptype) ? "pass" : "run";
+    const stand = `${dir || isTD ? `<i class="gcv-ballp${fly ? ` move ${fly}` : ""}"${from}><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i>${off ? `<i class="gcv-poss" style="--tc:${teamColor(off.team)}" title="${ab(off)} has the ball"><img src="${esc(teamLogo(off.team))}" alt="${ab(off)}"></i>` : ""}</i>` : ""}`;
     const ddText = isTD ? "Touchdown" : down ? `${["", "1st", "2nd", "3rd", "4th"][down]} & ${dist < toGo ? dist : "Goal"}` : "";
-    const plays = newDrive ? [] : (drive?.plays || []).filter((p) => p.text && !NOT_A_PLAY.has(String(p.type?.id || ""))).slice(-8).reverse();
+    // the whole game's play-by-play, newest drive first: who had it, how each drive ended (so a change of possession is clear)
+    const allDr = [...(drives.previous || []), ...(drives.current ? [drives.current] : [])].filter((d) => (d.plays || []).some((p) => p.text)).reverse();
+    const pbp = allDr.map((d, di) => {
+      const team = String(d.team?.id) === String(home.team.id) ? home : String(d.team?.id) === String(away.team.id) ? away : null;
+      const ps = d.plays.filter((p) => p.text && !NOT_A_PLAY.has(String(p.type?.id || ""))).reverse();
+      const res = d.displayResult || d.result || "";
+      return `<li class="gcv-drv${di ? "" : " cur"}"><div class="gcv-dh">${team ? `${img(teamLogo(team.team), "xs")}<b>${ab(team)}</b>` : ""}<span class="muted">${esc(d.description || "")}</span>${res ? `<span class="gcv-res">${esc(res)}</span>` : ""}</div>
+        <ol class="gcv-plays">${ps.map((p, i) => `<li${di || i ? "" : ` class="now${moved ? " in" : ""}"`}><span class="gcv-pc">Q${esc(p.period?.number || "")} ${esc(p.clock?.displayValue || "")}</span>${dd(p) ? `<span class="gcv-k">${dd(p)}</span>` : ""}${esc(clean(p.text))}</li>`).join("")}</ol></li>`;
+    }).join("");
+    // game clock: quarter and time left (or halftime / end of quarter)
+    const gst = comp.status || {}, per = gst.period || 0, stn = gst.type?.name || "";
+    const clock = stn === "STATUS_HALFTIME" ? "Halftime" : stn === "STATUS_END_PERIOD" ? (gst.type?.shortDetail || "End of quarter")
+      : per ? `${per <= 4 ? `Q${per}` : per === 5 ? "OT" : `${per - 4}OT`} · ${gst.displayClock || ""}` : "";
     // the looping glows and bobs are timed off the clock, so the redraw every few seconds doesn't make them jump
     return `<div class="card gcv${isTD ? " td" : ""}" style="--t:-${Date.now() % 26400}ms">
       <div class="gcv-bar">${off ? `<span class="gcv-off">${img(teamLogo(off.team), "xs")}<b>${ab(off)}</b> ball ${dir > 0 ? "→" : "←"}</span>` : "<span></span>"}
-        <b class="gcv-dd${moved ? " pop" : ""}">${esc(ddText)}</b>
+        <span class="gcv-mid"><b class="gcv-dd${moved ? " pop" : ""}">${esc(ddText)}</b>${clock ? `<span class="gcv-clock">${esc(clock)}</span>` : ""}</span>
         <span class="muted">${at.possessionText ? `Ball on ${esc(at.possessionText)}` : ""}${toGo <= 20 && off && !isTD ? ` · <b class="gcv-rz">Red zone</b>` : ""}</span></div>
       <div class="gcv-stands"><div class="gcv-3d"><svg class="gcv-field" viewBox="0 0 1200 ${H}" role="img" aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, at.possessionText ? `ball on ${at.possessionText}` : ""].filter(Boolean).join(", "))}">${svg.join("")}</svg>${stand}</div></div>
-      <div class="gcv-key"><span><i class="los"></i>Line of scrimmage</span>${fd != null ? `<span><i class="fd"></i>First down</span>` : ""}${drive?.description && !newDrive ? `<span class="muted">This drive: ${esc(drive.description)}</span>` : ""}</div>
-      ${plays.length ? `<ol class="gcv-plays">${plays.map((p, i) => `<li${i ? "" : ` class="now${moved ? " in" : ""}"`}>${dd(p) ? `<span class="gcv-k">${dd(p)}</span>` : ""}${esc(clean(p.text))}</li>`).join("")}</ol>`
-        : play?.text ? `<p class="gcv-last">${esc(clean(play.text))}</p>` : ""}
+      ${sims.some((p) => gcvTip.get(gameId) === `${dd(p) ? dd(p) + ": " : ""}${clean(p.text)}`) ? `<div class="gcv-tip">${esc(gcvTip.get(gameId))}</div>` : `<div class="gcv-tip" hidden></div>`}
+      <div class="gcv-key"><span><i class="los"></i>Line of scrimmage</span>${fd != null ? `<span><i class="fd"></i>First down</span>` : ""}${sims.length ? `<span class="muted">Bars: this drive's plays, hover or tap one</span>` : ""}</div>
+      ${pbp ? `<div class="gcv-pbp"><ol class="gcv-drives">${pbp}</ol></div>` : ""}
     </div>`;
   }
 
