@@ -1500,6 +1500,12 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-mid { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .gcv-clock { font: 700 12px var(--font-head); color: var(--ink); letter-spacing: .06em; padding: 1px 8px; border: 1px solid var(--line); background: var(--bg); font-variant-numeric: tabular-nums; }
 .gcv-rz { color: var(--bad); }
+/* replay score counter (Clean field playback): the score after the play being replayed */
+.gcv-score { display: inline-flex; align-items: center; gap: 6px; font: 700 13px var(--font-head); color: var(--ink); letter-spacing: .04em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gcv-score .n { display: inline-block; min-width: 1.3em; text-align: center; font-size: 18px; color: var(--muted); }
+.gcv-score .n.lead { color: var(--accent); }
+.gcv-score .n.pop { animation: gcv-pop .6s ease-out calc(var(--bt, 0s) + var(--el, 0s)) both; }
+.gcv-score i { font-style: normal; color: var(--muted); }
 .gcv-stands { position: relative; container-type: inline-size; max-width: 920px; margin: 0 auto 8px; padding: 44px 4% 14px; overflow: hidden; touch-action: pan-y; }
 .gcv-stands.zoomed { touch-action: none; }
 .gcv-zoom { width: calc(100% * var(--zs, 1)); perspective: calc(1300px * var(--zs, 1)); perspective-origin: 50% -10%; transform: translate(var(--zx, 0px), var(--zy, 0px)); } /* seen from the stands at the 50: the far sideline tips away */
@@ -1713,7 +1719,7 @@ details[open] > .gcv-dh::before { transform: rotate(90deg); }
 .gcv-plays li.now.in { animation: gcv-in .6s ease-out both; }
 @keyframes gcv-in { from { transform: translateX(-14px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .gcv *, .gcv *::before { animation: none !important; } }
-@media (max-width: 560px) { .gcv-dd { font-size: 16px; } .gcv-k { min-width: 0; } }
+@media (max-width: 560px) { .gcv-dd { font-size: 16px; } .gcv-k { min-width: 0; } .gcv-score img { display: none; } .gcv-score .n { font-size: 16px; } }
 .mb-foot { flex-wrap: wrap; }
 .mb-why { flex-basis: 100%; font-size: 10.5px; color: var(--muted); line-height: 1.35; padding-bottom: 2px; }
 .why { margin: 10px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.5; }

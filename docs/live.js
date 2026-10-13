@@ -878,6 +878,7 @@ const Live = (() => {
   const gcvOpen = new Set(); // play-by-play drives you opened (kept open through the refresh)
   const gcvReplay = new Map();
   let gcvSpeed = store.get("gamecast-speed") === 2 ? 2 : 1; // replay speed // game id -> play id being replayed in the Clean view (until "Back to live")
+  const gcvRpScore = new Map(); // game id -> replay score last shown ("7-14"), so it pops only when it changes
   const gcvTip = new Map(); // game id -> the sim-line play being looked at (kept through the refresh every few seconds)
   // end zone logo: ESPN's version made to sit on the team's own color, else the dark-background one (dark mode), else the usual one
   const ezLogo = (t) => {
@@ -999,7 +1000,7 @@ const Live = (() => {
         .filter((x, k, arr) => arr.findIndex((y) => String(y.id) === String(x.id)) === k); // each play once (ESPN can list a drive twice)
       const i = all.findIndex((x) => String(x.id) === String(pid)), p = all[i], wrap = document.querySelector(`.gcv-wrap[data-gid="${gid}"]`);
       if (!p || !wrap) return;
-      if (first) gcvSeen.set(gid, { play: "replay", spot: p.start?.yardLine ?? p.end?.yardLine }); // the first one starts where the play started
+      if (first) { gcvSeen.set(gid, { play: "replay", spot: p.start?.yardLine ?? p.end?.yardLine }); gcvRpScore.delete(gid); } // the first one starts where the play started
       gcvReplay.set(gid, String(p.id));
       redraw(wrap);
       const nx = all[i + 1], base = /touchdown/i.test(p.text) ? 6200 : /kickoff/i.test(p.type?.text || "") ? 4600 : 3800;
@@ -1214,10 +1215,21 @@ const Live = (() => {
     const isPost = comp.status?.type?.state === "post";
     const clock = replaying ? `Replay · ${qn(play.period?.number || per)} ${play.clock?.displayValue || ""}` : isPost ? "Final" : stn === "STATUS_HALFTIME" ? "Halftime" : stn === "STATUS_END_PERIOD" ? (gst.type?.shortDetail || "End of quarter")
       : per ? `${qn(per)} · ${gst.displayClock || ""}` : "";
+    // replaying: the score as it stood after this play (ESPN puts it on every play; the latest play that has one),
+    // since the page's own score is the live or final one. It pops when it changes, as the ball lands.
+    let scoreHtml = "";
+    if (replaying) {
+      const sp = [...(drives.previous || []), ...(drives.current ? [drives.current] : [])].flatMap((d) => d.plays || []).reverse()
+        .find((p) => p.awayScore != null && p.homeScore != null);
+      const a = sp ? +sp.awayScore : 0, h = sp ? +sp.homeScore : 0, key = `${a}-${h}`, prev = gcvRpScore.get(gameId);
+      gcvRpScore.set(gameId, key);
+      const [pa, ph] = (prev || key).split("-").map(Number), n = (v, was, lead) => `<b class="n${lead ? " lead" : ""}${v !== was ? " pop" : ""}">${v}</b>`;
+      scoreHtml = `<span class="gcv-score" aria-label="Score: ${ab(away)} ${a}, ${ab(home)} ${h}">${img(teamLogo(away.team), "xs")}<b>${ab(away)}</b>${n(a, pa, a > h)}<i>–</i>${n(h, ph, h > a)}<b>${ab(home)}</b>${img(teamLogo(home.team), "xs")}</span>`;
+    }
     // the looping glows and bobs are timed off the clock, so the redraw every few seconds doesn't make them jump
     return `<div class="card gcv${isTD ? " td" : ""}" style="--t:-${Date.now() % 26400}ms;--el:-${el}ms;--bt:${bt}s">
       <div class="gcv-bar">${off ? `<span class="gcv-off">${img(teamLogo(off.team), "xs")}<b>${ab(off)}</b> ball ${dir > 0 ? "→" : "←"}</span>` : "<span></span>"}
-        <span class="gcv-mid"><b class="gcv-dd${moved ? " pop" : ""}">${esc(ddText)}</b>${clock ? `<span class="gcv-clock">${esc(clock)}</span>` : ""}</span>
+        <span class="gcv-mid">${scoreHtml}<b class="gcv-dd${moved ? " pop" : ""}">${esc(ddText)}</b>${clock ? `<span class="gcv-clock">${esc(clock)}</span>` : ""}</span>
         ${replaying ? `<span class="gcv-rpctl"><span class="gcv-spd">${[1, 2].map((v) => `<button type="button" data-gcvspd="${v}" class="${gcvSpeed === v ? "on" : ""}">${v}x</button>`).join("")}</span><button type="button" class="gcv-live" data-gcvlive>● Back to ${isPost ? "final" : "live"}</button></span>`
           : isPost ? `<span><button type="button" class="gcv-live" data-gcvfrom>▶ Watch from kickoff</button></span>` : `<span class="muted">${at.possessionText ? `Ball on ${esc(at.possessionText)}` : ""}${toGo <= 20 && off && !isTD ? ` · <b class="gcv-rz">Red zone</b>` : ""}</span>`}</div>
       <div class="gcv-stands${gcvZoom.get(gameId)?.s > 1 ? " zoomed" : ""}" style="${standsStyle(gameId)}">${callHtml}${popsHtml}<div class="gcv-zoom" style="${zoomStyle(gameId)}"><div class="gcv-3d"><svg class="gcv-field" viewBox="0 0 1200 ${H}" role="img" aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, at.possessionText ? `ball on ${at.possessionText}` : ""].filter(Boolean).join(", "))}">${svg.join("")}</svg>${posts}${flag}${ghost}${fgBall}${stand}</div></div></div>
