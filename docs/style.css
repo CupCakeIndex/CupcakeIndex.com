@@ -1489,13 +1489,14 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-off { display: inline-flex; align-items: center; gap: 6px; }
 .gcv-dd { font-family: var(--font-head); font-size: 20px; color: var(--accent); }
 .gcv-rz { color: var(--bad); }
-.gcv-field { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: var(--radius-sm, 0); background: var(--bg); }
+.gcv-stands { perspective: 900px; perspective-origin: 50% 0; margin-top: -14px; } /* seen from the stands at the 50: the far sideline tips away */
+.gcv-field { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: var(--radius-sm, 0); background: var(--bg); transform: rotateX(38deg); transform-origin: 50% 100%; }
 .gcv-turf { fill: var(--bg); }
 .gcv-ez { fill: var(--card); }
-.gcv-eztx { fill: var(--muted); font: 700 30px var(--font-head); text-anchor: middle; dominant-baseline: middle; letter-spacing: .08em; }
+.gcv-eztx { fill: var(--muted); font: 700 44px var(--font-head); text-anchor: middle; dominant-baseline: middle; letter-spacing: .08em; }
 .gcv-yl { stroke: var(--line); stroke-width: 2; }
 .gcv-yl.mid { stroke: var(--muted); }
-.gcv-num { fill: var(--muted); font: 26px var(--font-head); text-anchor: middle; }
+.gcv-num { fill: var(--muted); font: 44px var(--font-head); text-anchor: middle; }
 .gcv-drive { fill: var(--accent); opacity: .14; }
 .gcv-los { stroke: var(--ink); stroke-width: 4; }
 .gcv-fd { stroke: var(--accent); stroke-width: 4; stroke-dasharray: 10 6; }

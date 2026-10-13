@@ -458,6 +458,19 @@ const Live = (() => {
     const down = at.down >= 1 && at.down <= 4 && !isTD ? at.down : 0, dist = down ? at.distance || 0 : 0; // ESPN marks scores as down -1
     const fd = down && dist && dist < toGo ? spot + dir * dist : null; // goal to go: no first-down line
     const X = (yl) => 100 + yl * 10; // 10 px per yard; 10-yard end zones
+    // kickoff replays run longer: kickoff lineup, the kick to where it really landed ("kicks 61 yards from LA 35 to BUF 4"),
+    // the return to where it ended, then everyone shows up at the new spot
+    const ko = fresh && /kickoff/.test(type) ? (() => {
+      const kd = String(play.start?.team?.id) === String(home.team.id) ? 1 : -1;
+      const tb = /touchback/.test(txt), fair = /fair catch/.test(txt);
+      const lt = /kicks .*? to ([A-Z]{2,4} \d{1,2}|50)\b/i.exec(play.text || "")?.[1];
+      const ly = tb ? (kd > 0 ? 105 : -5) : (lt ? textSpot(lt, home, away) : null) ?? (kd > 0 ? 95 : 5);
+      const endYl = isTD ? (kd > 0 ? -4 : 104) : spot; // a return touchdown ends in the kicking team's end zone
+      const returned = !tb && !fair && !/kicks [^.]*out of bounds/i.test(play.text || "") && ly !== endYl;
+      const land = 1.9, end = returned ? land + Math.min(2.2, Math.max(1, Math.abs(endYl - ly) * 0.05)) : land + 0.3;
+      return { kd, ly, endYl, returned, land, end, len: end + 0.4 };
+    })() : null;
+    const RT = ko ? ko.len : 2.4, SHIFT = RT - 2.4; // when the replay ends (and how much later than a normal play)
     const H = 300, col = (c) => (c === home ? tc.home : tc.away);
     const alt = (c) => (c.team.alternateColor ? "#" + c.team.alternateColor.replace("#", "") : "#ffffff");
     const r = (x, y, w, h, fill, extra = "") => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}"${extra}/>`;
@@ -490,7 +503,7 @@ const Live = (() => {
     const anim = fresh;
     const appear = (t) => (anim && t ? ` opacity="0" visibility="hidden"><set attributeName="visibility" to="visible" begin="${t}s" fill="freeze"/><animate attributeName="opacity" from="0" to="1" begin="${t}s" dur=".2s" fill="freeze"/` : "");
     // lines: blue line of scrimmage, yellow first-down line (they show up after the replay)
-    const lines = isTD ? "" : `<g${appear(2.5)}>${r(X(spot) - 3, 0, 6, H, "#3d7bff")}${fd != null ? r(X(fd) - 3, 0, 6, H, "#ffd21f") : ""}</g>`;
+    const lines = isTD ? "" : `<g${appear(RT + 0.1)}>${r(X(spot) - 3, 0, 6, H, "#3d7bff")}${fd != null ? r(X(fd) - 3, 0, 6, H, "#ffd21f") : ""}</g>`;
     // pixel players (idle bob, staggered): offense behind the ball, defense across it
     let k = 0;
     // who: { name, num, pos, pic, sure } -> hover/tap label (see the field's pointer handler in game())
@@ -628,10 +641,10 @@ const Live = (() => {
       [120, 180].forEach((y, i) => out.push(guy(X(kd > 0 ? 95 : 5), y, recv, kd > 0, pick(recv, ["kr"], i))));
       return out.join("") + r(X(K) - 3, 156, 6, 6, "#ff8c1a") + ball(X(K), 150); // ball on a tee
     };
-    const party = isTD && tdTeam ? celebrate(tdTeam, fresh ? 2.3 : 0) : "";
-    const setupAt = !fresh ? 0 : isTD ? (pat ? PAT_AT + PAT_LEN + 0.3 : PAT_AT) : 2.5; // TD: replay, party, jog off, the try, then the kickoff setup
+    const party = isTD && tdTeam ? celebrate(tdTeam, fresh ? RT - 0.1 : 0) : "";
+    const setupAt = !fresh ? 0 : isTD ? (pat ? PAT_AT + PAT_LEN + 0.3 : PAT_AT) + SHIFT : RT + 0.1; // TD: replay, party, jog off, the try, then the kickoff setup
     const lineup = kicker ? (fresh ? party : "") + `<g${appear(setupAt)}>${kickoffSet(kicker)}</g>`
-      : off ? `<g${appear(2.5)}>${formation(spot, off, dir)}${ball(bx, 150)}</g>` : "";
+      : off ? `<g${appear(RT + 0.1)}>${formation(spot, off, dir)}${ball(bx, 150)}</g>` : "";
 
     // penalties: "PENALTY on PIT-M.Pittman, False Start, 5 yards, enforced at PIT 22 - No Play."
     const isFlag = /penalty/.test(type + txt);
@@ -732,6 +745,34 @@ const Live = (() => {
         ? `<g>${formation(from, pteam, pdir, offField, exitLen, 0, castPlay(pteam, dteam))}<g>${pig}<animate attributeName="opacity" from="1" to="0" begin="${D}s" dur=".2s" fill="freeze"/><set attributeName="visibility" to="hidden" begin="${D + 0.2}s" fill="freeze"/></g>
             <animate attributeName="opacity" from="1" to="0" begin="${exitLen}s" dur=".2s" fill="freeze"/><set attributeName="visibility" to="hidden" begin="${exitLen + 0.2}s" fill="freeze"/></g>`
         : `<g>${formation(from, pteam, pdir, moves, D, 0, castPlay(pteam, dteam))}${pig}<animate attributeName="opacity" from="1" to="0" begin="${D}s" dur=".2s" fill="freeze"/><set attributeName="visibility" to="hidden" begin="${D + 0.2}s" fill="freeze"/></g>`;
+      if (ko) { // kickoff: lined up, the kick, the catch where it landed, the return to where he went down
+        const { kd, land, end, returned } = ko, kx = X(from), lx = X(ko.ly), ex2 = X(ko.endYl), kt = pteam, rt = dteam;
+        const mover = (x, y, c, flip, who, keys) => `<g>${motion(keys, RT)}${guy(x, y, c, flip, who)}</g>`;
+        const retName = (new RegExp(`\\.\\s+${NM} (?:to |pushed|ran |for )`).exec(ptxt) || [])[1]; // "...to BUF 4. R.Davis pushed ob at LA 26"
+        const tacklers = inPlay.tacklers.map((t) => named(kt, t));
+        const stop = returned ? end : land + 0.3, out = [];
+        // kicking team: a line across the kick spot, sprint downfield on the kick, close in on the returner
+        [30, 55, 80, 105, 130, 170, 195, 220, 245, 270].forEach((y, i) => {
+          const x = kx - kd * 12, mid = x + (lx - x) * 0.55, near = i >= 3 && i <= 6;
+          const fx = returned ? ex2 - kd * (14 + (i % 3) * 16) : lx - kd * (70 + (i % 4) * 25), fy = returned ? y + (150 - y) * (near ? 0.85 : 0.45) : y;
+          out.push(mover(x, y, kt, kd < 0, near ? tacklers[i - 3] || null : null, [[0.6, 0, 0], [land, mid - x, 0], [stop, fx - x, fy - y]]));
+        });
+        out.push(mover(kx - kd * 70, 150, kt, kd < 0, pick(kt, ["pk"]), [[0.6, kd * 64, 0], [stop, kd * 64 + (returned ? (ex2 - kx) * 0.45 : 40), 0]])); // the kicker
+        // return team: front lines drop back and block, two deep: one fields it and runs it back, the other leads the way
+        const blockers = [...[60, 105, 150, 195, 240].map((y) => [kx + kd * 150, y]), ...[90, 150, 210].map((y) => [kx + kd * 350, y])];
+        blockers.forEach(([x, y], i) => {
+          const fx = returned ? ex2 - kd * (6 + (i % 2) * 10) : x + kd * 60, fy = returned ? y + (150 - y) * 0.4 : y;
+          out.push(mover(x, y, rt, kd > 0, null, [[0.6, 0, 0], [land, kd * 50, 0], [stop, fx - x, fy - y]]));
+        });
+        const deep = X(kd > 0 ? 95 : 5), retWho = named(rt, retName) || pick(rt, ["kr"], 0);
+        out.push(mover(deep, 120, rt, kd > 0, retWho, [[land, lx - deep, 30], ...(returned ? [[end, ex2 - deep, 30]] : [])]));
+        out.push(mover(deep, 180, rt, kd > 0, pick(rt, ["kr"], 1), [[land, lx - deep + kd * 30, -10], ...(returned ? [[end, ex2 - deep - kd * 20, -10]] : [])]));
+        // the ball: on the tee, in the air, then carried
+        const air = flying(0.6, land - 0.6, `M${kx},150 Q${(kx + lx) / 2},-60 ${lx},150`, returned ? `<set attributeName="opacity" to="0" begin="${land}s" fill="freeze"/>` : "");
+        const carried = returned ? `<g opacity="0"><set attributeName="opacity" to="1" begin="${land}s" fill="freeze"/><g transform="translate(${lx} 150)"><g>${ball(0, 0)}${motion([[land, 0, 0], [end, ex2 - lx, 0]], RT)}</g></g></g>` : "";
+        const tee = `<g>${r(kx - 3, 156, 6, 6, "#ff8c1a")}<g>${ball(kx, 150)}<set attributeName="opacity" to="0" begin=".6s" fill="freeze"/></g></g>`;
+        replay = `<g>${out.join("")}${tee}${air}${carried}<animate attributeName="opacity" from="1" to="0" begin="${RT}s" dur=".2s" fill="freeze"/><set attributeName="visibility" to="hidden" begin="${RT + 0.2}s" fill="freeze"/></g>`;
+      }
       if (isFlag) { // a striped ref steps up at the sideline and tosses a fluttering flag to the spot
         const rx = Math.max(130, Math.min(1070, sx + pdir * 40)), land = sx + pdir * 18;
         replay += `<g opacity="0"><set attributeName="opacity" to="1" begin="0s" fill="freeze"/>${refSprite(rx, 30, true)}
@@ -747,11 +788,11 @@ const Live = (() => {
       if (big) {
         banner = `<g opacity="0"><rect x="@BX0@" y="${sub ? 92 : 105}" width="@BW@" height="${sub ? 116 : 90}" fill="#000" opacity=".78"/>
           <text x="@BXC@" y="${sub ? 136 : 152}" class="tf-big">${big}</text>${sub ? `<text x="@BXC@" y="182" class="tf-sub">${esc(sub)}</text>` : ""}
-          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.1;.85;1" begin="${big === "FLAG!" ? 1.3 : 2}s" dur="${sub ? 2.6 : 2}s" fill="freeze"/></g>`;
+          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.1;.85;1" begin="${big === "FLAG!" ? 1.3 : ko ? (ko.returned || isTD ? RT - 0.4 : ko.land + 0.1) : 2}s" dur="${sub ? 2.6 : 2}s" fill="freeze"/></g>`;
       }
       if (pat && scorer) { // the try: extra point through the posts, or a two-point run / pass at the goal line
         const sd = scorer === home ? 1 : -1, goal = sd > 0 ? 100 : 0;
-        const los = goal - sd * (pat.kind === "xp" ? (league === "nfl" ? 15 : 3) : league === "nfl" ? 2 : 3), lx = X(los), t0 = PAT_AT;
+        const los = goal - sd * (pat.kind === "xp" ? (league === "nfl" ? 15 : 3) : league === "nfl" ? 2 : 3), lx = X(los), t0 = PAT_AT + SHIFT;
         const holdX = lx - sd * 70, posts = sd > 0 ? 1190 : 10, inEZ = X(goal + sd * 4);
         const patMoves = (role, x, y, isOff) => {
           if (pat.kind === "xp") return isOff ? (role === "qb" ? [[0.4, holdX - x, 0]] : role === "rb" ? [[0.4, holdX - sd * 20 - x, 0], [0.55, holdX - x, 0]] : null)
@@ -778,7 +819,7 @@ const Live = (() => {
 
     // phones: frame the action (old spot, new spot, first-down line) instead of all 120 yards; kickoffs and scores stay full
     let vbX = 0, vbW = 1200;
-    if (typeof matchMedia === "function" && matchMedia("(max-width: 600px)").matches && !kicker) {
+    if (typeof matchMedia === "function" && matchMedia("(max-width: 600px)").matches && !kicker && !ko) {
       const xs = [X(spot), X(from), fd != null ? X(fd) : X(spot)];
       const lo = Math.min(...xs) - 220, hi = Math.max(...xs) + 220;
       vbW = Math.min(1200, Math.max(640, hi - lo));
@@ -866,35 +907,27 @@ const Live = (() => {
     const isTD = !!play.scoringPlay && /touchdown/i.test(`${play.type?.text || ""} ${play.text || ""}`);
     const down = at.down >= 1 && at.down <= 4 && !isTD ? at.down : 0, dist = down ? at.distance || 0 : 0;
     const fd = down && dist && dist < toGo ? spot + dir * dist : null;
-    const X = (yl) => 100 + yl * 10, H = 200;
+    const X = (yl) => 100 + yl * 10, H = 360;
     const svg = [`<rect class="gcv-turf" x="100" y="0" width="1000" height="${H}"/>`];
     for (const [c, x0] of [[home, 0], [away, 1100]]) {
       svg.push(`<rect class="gcv-ez" x="${x0}" y="0" width="100" height="${H}"/><text class="gcv-eztx" x="${x0 + 50}" y="${H / 2}" transform="rotate(${x0 ? 90 : -90} ${x0 + 50} ${H / 2})">${ab(c)}</text>`);
     }
     for (let yl = 0; yl <= 100; yl += 10) svg.push(`<line class="gcv-yl${yl === 50 ? " mid" : ""}" x1="${X(yl)}" x2="${X(yl)}" y1="0" y2="${H}"/>`);
-    for (let yl = 10; yl <= 90; yl += 10) svg.push(`<text class="gcv-num" x="${X(yl)}" y="36">${yl > 50 ? 100 - yl : yl}</text>`);
+    for (let yl = 10; yl <= 90; yl += 10) svg.push(`<text class="gcv-num" x="${X(yl)}" y="${H - 22}">${yl > 50 ? 100 - yl : yl}</text>`);
     // the drive so far, from its first snap (not the kickoff or punt that started it)
     const snap1 = newDrive ? null : (drive?.plays || []).find((p) => p.start?.yardLine != null && !/kickoff|punt/i.test(p.type?.text || "") && !NOT_A_PLAY.has(String(p.type?.id || "")));
     const start = snap1?.start?.yardLine;
-    if (off && start != null && start !== spot) svg.push(`<rect class="gcv-drive" x="${Math.min(X(start), X(spot))}" y="52" width="${Math.abs(X(spot) - X(start))}" height="${H - 104}"/>`);
-    if (!isTD) svg.push(`<line class="gcv-los" x1="${X(spot)}" x2="${X(spot)}" y1="44" y2="${H - 8}"/>`);
-    if (fd != null) svg.push(`<line class="gcv-fd" x1="${X(fd)}" x2="${X(fd)}" y1="44" y2="${H - 8}"/>`);
-    if (dir) svg.push(`<path class="gcv-ball" d="M${X(spot) + dir * 30} ${H / 2 + 22} l${-dir * 26} -14 v28 z"/><ellipse class="gcv-ball" cx="${X(spot)}" cy="${H / 2 + 22}" rx="16" ry="10"/>`);
-    // phones: show the part of the field around the ball (and the first-down line), like the 8-bit view
-    let vbX = 0, vbW = 1200;
-    if (typeof matchMedia === "function" && matchMedia("(max-width: 600px)").matches) {
-      const xs = [X(spot), fd != null ? X(fd) : X(spot), start != null ? X(start) : X(spot)], lo = Math.min(...xs) - 160, hi = Math.max(...xs) + 160;
-      vbW = Math.min(1200, Math.max(560, hi - lo));
-      vbX = Math.max(0, Math.min(1200 - vbW, (lo + hi) / 2 - vbW / 2));
-    }
-    const vb = `${vbX.toFixed(0)} 0 ${vbW.toFixed(0)}`;
+    if (off && start != null && start !== spot) svg.push(`<rect class="gcv-drive" x="${Math.min(X(start), X(spot))}" y="16" width="${Math.abs(X(spot) - X(start))}" height="${H - 92}"/>`);
+    if (!isTD) svg.push(`<line class="gcv-los" x1="${X(spot)}" x2="${X(spot)}" y1="8" y2="${H - 70}"/>`);
+    if (fd != null) svg.push(`<line class="gcv-fd" x1="${X(fd)}" x2="${X(fd)}" y1="8" y2="${H - 70}"/>`);
+    if (dir) svg.push(`<path class="gcv-ball" d="M${X(spot) + dir * 44} ${H / 2 - 30} l${-dir * 36} -20 v40 z"/><ellipse class="gcv-ball" cx="${X(spot)}" cy="${H / 2 - 30}" rx="24" ry="15"/>`);
     const ddText = isTD ? "Touchdown" : down ? `${["", "1st", "2nd", "3rd", "4th"][down]} & ${dist < toGo ? dist : "Goal"}` : "";
     const plays = newDrive ? [] : (drive?.plays || []).filter((p) => p.text && !NOT_A_PLAY.has(String(p.type?.id || ""))).slice(-8).reverse();
     return `<div class="card gcv">
       <div class="gcv-bar">${off ? `<span class="gcv-off">${img(teamLogo(off.team), "xs")}<b>${ab(off)}</b> ball ${dir > 0 ? "→" : "←"}</span>` : "<span></span>"}
         <b class="gcv-dd">${esc(ddText)}</b>
         <span class="muted">${at.possessionText ? `Ball on ${esc(at.possessionText)}` : ""}${toGo <= 20 && off && !isTD ? ` · <b class="gcv-rz">Red zone</b>` : ""}</span></div>
-      <svg class="gcv-field" viewBox="${vb} ${H}" role="img" aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, at.possessionText ? `ball on ${at.possessionText}` : ""].filter(Boolean).join(", "))}">${svg.join("")}</svg>
+      <div class="gcv-stands"><svg class="gcv-field" viewBox="0 0 1200 ${H}" role="img" aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, at.possessionText ? `ball on ${at.possessionText}` : ""].filter(Boolean).join(", "))}">${svg.join("")}</svg></div>
       <div class="gcv-key"><span><i class="los"></i>Line of scrimmage</span>${fd != null ? `<span><i class="fd"></i>First down</span>` : ""}${drive?.description && !newDrive ? `<span class="muted">This drive: ${esc(drive.description)}</span>` : ""}</div>
       ${plays.length ? `<ol class="gcv-plays">${plays.map((p, i) => `<li${i ? "" : ' class="now"'}>${dd(p) ? `<span class="gcv-k">${dd(p)}</span>` : ""}${esc(clean(p.text))}</li>`).join("")}</ol>`
         : play?.text ? `<p class="gcv-last">${esc(clean(play.text))}</p>` : ""}
@@ -1150,7 +1183,9 @@ const Live = (() => {
       const bar = t.content.querySelector(".tf-bar"); // the down and spot of the play being replayed
       if (bar && shownBar) { shownBar.replaceWith(bar); shownBar = bar; }
       // touchdowns play out the celebration and the try; everything else is done in about 4 seconds
-      await new Promise((r) => setTimeout(r, pl.scoringPlay && /touchdown/i.test(txt) ? (labels ? 7500 : 10500) : 4300));
+      // (kickoffs run up to 2 seconds longer: the kick and the return)
+      const koExtra = /kickoff/i.test(pl.type?.text || "") ? 2000 : 0;
+      await new Promise((r) => setTimeout(r, (pl.scoringPlay && /touchdown/i.test(txt) ? (labels ? 7500 : 10500) : 4300) + koExtra));
       if (run !== replayRun || !wrap.isConnected) return;
     }
     done();
