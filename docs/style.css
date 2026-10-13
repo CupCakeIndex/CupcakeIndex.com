@@ -1614,10 +1614,16 @@ a.pk-wk:hover { border-color: var(--accent); }
 @keyframes gcv-badge-in { from { opacity: 0; box-shadow: 0 0 0 0 var(--tc); } 50% { opacity: 1; box-shadow: 0 0 22px 6px var(--tc); } }
 /* goalposts at the back of each end zone, and field goals / extra points kicked through them (or wide) */
 .gcv-post { position: absolute; top: 50%; width: 0; height: 0; transform-style: preserve-3d; }
-/* goalposts face you like the ball does (the drawing itself shows the crossbar along the goal line); the right one is mirrored */
-.gcv-post svg { position: absolute; left: calc(var(--u) * -3.2); bottom: 0; width: calc(var(--u) * 6.4); height: calc(var(--u) * 13); transform-origin: 50% 100%; transform: rotateX(-40deg); overflow: visible; }
-.gcv-post.r svg { transform: rotateX(-40deg) scaleX(-1); } /* the far end line slants the other way */
-.gcv-post path { stroke: var(--accent); filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent) 60%, transparent)); }
+/* goalposts in 3D: the crossbar is a real bar along the end line at crossbar height (so it runs with the back of the end zone at
+   any size); the base post and the uprights stand straight up on screen from the right 3D points. Standing pieces here lean
+   toward the far sideline by .766 and rise by .643 per unit of height (the field is tilted 40deg), so the base post (3.42u)
+   tops out 2.2u up and 2.62u toward the far side: that's where the crossbar is centered. */
+.gcv-post > i { position: absolute; left: -1.5px; width: 3px; background: var(--accent); box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 60%, transparent); }
+.gcv-post .gp-base { bottom: 0; height: calc(var(--u) * 3.42); transform-origin: 50% 100%; transform: rotateX(-40deg); }
+.gcv-post .gp-bar { top: calc(var(--u) * -4.62); height: calc(var(--u) * 4); transform: translateZ(calc(var(--u) * 2.2)); }
+.gcv-post .gp-up { height: calc(var(--u) * 6.5); transform-origin: 50% 100%; transform: translateZ(calc(var(--u) * 2.2)) rotateX(-40deg); }
+.gcv-post .gp-up.a { top: calc(var(--u) * (-4.62 - 6.5)); }
+.gcv-post .gp-up.b { top: calc(var(--u) * (-0.62 - 6.5)); }
 /* field goals and extra points: the ball shows up at the holder's spot standing on end, then is kicked, spinning around its own
    center, in an arc that drops through the uprights above the crossbar (at the posts' depth) and carries on past them; a miss goes wide */
 .gcv-ballp.fg { animation: gcv-fgmove 2.2s linear calc(var(--fgd, 0s) + var(--el, 0s)) both; }
@@ -1630,8 +1636,8 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-ballp.fg .gcv-shadow { animation: gcv-fgshadow 2.2s linear calc(var(--fgd, 0s) + var(--el, 0s)) both, gcv-fgvis 2.2s linear calc(var(--fgd, 0s) + var(--el, 0s)) both; }
 @keyframes gcv-fgarc { 0%, 30% { transform: rotateX(-40deg) translateY(calc(var(--u) * -.6)); animation-timing-function: ease-out; }
   55% { transform: rotateX(-40deg) translateY(calc(var(--u) * -10)); animation-timing-function: ease-in; }
-  80% { transform: rotateX(-40deg) translateY(calc(var(--u) * -3.4)); }
-  100% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.8)); } }
+  80% { transform: rotateX(-40deg) translateY(calc(var(--u) * -5)); }
+  100% { transform: rotateX(-40deg) translateY(calc(var(--u) * -4)); } }
 @keyframes gcv-fgtwirl { 0%, 30% { transform: rotate(-90deg); } 100% { transform: rotate(calc(-90deg - var(--kd, 1) * 720deg)); } } /* backspin: the top rolls back toward the kicker */
 @keyframes gcv-fgshadow { 0%, 30% { transform: scale(1); opacity: 1; } 55% { transform: scale(.45); opacity: .3; } 100% { transform: scale(.7); opacity: .5; } }
 /* after a touchdown with an extra point, the ball fades out of the end zone before the kick */

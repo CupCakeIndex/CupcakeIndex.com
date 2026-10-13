@@ -879,8 +879,6 @@ const Live = (() => {
   const gcvReplay = new Map();
   let gcvSpeed = store.get("gamecast-speed") === 2 ? 2 : 1; // replay speed // game id -> play id being replayed in the Clean view (until "Back to live")
   const gcvTip = new Map(); // game id -> the sim-line play being looked at (kept through the refresh every few seconds)
-  // goalposts as seen from the 50: nearly edge-on, so the crossbar runs steeply along the end line (near upright lower, far one higher), in the theme's accent
-  const POST = `<svg viewBox="0 0 40 90" aria-hidden="true"><path d="M20 90 V54 M5 60 L35 48 M5 60 V8 M35 48 V-4" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   const gcvSeen = new Map(); // game id -> {play, spot} last drawn (so a new play slides in from the old spot)
   const gcvCtx = new Map(); // game id -> latest fieldView arguments (to redraw right away when the look changes)
   function fieldView(s, comp, home, away, tc, gameId, people, final) {
@@ -1183,7 +1181,7 @@ const Live = (() => {
       }
     }
     const popsHtml = pops.map(([txt, right, at, miss]) => `<b class="gcv-pts${miss ? " miss" : ""}" style="${right ? "right" : "left"}:9%;--pd:${at.toFixed(2)}s">${txt}</b>`).join("");
-    const posts = `<i class="gcv-post" style="left:0%">${POST}</i><i class="gcv-post r" style="left:100%">${POST}</i>`;
+    const posts = [0, 100].map((x) => `<i class="gcv-post" style="left:${x}%"><i class="gp-base"></i><i class="gp-bar"></i><i class="gp-up a"></i><i class="gp-up b"></i></i>`).join("");
     const stand = `${(dir || isTD) && !isFG && !(patTxt && !freshPlay) ? `<i class="gcv-ballp${fly ? ` move ${fly}` : ""}${fly === "pass" && deep ? " deep" : ""}${ghost ? " hold" : ""}${patTxt ? " patout" : ""}"${from.replace('style="', `style="--tilt:${dir < 0 ? -1 : 1};--ktilt:${dir < 0 ? 1 : -1};${fly === "int" ? `--mid:${pct(X(intAt))};` : ""}${fly === "ko" ? `--kd:${koKd};--mid:${pct(X(koKd > 0 ? 105 : -5))};${koFrom != null ? `--kfrom:${pct(X(koFrom))};` : ""}` : ""}`)}><i class="gcv-latw${latf && (fly === "pass" || fly === "run") ? ` go ${fly}` : ""}" style="--latf:${latf}"><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i></i>` : ""}${badges ? `<i class="gcv-lospin${moved ? " slide" : ""}" style="left:${pct(X(spot))}${moved ? `;--from:${pct(X(prevSpot))}` : ""}">${badges}</i>` : ""}`; // who has it: their logo above the field, on the line of scrimmage
     const ddText = isTD ? "Touchdown" : down ? `${["", "1st", "2nd", "3rd", "4th"][down]} & ${dist < toGo ? dist : "Goal"}` : "";
     // the whole game's play-by-play, newest drive first: who had it, how each drive ended (so a change of possession is clear)
