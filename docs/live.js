@@ -1063,7 +1063,14 @@ const Live = (() => {
     const from = moved ? ` style="left:${pct(X(spot))};--from:${pct(X(prevSpot))}"` : ` style="left:${pct(X(spot))}"`;
     // how the ball gets to the new spot: passes arc, kicks and punts sail end over end, runs hop along the ground
     const ptype = `${play.type?.text || ""} ${play.text || ""}`.toLowerCase();
-    const fly = !moved ? "" : /punt|kickoff|field goal/.test(ptype) ? "kick" : /\bpass\b/.test(ptype) && !/sack/.test(ptype) ? "pass" : "run";
+    // an interception: the pass flies to where it was picked ("INTERCEPTED by C.Durde at BUF 44"), then it's run back
+    const intAt = /intercept/.test(ptype) ? textSpot((play.text || "").match(/intercepted by .*? at ([A-Z]{2,4} \d{1,2}|50)/i)?.[1], home, away) : null;
+    const fly = !moved ? "" : intAt != null ? "int" : /punt|kickoff|field goal/.test(ptype) ? "kick" : /\bpass\b/.test(ptype) && !/sack/.test(ptype) ? "pass" : "run";
+    // the ball changed hands during the play: the old team's badge rides along, then swaps to the new team when it's caught
+    const startC = String(play.start?.team?.id || "") === String(home.team.id) ? home : String(play.start?.team?.id || "") === String(away.team.id) ? away : null;
+    const swapAt = { int: 1.2, kick: 1.5, pass: 1.1, run: 1 }[fly] || 0;
+    const badge = (c, cls = "") => `<i class="gcv-poss${cls}" style="--tc:${teamColor(c.team)};--sw:${swapAt}s" title="${ab(c)} has the ball"><img src="${esc(teamLogo(c.team))}" alt="${ab(c)}"></i>`;
+    const badges = !off ? "" : fly && startC && startC !== off ? badge(startC, " out") + badge(off, " in") : badge(off);
     // the call for the latest play, shown over the field while it's the newest (it pops in when the play is new)
     const pm = /penalty on ([a-z]{2,4})-[^,]*,\s*([^,]+?),\s*(\d+)\s*yards?/i.exec(play.text || "");
     const isPen = /penalty/.test(ptype), isInc = /incomplete/.test(ptype) && !isPen;
@@ -1080,7 +1087,7 @@ const Live = (() => {
     const ghost = freshPlay && isInc && dir ? `<i class="gcv-ballp ghost" style="--tilt:${dir < 0 ? -1 : 1};left:${pct(X(spot))};--to:${pct(X(incTo))}"><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i>` : "";
     // a penalty: a yellow flag on the field at the spot (tossed in when the play is new)
     const flag = isPen ? `<i class="gcv-flagp${freshPlay ? " toss" : ""}" style="left:${pct(X(spot) + (dir || 1) * 18)}"><i class="gcv-flag"><svg viewBox="0 0 20 16" aria-hidden="true"><path d="M2 2 Q10 -1 18 3 L17 13 Q9 10 2 13 Z"/><circle cx="4" cy="12" r="2.2"/></svg></i></i>` : "";
-    const stand = `${dir || isTD ? `<i class="gcv-ballp${fly ? ` move ${fly}` : ""}${ghost ? " hold" : ""}"${from.replace('style="', `style="--tilt:${dir < 0 ? -1 : 1};--ktilt:${dir < 0 ? 1 : -1};`)}><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i>${off ? `<i class="gcv-poss" style="--tc:${teamColor(off.team)}" title="${ab(off)} has the ball"><img src="${esc(teamLogo(off.team))}" alt="${ab(off)}"></i>` : ""}</i>` : ""}`;
+    const stand = `${dir || isTD ? `<i class="gcv-ballp${fly ? ` move ${fly}` : ""}${ghost ? " hold" : ""}"${from.replace('style="', `style="--tilt:${dir < 0 ? -1 : 1};--ktilt:${dir < 0 ? 1 : -1};${fly === "int" ? `--mid:${pct(X(intAt))};` : ""}`)}><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i>${badges}</i>` : ""}`;
     const ddText = isTD ? "Touchdown" : down ? `${["", "1st", "2nd", "3rd", "4th"][down]} & ${dist < toGo ? dist : "Goal"}` : "";
     // the whole game's play-by-play, newest drive first: who had it, how each drive ended (so a change of possession is clear)
     // (ESPN can list the drive in progress both as "current" and in "previous": keep one)

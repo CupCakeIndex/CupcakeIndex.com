@@ -1568,6 +1568,21 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-ballp.hold .gcv-ball3 { animation: gcv-bob 1.6s ease-in-out var(--t, 0s) infinite, gcv-hold 1.7s var(--el, 0s) both; }
 .gcv-ballp.hold .gcv-shadow { animation: gcv-shrink 1.6s ease-in-out var(--t, 0s) infinite, gcv-hold 1.7s var(--el, 0s) both; }
 @keyframes gcv-hold { 0%, 80% { opacity: 0; } 100% { opacity: 1; } }
+/* interception: the pass flies to where it was picked (thrower's direction), then it's run back the other way */
+.gcv-ballp.move.int { animation: gcv-move3 2s linear var(--el, 0s) both; }
+@keyframes gcv-move3 { 0% { left: var(--from); } 60% { left: var(--mid); animation-timing-function: ease-out; } }
+.gcv-ballp.int .gcv-ball3 { animation: gcv-intarc 2s var(--el, 0s) both, gcv-bob 1.6s ease-in-out calc(2s + var(--el, 0s)) infinite; }
+.gcv-ballp.int .gcv-shadow { animation: gcv-far 1.2s ease-in-out var(--el, 0s) both; }
+@keyframes gcv-intarc { 0% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(calc(var(--ktilt, 1) * -14deg)); animation-timing-function: ease-out; }
+  30% { transform: rotateX(-40deg) translateY(calc(var(--u) * -12)) rotate(0deg); animation-timing-function: ease-in; }
+  60% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(calc(var(--ktilt, 1) * 14deg)); }
+  65%, 75%, 85%, 95% { transform: rotateX(-40deg) translateY(calc(var(--u) * -2)) rotate(calc(var(--tilt, 1) * -6deg)); }
+  70%, 80%, 90%, 100% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1)) rotate(calc(var(--tilt, 1) * -8deg)); } }
+/* the ball changed hands: the old team's badge rides along, then the new team's takes over when it's caught */
+.gcv-poss.out { animation: gcv-badge-out .3s calc(var(--sw) + var(--el, 0s)) both; }
+.gcv-poss.in { animation: gcv-badge-in .4s calc(var(--sw) + var(--el, 0s)) both; }
+@keyframes gcv-badge-out { to { opacity: 0; } }
+@keyframes gcv-badge-in { from { opacity: 0; box-shadow: 0 0 0 0 var(--tc); } 50% { opacity: 1; box-shadow: 0 0 22px 6px var(--tc); } }
 /* penalty flag on the field */
 .gcv-flagp { position: absolute; top: 74%; width: 0; height: 0; transform-style: preserve-3d; }
 .gcv-flag { position: absolute; left: calc(var(--u) * -1.3); bottom: 0; width: calc(var(--u) * 2.6); height: calc(var(--u) * 2.1); transform-origin: 50% 100%; transform: rotateX(-40deg); }
