@@ -1507,7 +1507,7 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-turf { fill: var(--bg); }
 .gcv-band { fill: var(--ink); opacity: .035; }
 .gcv-ez { fill: color-mix(in srgb, var(--tz, var(--accent)) 30%, var(--card)); } /* tinted with the team's color */
-.gcv-eztx { fill: color-mix(in srgb, var(--tz, var(--accent)) 45%, var(--ink)); opacity: .9; font: 700 30px var(--font-head); text-anchor: middle; dominant-baseline: middle; letter-spacing: .2em; }
+.gcv-ezlogo { opacity: .95; } /* the logo glows (SVG filter gcv-neon in live.js) */
 .gcv-yl { stroke: var(--line); stroke-width: 2; }
 .gcv-yl.mid { stroke: var(--muted); }
 .gcv-tick { stroke: var(--muted); stroke-width: 2; opacity: .7; }
@@ -1677,7 +1677,7 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-ez.td { animation: gcv-td .5s ease-in-out 6 alternate; }
 @keyframes gcv-td { to { fill: color-mix(in srgb, var(--tz, var(--accent)) 70%, var(--card)); } }
 /* phones: the field is small, so its labels, markers and ball are drawn bigger */
-@container (max-width: 480px) { .gcv-3d { --u: 1.6cqw; } .gcv-num { font-size: 44px; } .gcv-eztx { font-size: 34px; } .gcv-sim text { font-size: calc(var(--lf, 20) * 1.7px); } }
+@container (max-width: 480px) { .gcv-3d { --u: 1.6cqw; } .gcv-num { font-size: 44px; } .gcv-sim text { font-size: calc(var(--lf, 20) * 1.7px); } }
 .gcv-key { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 12px; }
 .gcv-key i { display: inline-block; width: 14px; height: 3px; margin-right: 6px; vertical-align: middle; background: var(--ink); }
 .gcv-key i.fd { background: var(--accent); }
