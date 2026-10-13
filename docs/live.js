@@ -878,9 +878,8 @@ const Live = (() => {
   const gcvOpen = new Set(); // play-by-play drives you opened (kept open through the refresh)
   const gcvReplay = new Map(); // game id -> play id being replayed in the Clean view (until "Back to live")
   const gcvTip = new Map(); // game id -> the sim-line play being looked at (kept through the refresh every few seconds)
-  // goalposts: a post up to the crossbar and two uprights, in the theme's accent
-  // (drawn as seen from the 50: the crossbar runs along the goal line, so it slants with the end line; the far upright is a bit shorter)
-  const POST = `<svg viewBox="0 0 40 90" aria-hidden="true"><path d="M20 90 V52 M9 58 L31 46 M9 58 V5 M31 46 V3" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  // goalposts as seen from the 50: nearly edge-on, so the crossbar runs steeply along the end line (near upright lower, far one higher), in the theme's accent
+  const POST = `<svg viewBox="0 0 40 90" aria-hidden="true"><path d="M20 90 V50 M15 62 L25 38 M15 62 V10 M25 38 V-10" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   const gcvSeen = new Map(); // game id -> {play, spot} last drawn (so a new play slides in from the old spot)
   const gcvCtx = new Map(); // game id -> latest fieldView arguments (to redraw right away when the look changes)
   function fieldView(s, comp, home, away, tc, gameId, people, final) {
@@ -983,7 +982,8 @@ const Live = (() => {
     const gcvSeq = new Map(); // game id -> timer for the next replayed play
     const replayFrom = (gid, pid, first) => {
       const s0 = gcvCtx.get(gid)?.[0], all = [...(s0?.drives?.previous || []), ...(s0?.drives?.current ? [s0.drives.current] : [])]
-        .flatMap((d) => d.plays || []).filter((x) => x.text && !NOT_A_PLAY.has(String(x.type?.id || "")));
+        .flatMap((d) => d.plays || []).filter((x) => x.text && !NOT_A_PLAY.has(String(x.type?.id || "")))
+        .filter((x, k, arr) => arr.findIndex((y) => String(y.id) === String(x.id)) === k); // each play once (ESPN can list a drive twice)
       const i = all.findIndex((x) => String(x.id) === String(pid)), p = all[i], wrap = document.querySelector(`.gcv-wrap[data-gid="${gid}"]`);
       if (!p || !wrap) return;
       if (first) gcvSeen.set(gid, { play: "replay", spot: p.start?.yardLine ?? p.end?.yardLine }); // the first one starts where the play started
