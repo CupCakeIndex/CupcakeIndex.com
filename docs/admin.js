@@ -34,7 +34,7 @@ const Admin = (() => {
       el.innerHTML = `<div class="card"><h2>Analytics</h2><p class="muted">This page is only for the site's owner account. ${me ? "You're signed in with a different account." : "Sign in from Settings."}</p></div>`;
       return;
     }
-    const since = new Date(Date.now() - 29 * 864e5), days = [];
+    const since = new Date(Date.now() - 59 * 864e5), days = []; // 60 days: the last 30 plus the 30 before, for the change
     for (let d = new Date(since); d <= new Date(); d = new Date(d.getTime() + 864e5)) days.push(day(d));
     let rows, live, accounts, devices;
     try {
@@ -51,23 +51,32 @@ const Admin = (() => {
     }
     const by = Object.fromEntries(rows.docs.map((d) => [d.id, d.data()]));
     const series = (k) => days.map((d) => by[d]?.[k] || 0);
-    const sum = (k) => series(k).reduce((a, b) => a + b, 0);
-    const today = by[days.at(-1)] || {};
-    const tile = (big, label) => `<div class="ad-tile"><b>${big}</b><small>${esc(label)}</small></div>`;
+    // total of the last n days (back = 0), or of the n days before that (back = 1)
+    const sum = (k, n, back = 0) => series(k).slice(days.length - n * (back + 1), days.length - n * back).reduce((a, b) => a + b, 0);
+    // change vs the period before: "+12 · +15%" (no % when the period before was 0)
+    const delta = (now, then) => {
+      const d = now - then, cls = d > 0 ? "up" : d < 0 ? "down" : "";
+      const pct = then ? ` · ${d >= 0 ? "+" : ""}${Math.round((100 * d) / then)}%` : "";
+      return `<i class="ad-d ${cls}">${d >= 0 ? "+" : ""}${num(d)}${pct}</i>`;
+    };
+    const tile = (big, label, change = "") => `<div class="ad-tile"><b>${big}</b>${change}<small>${esc(label)}</small></div>`;
+    const KEYS = [["visitors", "visitors"], ["newVisitors", "new visitors"], ["views", "page views"], ["charts", "charts made"], ["downloads", "charts downloaded"]];
+    const row = (n) => KEYS.map(([k, l]) => tile(num(sum(k, n)), n === 30 && k === "visitors" ? "visits (one per person per day)" : l, delta(sum(k, n), sum(k, n, 1)))).join("");
     el.innerHTML = `<div class="card">
       <div class="sc-bar"><h2>Analytics</h2><span class="muted">only you can see this · Eastern time</span></div>
       <h3>Right now</h3><div class="ad-tiles">${tile(num(live), "on the site now (last 5 min)")}${tile(num(accounts), "accounts")}${tile(num(devices), "devices with alerts on")}</div>
-      <h3>Today</h3><div class="ad-tiles">${tile(num(today.visitors), "visitors")}${tile(num(today.newVisitors), "new visitors")}${tile(num(today.views), "page views")}${tile(num(today.charts), "charts made")}${tile(num(today.downloads), "charts downloaded")}</div>
-      <h3>Last 30 days</h3><div class="ad-tiles">${tile(num(sum("visitors")), "visits (one per person per day)")}${tile(num(sum("newVisitors")), "new visitors")}${tile(num(sum("views")), "page views")}${tile(num(sum("charts")), "charts made")}${tile(num(sum("downloads")), "charts downloaded")}</div>
+      <h3>Today <span class="muted">vs yesterday</span></h3><div class="ad-tiles">${row(1)}</div>
+      <h3>Last 7 days <span class="muted">vs the 7 days before</span></h3><div class="ad-tiles">${row(7)}</div>
+      <h3>Last 30 days <span class="muted">vs the 30 days before</span></h3><div class="ad-tiles">${row(30)}</div>
       <div class="ad-chart"><canvas id="ad-chart"></canvas></div>
-      <p class="note">Counted since the Analytics launch (Oct 6, 2026). No cookies and nothing personal: each browser counts once a day as a visitor, and once ever as new. Test browsers don't count.</p></div>`;
+      <p class="note">Counted since the Analytics launch (Oct 6, 2026), so until then the "days before" are short or empty. Today is still going, so it usually trails yesterday until evening. No cookies and nothing personal: each browser counts once a day as a visitor, and once ever as new. Test browsers don't count.</p></div>`;
     if (!window.Chart) await new Promise((ok, bad) => { const s = document.createElement("script"); s.src = CHART_JS; s.onload = ok; s.onerror = bad; document.head.appendChild(s); }).catch(() => {});
     if (!window.Chart) return;
     const css = getComputedStyle(document.body), C = (v) => css.getPropertyValue(v).trim();
     chart?.destroy();
-    chart = new Chart($("#ad-chart"), { type: "line", data: { labels: days.map((d) => d.slice(5).replace("-", "/")),
+    chart = new Chart($("#ad-chart"), { type: "line", data: { labels: days.slice(-30).map((d) => d.slice(5).replace("-", "/")),
       datasets: [["visitors", "Visitors", C("--accent")], ["newVisitors", "New visitors", "#4cc9f0"], ["charts", "Charts made", "#b5e48c"]]
-        .map(([k, l, c]) => ({ label: l, data: series(k), borderColor: c, backgroundColor: c, tension: 0.25, pointRadius: 2 })) },
+        .map(([k, l, c]) => ({ label: l, data: series(k).slice(-30), borderColor: c, backgroundColor: c, tension: 0.25, pointRadius: 2 })) },
       options: { responsive: true, maintainAspectRatio: false, devicePixelRatio: Math.max(2, window.devicePixelRatio || 1),
         plugins: { legend: { labels: { color: C("--ink") } } },
         scales: { x: { ticks: { color: C("--muted") }, grid: { color: C("--line") } }, y: { beginAtZero: true, ticks: { color: C("--muted"), precision: 0 }, grid: { color: C("--line") } } } } });
