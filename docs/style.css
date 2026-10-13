@@ -1586,14 +1586,19 @@ a.pk-wk:hover { border-color: var(--accent); }
 @keyframes gcv-fade { 0%, 65% { opacity: 1; } 100% { opacity: 0; } }
 /* two-point try (live.js cleanField twoBall): shows up on the 2 at --t0 (after the touchdown ball fades), snapped half a second
    later, then run (hop) or thrown (arc) to --to; an incompletion sails out of the end zone and fades */
-.gcv-ballp.two { animation: gcv-2show .25s linear calc(var(--t0) + var(--el, 0s)) both, gcv-go 1s linear calc(var(--t0) + .5s + var(--el, 0s)) both; }
-.gcv-ballp.two.pass { animation-duration: .25s, 1.1s; }
-@keyframes gcv-2show { from { opacity: 0; } }
+/* (fading in and out is done on the ball's svg and shadow only: opacity on .gcv-ballp or .gcv-ball3 flattens the 3D,
+   which squishes the ball against the tilted field) */
+.gcv-ballp.two { animation: gcv-go 1s linear calc(var(--t0) + .5s + var(--el, 0s)) both; }
+.gcv-ballp.two.pass { animation-duration: 1.1s; }
 .gcv-ballp.two .gcv-ball3 { animation: gcv-hop 1s calc(var(--t0) + .5s + var(--el, 0s)) both; }
 .gcv-ballp.two.pass .gcv-ball3 { animation: gcv-arc 1.1s calc(var(--t0) + .5s + var(--el, 0s)) both; }
-.gcv-ballp.two.pass .gcv-shadow { animation: gcv-far 1.1s ease-in-out calc(var(--t0) + .5s + var(--el, 0s)) both; }
-.gcv-ballp.two.inc .gcv-ball3 { animation: gcv-arc 1.1s calc(var(--t0) + .5s + var(--el, 0s)) both, gcv-fade 1.7s calc(var(--t0) + .5s + var(--el, 0s)) both; }
-.gcv-ballp.two.inc .gcv-shadow { animation: gcv-far 1.1s ease-in-out calc(var(--t0) + .5s + var(--el, 0s)) both, gcv-fade 1.7s calc(var(--t0) + .5s + var(--el, 0s)) both; }
+.gcv-ballp.two .gcv-ball3 svg, .gcv-ballp.two .gcv-shadow { animation: gcv-2show .25s linear calc(var(--t0) + var(--el, 0s)) both; }
+.gcv-ballp.two.pass .gcv-shadow { animation: gcv-2show .25s linear calc(var(--t0) + var(--el, 0s)) both, gcv-far 1.1s ease-in-out calc(var(--t0) + .5s + var(--el, 0s)) both; }
+.gcv-ballp.two.inc .gcv-ball3 svg { animation: gcv-2inc 2.2s linear calc(var(--t0) + var(--el, 0s)) both; }
+.gcv-ballp.two.inc .gcv-shadow { animation: gcv-2inc 2.2s linear calc(var(--t0) + var(--el, 0s)) both, gcv-far 1.1s ease-in-out calc(var(--t0) + .5s + var(--el, 0s)) both; }
+@keyframes gcv-2show { from { opacity: 0; } }
+/* incomplete: shows up, is snapped at .5s, sails 1.1s, fades out over the last .6s */
+@keyframes gcv-2inc { 0% { opacity: 0; } 11%, 73% { opacity: 1; } 100% { opacity: 0; } }
 /* ...while the real ball is hidden, then spotted back at the line once the pass falls (one ball, not two) */
 .gcv-ballp.hold .gcv-ball3 { animation: gcv-bob 1.6s ease-in-out var(--t, 0s) infinite, gcv-hold 1.7s var(--el, 0s) both; }
 .gcv-ballp.hold .gcv-shadow { animation: gcv-shrink 1.6s ease-in-out var(--t, 0s) infinite, gcv-hold 1.7s var(--el, 0s) both; }

@@ -728,7 +728,7 @@ const Viz = (() => {
 
     el.innerHTML = stSub() + `<div class="card vz">
       <div class="sc-bar"><h2>Visualize</h2><span class="muted vz-tag">Make a chart, win the argument.</span></div>
-      <div class="vz-q vz-findwrap"><input id="vz-q" type="search" placeholder="Search stats, presets, positions, teams… (try “run stops” or “rookie”)" autocomplete="off" spellcheck="false"><div class="vz-sugg" id="vz-qs" hidden></div></div>
+      <div class="vz-q vz-findwrap"><input id="vz-q" type="search" placeholder="Search stats, presets, positions, teams… (try “run stops” or “sacks vs pressures”)" autocomplete="off" spellcheck="false"><div class="vz-sugg" id="vz-qs" hidden></div></div>
       <div class="vz-presets">
         <label>Presets<select id="vz-preset"><option value="">Pick a chart…</option>
           <optgroup label="Popular">${PRESETS[league].map(([l], i) => `<option value="p${i}">${esc(l)}</option>`).join("")}</optgroup>
@@ -868,16 +868,52 @@ const Viz = (() => {
       [`Whole ${lgTxt} by week`, "Line chart", "league wide nfl-wide trend week by week season vs season all teams", () => { setWho("teams"); st.type = "line"; st.scope = "league"; redo(); }],
       [`Whole ${lgTxt} by season`, "Bar chart", "league wide nfl-wide trend year by year season vs season all teams history", () => { setWho("teams"); st.type = "bar"; st.scope = "league"; redo(); }],
     ];
+    // Two stats at once: "run stops AND defensive EPA", "sacks vs pressures", "ypc & carries" (and / vs / & / x / a comma)
+    // makes a scatter of the two, first one across. Any wording works: each side goes to the stat whose name covers its
+    // words best (a whole word in its name counts most, part of a word a bit less, a word found only in the stat's group
+    // half; every side needs most of its words covered).
+    const QSYN = { def: "defense", defensive: "defense", defence: "defense", ints: "interceptions", int: "interceptions", picks: "interceptions",
+      td: "tds", touchdown: "tds", touchdowns: "tds", yds: "yards", yd: "yards", yard: "yards", pct: "%", percent: "%", percentage: "%",
+      qb: "qb", catches: "receptions", passing: "pass", rushing: "rush", running: "run", receiving: "rec", tackle: "tackles", sacks: "sack" };
+    const qStem = (t) => (t.length > 3 && !/ss$/.test(t) ? t.replace(/s$/, "") : t);
+    const qTok = (s) => norm(s).split(/[\s/()]+/).filter((t) => t && !["the", "of", "a", "per"].includes(t)).map((t) => qStem(QSYN[t] || t));
+    const qBest = (side, w) => {
+      const ws = qTok(side);
+      if (!ws.length) return [];
+      return statsFor(w, have).flatMap(([g, l]) => l.map((x) => {
+        const hl = norm(`${x[1]} ${x[0].replace(/_/g, " ")}`), hg = norm(g), hw = new Set(qTok(x[1])); // whole words: the name you see, not the key
+        return [x, ws.reduce((n, t) => n + (hw.has(t) ? 1 : hl.includes(t) ? 0.8 : hg.includes(t) ? 0.5 : 0), 0) / ws.length - hl.length / 1e4];
+      })).filter((s) => s[1] >= 0.7).sort((a, b) => b[1] - a[1]);
+    };
+    const qPair = (q) => {
+      const parts = q.split(/\s+(?:and|vs\.?|versus|against|x)\s+|\s*(?:&|,)\s*/i).map((s) => s.trim()).filter(Boolean);
+      if (parts.length !== 2) return null;
+      const out = [], miss = {};
+      for (const w of st.who === "teams" ? ["teams", "players"] : ["players", "teams"]) {
+        const A = qBest(parts[0], w), B = qBest(parts[1], w);
+        miss[w] = [A[0]?.[0], B[0]?.[0]];
+        for (const a of A.slice(0, 2)) for (const b of B.slice(0, 2)) if (a[0][0] !== b[0][0])
+          out.push([a[1] + b[1], [`${a[0][1]} vs ${b[0][1]}`, `Scatter · ${w === "players" ? "players" : "teams"}`, "", () => {
+            setWho(w); st.type = "scatter"; st.stat = a[0][0]; st.y = b[0][0]; st.min = ""; st.radar = ""; redo(); }]]);
+      }
+      // nothing on the same side: say which stat is a player stat and which is a team stat
+      const half = (w) => miss[w].map((x, i) => x && [parts[i], x[1], w]).filter(Boolean);
+      const note = out.length ? "" : [...half("players"), ...half("teams")].length < 2 ? ""
+        : `Can't chart these together: ${[0, 1].map((i) => { const p = miss.players[i], t = miss.teams[i]; return p && !t ? `“${parts[i]}” is a player stat (${p[1]})` : t && !p ? `“${parts[i]}” is a team stat (${t[1]})` : `“${parts[i]}” is ${p ? p[1] : "?"}`; }).join(" and ")}. A scatter needs two player stats or two team stats.`;
+      return { hits: out.sort((a, b) => b[0] - a[0]).slice(0, 4).map((x) => x[1]), note };
+    };
     let qHits = [], qCur = -1;
     const qShow = () => {
-      const q = norm(qbox.value.trim());
+      const raw = qbox.value.trim(), q = norm(raw);
       if (q.length < 2) { qs.hidden = true; qHits = []; return; }
-      const words = q.split(/\s+/);
-      qHits = qItems().map((it) => [it, norm(it[0]), norm(`${it[0]} ${it[1]} ${it[2]}`)]).filter(([, , all]) => words.every((w) => all.includes(w)))
-        .map(([it, l]) => [it, l.startsWith(q) ? 0 : words.every((w) => l.includes(w)) ? 1 : 2]).sort((a, b) => a[1] - b[1]).slice(0, 12).map((x) => x[0]);
+      const words = q.split(/\s+/), pair = qPair(raw);
+      const one = qItems().map((it) => [it, norm(it[0]), norm(`${it[0]} ${it[1]} ${it[2]}`)]).filter(([, , all]) => words.every((w) => all.includes(w)))
+        .map(([it, l]) => [it, l.startsWith(q) ? 0 : words.filter((w) => !/^(and|vs|versus|against|x|&)$/.test(w)).every((w) => l.includes(w)) ? 1 : 2]).sort((a, b) => a[1] - b[1]).slice(0, 12);
+      // a single item named by everything typed comes first, then the two-stat scatters, then looser single matches
+      qHits = [...one.filter((x) => x[1] < 2).map((x) => x[0]), ...(pair?.hits || []), ...one.filter((x) => x[1] === 2).map((x) => x[0])];
       qCur = -1;
-      qs.innerHTML = qHits.map((it, i) => `<button type="button" data-i="${i}">${esc(it[0])} <small>${esc(it[1])}</small></button>`).join("")
-        || `<p class="muted">Nothing matches “${esc(qbox.value.trim())}”.</p>`;
+      qs.innerHTML = (pair?.note ? `<p class="muted">${esc(pair.note)}</p>` : "") + qHits.map((it, i) => `<button type="button" data-i="${i}">${esc(it[0])} <small>${esc(it[1])}</small></button>`).join("")
+        || `<p class="muted">Nothing matches “${esc(raw)}”. To compare two stats, put “and” or “vs” between them.</p>`;
       qs.hidden = false;
     };
     const qPick = (it) => { if (it) { qbox.value = ""; qs.hidden = true; it[3](); } };
