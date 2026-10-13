@@ -1018,7 +1018,10 @@ const Live = (() => {
     const seen = gcvSeen.get(gameId), isNew = !!seen && seen.play !== String(play.id);
     const resume = !isNew && !!seen?.at && Date.now() - seen.at < 2000, freshPlay = isNew || resume;
     const prevSpot = isNew ? seen.spot : resume ? seen.from : null, moved = freshPlay && prevSpot != null && prevSpot !== spot;
-    gcvSeen.set(gameId, { play: String(play.id), spot, from: prevSpot, at: isNew ? Date.now() : resume ? seen.at : 0 });
+    const prevFd = isNew ? seen.fd : resume ? seen.fromFd : null;
+    gcvSeen.set(gameId, { play: String(play.id), spot, fd, from: prevSpot, fromFd: prevFd, at: isNew ? Date.now() : resume ? seen.at : 0 });
+    // the first-down marker moves after the ball (and the line of scrimmage) get there: slide from the old marker, or fade in for a new set of downs
+    const fdMove = !freshPlay || fd == null ? "" : prevFd != null && prevFd !== fd ? ` class="gcv-slide fd" style="--dx:${X(prevFd) - X(fd)}px"` : prevFd == null || moved ? ' class="gcv-fdin"' : "";
     const el = resume ? Date.now() - seen.at : 0; // ms already played
     const dx = moved ? X(prevSpot) - X(spot) : 0;
     const svg = [`<defs><filter id="gcv-glow" filterUnits="userSpaceOnUse" x="0" y="0" width="1200" height="${H}"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
@@ -1042,7 +1045,6 @@ const Live = (() => {
     // small pointers on both sidelines: white at the ball, accent at the first-down spot
     const ptr = (x, cls) => `<path class="gcv-ptr ${cls}" d="M${x - 9} 0 h18 l-9 14 z"/><path class="gcv-ptr ${cls}" d="M${x - 9} ${H} h18 l-9 -14 z"/>`;
     if (!isTD) svg.push(`<g${slide}>${ptr(X(spot), "los")}</g>`);
-    if (fd != null) svg.push(ptr(X(fd), "fd"));
     // sim lines: the drive's last few plays as bars from where each started to where it ended (hover or tap one for the play)
     const sims = newDrive ? [] : (drive?.plays || []).filter((p) => p.start?.yardLine != null && p.end?.yardLine != null && p.text
       && !NOT_A_PLAY.has(String(p.type?.id || "")) && !/kickoff|punt/i.test(p.type?.text || "")).slice(-6);
@@ -1058,7 +1060,7 @@ const Live = (() => {
         <text x="${lx}" y="${(y + h / 2).toFixed(1)}" text-anchor="${anchor}">${yds > 0 ? "+" : ""}${yds}</text></g>`);
     });
     if (!isTD) svg.push(`<g${slide}><line class="gcv-los" x1="${X(spot)}" x2="${X(spot)}" y1="0" y2="${H}" filter="url(#gcv-glow)"/></g>`);
-    if (fd != null) svg.push(`<line class="gcv-fd" x1="${X(fd)}" x2="${X(fd)}" y1="0" y2="${H}" filter="url(#gcv-glow)"/>`);
+    if (fd != null) svg.push(`<g${fdMove}><line class="gcv-fd" x1="${X(fd)}" x2="${X(fd)}" y1="0" y2="${H}" filter="url(#gcv-glow)"/>${ptr(X(fd), "fd")}</g>`);
     // standing pieces (real 3D, they stand up off the tilted field): the down box at the ball and the first-down stick
     const from = moved ? ` style="left:${pct(X(spot))};--from:${pct(X(prevSpot))}"` : ` style="left:${pct(X(spot))}"`;
     // how the ball gets to the new spot: passes arc, kicks and punts sail end over end, runs hop along the ground
@@ -1106,7 +1108,7 @@ const Live = (() => {
     const clock = replaying ? `Replay · ${qn(play.period?.number || per)} ${play.clock?.displayValue || ""}` : stn === "STATUS_HALFTIME" ? "Halftime" : stn === "STATUS_END_PERIOD" ? (gst.type?.shortDetail || "End of quarter")
       : per ? `${qn(per)} · ${gst.displayClock || ""}` : "";
     // the looping glows and bobs are timed off the clock, so the redraw every few seconds doesn't make them jump
-    return `<div class="card gcv${isTD ? " td" : ""}" style="--t:-${Date.now() % 26400}ms;--el:-${el}ms">
+    return `<div class="card gcv${isTD ? " td" : ""}" style="--t:-${Date.now() % 26400}ms;--el:-${el}ms;--bt:${swapAt || 1}s">
       <div class="gcv-bar">${off ? `<span class="gcv-off">${img(teamLogo(off.team), "xs")}<b>${ab(off)}</b> ball ${dir > 0 ? "→" : "←"}</span>` : "<span></span>"}
         <span class="gcv-mid"><b class="gcv-dd${moved ? " pop" : ""}">${esc(ddText)}</b>${clock ? `<span class="gcv-clock">${esc(clock)}</span>` : ""}</span>
         <span class="muted">${at.possessionText ? `Ball on ${esc(at.possessionText)}` : ""}${toGo <= 20 && off && !isTD ? ` · <b class="gcv-rz">Red zone</b>` : ""}</span></div>

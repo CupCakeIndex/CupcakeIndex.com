@@ -1535,7 +1535,11 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-fd { stroke: var(--accent); stroke-width: 4; stroke-dasharray: 14 8; animation: gcv-march 1.2s linear var(--t, 0s) infinite, gcv-flicker 2.2s ease-in-out var(--t, 0s) infinite; }
 @keyframes gcv-march { to { stroke-dashoffset: -44; } }
 @keyframes gcv-flicker { 0%, 100% { opacity: 1; } 50% { opacity: .65; } }
-.gcv-slide { animation: gcv-slide 1s cubic-bezier(.3, .7, .3, 1) both; }
+/* after the ball stops (--bt), the line of scrimmage slides over, then the first-down marker */
+.gcv-slide { animation: gcv-slide .7s cubic-bezier(.3, .7, .3, 1) calc(var(--bt, 0s) + var(--el, 0s)) both; }
+.gcv-slide.fd { animation-delay: calc(var(--bt, 0s) + .35s + var(--el, 0s)); }
+.gcv-fdin { animation: gcv-fdin .5s ease-out calc(var(--bt, 0s) + .35s + var(--el, 0s)) both; }
+@keyframes gcv-fdin { from { opacity: 0; } }
 @keyframes gcv-slide { from { transform: translateX(var(--dx)); } }
 /* the ball (and who has it): placed on the field, then turned to face you (like a sprite in a game) */
 .gcv-ballp { position: absolute; transform-style: preserve-3d; top: 58%; width: 0; height: 0; }
@@ -1594,7 +1598,7 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-call.pop { animation: gcv-callin .5s cubic-bezier(.2, 1.4, .4, 1) both; }
 @keyframes gcv-callin { from { transform: translateX(-50%) scale(.6); opacity: 0; } }
 /* a refresh mid-animation resumes it (live.js sets --el to minus the time already played) */
-.gcv-slide, .gcv-ballp.move, .gcv-sim.grow .bar, .gcv-dd.pop, .gcv-call.pop, .gcv-flagp.toss .gcv-flag, .gcv-ballp.ghost, .gcv-plays li.now.in,
+.gcv-ballp.move, .gcv-sim.grow .bar, .gcv-call.pop, .gcv-flagp.toss .gcv-flag, .gcv-ballp.ghost, .gcv-plays li.now.in,
   .gcv-ballp.pass .gcv-shadow, .gcv-ballp.kick .gcv-shadow { animation-delay: var(--el, 0s); }
 .gcv-ballp.pass .gcv-ball3 { animation-delay: var(--el, 0s), calc(1.1s + var(--el, 0s)); }
 .gcv-ballp.kick .gcv-ball3 { animation-delay: var(--el, 0s), calc(1.5s + var(--el, 0s)); }
@@ -1612,8 +1616,8 @@ a.pk-wk:hover { border-color: var(--accent); }
 @keyframes gcv-bob { 0%, 100% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(calc(var(--tilt, 1) * -8deg)); } 50% { transform: rotateX(-40deg) translateY(calc(var(--u) * -2.6)) rotate(calc(var(--tilt, 1) * -4deg)); } }
 @keyframes gcv-shrink { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(.7); opacity: .6; } }
 .gcv-dd { text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 40%, transparent); }
-.gcv-dd.pop { animation: gcv-pop .6s ease-out; }
-@keyframes gcv-pop { 0% { transform: scale(1.35); opacity: .3; } 100% { transform: scale(1); opacity: 1; } }
+.gcv-dd.pop { animation: gcv-pop .6s ease-out calc(var(--bt, 0s) + var(--el, 0s)) both; }
+@keyframes gcv-pop { 0% { transform: scale(1.35); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 .gcv.td .gcv-ez { animation: gcv-td .5s ease-in-out 6 alternate; }
 @keyframes gcv-td { to { fill: color-mix(in srgb, var(--accent) 45%, var(--card)); } }
 /* phones: the field is small, so its labels, markers and ball are drawn bigger */
