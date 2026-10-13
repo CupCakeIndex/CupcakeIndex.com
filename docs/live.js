@@ -1021,7 +1021,10 @@ const Live = (() => {
     const prevFd = isNew ? seen.fd : resume ? seen.fromFd : null;
     gcvSeen.set(gameId, { play: String(play.id), spot, fd, from: prevSpot, fromFd: prevFd, at: isNew ? Date.now() : resume ? seen.at : 0 });
     // the first-down marker moves after the ball (and the line of scrimmage) get there: slide from the old marker, or fade in for a new set of downs
-    const fdMove = !freshPlay || fd == null ? "" : prevFd != null && prevFd !== fd ? ` class="gcv-slide fd" style="--dx:${X(prevFd) - X(fd)}px"` : prevFd == null || moved ? ' class="gcv-fdin"' : "";
+    // (no saved marker, e.g. a replay: work it out from where the play started, "2nd & 7 at the LA 40")
+    const st0 = play.start || {}, d0 = String(st0.team?.id || "") === String(home.team.id) ? 1 : String(st0.team?.id || "") === String(away.team.id) ? -1 : 0;
+    const fd0 = prevFd ?? (st0.down >= 1 && st0.down <= 4 && st0.distance && d0 && st0.yardLine != null ? st0.yardLine + d0 * st0.distance : null);
+    const fdMove = freshPlay && fd != null && fd0 != null && fd0 !== fd ? ` class="gcv-slide fd" style="--dx:${X(fd0) - X(fd)}px"` : "";
     const el = resume ? Date.now() - seen.at : 0; // ms already played
     const dx = moved ? X(prevSpot) - X(spot) : 0;
     const svg = [`<defs><filter id="gcv-glow" filterUnits="userSpaceOnUse" x="0" y="0" width="1200" height="${H}"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>

@@ -1538,8 +1538,6 @@ a.pk-wk:hover { border-color: var(--accent); }
 /* after the ball stops (--bt), the line of scrimmage slides over, then the first-down marker */
 .gcv-slide { animation: gcv-slide .7s cubic-bezier(.3, .7, .3, 1) calc(var(--bt, 0s) + var(--el, 0s)) both; }
 .gcv-slide.fd { animation-delay: calc(var(--bt, 0s) + .35s + var(--el, 0s)); }
-.gcv-fdin { animation: gcv-fdin .5s ease-out calc(var(--bt, 0s) + .35s + var(--el, 0s)) both; }
-@keyframes gcv-fdin { from { opacity: 0; } }
 @keyframes gcv-slide { from { transform: translateX(var(--dx)); } }
 /* the ball (and who has it): placed on the field, then turned to face you (like a sprite in a game) */
 .gcv-ballp { position: absolute; transform-style: preserve-3d; top: 58%; width: 0; height: 0; }
