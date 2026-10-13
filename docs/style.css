@@ -1546,14 +1546,15 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-ballp.move.kick { animation-duration: 1.5s; animation-timing-function: linear; }
 .gcv-ballp.pass .gcv-ball3 { animation: gcv-arc 1.1s both, gcv-bob 1.6s ease-in-out 1.1s infinite; }
 .gcv-ballp.kick .gcv-ball3 { animation: gcv-tumble 1.5s both, gcv-bob 1.6s ease-in-out 1.5s infinite; }
+.gcv-ballp.kick .gcv-lace, .gcv-ballp.pass .gcv-lace { animation-duration: .35s; }
 .gcv-ballp.run .gcv-ball3 { animation: gcv-hop 1s both, gcv-bob 1.6s ease-in-out 1s infinite; }
 .gcv-ballp.pass .gcv-shadow, .gcv-ballp.kick .gcv-shadow { animation: gcv-far 1.2s ease-in-out both; }
 @keyframes gcv-arc { 0% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(calc(var(--tilt, 1) * -14deg)); animation-timing-function: ease-out; }
   50% { transform: rotateX(-40deg) translateY(calc(var(--u) * -12)) rotate(calc(var(--tilt, 1) * 0deg)); animation-timing-function: ease-in; }
   100% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(calc(var(--tilt, 1) * 14deg)); } }
-@keyframes gcv-tumble { 0% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(calc(var(--tilt, 1) * 0deg)); animation-timing-function: ease-out; }
-  50% { transform: rotateX(-40deg) translateY(calc(var(--u) * -17)) rotate(calc(var(--tilt, 1) * 540deg)); animation-timing-function: ease-in; }
-  100% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(calc(var(--tilt, 1) * 1080deg)); } }
+@keyframes gcv-tumble { 0% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(calc(var(--ktilt, 1) * -32deg)); animation-timing-function: ease-out; }
+  50% { transform: rotateX(-40deg) translateY(calc(var(--u) * -17)) rotate(calc(var(--ktilt, 1) * 0deg)); animation-timing-function: ease-in; }
+  100% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(calc(var(--ktilt, 1) * 32deg)); } }
 @keyframes gcv-hop { 0%, 25%, 50%, 75%, 100% { transform: rotateX(-40deg) translateY(calc(var(--u) * -.8)) rotate(calc(var(--tilt, 1) * -4deg)); }
   12%, 37%, 62%, 87% { transform: rotateX(-40deg) translateY(calc(var(--u) * -2)) rotate(calc(var(--tilt, 1) * 4deg)); } }
 @keyframes gcv-far { 50% { transform: scale(.45); opacity: .35; } }
