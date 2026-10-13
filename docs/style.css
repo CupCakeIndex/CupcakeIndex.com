@@ -1482,6 +1482,33 @@ a.pk-wk:hover { border-color: var(--accent); }
 @media (prefers-reduced-motion: reduce) { .tf-wait { animation: tf-vis 0s linear var(--d, 40s) forwards; } }
 .tf-last b { font-family: var(--tf-font), monospace; font-size: 10px; color: #ffd21f; margin-right: 8px; }
 @media (max-width: 560px) { .tf-bar { font-size: 10px; } .tf-dd { font-size: 13px; } .tecmo { padding: 8px; } }
+/* Live field, "Clean" look (live.js cleanField): only theme variables, so it follows Settings > Theme */
+.gcv-pick { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; }
+.gcv-pick .muted { font-size: 12px; margin-right: 2px; }
+.gcv-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; font-size: 13px; }
+.gcv-off { display: inline-flex; align-items: center; gap: 6px; }
+.gcv-dd { font-family: var(--font-head); font-size: 20px; color: var(--accent); }
+.gcv-rz { color: var(--bad); }
+.gcv-field { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: var(--radius-sm, 0); background: var(--bg); }
+.gcv-turf { fill: var(--bg); }
+.gcv-ez { fill: var(--card); }
+.gcv-eztx { fill: var(--muted); font: 700 30px var(--font-head); text-anchor: middle; dominant-baseline: middle; letter-spacing: .08em; }
+.gcv-yl { stroke: var(--line); stroke-width: 2; }
+.gcv-yl.mid { stroke: var(--muted); }
+.gcv-num { fill: var(--muted); font: 26px var(--font-head); text-anchor: middle; }
+.gcv-drive { fill: var(--accent); opacity: .14; }
+.gcv-los { stroke: var(--ink); stroke-width: 4; }
+.gcv-fd { stroke: var(--accent); stroke-width: 4; stroke-dasharray: 10 6; }
+.gcv-ball { fill: var(--accent); }
+.gcv-key { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 12px; }
+.gcv-key i { display: inline-block; width: 14px; height: 3px; margin-right: 6px; vertical-align: middle; background: var(--ink); }
+.gcv-key i.fd { background: var(--accent); }
+.gcv-plays { list-style: none; margin: 10px 0 0; padding: 0; border-top: 1px solid var(--line); }
+.gcv-plays li { padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; line-height: 1.4; color: var(--muted); }
+.gcv-plays li.now { color: var(--ink); }
+.gcv-k { display: inline-block; min-width: 64px; margin-right: 8px; font-weight: 700; color: var(--accent); text-transform: capitalize; }
+.gcv-last { margin: 10px 0 0; font-size: 13px; }
+@media (max-width: 560px) { .gcv-dd { font-size: 16px; } .gcv-k { min-width: 0; } }
 .mb-foot { flex-wrap: wrap; }
 .mb-why { flex-basis: 100%; font-size: 10.5px; color: var(--muted); line-height: 1.35; padding-bottom: 2px; }
 .why { margin: 10px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.5; }

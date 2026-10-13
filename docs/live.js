@@ -816,6 +816,91 @@ const Live = (() => {
     </div>`;
   }
 
+  // The live field comes in two looks (picked above it, remembered in "gamecast-view"): the 8-bit field above, or
+  // "clean": a flat field strip and the drive's plays, drawn only with the theme's own colors and fonts (Settings > Theme)
+  const GCV = [["8bit", "8-bit"], ["clean", "Clean"]];
+  const gcvMode = () => (store.get("gamecast-view") === "clean" ? "clean" : "8bit");
+  const gcvCtx = new Map(); // game id -> latest fieldView arguments (to redraw right away when the look changes)
+  function fieldView(s, comp, home, away, tc, gameId, people, final) {
+    gcvCtx.set(gameId, [s, comp, home, away, tc, gameId, people, final]);
+    const mode = gcvMode(), html = mode === "clean" ? cleanField(s, comp, home, away, gameId, final) : liveField(s, comp, home, away, tc, gameId, people, false, final);
+    if (!html) return "";
+    return `<div class="gcv-wrap" data-gid="${esc(gameId)}"><div class="presets gcv-pick"><span class="muted">Field:</span>${GCV.map(([k, t]) =>
+      `<button type="button" data-gcv="${k}" class="${k === mode ? "on" : ""}" aria-pressed="${k === mode}">${t}</button>`).join("")}</div>${html}</div>`;
+  }
+  let gcvWired = false;
+  function wireGcv() {
+    if (gcvWired) return;
+    gcvWired = true;
+    document.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-gcv]"), wrap = b?.closest(".gcv-wrap");
+      if (!wrap || b.dataset.gcv === gcvMode()) return;
+      stopReplay?.();
+      store.set("gamecast-view", b.dataset.gcv);
+      const args = gcvCtx.get(wrap.dataset.gid);
+      if (!args) return;
+      const t = document.createElement("template");
+      t.innerHTML = fieldView(...args);
+      wrap.replaceWith(t.content);
+      const tfWrap = view("game").querySelector(".tecmo .tf-wrap");
+      if (tfWrap) { wireFieldZoom(); applyZoom(tfWrap); }
+    });
+  }
+  function cleanField(s, comp, home, away, gameId, final) {
+    const drives = s.drives || {}, drive = drives.current || (drives.previous || []).at(-1), play = drive?.plays?.at(-1);
+    const ab = (c) => esc(c?.team?.abbreviation || "");
+    const dd = (p) => { const x = p?.start || {}; return x.down >= 1 && x.down <= 4 ? `${["", "1st", "2nd", "3rd", "4th"][x.down]} & ${x.distance}` : ""; };
+    const clean = (t) => (t || "").trim().replace(/^(\([^)]*\)\s*)+/, "");
+    if (final) { // after the final: the game's top plays as a list
+      if (!final.length) return "";
+      return `<div class="card gcv"><div class="gcv-bar"><b>FINAL</b><span class="muted">Top plays</span></div>
+        <ol class="gcv-plays">${final.map(({ p, kind }) => `<li><span class="gcv-k">${esc(kind.toLowerCase())}</span><span class="muted">Q${esc(p.period?.number || "")} ${esc(p.clock?.displayValue || "")}</span> ${esc(clean(p.text))}</li>`).join("")}</ol></div>`;
+    }
+    const spot = play?.end?.yardLine ?? play?.start?.yardLine;
+    if (spot == null) return "";
+    const at = play.end?.down ? play.end : play.start?.down ? play.start : play.end || {};
+    const possId = String(play.end?.team?.id || comp.competitors.find((c) => c.possession)?.team?.id || at.team?.id || drive.team?.id || "");
+    const newDrive = !!drive?.team?.id && String(drive.team.id) !== possId;
+    const off = String(home.team.id) === possId ? home : String(away.team.id) === possId ? away : null;
+    const dir = off === home ? 1 : off === away ? -1 : 0, toGo = dir > 0 ? 100 - spot : spot;
+    const isTD = !!play.scoringPlay && /touchdown/i.test(`${play.type?.text || ""} ${play.text || ""}`);
+    const down = at.down >= 1 && at.down <= 4 && !isTD ? at.down : 0, dist = down ? at.distance || 0 : 0;
+    const fd = down && dist && dist < toGo ? spot + dir * dist : null;
+    const X = (yl) => 100 + yl * 10, H = 200;
+    const svg = [`<rect class="gcv-turf" x="100" y="0" width="1000" height="${H}"/>`];
+    for (const [c, x0] of [[home, 0], [away, 1100]]) {
+      svg.push(`<rect class="gcv-ez" x="${x0}" y="0" width="100" height="${H}"/><text class="gcv-eztx" x="${x0 + 50}" y="${H / 2}" transform="rotate(${x0 ? 90 : -90} ${x0 + 50} ${H / 2})">${ab(c)}</text>`);
+    }
+    for (let yl = 0; yl <= 100; yl += 10) svg.push(`<line class="gcv-yl${yl === 50 ? " mid" : ""}" x1="${X(yl)}" x2="${X(yl)}" y1="0" y2="${H}"/>`);
+    for (let yl = 10; yl <= 90; yl += 10) svg.push(`<text class="gcv-num" x="${X(yl)}" y="36">${yl > 50 ? 100 - yl : yl}</text>`);
+    // the drive so far, from its first snap (not the kickoff or punt that started it)
+    const snap1 = newDrive ? null : (drive?.plays || []).find((p) => p.start?.yardLine != null && !/kickoff|punt/i.test(p.type?.text || "") && !NOT_A_PLAY.has(String(p.type?.id || "")));
+    const start = snap1?.start?.yardLine;
+    if (off && start != null && start !== spot) svg.push(`<rect class="gcv-drive" x="${Math.min(X(start), X(spot))}" y="52" width="${Math.abs(X(spot) - X(start))}" height="${H - 104}"/>`);
+    if (!isTD) svg.push(`<line class="gcv-los" x1="${X(spot)}" x2="${X(spot)}" y1="44" y2="${H - 8}"/>`);
+    if (fd != null) svg.push(`<line class="gcv-fd" x1="${X(fd)}" x2="${X(fd)}" y1="44" y2="${H - 8}"/>`);
+    if (dir) svg.push(`<path class="gcv-ball" d="M${X(spot) + dir * 30} ${H / 2 + 22} l${-dir * 26} -14 v28 z"/><ellipse class="gcv-ball" cx="${X(spot)}" cy="${H / 2 + 22}" rx="16" ry="10"/>`);
+    // phones: show the part of the field around the ball (and the first-down line), like the 8-bit view
+    let vbX = 0, vbW = 1200;
+    if (typeof matchMedia === "function" && matchMedia("(max-width: 600px)").matches) {
+      const xs = [X(spot), fd != null ? X(fd) : X(spot), start != null ? X(start) : X(spot)], lo = Math.min(...xs) - 160, hi = Math.max(...xs) + 160;
+      vbW = Math.min(1200, Math.max(560, hi - lo));
+      vbX = Math.max(0, Math.min(1200 - vbW, (lo + hi) / 2 - vbW / 2));
+    }
+    const vb = `${vbX.toFixed(0)} 0 ${vbW.toFixed(0)}`;
+    const ddText = isTD ? "Touchdown" : down ? `${["", "1st", "2nd", "3rd", "4th"][down]} & ${dist < toGo ? dist : "Goal"}` : "";
+    const plays = newDrive ? [] : (drive?.plays || []).filter((p) => p.text && !NOT_A_PLAY.has(String(p.type?.id || ""))).slice(-8).reverse();
+    return `<div class="card gcv">
+      <div class="gcv-bar">${off ? `<span class="gcv-off">${img(teamLogo(off.team), "xs")}<b>${ab(off)}</b> ball ${dir > 0 ? "→" : "←"}</span>` : "<span></span>"}
+        <b class="gcv-dd">${esc(ddText)}</b>
+        <span class="muted">${at.possessionText ? `Ball on ${esc(at.possessionText)}` : ""}${toGo <= 20 && off && !isTD ? ` · <b class="gcv-rz">Red zone</b>` : ""}</span></div>
+      <svg class="gcv-field" viewBox="${vb} ${H}" role="img" aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, at.possessionText ? `ball on ${at.possessionText}` : ""].filter(Boolean).join(", "))}">${svg.join("")}</svg>
+      <div class="gcv-key"><span><i class="los"></i>Line of scrimmage</span>${fd != null ? `<span><i class="fd"></i>First down</span>` : ""}${drive?.description && !newDrive ? `<span class="muted">This drive: ${esc(drive.description)}</span>` : ""}</div>
+      ${plays.length ? `<ol class="gcv-plays">${plays.map((p, i) => `<li${i ? "" : ' class="now"'}>${dd(p) ? `<span class="gcv-k">${dd(p)}</span>` : ""}${esc(clean(p.text))}</li>`).join("")}</ol>`
+        : play?.text ? `<p class="gcv-last">${esc(clean(play.text))}</p>` : ""}
+    </div>`;
+  }
+
   // Live games read two ESPN feeds on every check: the game summary (full play-by-play, refreshes every ~6 s)
   // and the scoreboard (refreshes every ~4 s, often a play ahead). Whichever has the newer play wins.
   // College uses the game's own conference scoreboard (the all-FBS one is ~1 MB).
@@ -1103,7 +1188,7 @@ const Live = (() => {
     const tc = { away: teamColor(away.team), home: teamColor(home.team) };
     let people = null;
     if (st === "in" || st === "post") { // post: the highlights player uses the same field
-      wireFieldTips(); // before the rosters load, so the buttons work right away
+      wireFieldTips(); wireGcv(); // before the rosters load, so the buttons work right away
       const yr = s.header?.season?.year;
       const [ph, pa] = await Promise.all([teamPeople(lg, home.team.id, yr).catch(() => null), teamPeople(lg, away.team.id, yr).catch(() => null)]);
       if (my !== token) return;
@@ -1140,8 +1225,8 @@ const Live = (() => {
       </div>
       ${lineTable || st === "in" ? `<div class="card sb-under">${lineTable}
         ${st === "in" && s.situation?.lastPlay?.text ? `<p class="note">Last play: ${esc(s.situation.lastPlay.text)}</p>` : ""}</div>` : ""}
-      ${st === "in" ? liveField(s, comp, home, away, tc, String(id), people)
-        : st === "post" && recentPlays(s).length ? liveField(s, comp, home, away, tc, String(id), people, false, topPlays(s)) : ""}`;
+      ${st === "in" ? fieldView(s, comp, home, away, tc, String(id), people, null)
+        : st === "post" && recentPlays(s).length ? fieldView(s, comp, home, away, tc, String(id), people, topPlays(s)) : ""}`;
 
     const col = { left: [], right: [], full: [] }; // two independent columns so short cards never leave gaps
     // highlights: official YouTube video (found by the weekly job) + ESPN's own clips (open on ESPN)
