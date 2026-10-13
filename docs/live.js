@@ -1052,6 +1052,13 @@ const Live = (() => {
     const sims = newDrive ? [] : (drive?.plays || []).filter((p) => p.start?.yardLine != null && p.end?.yardLine != null && p.text
       && !NOT_A_PLAY.has(String(p.type?.id || "")) && !/kickoff|punt/i.test(p.type?.text || "")).slice(-6);
     const laneH = (H - 120) / Math.max(sims.length, 4);
+    // one shape per play: rounded where it started, tapering to a point where it ended (a dot for no gain)
+    const simPath = (a, b, y, h) => {
+      const r = h / 2, cy = y + r;
+      if (a === b) return `M${a - r} ${cy} a${r} ${r} 0 1 0 ${h} 0 a${r} ${r} 0 1 0 ${-h} 0Z`;
+      const sd = b > a ? 1 : -1, len = Math.min(h * 1.1, Math.abs(b - a) * 0.6), neck = b - sd * len, st = a + sd * r;
+      return `M${st} ${y} L${neck} ${y} L${b} ${cy} L${neck} ${y + h} L${st} ${y + h} A${r} ${r} 0 0 ${sd > 0 ? 1 : 0} ${st} ${y}Z`;
+    };
     sims.forEach((p, i) => {
       const a = X(p.start.yardLine), b = X(p.end.yardLine), yds = Math.round((p.end.yardLine - p.start.yardLine) * (dir || 1));
       const y = 30 + i * laneH, h = Math.max(14, laneH * 0.62), x = Math.min(a, b), w = Math.max(8, Math.abs(b - a));
@@ -1059,8 +1066,7 @@ const Live = (() => {
       const tip = `${dd(p) ? dd(p) + ": " : ""}${clean(p.text)}`, on = gcvTip.get(gameId) === tip ? " on" : "";
       const lx = a <= b ? x - 8 : x + w + 8, anchor = a <= b ? "end" : "start"; // label at the start of the bar
       svg.push(`<g class="gcv-sim ${cls}${grow}${on}" data-tip="${esc(tip)}"><rect class="hit" x="${x - 10}" y="${y - 4}" width="${w + 70}" height="${h + 8}"/>
-        <rect class="bar" x="${x}" y="${y}" width="${w}" height="${h}" rx="${(h / 2).toFixed(1)}" style="transform-origin:${a <= b ? "left" : "right"}"/>${a !== b ? (() => { const sd = b > a ? 1 : -1, len = Math.min(h * 0.8, w * 0.5), bx = b - sd * len; // arrowhead, tip on the end spot
-          return `<path class="tip" d="M${bx.toFixed(1)} ${(y - h * 0.2).toFixed(1)} L${b} ${(y + h / 2).toFixed(1)} L${bx.toFixed(1)} ${(y + h * 1.2).toFixed(1)} Z"/>`; })() : ""}
+        <path class="bar" d="${simPath(a, b, y, h)}" style="transform-origin:${a <= b ? "left" : "right"}"/>
         <text x="${lx}" y="${(y + h / 2).toFixed(1)}" text-anchor="${anchor}">${yds > 0 ? "+" : ""}${yds}</text></g>`);
     });
     if (!isTD) svg.push(`<g${slide}><line class="gcv-los" x1="${X(spot)}" x2="${X(spot)}" y1="0" y2="${H}" filter="url(#gcv-glow)"/></g>`);
@@ -1093,7 +1099,7 @@ const Live = (() => {
     const ghost = freshPlay && isInc && dir ? `<i class="gcv-ballp ghost" style="--tilt:${dir < 0 ? -1 : 1};left:${pct(X(spot))};--to:${pct(X(incTo))}"><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i>` : "";
     // a penalty: a yellow flag on the field at the spot (tossed in when the play is new)
     const flag = isPen ? `<i class="gcv-flagp${freshPlay ? " toss" : ""}" style="left:${pct(X(spot) + (dir || 1) * 18)}"><i class="gcv-flag"><svg viewBox="0 0 20 16" aria-hidden="true"><path d="M2 2 Q10 -1 18 3 L17 13 Q9 10 2 13 Z"/><circle cx="4" cy="12" r="2.2"/></svg></i></i>` : "";
-    const stand = `${dir || isTD ? `<i class="gcv-ballp${fly ? ` move ${fly}` : ""}${ghost ? " hold" : ""}"${from.replace('style="', `style="--tilt:${dir < 0 ? -1 : 1};--ktilt:${dir < 0 ? 1 : -1};${fly === "int" ? `--mid:${pct(X(intAt))};` : ""}`)}><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i>${badges}</i>` : ""}`;
+    const stand = `${dir || isTD ? `<i class="gcv-ballp${fly ? ` move ${fly}` : ""}${ghost ? " hold" : ""}"${from.replace('style="', `style="--tilt:${dir < 0 ? -1 : 1};--ktilt:${dir < 0 ? 1 : -1};${fly === "int" ? `--mid:${pct(X(intAt))};` : ""}`)}><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i>` : ""}${badges ? `<i class="gcv-lospin${moved ? " slide" : ""}" style="left:${pct(X(spot))}${moved ? `;--from:${pct(X(prevSpot))}` : ""}">${badges}</i>` : ""}`; // who has it: their logo above the field, on the line of scrimmage
     const ddText = isTD ? "Touchdown" : down ? `${["", "1st", "2nd", "3rd", "4th"][down]} & ${dist < toGo ? dist : "Goal"}` : "";
     // the whole game's play-by-play, newest drive first: who had it, how each drive ended (so a change of possession is clear)
     // (ESPN can list the drive in progress both as "current" and in "previous": keep one)

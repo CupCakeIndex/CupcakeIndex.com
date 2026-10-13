@@ -1496,7 +1496,7 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-mid { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .gcv-clock { font: 700 12px var(--font-head); color: var(--ink); letter-spacing: .06em; padding: 1px 8px; border: 1px solid var(--line); background: var(--bg); font-variant-numeric: tabular-nums; }
 .gcv-rz { color: var(--bad); }
-.gcv-stands { position: relative; container-type: inline-size; max-width: 920px; margin: 0 auto 8px; padding: 30px 0 14px; overflow: hidden; touch-action: pan-y; }
+.gcv-stands { position: relative; container-type: inline-size; max-width: 920px; margin: 0 auto 8px; padding: 44px 0 14px; overflow: hidden; touch-action: pan-y; }
 .gcv-stands.zoomed { touch-action: none; }
 .gcv-zoom { width: calc(100% * var(--zs, 1)); perspective: calc(900px * var(--zs, 1)); perspective-origin: 50% -10%; transform: translate(var(--zx, 0px), var(--zy, 0px)); } /* seen from the stands at the 50: the far sideline tips away */
 .gcv-3d { --u: 1cqw; position: relative; transform-style: preserve-3d; transform: rotateX(40deg); transform-origin: 50% 100%; }
@@ -1523,11 +1523,6 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-sim .bar { fill: var(--accent); opacity: .55; transform-box: fill-box; transition: opacity .15s; }
 .gcv-sim.loss .bar { fill: var(--bad); opacity: .45; }
 .gcv-sim.none .bar { fill: var(--muted); opacity: .5; }
-.gcv-sim .tip { fill: var(--accent); opacity: .55; transition: opacity .15s; } /* arrowhead: which way the play went */
-.gcv-sim.loss .tip { fill: var(--bad); opacity: .45; }
-.gcv-sim:hover .tip, .gcv-sim.on .tip { opacity: 1; }
-.gcv-sim.grow .tip { animation: gcv-tipin .25s ease-out calc(.7s + var(--el, 0s)) both; }
-@keyframes gcv-tipin { from { opacity: 0; } }
 .gcv-sim text { fill: var(--muted); font: 700 20px var(--font-head); dominant-baseline: middle; }
 .gcv-sim:hover .bar, .gcv-sim.on .bar { opacity: 1; filter: url(#gcv-glow); }
 .gcv-sim:hover text, .gcv-sim.on text { fill: var(--ink); }
@@ -1611,7 +1606,10 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-ball3 { position: absolute; left: calc(var(--u) * -3.2); bottom: 0; width: calc(var(--u) * 6.4); height: calc(var(--u) * 3.84); transform-origin: 50% 100%; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 45%, transparent)); animation: gcv-bob 1.6s ease-in-out var(--t, 0s) infinite; }
 .gcv-ball3 svg { display: block; width: 100%; height: 100%; }
 /* who has the ball: their logo in a ring of their team color, floating just above the football */
-.gcv-poss { position: absolute; left: calc(var(--u) * -1.8); bottom: 0; width: calc(var(--u) * 3.6); height: calc(var(--u) * 3.6); transform-origin: 50% 100%; transform: rotateX(-40deg) translateY(calc(var(--u) * -6.9));
+/* who has the ball: their logo in a ring of their team color, standing above the far sideline on the line of scrimmage */
+.gcv-lospin { position: absolute; top: 0; width: 0; height: 0; transform-style: preserve-3d; }
+.gcv-lospin.slide { animation: gcv-move .7s cubic-bezier(.3, .7, .3, 1) calc(var(--bt, 0s) + var(--el, 0s)) both; }
+.gcv-poss { position: absolute; left: calc(var(--u) * -1.8); bottom: 0; width: calc(var(--u) * 3.6); height: calc(var(--u) * 3.6); transform-origin: 50% 100%; transform: rotateX(-40deg) translateY(calc(var(--u) * -.6));
   display: grid; place-items: center; border-radius: 50%; background: var(--card); border: 2px solid var(--tc); box-shadow: 0 0 10px color-mix(in srgb, var(--tc) 60%, transparent); }
 .gcv-poss img { width: 72%; height: 72%; object-fit: contain; }
 .gcv-lace { animation: gcv-roll .8s linear var(--t, 0s) infinite; }
