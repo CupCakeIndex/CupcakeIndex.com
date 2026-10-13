@@ -1488,6 +1488,10 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px; } /* 3 equal sides: the middle stays centered */
 .gcv-bar > :last-child { justify-self: end; text-align: right; }
 .gcv-live { padding: 3px 10px; font: 700 11px var(--font-head); letter-spacing: .05em; text-transform: uppercase; color: var(--accent); background: var(--card); border: 1px solid var(--accent); cursor: pointer; }
+.gcv-rpctl { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.gcv-spd { display: inline-flex; border: 1px solid var(--line); }
+.gcv-spd button { padding: 2px 7px; font: 700 11px var(--font-head); color: var(--muted); background: none; border: 0; cursor: pointer; }
+.gcv-spd button.on { color: var(--on-accent, #000); background: var(--accent); }
 .gcv-plays li[data-pid] { cursor: pointer; }
 .gcv-plays li[data-pid]:hover { color: var(--ink); background: color-mix(in srgb, var(--accent) 6%, transparent); }
 .gcv-plays li.rp-on { color: var(--ink); border-left: 3px solid var(--accent); padding-left: 8px; background: color-mix(in srgb, var(--accent) 10%, transparent); }
@@ -1506,7 +1510,8 @@ a.pk-wk:hover { border-color: var(--accent); }
   box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 14%, transparent); }
 .gcv-turf { fill: var(--bg); }
 .gcv-band { fill: var(--ink); opacity: .035; }
-.gcv-ez { fill: color-mix(in srgb, var(--tz, var(--accent)) 30%, var(--card)); } /* tinted with the team's color */
+.gcv-ez { fill: var(--card); }
+.gcv-ezline { fill: none; stroke-width: 1.5; opacity: .5; } /* a thin border in the team's color */
 .gcv-ezlogo { opacity: .95; } /* the logo glows (SVG filter gcv-neon in live.js) */
 .gcv-yl { stroke: var(--line); stroke-width: 2; }
 .gcv-yl.mid { stroke: var(--muted); }
@@ -1610,7 +1615,7 @@ a.pk-wk:hover { border-color: var(--accent); }
 /* goalposts at the back of each end zone, and field goals / extra points kicked through them (or wide) */
 .gcv-post { position: absolute; top: 50%; width: 0; height: 0; transform-style: preserve-3d; }
 /* goalposts face you like the ball does (the drawing itself shows the crossbar along the goal line); the right one is mirrored */
-.gcv-post svg { position: absolute; left: calc(var(--u) * -2.6); bottom: 0; width: calc(var(--u) * 5.2); height: calc(var(--u) * 11.7); transform-origin: 50% 100%; transform: rotateX(-40deg); overflow: visible; }
+.gcv-post svg { position: absolute; left: calc(var(--u) * -3.2); bottom: 0; width: calc(var(--u) * 6.4); height: calc(var(--u) * 13); transform-origin: 50% 100%; transform: rotateX(-40deg); overflow: visible; }
 .gcv-post.r svg { transform: rotateX(-40deg) scaleX(-1); } /* the far end line slants the other way */
 .gcv-post path { stroke: var(--accent); filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent) 60%, transparent)); }
 /* field goals and extra points: the ball shows up at the holder's spot standing on end, then is kicked, spinning around its own
@@ -1675,7 +1680,7 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-dd.pop { animation: gcv-pop .6s ease-out calc(var(--bt, 0s) + var(--el, 0s)) both; }
 @keyframes gcv-pop { 0% { transform: scale(1.35); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 .gcv-ez.td { animation: gcv-td .5s ease-in-out 6 alternate; }
-@keyframes gcv-td { to { fill: color-mix(in srgb, var(--tz, var(--accent)) 70%, var(--card)); } }
+@keyframes gcv-td { to { fill: color-mix(in srgb, var(--tz, var(--accent)) 60%, var(--card)); } }
 /* phones: the field is small, so its labels, markers and ball are drawn bigger */
 @container (max-width: 480px) { .gcv-3d { --u: 1.6cqw; } .gcv-num { font-size: 44px; } .gcv-sim text { font-size: calc(var(--lf, 20) * 1.7px); } }
 .gcv-key { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 12px; }

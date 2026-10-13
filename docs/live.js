@@ -859,8 +859,8 @@ const Live = (() => {
 
   // The live field comes in two looks (picked above it, remembered in "gamecast-view"): the 8-bit field above, or
   // "clean": a flat field strip and the drive's plays, drawn only with the theme's own colors and fonts (Settings > Theme)
-  const GCV = [["8bit", "8-bit"], ["clean", "Clean"]];
-  const gcvMode = () => (store.get("gamecast-view") === "clean" ? "clean" : "8bit");
+  const GCV = [["clean", "Default"], ["8bit", "8-bit"]];
+  const gcvMode = () => (store.get("gamecast-view") === "8bit" ? "8bit" : "clean"); // "Default" unless you picked 8-bit
   // the Clean field's ball, drawn in the theme's own colors: card-colored body with an accent outline, seam and stripes,
   // laces in the text color that roll over the top like a spiral, and a soft accent shine for depth
   const FOOTBALL = `<svg viewBox="0 0 60 36" aria-hidden="true"><defs><radialGradient id="gcv-lth" cx="40%" cy="26%" r="75%"><stop offset="0" style="stop-color:var(--accent);stop-opacity:.55"/><stop offset=".6" style="stop-color:var(--accent);stop-opacity:.12"/><stop offset="1" style="stop-color:var(--accent);stop-opacity:0"/></radialGradient>
@@ -876,17 +876,18 @@ const Live = (() => {
   const zoomStyle = (gid) => { const z = gcvZoom.get(gid); return z && z.s > 1 ? `--zs:${z.s.toFixed(3)};--zx:${z.x.toFixed(1)}px;--zy:${z.y.toFixed(1)}px` : ""; };
   const standsStyle = (gid) => { const z = gcvZoom.get(gid); return z && z.s > 1 && z.h ? `height:${z.h}px` : ""; };
   const gcvOpen = new Set(); // play-by-play drives you opened (kept open through the refresh)
-  const gcvReplay = new Map(); // game id -> play id being replayed in the Clean view (until "Back to live")
+  const gcvReplay = new Map();
+  let gcvSpeed = store.get("gamecast-speed") === 2 ? 2 : 1; // replay speed // game id -> play id being replayed in the Clean view (until "Back to live")
   const gcvTip = new Map(); // game id -> the sim-line play being looked at (kept through the refresh every few seconds)
   // goalposts as seen from the 50: nearly edge-on, so the crossbar runs steeply along the end line (near upright lower, far one higher), in the theme's accent
-  const POST = `<svg viewBox="0 0 40 90" aria-hidden="true"><path d="M20 90 V50 M15 62 L25 38 M15 62 V10 M25 38 V-10" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const POST = `<svg viewBox="0 0 40 90" aria-hidden="true"><path d="M20 90 V54 M5 60 L35 48 M5 60 V8 M35 48 V-4" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   const gcvSeen = new Map(); // game id -> {play, spot} last drawn (so a new play slides in from the old spot)
   const gcvCtx = new Map(); // game id -> latest fieldView arguments (to redraw right away when the look changes)
   function fieldView(s, comp, home, away, tc, gameId, people, final) {
     gcvCtx.set(gameId, [s, comp, home, away, tc, gameId, people, final]);
     // replaying a play from the play-by-play: draw the game as it stood right after it (the list stays the whole game)
-    const rp = !final && gcvReplay.get(gameId), sv = (rp && upToPlay(s, rp)) || s;
-    const mode = gcvMode(), html = mode === "clean" ? cleanField(sv, comp, home, away, gameId, final, s, rp && sv !== s ? rp : null) : liveField(s, comp, home, away, tc, gameId, people, false, final);
+    const rp = gcvReplay.get(gameId), sv = (rp && upToPlay(s, rp)) || s;
+    const mode = gcvMode(), html = mode === "clean" ? (cleanField(sv, comp, home, away, gameId, null, s, rp && sv !== s ? rp : null) || (final ? cleanField(s, comp, home, away, gameId, final) : "")) : liveField(s, comp, home, away, tc, gameId, people, false, final);
     if (!html) return "";
     return `<div class="gcv-wrap" data-gid="${esc(gameId)}"><div class="presets gcv-pick"><span class="muted">Field:</span>${GCV.map(([k, t]) =>
       `<button type="button" data-gcv="${k}" class="${k === mode ? "on" : ""}" aria-pressed="${k === mode}">${t}</button>`).join("")}</div>${html}</div>`;
@@ -980,6 +981,15 @@ const Live = (() => {
     });
     // replay a play, then every play after it in order (each animating from where the last ended); back to live once caught up
     const gcvSeq = new Map(); // game id -> timer for the next replayed play
+    // Watch from kickoff (finished games) and the 1x / 2x replay speed
+    document.addEventListener("click", (e) => {
+      const from = e.target.closest?.("[data-gcvfrom]"), spd = e.target.closest?.("[data-gcvspd]"), wrap = (from || spd)?.closest(".gcv-wrap");
+      if (!wrap) return;
+      if (spd) { gcvSpeed = +spd.dataset.gcvspd === 2 ? 2 : 1; store.set("gamecast-speed", gcvSpeed); return redraw(wrap); }
+      const s0 = gcvCtx.get(wrap.dataset.gid)?.[0], first = [...(s0?.drives?.previous || []), ...(s0?.drives?.current ? [s0.drives.current] : [])]
+        .flatMap((d) => d.plays || []).find((x) => x.text && !NOT_A_PLAY.has(String(x.type?.id || "")));
+      if (first) { clearTimeout(gcvSeq.get(wrap.dataset.gid)); replayFrom(wrap.dataset.gid, first.id, true); }
+    });
     const replayFrom = (gid, pid, first) => {
       const s0 = gcvCtx.get(gid)?.[0], all = [...(s0?.drives?.previous || []), ...(s0?.drives?.current ? [s0.drives.current] : [])]
         .flatMap((d) => d.plays || []).filter((x) => x.text && !NOT_A_PLAY.has(String(x.type?.id || "")))
@@ -989,7 +999,8 @@ const Live = (() => {
       if (first) gcvSeen.set(gid, { play: "replay", spot: p.start?.yardLine ?? p.end?.yardLine }); // the first one starts where the play started
       gcvReplay.set(gid, String(p.id));
       redraw(wrap);
-      const nx = all[i + 1], wait = /touchdown/i.test(p.text) ? 6200 : /kickoff/i.test(p.type?.text || "") ? 4600 : 3800;
+      const nx = all[i + 1], base = /touchdown/i.test(p.text) ? 6200 : /kickoff/i.test(p.type?.text || "") ? 4600 : 3800;
+      const wait = gcvSpeed === 2 ? Math.max(base * 0.55, 2000) : base; // 2x: less time between plays (each animation still finishes)
       gcvSeq.set(gid, setTimeout(() => {
         if (gcvReplay.get(gid) !== String(p.id)) return; // stopped or another play was picked
         if (nx) return replayFrom(gid, nx.id, false);
@@ -1053,15 +1064,19 @@ const Live = (() => {
     const dx = moved ? X(prevSpot) - X(spot) : 0;
     const svg = [`<defs><filter id="gcv-glow" filterUnits="userSpaceOnUse" x="0" y="0" width="1200" height="${H}"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
       <linearGradient id="gcv-dg"${dir < 0 ? ' x1="1" x2="0"' : ""}><stop offset="0" style="stop-color:var(--accent);stop-opacity:0"/><stop offset="1" style="stop-color:var(--accent);stop-opacity:.32"/></linearGradient>
-      <filter id="gcv-neon" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b"/><feColorMatrix in="b" type="matrix" values="1.6 0 0 0 .08  0 1.6 0 0 .08  0 0 1.6 0 .08  0 0 0 1.4 0" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      <filter id="gcv-neon" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b"/><feColorMatrix in="b" type="matrix" values="1.3 0 0 0 .05  0 1.3 0 0 .05  0 0 1.3 0 .05  0 0 0 .8 0" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
       <radialGradient id="gcv-light" cx="50%" cy="40%" r="60%"><stop offset="0" stop-color="#fff" stop-opacity=".09"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>`,
       `<rect class="gcv-turf" x="100" y="0" width="1000" height="${H}"/>`];
     for (let i = 0; i < 10; i += 2) svg.push(`<rect class="gcv-band" x="${X(i * 10)}" y="0" width="100" height="${H}"/>`);
     for (const [c, x0] of [[home, 0], [away, 1100]]) {
-      // each end zone: a tint of the team's color and their logo, glowing like neon
-      const tz = teamColor(c.team);
-      svg.push(`<rect class="gcv-ez${isTD && (x0 ? spot >= 50 : spot < 50) ? " td" : ""}" x="${x0}" y="0" width="100" height="${H}" style="--tz:${tz}"/>
-        <image class="gcv-ezlogo" href="${esc(teamLogo(c.team))}" x="${x0 + 10}" y="${H / 2 - 40}" width="80" height="80" filter="url(#gcv-neon)"/>`);
+      // each end zone: the team's color, deepest at the back line and fading toward the goal line, a thin border in it,
+      // and their logo turned to read from the sideline, with a soft glow
+      const tz = teamColor(c.team), rot = `rotate(${x0 ? 90 : -90} ${x0 + 50} ${H / 2})`;
+      svg.push(`<linearGradient id="gcv-ezg-${x0}" x1="${x0 ? 1 : 0}" x2="${x0 ? 0 : 1}"><stop offset="0" style="stop-color:${tz};stop-opacity:.55"/><stop offset="1" style="stop-color:${tz};stop-opacity:.18"/></linearGradient>
+        <rect class="gcv-ez${isTD && (x0 ? spot >= 50 : spot < 50) ? " td" : ""}" x="${x0}" y="0" width="100" height="${H}" style="--tz:${tz}"/>
+        <rect x="${x0}" y="0" width="100" height="${H}" fill="url(#gcv-ezg-${x0})"/>
+        <rect class="gcv-ezline" x="${x0 + 5}" y="5" width="90" height="${H - 10}" style="stroke:${tz}"/>
+        <image class="gcv-ezlogo" href="${esc(teamLogo(c.team))}" x="${x0 + 2}" y="${H / 2 - 48}" width="96" height="96" transform="${rot}" filter="url(#gcv-neon)"/>`);
     }
     if (off && toGo <= 20 && !isTD) svg.push(`<rect class="gcv-rzone" x="${dir > 0 ? X(80) : X(0)}" y="0" width="200" height="${H}"/>`); // red zone glows
     for (let yl = 0; yl <= 100; yl += 10) svg.push(`<line class="gcv-yl${yl === 50 ? " mid" : ""}${yl % 100 ? "" : " goal"}" x1="${X(yl)}" x2="${X(yl)}" y1="0" y2="${H}"/>`);
@@ -1186,13 +1201,15 @@ const Live = (() => {
     // game clock: quarter and time left (or halftime / end of quarter)
     const gst = comp.status || {}, per = gst.period || 0, stn = gst.type?.name || "";
     const qn = (n) => (n <= 4 ? `Q${n}` : n === 5 ? "OT" : `${n - 4}OT`);
-    const clock = replaying ? `Replay · ${qn(play.period?.number || per)} ${play.clock?.displayValue || ""}` : stn === "STATUS_HALFTIME" ? "Halftime" : stn === "STATUS_END_PERIOD" ? (gst.type?.shortDetail || "End of quarter")
+    const isPost = comp.status?.type?.state === "post";
+    const clock = replaying ? `Replay · ${qn(play.period?.number || per)} ${play.clock?.displayValue || ""}` : isPost ? "Final" : stn === "STATUS_HALFTIME" ? "Halftime" : stn === "STATUS_END_PERIOD" ? (gst.type?.shortDetail || "End of quarter")
       : per ? `${qn(per)} · ${gst.displayClock || ""}` : "";
     // the looping glows and bobs are timed off the clock, so the redraw every few seconds doesn't make them jump
     return `<div class="card gcv${isTD ? " td" : ""}" style="--t:-${Date.now() % 26400}ms;--el:-${el}ms;--bt:${bt}s">
       <div class="gcv-bar">${off ? `<span class="gcv-off">${img(teamLogo(off.team), "xs")}<b>${ab(off)}</b> ball ${dir > 0 ? "→" : "←"}</span>` : "<span></span>"}
         <span class="gcv-mid"><b class="gcv-dd${moved ? " pop" : ""}">${esc(ddText)}</b>${clock ? `<span class="gcv-clock">${esc(clock)}</span>` : ""}</span>
-        ${replaying ? `<span><button type="button" class="gcv-live" data-gcvlive>● Back to live</button></span>` : `<span class="muted">${at.possessionText ? `Ball on ${esc(at.possessionText)}` : ""}${toGo <= 20 && off && !isTD ? ` · <b class="gcv-rz">Red zone</b>` : ""}</span>`}</div>
+        ${replaying ? `<span class="gcv-rpctl"><span class="gcv-spd">${[1, 2].map((v) => `<button type="button" data-gcvspd="${v}" class="${gcvSpeed === v ? "on" : ""}">${v}x</button>`).join("")}</span><button type="button" class="gcv-live" data-gcvlive>● Back to ${isPost ? "final" : "live"}</button></span>`
+          : isPost ? `<span><button type="button" class="gcv-live" data-gcvfrom>▶ Watch from kickoff</button></span>` : `<span class="muted">${at.possessionText ? `Ball on ${esc(at.possessionText)}` : ""}${toGo <= 20 && off && !isTD ? ` · <b class="gcv-rz">Red zone</b>` : ""}</span>`}</div>
       <div class="gcv-stands${gcvZoom.get(gameId)?.s > 1 ? " zoomed" : ""}" style="${standsStyle(gameId)}">${callHtml}${popsHtml}<div class="gcv-zoom" style="${zoomStyle(gameId)}"><div class="gcv-3d"><svg class="gcv-field" viewBox="0 0 1200 ${H}" role="img" aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, at.possessionText ? `ball on ${at.possessionText}` : ""].filter(Boolean).join(", "))}">${svg.join("")}</svg>${posts}${flag}${ghost}${fgBall}${stand}</div></div></div>
       ${sims.some((p) => gcvTip.get(gameId) === `${dd(p) ? dd(p) + ": " : ""}${clean(p.text)}`) ? `<div class="gcv-tip">${esc(gcvTip.get(gameId))}</div>` : `<div class="gcv-tip" hidden></div>`}
       <div class="gcv-key"><span><i class="los"></i>Line of scrimmage</span>${fd != null ? `<span><i class="fd"></i>First down</span>` : ""}${sims.length ? `<span class="muted">Bars: this drive's plays, hover or tap one</span>` : ""}</div>
