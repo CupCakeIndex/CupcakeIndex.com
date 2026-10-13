@@ -1072,9 +1072,9 @@ const Live = (() => {
     // small pointers on both sidelines: white at the ball, accent at the first-down spot
     const ptr = (x, cls) => `<path class="gcv-ptr ${cls}" d="M${x - 9} 0 h18 l-9 14 z"/><path class="gcv-ptr ${cls}" d="M${x - 9} ${H} h18 l-9 -14 z"/>`;
     if (!isTD) svg.push(`<g${slide}>${ptr(X(spot), "los")}</g>`);
-    // sim lines: the drive's last few plays as bars from where each started to where it ended (hover or tap one for the play)
+    // sim lines: the drive's plays as bars from where each started to where it ended (hover or tap one for the play)
     const sims = newDrive ? [] : (drive?.plays || []).filter((p) => p.start?.yardLine != null && p.end?.yardLine != null && p.text
-      && !NOT_A_PLAY.has(String(p.type?.id || "")) && !/kickoff|punt/i.test(p.type?.text || "")).slice(-6);
+      && !NOT_A_PLAY.has(String(p.type?.id || "")) && !/kickoff|punt/i.test(p.type?.text || "")).slice(-14); // the whole drive (lanes get thinner as it grows)
     const laneH = (H - 120) / Math.max(sims.length, 4);
     // one shape per play: rounded where it started, tapering to a point where it ended (a dot for no gain)
     const simPath = (a, b, y, h) => {
@@ -1091,7 +1091,7 @@ const Live = (() => {
       const lx = a <= b ? x - 8 : x + w + 8, anchor = a <= b ? "end" : "start"; // label at the start of the bar
       svg.push(`<g class="gcv-sim ${cls}${grow}${on}" data-tip="${esc(tip)}" data-pid="${esc(p.id)}"><rect class="hit" x="${x - 60}" y="${(y + h / 2 - laneH / 2).toFixed(1)}" width="${w + 120}" height="${laneH.toFixed(1)}"/>
         <path class="bar" d="${simPath(a, b, y, h)}" style="transform-origin:${a <= b ? "left" : "right"}"/>
-        <text x="${lx}" y="${(y + h / 2).toFixed(1)}" text-anchor="${anchor}">${yds > 0 ? "+" : ""}${yds}</text></g>`);
+        <text x="${lx}" y="${(y + h / 2).toFixed(1)}" text-anchor="${anchor}" style="--lf:${Math.min(20, laneH * 0.95).toFixed(1)}">${yds > 0 ? "+" : ""}${yds}</text></g>`);
     });
     if (!isTD) svg.push(`<g${slide}><line class="gcv-los" x1="${X(spot)}" x2="${X(spot)}" y1="0" y2="${H}" filter="url(#gcv-glow)"/></g>`);
     if (fd != null) svg.push(`<g${fdMove}><line class="gcv-fd" x1="${X(fd)}" x2="${X(fd)}" y1="0" y2="${H}" filter="url(#gcv-glow)"/>${ptr(X(fd), "fd")}</g>`);

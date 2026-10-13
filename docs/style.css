@@ -1523,7 +1523,7 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-sim .bar { fill: var(--accent); opacity: .55; transform-box: fill-box; transition: opacity .15s; }
 .gcv-sim.loss .bar { fill: var(--bad); opacity: .45; }
 .gcv-sim.none .bar { fill: var(--muted); opacity: .5; }
-.gcv-sim text { fill: var(--muted); font: 700 20px var(--font-head); dominant-baseline: middle; }
+.gcv-sim text { fill: var(--muted); font: 700 20px var(--font-head); font-size: calc(var(--lf, 20) * 1px); dominant-baseline: middle; } /* smaller as a long drive adds lanes */
 .gcv-sim:hover .bar, .gcv-sim.on .bar { opacity: 1; filter: url(#gcv-glow); }
 .gcv-sim:hover text, .gcv-sim.on text { fill: var(--ink); }
 .gcv-sim.grow .bar { animation: gcv-grow-bar .8s cubic-bezier(.3, .7, .3, 1) both; }
@@ -1677,7 +1677,7 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-ez.td { animation: gcv-td .5s ease-in-out 6 alternate; }
 @keyframes gcv-td { to { fill: color-mix(in srgb, var(--accent) 45%, var(--card)); } }
 /* phones: the field is small, so its labels, markers and ball are drawn bigger */
-@container (max-width: 480px) { .gcv-3d { --u: 1.6cqw; } .gcv-num { font-size: 44px; } .gcv-eztx { font-size: 40px; } .gcv-sim text { font-size: 34px; } }
+@container (max-width: 480px) { .gcv-3d { --u: 1.6cqw; } .gcv-num { font-size: 44px; } .gcv-eztx { font-size: 40px; } .gcv-sim text { font-size: calc(var(--lf, 20) * 1.7px); } }
 .gcv-key { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 12px; }
 .gcv-key i { display: inline-block; width: 14px; height: 3px; margin-right: 6px; vertical-align: middle; background: var(--ink); }
 .gcv-key i.fd { background: var(--accent); }
