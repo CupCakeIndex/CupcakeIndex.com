@@ -1584,10 +1584,13 @@ a.pk-wk:hover { border-color: var(--accent); }
 @keyframes gcv-move-ko { 0% { left: var(--kfrom, var(--from)); } 55% { left: var(--mid); animation-timing-function: ease-out; } }
 .gcv-ballp.ko .gcv-ball3 { animation: gcv-koarc 2.6s var(--el, 0s) both, gcv-bob 1.6s ease-in-out calc(2.6s + var(--el, 0s)) infinite; }
 .gcv-ballp.ko .gcv-shadow { animation: gcv-far 1.4s ease-in-out var(--el, 0s) both; }
-@keyframes gcv-koarc { 0% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(calc(var(--ktilt, 1) * -32deg)); animation-timing-function: ease-out; }
-  27% { transform: rotateX(-40deg) translateY(calc(var(--u) * -17)) rotate(0deg); animation-timing-function: ease-in; }
-  55% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(calc(var(--ktilt, 1) * 32deg)); }
+@keyframes gcv-koarc { 0% { transform: rotateX(-40deg) translateY(calc(var(--u) * -.6)); animation-timing-function: ease-out; }
+  27% { transform: rotateX(-40deg) translateY(calc(var(--u) * -17)); animation-timing-function: ease-in; }
+  55% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)); }
   62%, 100% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.2)) rotate(calc(var(--tilt, 1) * -8deg)); } }
+/* off the tee standing on end, tumbling end over end (backspin), landing flat in the end zone */
+.gcv-ballp.ko .gcv-ball3 svg { transform-origin: 50% 50%; animation: gcv-kospin 2.6s linear var(--el, 0s) both; }
+@keyframes gcv-kospin { 0%, 4% { transform: rotate(-90deg); } 55%, 100% { transform: rotate(calc(-90deg - var(--kd, 1) * 630deg)); } }
 .gcv-fdin { animation: gcv-fdin .5s ease-out calc(var(--bt, 0s) + .35s + var(--el, 0s)) both; } /* kickoffs: the first-down marker shows up after the return */
 @keyframes gcv-fdin { from { opacity: 0; } }
 /* interception: the pass flies to where it was picked (thrower's direction), then it's run back the other way */
@@ -1624,7 +1627,7 @@ a.pk-wk:hover { border-color: var(--accent); }
   55% { transform: rotateX(-40deg) translateY(calc(var(--u) * -10)); animation-timing-function: ease-in; }
   80% { transform: rotateX(-40deg) translateY(calc(var(--u) * -3.4)); }
   100% { transform: rotateX(-40deg) translateY(calc(var(--u) * -1.8)); } }
-@keyframes gcv-fgtwirl { 0%, 30% { transform: rotate(-90deg); } 100% { transform: rotate(calc(-90deg + var(--kd, 1) * 720deg)); } }
+@keyframes gcv-fgtwirl { 0%, 30% { transform: rotate(-90deg); } 100% { transform: rotate(calc(-90deg - var(--kd, 1) * 720deg)); } } /* backspin: the top rolls back toward the kicker */
 @keyframes gcv-fgshadow { 0%, 30% { transform: scale(1); opacity: 1; } 55% { transform: scale(.45); opacity: .3; } 100% { transform: scale(.7); opacity: .5; } }
 /* after a touchdown with an extra point, the ball fades out of the end zone before the kick */
 .gcv-ballp.patout .gcv-ball3 svg, .gcv-ballp.patout .gcv-shadow { animation: gcv-patout .3s calc(var(--bt, 1s) + .4s + var(--el, 0s)) both; }
