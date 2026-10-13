@@ -286,6 +286,8 @@ const Pickem = (() => {
         cur.picks.get(gid) === id ? cur.picks.delete(gid) : cur.picks.set(gid, id);
         save(); return draw();
       }
+      const box = e.target.closest(".pk-game");
+      if (box && !e.target.closest("a")) { location.hash = link("game", box.dataset.id); return; } // the rest of a game's box opens the game
       const show = e.target.closest("[data-show]");
       if (show) { cur.all = show.dataset.show === "1"; save(); return draw(); }
       if (e.target.closest('[data-act="lock"]')) {

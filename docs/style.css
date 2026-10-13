@@ -1280,7 +1280,9 @@ a.game-tile:hover { border-color: var(--accent); }
 .pk-at { font-size: 10px; line-height: 1; padding: 1px 0 1px 12px; }
 .pk-team { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 40px; padding: 4px 8px; background: var(--card); border: 1px solid var(--line); cursor: pointer; text-align: left; }
 .pk-team:hover:not(:disabled) { border-color: var(--accent); }
-.pk-team:disabled { cursor: default; }
+.pk-team:disabled { cursor: pointer; pointer-events: none; } /* locked: a tap goes to the game box, which opens the game */
+.pk-game { cursor: pointer; }
+.pk-game:hover { border-color: var(--accent); }
 .pk-team.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
 .pk-team.on .pk-n { color: var(--accent); }
 .pk-team.lose:not(.on) { color: var(--muted); }
