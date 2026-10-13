@@ -1057,7 +1057,11 @@ const Live = (() => {
     const resume = !isNew && !!seen?.at && Date.now() - seen.at < 2000, freshPlay = isNew || resume;
     const prevSpot = isNew ? seen.spot : resume ? seen.from : null, moved = freshPlay && prevSpot != null && prevSpot !== spot;
     const prevFd = isNew ? seen.fd : resume ? seen.fromFd : null;
-    gcvSeen.set(gameId, { play: String(play.id), spot, fd, from: prevSpot, fromFd: prevFd, at: isNew ? Date.now() : resume ? seen.at : 0 });
+    // ESPN often posts the touchdown first and adds "extra point is GOOD" to the same play a little later: kick it when it shows up
+    const samePlay = !!seen && seen.play === String(play.id), hasPat = isTD && /extra point is (good|no good)/i.test(play.text || "");
+    const patAt = hasPat ? (samePlay && seen.patAt) || Date.now() : 0, patLate = hasPat && (samePlay ? !seen.patAt || !!seen.patLate : false);
+    const patSince = patAt ? (Date.now() - patAt) / 1000 : 99;
+    gcvSeen.set(gameId, { play: String(play.id), spot, fd, from: prevSpot, fromFd: prevFd, at: isNew ? Date.now() : resume ? seen.at : 0, patAt, patLate });
     // the first-down marker moves after the ball (and the line of scrimmage) get there: slide from the old marker, or fade in for a new set of downs
     // (no saved marker, e.g. a replay: work it out from where the play started, "2nd & 7 at the LA 40")
     const st0 = play.start || {}, d0 = String(st0.team?.id || "") === String(home.team.id) ? 1 : String(st0.team?.id || "") === String(away.team.id) ? -1 : 0;
@@ -1161,14 +1165,15 @@ const Live = (() => {
     const isFG = /field goal|extra point/.test(String(play.type?.text || "").toLowerCase()) || /^(\([^)]*\)\s*)*\S+ \d+ yard field goal/i.test(play.text || "");
     const patTxt = isTD ? /extra point is (good|no good)/i.exec(play.text || "") : null;
     let fgBall = "";
-    if (freshPlay && (isFG || patTxt)) {
+    const lateKick = !!patTxt && patLate && patSince < 2.6; // the extra point arrived after the touchdown was already shown
+    if ((freshPlay && (isFG || patTxt)) || lateKick) {
       const kd = isFG ? (startC === home ? 1 : startC === away ? -1 : dir || 1) : spot >= 50 ? 1 : -1;
       const hold = isFG ? (play.start?.yardLine ?? spot) - kd * 7 : (kd > 0 ? 100 : 0) - kd * (league === "nfl" ? 22 : 10);
       const good = isFG ? !/no good|missed|blocked|fail/.test(ptype) : /good/i.test(patTxt[1]) && !/no good/i.test(patTxt[1]);
       // a miss goes wide the way the play-by-play says ("wide right" is the kicker's right; kicking toward +x, that's the near sideline)
       const wide = /wide (left|right)/i.exec(isFG ? play.text || "" : (play.text || "").slice((play.text || "").toLowerCase().indexOf("extra point")))?.[1]?.toLowerCase();
       const wtop = wide ? ((wide === "right") === (kd > 0) ? 76 : 26) : 26;
-      fgBall = `<i class="gcv-ballp fg${good ? "" : " miss"}" style="--wtop:${wtop}%;left:${pct(X(hold))};--hold:${pct(X(hold))};--to:${pct(X(kd > 0 ? 110 : -10))};--past:${pct(X(kd > 0 ? 116 : -16))};--kd:${kd};--fgd:${isFG ? 0 : bt + 0.8}s"><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i>`;
+      fgBall = `<i class="gcv-ballp fg${good ? "" : " miss"}" style="--wtop:${wtop}%;left:${pct(X(hold))};--hold:${pct(X(hold))};--to:${pct(X(kd > 0 ? 110 : -10))};--past:${pct(X(kd > 0 ? 116 : -16))};--kd:${kd};--fgd:${isFG ? 0 : lateKick ? (0.3 - patSince).toFixed(2) : bt + 0.8}s"><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i>`;
     }
     // points pop up over the end zone they were scored in: +6 when the touchdown lands, then "Good +1" (extra point) or "Good +2" (two-point try),
     // "Good +3" for a field goal as it clears the uprights, or "No good". Only when the play is new.
@@ -1183,6 +1188,9 @@ const Live = (() => {
         const kd = startC === home ? 1 : startC === away ? -1 : dir || 1, miss = /no good|missed|blocked|fail/.test(ptype);
         pops.push(miss ? ["No good", kd > 0, fgClear, true] : [`Good ${/extra point/.test(ptype) ? "+1" : "+3"}`, kd > 0, fgClear]);
       }
+    } else if (lateKick) {
+      const at = 0.3 - patSince + 2.2 * 0.8;
+      pops.push(/no good/i.test(patTxt[1]) ? ["No good", spot >= 50, at, true] : ["Good +1", spot >= 50, at]);
     }
     const popsHtml = pops.map(([txt, right, at, miss]) => `<b class="gcv-pts${miss ? " miss" : ""}" style="${right ? "right" : "left"}:9%;--pd:${at.toFixed(2)}s">${txt}</b>`).join("");
     const posts = [0, 100].map((x) => `<i class="gcv-post" style="left:${x}%"><i class="gp-base"></i><i class="gp-bar"></i><i class="gp-up a"></i><i class="gp-up b"></i></i>`).join("");
