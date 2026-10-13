@@ -1144,8 +1144,26 @@ const Live = (() => {
       const kd = isFG ? (startC === home ? 1 : startC === away ? -1 : dir || 1) : spot >= 50 ? 1 : -1;
       const hold = isFG ? (play.start?.yardLine ?? spot) - kd * 7 : (kd > 0 ? 100 : 0) - kd * (league === "nfl" ? 22 : 10);
       const good = isFG ? !/no good|missed|blocked|fail/.test(ptype) : /good/i.test(patTxt[1]) && !/no good/i.test(patTxt[1]);
-      fgBall = `<i class="gcv-ballp fg${good ? "" : " miss"}" style="left:${pct(X(hold))};--hold:${pct(X(hold))};--to:${pct(X(kd > 0 ? 110 : -10))};--past:${pct(X(kd > 0 ? 116 : -16))};--kd:${kd};--fgd:${isFG ? 0 : bt + 0.8}s"><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i>`;
+      // a miss goes wide the way the play-by-play says ("wide right" is the kicker's right; kicking toward +x, that's the near sideline)
+      const wide = /wide (left|right)/i.exec(isFG ? play.text || "" : (play.text || "").slice((play.text || "").toLowerCase().indexOf("extra point")))?.[1]?.toLowerCase();
+      const wtop = wide ? ((wide === "right") === (kd > 0) ? 76 : 26) : 26;
+      fgBall = `<i class="gcv-ballp fg${good ? "" : " miss"}" style="--wtop:${wtop}%;left:${pct(X(hold))};--hold:${pct(X(hold))};--to:${pct(X(kd > 0 ? 110 : -10))};--past:${pct(X(kd > 0 ? 116 : -16))};--kd:${kd};--fgd:${isFG ? 0 : bt + 0.8}s"><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i>`;
     }
+    // points pop up over the end zone they were scored in: +6 when the touchdown lands, then "Good +1" (extra point) or "Good +2" (two-point try),
+    // "Good +3" for a field goal as it clears the uprights, or "No good". Only when the play is new.
+    const pops = [];
+    if (freshPlay) {
+      const tdRight = spot >= 50, fgClear = 2.2 * 0.8, two = /two-point conversion attempt.*?attempt (succeeds|fails)/i.exec(play.text || "");
+      if (isTD) {
+        pops.push(["+6", tdRight, bt]);
+        if (patTxt) pops.push(/no good/i.test(patTxt[1]) ? ["No good", tdRight, bt + 0.8 + fgClear, true] : ["Good +1", tdRight, bt + 0.8 + fgClear]);
+        if (two) pops.push(/succeeds/i.test(two[1]) ? ["Good +2", tdRight, bt + 1.4] : ["No good", tdRight, bt + 1.4, true]);
+      } else if (isFG) {
+        const kd = startC === home ? 1 : startC === away ? -1 : dir || 1, miss = /no good|missed|blocked|fail/.test(ptype);
+        pops.push(miss ? ["No good", kd > 0, fgClear, true] : [`Good ${/extra point/.test(ptype) ? "+1" : "+3"}`, kd > 0, fgClear]);
+      }
+    }
+    const popsHtml = pops.map(([txt, right, at, miss]) => `<b class="gcv-pts${miss ? " miss" : ""}" style="${right ? "right" : "left"}:9%;--pd:${at.toFixed(2)}s">${txt}</b>`).join("");
     const posts = `<i class="gcv-post" style="left:0%">${POST}</i><i class="gcv-post r" style="left:100%">${POST}</i>`;
     const stand = `${(dir || isTD) && !isFG && !(patTxt && !freshPlay) ? `<i class="gcv-ballp${fly ? ` move ${fly}` : ""}${fly === "pass" && deep ? " deep" : ""}${ghost ? " hold" : ""}${patTxt ? " patout" : ""}"${from.replace('style="', `style="--tilt:${dir < 0 ? -1 : 1};--ktilt:${dir < 0 ? 1 : -1};${fly === "int" ? `--mid:${pct(X(intAt))};` : ""}${fly === "ko" ? `--mid:${pct(X(koKd > 0 ? 105 : -5))};${koFrom != null ? `--kfrom:${pct(X(koFrom))};` : ""}` : ""}`)}><i class="gcv-latw${latf && (fly === "pass" || fly === "run") ? ` go ${fly}` : ""}" style="--latf:${latf}"><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i></i>` : ""}${badges ? `<i class="gcv-lospin${moved ? " slide" : ""}" style="left:${pct(X(spot))}${moved ? `;--from:${pct(X(prevSpot))}` : ""}">${badges}</i>` : ""}`; // who has it: their logo above the field, on the line of scrimmage
     const ddText = isTD ? "Touchdown" : down ? `${["", "1st", "2nd", "3rd", "4th"][down]} & ${dist < toGo ? dist : "Goal"}` : "";
@@ -1171,7 +1189,7 @@ const Live = (() => {
       <div class="gcv-bar">${off ? `<span class="gcv-off">${img(teamLogo(off.team), "xs")}<b>${ab(off)}</b> ball ${dir > 0 ? "→" : "←"}</span>` : "<span></span>"}
         <span class="gcv-mid"><b class="gcv-dd${moved ? " pop" : ""}">${esc(ddText)}</b>${clock ? `<span class="gcv-clock">${esc(clock)}</span>` : ""}</span>
         ${replaying ? `<span><button type="button" class="gcv-live" data-gcvlive>● Back to live</button></span>` : `<span class="muted">${at.possessionText ? `Ball on ${esc(at.possessionText)}` : ""}${toGo <= 20 && off && !isTD ? ` · <b class="gcv-rz">Red zone</b>` : ""}</span>`}</div>
-      <div class="gcv-stands${gcvZoom.get(gameId)?.s > 1 ? " zoomed" : ""}" style="${standsStyle(gameId)}">${callHtml}<div class="gcv-zoom" style="${zoomStyle(gameId)}"><div class="gcv-3d"><svg class="gcv-field" viewBox="0 0 1200 ${H}" role="img" aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, at.possessionText ? `ball on ${at.possessionText}` : ""].filter(Boolean).join(", "))}">${svg.join("")}</svg>${posts}${flag}${ghost}${fgBall}${stand}</div></div></div>
+      <div class="gcv-stands${gcvZoom.get(gameId)?.s > 1 ? " zoomed" : ""}" style="${standsStyle(gameId)}">${callHtml}${popsHtml}<div class="gcv-zoom" style="${zoomStyle(gameId)}"><div class="gcv-3d"><svg class="gcv-field" viewBox="0 0 1200 ${H}" role="img" aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, at.possessionText ? `ball on ${at.possessionText}` : ""].filter(Boolean).join(", "))}">${svg.join("")}</svg>${posts}${flag}${ghost}${fgBall}${stand}</div></div></div>
       ${sims.some((p) => gcvTip.get(gameId) === `${dd(p) ? dd(p) + ": " : ""}${clean(p.text)}`) ? `<div class="gcv-tip">${esc(gcvTip.get(gameId))}</div>` : `<div class="gcv-tip" hidden></div>`}
       <div class="gcv-key"><span><i class="los"></i>Line of scrimmage</span>${fd != null ? `<span><i class="fd"></i>First down</span>` : ""}${sims.length ? `<span class="muted">Bars: this drive's plays, hover or tap one</span>` : ""}</div>
       ${pbp ? `<div class="gcv-pbp"><ol class="gcv-drives">${pbp}</ol></div>` : ""}

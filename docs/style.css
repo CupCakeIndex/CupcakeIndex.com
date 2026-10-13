@@ -1615,7 +1615,7 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-ballp.fg { animation: gcv-fgmove 2.2s linear calc(var(--fgd, 0s) + var(--el, 0s)) both; }
 .gcv-ballp.fg.miss { animation-name: gcv-fgwide; }
 @keyframes gcv-fgmove { 0%, 30% { left: var(--hold); top: 58%; animation-timing-function: cubic-bezier(.25, .4, .6, 1); } 80% { left: var(--to); top: 50%; } 100% { left: var(--past); top: 50%; } }
-@keyframes gcv-fgwide { 0%, 30% { left: var(--hold); top: 58%; animation-timing-function: cubic-bezier(.25, .4, .6, 1); } 80% { left: var(--to); top: 26%; } 100% { left: var(--past); top: 20%; } }
+@keyframes gcv-fgwide { 0%, 30% { left: var(--hold); top: 58%; animation-timing-function: cubic-bezier(.25, .4, .6, 1); } 80% { left: var(--to); top: var(--wtop, 26%); } 100% { left: var(--past); top: var(--wtop, 26%); } }
 @keyframes gcv-fgvis { 0% { opacity: 0; } 10%, 86% { opacity: 1; } 100% { opacity: 0; } }
 .gcv-ballp.fg .gcv-ball3 { animation: gcv-fgarc 2.2s linear calc(var(--fgd, 0s) + var(--el, 0s)) both; }
 .gcv-ballp.fg .gcv-ball3 svg { transform-origin: 50% 50%; animation: gcv-fgtwirl 2.2s linear calc(var(--fgd, 0s) + var(--el, 0s)) both, gcv-fgvis 2.2s linear calc(var(--fgd, 0s) + var(--el, 0s)) both; }
@@ -1629,6 +1629,11 @@ a.pk-wk:hover { border-color: var(--accent); }
 /* after a touchdown with an extra point, the ball fades out of the end zone before the kick */
 .gcv-ballp.patout .gcv-ball3 svg, .gcv-ballp.patout .gcv-shadow { animation: gcv-patout .3s calc(var(--bt, 1s) + .4s + var(--el, 0s)) both; }
 @keyframes gcv-patout { to { opacity: 0; } }
+/* points pop up over the end zone they were scored in (+6, +1, +2, +3) */
+.gcv-pts { position: absolute; top: 40%; z-index: 2; white-space: nowrap; text-transform: uppercase; font: 700 clamp(18px, 4.2cqw, 34px) var(--font-head); color: var(--accent); pointer-events: none;
+  text-shadow: 0 0 14px color-mix(in srgb, var(--accent) 70%, transparent); animation: gcv-pts 1.8s ease-out calc(var(--pd, 0s) + var(--el, 0s)) both; }
+.gcv-pts.miss { color: var(--muted); text-shadow: none; font-size: clamp(14px, 3cqw, 24px); }
+@keyframes gcv-pts { 0% { opacity: 0; transform: translateY(10px) scale(.6); } 15% { opacity: 1; transform: translateY(0) scale(1.15); } 25% { transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-26px); } }
 /* penalty flag on the field */
 .gcv-flagp { position: absolute; top: 74%; width: 0; height: 0; transform-style: preserve-3d; }
 .gcv-flag { position: absolute; left: calc(var(--u) * -1.3); bottom: 0; width: calc(var(--u) * 2.6); height: calc(var(--u) * 2.1); transform-origin: 50% 100%; transform: rotateX(-40deg); }
