@@ -1563,6 +1563,10 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-ballp.ghost .gcv-ball3 { animation: gcv-arc 1s both, gcv-fade 1.5s both; }
 .gcv-ballp.ghost .gcv-shadow { animation: gcv-far 1s ease-in-out both, gcv-fade 1.5s both; }
 @keyframes gcv-fade { 0%, 65% { opacity: 1; } 100% { opacity: 0; } }
+/* ...while the real ball is hidden, then spotted back at the line once the pass falls (one ball, not two) */
+.gcv-ballp.hold .gcv-ball3 { animation: gcv-bob 1.6s ease-in-out var(--t, 0s) infinite, gcv-hold 1.7s var(--el, 0s) both; }
+.gcv-ballp.hold .gcv-shadow { animation: gcv-shrink 1.6s ease-in-out var(--t, 0s) infinite, gcv-hold 1.7s var(--el, 0s) both; }
+@keyframes gcv-hold { 0%, 80% { opacity: 0; } 100% { opacity: 1; } }
 /* penalty flag on the field */
 .gcv-flagp { position: absolute; top: 74%; width: 0; height: 0; transform-style: preserve-3d; }
 .gcv-flag { position: absolute; left: calc(var(--u) * -1.3); bottom: 0; width: calc(var(--u) * 2.6); height: calc(var(--u) * 2.1); transform-origin: 50% 100%; transform: rotateX(-40deg); }
