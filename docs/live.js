@@ -878,6 +878,8 @@ const Live = (() => {
   const gcvOpen = new Set(); // play-by-play drives you opened (kept open through the refresh)
   const gcvReplay = new Map(); // game id -> play id being replayed in the Clean view (until "Back to live")
   const gcvTip = new Map(); // game id -> the sim-line play being looked at (kept through the refresh every few seconds)
+  // goalposts: base post with a gooseneck, crossbar and two uprights, in the theme's accent
+  const POST = `<svg viewBox="0 0 40 80" aria-hidden="true"><path d="M20 80 V54 Q20 47 14 47 M4 47 H36 M4 47 V3 M36 47 V3" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   const gcvSeen = new Map(); // game id -> {play, spot} last drawn (so a new play slides in from the old spot)
   const gcvCtx = new Map(); // game id -> latest fieldView arguments (to redraw right away when the look changes)
   function fieldView(s, comp, home, away, tc, gameId, people, final) {
@@ -1118,10 +1120,10 @@ const Live = (() => {
       const kd = isFG ? (startC === home ? 1 : startC === away ? -1 : dir || 1) : spot >= 50 ? 1 : -1;
       const hold = isFG ? (play.start?.yardLine ?? spot) - kd * 7 : (kd > 0 ? 100 : 0) - kd * (league === "nfl" ? 22 : 10);
       const good = isFG ? !/no good|missed|blocked|fail/.test(ptype) : /good/i.test(patTxt[1]) && !/no good/i.test(patTxt[1]);
-      fgBall = `<i class="gcv-ballp fg${good ? "" : " miss"}" style="left:${pct(X(hold))};--to:${pct(X(kd > 0 ? 110 : -10))};--kd:${kd};--fgd:${isFG ? 0 : (swapAt || 1) + 0.6}s"><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i>`;
+      fgBall = `<i class="gcv-ballp fg${good ? "" : " miss"}" style="left:${pct(X(hold))};--hold:${pct(X(hold))};--to:${pct(X(kd > 0 ? 110 : -10))};--kd:${kd};--fgd:${isFG ? 0 : bt + 0.8}s"><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i>`;
     }
-    const posts = `<i class="gcv-post" style="left:0%"></i><i class="gcv-post" style="left:100%"></i>`;
-    const stand = `${dir || isTD ? `<i class="gcv-ballp${fly ? ` move ${fly}` : ""}${ghost || (fgBall && !patTxt) ? " hold" : ""}"${from.replace('style="', `style="--tilt:${dir < 0 ? -1 : 1};--ktilt:${dir < 0 ? 1 : -1};${fly === "int" ? `--mid:${pct(X(intAt))};` : ""}${fly === "ko" ? `--mid:${pct(X(koKd > 0 ? 105 : -5))};${koFrom != null ? `--kfrom:${pct(X(koFrom))};` : ""}` : ""}`)}><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i>` : ""}${badges ? `<i class="gcv-lospin${moved ? " slide" : ""}" style="left:${pct(X(spot))}${moved ? `;--from:${pct(X(prevSpot))}` : ""}">${badges}</i>` : ""}`; // who has it: their logo above the field, on the line of scrimmage
+    const posts = `<i class="gcv-post" style="left:0%">${POST}</i><i class="gcv-post" style="left:100%">${POST}</i>`;
+    const stand = `${(dir || isTD) && !isFG && !(patTxt && !freshPlay) ? `<i class="gcv-ballp${fly ? ` move ${fly}` : ""}${ghost ? " hold" : ""}${patTxt ? " patout" : ""}"${from.replace('style="', `style="--tilt:${dir < 0 ? -1 : 1};--ktilt:${dir < 0 ? 1 : -1};${fly === "int" ? `--mid:${pct(X(intAt))};` : ""}${fly === "ko" ? `--mid:${pct(X(koKd > 0 ? 105 : -5))};${koFrom != null ? `--kfrom:${pct(X(koFrom))};` : ""}` : ""}`)}><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i>` : ""}${badges ? `<i class="gcv-lospin${moved ? " slide" : ""}" style="left:${pct(X(spot))}${moved ? `;--from:${pct(X(prevSpot))}` : ""}">${badges}</i>` : ""}`; // who has it: their logo above the field, on the line of scrimmage
     const ddText = isTD ? "Touchdown" : down ? `${["", "1st", "2nd", "3rd", "4th"][down]} & ${dist < toGo ? dist : "Goal"}` : "";
     // the whole game's play-by-play, newest drive first: who had it, how each drive ended (so a change of possession is clear)
     // (ESPN can list the drive in progress both as "current" and in "previous": keep one)
