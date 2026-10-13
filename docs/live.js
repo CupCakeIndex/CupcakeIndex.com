@@ -875,6 +875,7 @@ const Live = (() => {
   // (the field is redrawn wider rather than stretched, so it stays sharp; its box keeps the height it had before zooming)
   const zoomStyle = (gid) => { const z = gcvZoom.get(gid); return z && z.s > 1 ? `--zs:${z.s.toFixed(3)};--zx:${z.x.toFixed(1)}px;--zy:${z.y.toFixed(1)}px` : ""; };
   const standsStyle = (gid) => { const z = gcvZoom.get(gid); return z && z.s > 1 && z.h ? `height:${z.h}px` : ""; };
+  const gcvOpen = new Set(); // play-by-play drives you opened (kept open through the refresh)
   const gcvReplay = new Map(); // game id -> play id being replayed in the Clean view (until "Back to live")
   const gcvTip = new Map(); // game id -> the sim-line play being looked at (kept through the refresh every few seconds)
   const gcvSeen = new Map(); // game id -> {play, spot} last drawn (so a new play slides in from the old spot)
@@ -960,9 +961,15 @@ const Live = (() => {
       e.preventDefault();
     }, { passive: false });
     document.addEventListener("touchend", (e) => { if (zs && e.touches.length === 0) zs = null; });
+    // remember which past drives are open in the play-by-play
+    document.addEventListener("toggle", (e) => {
+      const d = e.target.closest?.("details[data-dk]");
+      if (!d || d.closest(".gcv-drv.cur")) return;
+      d.open ? gcvOpen.add(d.dataset.dk) : gcvOpen.delete(d.dataset.dk);
+    }, true);
     // click a play in the play-by-play to replay it on the field; "Back to live" returns
     document.addEventListener("click", (e) => {
-      const li = e.target.closest?.(".gcv-plays li[data-pid]"), live = e.target.closest?.("[data-gcvlive]"), wrap = (li || live)?.closest(".gcv-wrap");
+      const li = e.target.closest?.(".gcv-plays li[data-pid], .gcv-sim[data-pid]"), live = e.target.closest?.("[data-gcvlive]"), wrap = (li || live)?.closest(".gcv-wrap");
       if (!wrap) return;
       const gid = wrap.dataset.gid;
       if (live) { gcvReplay.delete(gid); gcvSeen.delete(gid); return redraw(wrap); }
@@ -1024,7 +1031,7 @@ const Live = (() => {
     // (no saved marker, e.g. a replay: work it out from where the play started, "2nd & 7 at the LA 40")
     const st0 = play.start || {}, d0 = String(st0.team?.id || "") === String(home.team.id) ? 1 : String(st0.team?.id || "") === String(away.team.id) ? -1 : 0;
     const fd0 = prevFd ?? (st0.down >= 1 && st0.down <= 4 && st0.distance && d0 && st0.yardLine != null ? st0.yardLine + d0 * st0.distance : null);
-    const fdMove = freshPlay && fd != null && fd0 != null && fd0 !== fd ? ` class="gcv-slide fd" style="--dx:${X(fd0) - X(fd)}px"` : "";
+    const fdMove = freshPlay && fd != null && /kickoff/i.test(play.type?.text || "") ? ' class="gcv-fdin"' : freshPlay && fd != null && fd0 != null && fd0 !== fd ? ` class="gcv-slide fd" style="--dx:${X(fd0) - X(fd)}px"` : "";
     const el = resume ? Date.now() - seen.at : 0; // ms already played
     const dx = moved ? X(prevSpot) - X(spot) : 0;
     const svg = [`<defs><filter id="gcv-glow" filterUnits="userSpaceOnUse" x="0" y="0" width="1200" height="${H}"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
@@ -1033,7 +1040,7 @@ const Live = (() => {
       `<rect class="gcv-turf" x="100" y="0" width="1000" height="${H}"/>`];
     for (let i = 0; i < 10; i += 2) svg.push(`<rect class="gcv-band" x="${X(i * 10)}" y="0" width="100" height="${H}"/>`);
     for (const [c, x0] of [[home, 0], [away, 1100]]) {
-      svg.push(`<rect class="gcv-ez" x="${x0}" y="0" width="100" height="${H}"/><text class="gcv-eztx" x="${x0 + 50}" y="${H / 2}" transform="rotate(${x0 ? 90 : -90} ${x0 + 50} ${H / 2})">${ab(c)}</text>`);
+      svg.push(`<rect class="gcv-ez${isTD && (x0 ? spot >= 50 : spot < 50) ? " td" : ""}" x="${x0}" y="0" width="100" height="${H}"/><text class="gcv-eztx" x="${x0 + 50}" y="${H / 2}" transform="rotate(${x0 ? 90 : -90} ${x0 + 50} ${H / 2})">${ab(c)}</text>`);
     }
     if (off && toGo <= 20 && !isTD) svg.push(`<rect class="gcv-rzone" x="${dir > 0 ? X(80) : X(0)}" y="0" width="200" height="${H}"/>`); // red zone glows
     for (let yl = 0; yl <= 100; yl += 10) svg.push(`<line class="gcv-yl${yl === 50 ? " mid" : ""}${yl % 100 ? "" : " goal"}" x1="${X(yl)}" x2="${X(yl)}" y1="0" y2="${H}"/>`);
@@ -1055,17 +1062,17 @@ const Live = (() => {
     // one shape per play: rounded where it started, tapering to a point where it ended (a dot for no gain)
     const simPath = (a, b, y, h) => {
       const r = h / 2, cy = y + r;
-      if (a === b) return `M${a - r} ${cy} a${r} ${r} 0 1 0 ${h} 0 a${r} ${r} 0 1 0 ${-h} 0Z`;
-      const sd = b > a ? 1 : -1, len = Math.min(h * 1.1, Math.abs(b - a) * 0.6), neck = b - sd * len, st = a + sd * r;
-      return `M${st} ${y} L${neck} ${y} L${b} ${cy} L${neck} ${y + h} L${st} ${y + h} A${r} ${r} 0 0 ${sd > 0 ? 1 : 0} ${st} ${y}Z`;
+      if (a === b) return `M${a - h} ${cy} a${h} ${h} 0 1 0 ${h * 2} 0 a${h} ${h} 0 1 0 ${-h * 2} 0Z`;
+      const sd = b > a ? 1 : -1, hl = Math.min(h * 2.6, Math.abs(b - a) * 0.7), hh = h * 1.15, neck = b - sd * hl, st = a + sd * r; // thin shaft, small arrowhead
+      return `M${st} ${y} L${neck} ${y} L${neck} ${cy - hh} L${b} ${cy} L${neck} ${cy + hh} L${neck} ${y + h} L${st} ${y + h} A${r} ${r} 0 0 ${sd > 0 ? 1 : 0} ${st} ${y}Z`;
     };
     sims.forEach((p, i) => {
       const a = X(p.start.yardLine), b = X(p.end.yardLine), yds = Math.round((p.end.yardLine - p.start.yardLine) * (dir || 1));
-      const y = 30 + i * laneH, h = Math.max(14, laneH * 0.62), x = Math.min(a, b), w = Math.max(8, Math.abs(b - a));
+      const y = 30 + i * laneH + laneH * 0.3, h = Math.max(6, laneH * 0.22), x = Math.min(a, b), w = Math.max(8, Math.abs(b - a));
       const cls = yds > 0 ? "gain" : yds < 0 ? "loss" : "none", grow = moved && i === sims.length - 1 ? " grow" : "";
       const tip = `${dd(p) ? dd(p) + ": " : ""}${clean(p.text)}`, on = gcvTip.get(gameId) === tip ? " on" : "";
       const lx = a <= b ? x - 8 : x + w + 8, anchor = a <= b ? "end" : "start"; // label at the start of the bar
-      svg.push(`<g class="gcv-sim ${cls}${grow}${on}" data-tip="${esc(tip)}"><rect class="hit" x="${x - 10}" y="${y - 4}" width="${w + 70}" height="${h + 8}"/>
+      svg.push(`<g class="gcv-sim ${cls}${grow}${on}" data-tip="${esc(tip)}" data-pid="${esc(p.id)}"><rect class="hit" x="${x - 60}" y="${(y + h / 2 - laneH / 2).toFixed(1)}" width="${w + 120}" height="${laneH.toFixed(1)}"/>
         <path class="bar" d="${simPath(a, b, y, h)}" style="transform-origin:${a <= b ? "left" : "right"}"/>
         <text x="${lx}" y="${(y + h / 2).toFixed(1)}" text-anchor="${anchor}">${yds > 0 ? "+" : ""}${yds}</text></g>`);
     });
@@ -1077,10 +1084,13 @@ const Live = (() => {
     const ptype = `${play.type?.text || ""} ${play.text || ""}`.toLowerCase();
     // an interception: the pass flies to where it was picked ("INTERCEPTED by C.Durde at BUF 44"), then it's run back
     const intAt = /intercept/.test(ptype) ? textSpot((play.text || "").match(/intercepted by .*? at ([A-Z]{2,4} \d{1,2}|50)/i)?.[1], home, away) : null;
-    const fly = !moved ? "" : intAt != null ? "int" : /punt|kickoff|field goal/.test(ptype) ? "kick" : /\bpass\b/.test(ptype) && !/sack/.test(ptype) ? "pass" : "run";
+    const fly = !moved ? "" : /kickoff/.test(ptype) ? "ko" : intAt != null ? "int" : /punt|kickoff|field goal/.test(ptype) ? "kick" : /\bpass\b/.test(ptype) && !/sack/.test(ptype) ? "pass" : "run";
     // the ball changed hands during the play: the old team's badge rides along, then swaps to the new team when it's caught
     const startC = String(play.start?.team?.id || "") === String(home.team.id) ? home : String(play.start?.team?.id || "") === String(away.team.id) ? away : null;
-    const swapAt = { int: 1.2, kick: 1.5, pass: 1.1, run: 1 }[fly] || 0;
+    const swapAt = { ko: 1.4, int: 1.2, kick: 1.5, pass: 1.1, run: 1 }[fly] || 0;
+    const bt = fly === "ko" ? 2.6 : swapAt || 1; // when the ball stops (then the line of scrimmage and the first-down marker move)
+    // a kickoff: kicked from the kicking team's spot, into the end zone, then carried out to where the return ended
+    const koFrom = play.start?.yardLine, koKd = startC === home ? 1 : startC === away ? -1 : -(dir || 1);
     const badge = (c, cls = "") => `<i class="gcv-poss${cls}" style="--tc:${teamColor(c.team)};--sw:${swapAt}s" title="${ab(c)} has the ball"><img src="${esc(teamLogo(c.team))}" alt="${ab(c)}"></i>`;
     const badges = !off ? "" : fly && startC && startC !== off ? badge(startC, " out") + badge(off, " in") : badge(off);
     // the call for the latest play, shown over the field while it's the newest (it pops in when the play is new)
@@ -1099,7 +1109,19 @@ const Live = (() => {
     const ghost = freshPlay && isInc && dir ? `<i class="gcv-ballp ghost" style="--tilt:${dir < 0 ? -1 : 1};left:${pct(X(spot))};--to:${pct(X(incTo))}"><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i>` : "";
     // a penalty: a yellow flag on the field at the spot (tossed in when the play is new)
     const flag = isPen ? `<i class="gcv-flagp${freshPlay ? " toss" : ""}" style="left:${pct(X(spot) + (dir || 1) * 18)}"><i class="gcv-flag"><svg viewBox="0 0 20 16" aria-hidden="true"><path d="M2 2 Q10 -1 18 3 L17 13 Q9 10 2 13 Z"/><circle cx="4" cy="12" r="2.2"/></svg></i></i>` : "";
-    const stand = `${dir || isTD ? `<i class="gcv-ballp${fly ? ` move ${fly}` : ""}${ghost ? " hold" : ""}"${from.replace('style="', `style="--tilt:${dir < 0 ? -1 : 1};--ktilt:${dir < 0 ? 1 : -1};${fly === "int" ? `--mid:${pct(X(intAt))};` : ""}`)}><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i>` : ""}${badges ? `<i class="gcv-lospin${moved ? " slide" : ""}" style="left:${pct(X(spot))}${moved ? `;--from:${pct(X(prevSpot))}` : ""}">${badges}</i>` : ""}`; // who has it: their logo above the field, on the line of scrimmage
+    // field goals and extra points: kicked from the holder's spot toward the goalposts, through them (good) or wide (missed).
+    // An extra point inside a touchdown's play text ("H.Mevis extra point is GOOD") is kicked right after the touchdown.
+    const isFG = /field goal|extra point/.test(String(play.type?.text || "").toLowerCase()) || /^(\([^)]*\)\s*)*\S+ \d+ yard field goal/i.test(play.text || "");
+    const patTxt = isTD ? /extra point is (good|no good)/i.exec(play.text || "") : null;
+    let fgBall = "";
+    if (freshPlay && (isFG || patTxt)) {
+      const kd = isFG ? (startC === home ? 1 : startC === away ? -1 : dir || 1) : spot >= 50 ? 1 : -1;
+      const hold = isFG ? (play.start?.yardLine ?? spot) - kd * 7 : (kd > 0 ? 100 : 0) - kd * (league === "nfl" ? 22 : 10);
+      const good = isFG ? !/no good|missed|blocked|fail/.test(ptype) : /good/i.test(patTxt[1]) && !/no good/i.test(patTxt[1]);
+      fgBall = `<i class="gcv-ballp fg${good ? "" : " miss"}" style="left:${pct(X(hold))};--to:${pct(X(kd > 0 ? 110 : -10))};--kd:${kd};--fgd:${isFG ? 0 : (swapAt || 1) + 0.6}s"><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i>`;
+    }
+    const posts = `<i class="gcv-post" style="left:0%"></i><i class="gcv-post" style="left:100%"></i>`;
+    const stand = `${dir || isTD ? `<i class="gcv-ballp${fly ? ` move ${fly}` : ""}${ghost || (fgBall && !patTxt) ? " hold" : ""}"${from.replace('style="', `style="--tilt:${dir < 0 ? -1 : 1};--ktilt:${dir < 0 ? 1 : -1};${fly === "int" ? `--mid:${pct(X(intAt))};` : ""}${fly === "ko" ? `--mid:${pct(X(koKd > 0 ? 105 : -5))};${koFrom != null ? `--kfrom:${pct(X(koFrom))};` : ""}` : ""}`)}><i class="gcv-shadow"></i><i class="gcv-ball3">${FOOTBALL}</i></i>` : ""}${badges ? `<i class="gcv-lospin${moved ? " slide" : ""}" style="left:${pct(X(spot))}${moved ? `;--from:${pct(X(prevSpot))}` : ""}">${badges}</i>` : ""}`; // who has it: their logo above the field, on the line of scrimmage
     const ddText = isTD ? "Touchdown" : down ? `${["", "1st", "2nd", "3rd", "4th"][down]} & ${dist < toGo ? dist : "Goal"}` : "";
     // the whole game's play-by-play, newest drive first: who had it, how each drive ended (so a change of possession is clear)
     // (ESPN can list the drive in progress both as "current" and in "previous": keep one)
@@ -1109,8 +1131,9 @@ const Live = (() => {
       const team = String(d.team?.id) === String(home.team.id) ? home : String(d.team?.id) === String(away.team.id) ? away : null;
       const ps = d.plays.filter((p) => p.text && !NOT_A_PLAY.has(String(p.type?.id || ""))).reverse();
       const res = d.displayResult || d.result || "";
-      return `<li class="gcv-drv${di ? "" : " cur"}"><div class="gcv-dh">${team ? `${img(teamLogo(team.team), "xs")}<b>${ab(team)}</b>` : ""}<span class="muted">${esc(d.description || "")}</span>${res ? `<span class="gcv-res">${esc(res)}</span>` : ""}</div>
-        <ol class="gcv-plays">${ps.map((p, i) => `<li data-pid="${esc(p.id)}" title="Replay this play"${String(p.id) === String(replaying) ? ' class="rp-on"' : di || i || replaying ? "" : ` class="now${moved ? " in" : ""}"`}><span class="gcv-pc">Q${esc(p.period?.number || "")} ${esc(p.clock?.displayValue || "")}</span>${dd(p) ? `<span class="gcv-k">${dd(p)}</span>` : ""}${esc(clean(p.text))}</li>`).join("")}</ol></li>`;
+      const dk = String(d.id || d.plays?.[0]?.id), open = !di || gcvOpen.has(dk) || ps.some((p) => String(p.id) === String(replaying));
+      return `<li class="gcv-drv${di ? "" : " cur"}"><details data-dk="${esc(dk)}"${open ? " open" : ""}><summary class="gcv-dh">${team ? `${img(teamLogo(team.team), "xs")}<b>${ab(team)}</b>` : ""}<span class="muted">${esc(d.description || "")}</span>${res ? `<span class="gcv-res">${esc(res)}</span>` : ""}</summary>
+        <ol class="gcv-plays">${ps.map((p, i) => `<li data-pid="${esc(p.id)}" title="Replay this play"${String(p.id) === String(replaying) ? ' class="rp-on"' : di || i || replaying ? "" : ` class="now${moved ? " in" : ""}"`}><span class="gcv-pc">Q${esc(p.period?.number || "")} ${esc(p.clock?.displayValue || "")}</span>${dd(p) ? `<span class="gcv-k">${dd(p)}</span>` : ""}${esc(clean(p.text))}</li>`).join("")}</ol></details></li>`;
     }).join("");
     // game clock: quarter and time left (or halftime / end of quarter)
     const gst = comp.status || {}, per = gst.period || 0, stn = gst.type?.name || "";
@@ -1118,11 +1141,11 @@ const Live = (() => {
     const clock = replaying ? `Replay · ${qn(play.period?.number || per)} ${play.clock?.displayValue || ""}` : stn === "STATUS_HALFTIME" ? "Halftime" : stn === "STATUS_END_PERIOD" ? (gst.type?.shortDetail || "End of quarter")
       : per ? `${qn(per)} · ${gst.displayClock || ""}` : "";
     // the looping glows and bobs are timed off the clock, so the redraw every few seconds doesn't make them jump
-    return `<div class="card gcv${isTD ? " td" : ""}" style="--t:-${Date.now() % 26400}ms;--el:-${el}ms;--bt:${swapAt || 1}s">
+    return `<div class="card gcv${isTD ? " td" : ""}" style="--t:-${Date.now() % 26400}ms;--el:-${el}ms;--bt:${bt}s">
       <div class="gcv-bar">${off ? `<span class="gcv-off">${img(teamLogo(off.team), "xs")}<b>${ab(off)}</b> ball ${dir > 0 ? "→" : "←"}</span>` : "<span></span>"}
         <span class="gcv-mid"><b class="gcv-dd${moved ? " pop" : ""}">${esc(ddText)}</b>${clock ? `<span class="gcv-clock">${esc(clock)}</span>` : ""}</span>
         <span class="muted">${at.possessionText ? `Ball on ${esc(at.possessionText)}` : ""}${toGo <= 20 && off && !isTD ? ` · <b class="gcv-rz">Red zone</b>` : ""}</span></div>
-      <div class="gcv-stands${gcvZoom.get(gameId)?.s > 1 ? " zoomed" : ""}" style="${standsStyle(gameId)}">${callHtml}${replaying ? `<button type="button" class="gcv-live" data-gcvlive>● Back to live</button>` : ""}<div class="gcv-zoom" style="${zoomStyle(gameId)}"><div class="gcv-3d"><svg class="gcv-field" viewBox="0 0 1200 ${H}" role="img" aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, at.possessionText ? `ball on ${at.possessionText}` : ""].filter(Boolean).join(", "))}">${svg.join("")}</svg>${flag}${ghost}${stand}</div></div></div>
+      <div class="gcv-stands${gcvZoom.get(gameId)?.s > 1 ? " zoomed" : ""}" style="${standsStyle(gameId)}">${callHtml}${replaying ? `<button type="button" class="gcv-live" data-gcvlive>● Back to live</button>` : ""}<div class="gcv-zoom" style="${zoomStyle(gameId)}"><div class="gcv-3d"><svg class="gcv-field" viewBox="0 0 1200 ${H}" role="img" aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, at.possessionText ? `ball on ${at.possessionText}` : ""].filter(Boolean).join(", "))}">${svg.join("")}</svg>${posts}${flag}${ghost}${fgBall}${stand}</div></div></div>
       ${sims.some((p) => gcvTip.get(gameId) === `${dd(p) ? dd(p) + ": " : ""}${clean(p.text)}`) ? `<div class="gcv-tip">${esc(gcvTip.get(gameId))}</div>` : `<div class="gcv-tip" hidden></div>`}
       <div class="gcv-key"><span><i class="los"></i>Line of scrimmage</span>${fd != null ? `<span><i class="fd"></i>First down</span>` : ""}${sims.length ? `<span class="muted">Bars: this drive's plays, hover or tap one</span>` : ""}</div>
       ${pbp ? `<div class="gcv-pbp"><ol class="gcv-drives">${pbp}</ol></div>` : ""}
