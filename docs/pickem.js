@@ -156,7 +156,8 @@ const Pickem = (() => {
     try { n = localStorage.length; } catch (e) { return; } // storage blocked (private mode): nothing to catch up
     for (let i = 0; i < n; i++) {
       const k = localStorage.key(i), m = k && k.match(new RegExp(`^pickem-${lg}-${season}-(\\d+)-(\\d+)$`));
-      if (m && !(+m[1] === type && +m[2] === week) && !log[`${m[1]}:${m[2]}`]?.done) todo.push([+m[1], +m[2], k]);
+      const g = log[`${m?.[1]}:${m?.[2]}`];
+      if (m && !(+m[1] === type && +m[2] === week) && (!g?.done || g.v == null)) todo.push([+m[1], +m[2], k]); // v == null: graded before ties were void, so grade it again
     }
     for (const [t, w, k] of todo.slice(0, 6)) {
       try {
@@ -205,8 +206,8 @@ const Pickem = (() => {
         ${best ? `<span>Best week: <b>${wkName(best[0])}</b> ${best[1].w}-${best[1].l}</span>` : ""}
         ${MW + ML ? `<span title="Our model's record picking the same games you picked">Our model on your games: <b>${MW}-${ML}</b> · ${beatModel}</span>` : ""}
       </div>
-      <div class="pk-weeks">${weeks.map(([k, g]) => `<span class="pk-wk${k === `${type}:${week}` ? " now" : ""}${g.done ? "" : " open"}" title="${g.done ? "Final" : "Games still to play"}">
-        <i style="--p:${pct(g.w, g.l)}%"></i><small>${wkName(k)}</small><b>${g.w}-${g.l}</b></span>`).join("")}</div>
+      <div class="pk-weeks">${weeks.map(([k, g]) => `<a class="pk-wk${k === `${type}:${week}` ? " now" : ""}${g.done ? "" : " open"}" href="${link("picks", null, { season, week: k })}" title="${g.done ? "Final" : "Games still to play"}: see your picks">
+        <i style="--p:${pct(g.w, g.l)}%"></i><small>${wkName(k)}</small><b>${g.w}-${g.l}</b></a>`).join("")}</div>
     </div>`;
   }
 
