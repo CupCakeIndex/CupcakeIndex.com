@@ -878,7 +878,6 @@ const Live = (() => {
   const gcvOpen = new Set(); // play-by-play drives you opened (kept open through the refresh)
   const gcvReplay = new Map();
   let gcvSpeed = store.get("gamecast-speed") === 2 ? 2 : 1; // replay speed // game id -> play id being replayed in the Clean view (until "Back to live")
-  const gcvRpScore = new Map(); // game id -> replay score last shown ("7-14"), so it pops only when it changes
   const gcvTip = new Map(); // game id -> the sim-line play being looked at (kept through the refresh every few seconds)
   // end zone logo: ESPN's version made to sit on the team's own color, else the dark-background one (dark mode), else the usual one
   const ezLogo = (t) => {
@@ -1000,11 +999,12 @@ const Live = (() => {
         .filter((x, k, arr) => arr.findIndex((y) => String(y.id) === String(x.id)) === k); // each play once (ESPN can list a drive twice)
       const i = all.findIndex((x) => String(x.id) === String(pid)), p = all[i], wrap = document.querySelector(`.gcv-wrap[data-gid="${gid}"]`);
       if (!p || !wrap) return;
-      if (first) { gcvSeen.set(gid, { play: "replay", spot: p.start?.yardLine ?? p.end?.yardLine }); gcvRpScore.delete(gid); } // the first one starts where the play started
+      if (first) gcvSeen.set(gid, { play: "replay", spot: p.start?.yardLine ?? p.end?.yardLine }); // the first one starts where the play started
       gcvReplay.set(gid, String(p.id));
       redraw(wrap);
       const nx = all[i + 1], base = /touchdown/i.test(p.text) ? 6200 : /kickoff/i.test(p.type?.text || "") ? 4600 : 3800;
-      const wait = gcvSpeed === 2 ? Math.max(base * 0.55, 2000) : base; // 2x: less time between plays (each animation still finishes)
+      // 2x: less time between plays (each animation still finishes; a touchdown waits for its extra point to clear the uprights)
+      const wait = gcvSpeed === 2 ? Math.max(base * 0.55, /touchdown/i.test(p.text) ? 4800 : 2000) : base;
       gcvSeq.set(gid, setTimeout(() => {
         if (gcvReplay.get(gid) !== String(p.id)) return; // stopped or another play was picked
         if (nx) return replayFrom(gid, nx.id, false);
@@ -1124,7 +1124,10 @@ const Live = (() => {
     // standing pieces (real 3D, they stand up off the tilted field): the down box at the ball and the first-down stick
     const from = moved ? ` style="left:${pct(X(spot))};--from:${pct(X(prevSpot))}"` : ` style="left:${pct(X(spot))}"`;
     // how the ball gets to the new spot: passes arc, kicks and punts sail end over end, runs hop along the ground
-    const ptype = `${play.type?.text || ""} ${play.text || ""}`.toLowerCase();
+    // (only the play itself: a touchdown's text goes on with its two-point try, "...TOUCHDOWN. TWO-POINT CONVERSION ATTEMPT.
+    // D.Prescott pass to R.Flournoy is incomplete", which must not make a run fly like a pass or the touchdown look incomplete)
+    const mainTxt = (play.text || "").split(/two-point conversion attempt/i)[0];
+    const ptype = `${play.type?.text || ""} ${mainTxt}`.toLowerCase();
     // an interception: the pass flies to where it was picked ("INTERCEPTED by C.Durde at BUF 44"), then it's run back
     const intAt = /intercept/.test(ptype) ? textSpot((play.text || "").match(/intercepted by .*? at ([A-Z]{2,4} \d{1,2}|50)/i)?.[1], home, away) : null;
     const fly = !moved ? "" : /kickoff/.test(ptype) ? "ko" : intAt != null ? "int" : /punt|kickoff|field goal/.test(ptype) ? "kick" : /\bpass\b/.test(ptype) && !/sack/.test(ptype) ? "pass" : "run";
@@ -1138,7 +1141,7 @@ const Live = (() => {
     const badges = !off ? "" : fly && startC && startC !== off ? badge(startC, " out") + badge(off, " in") : badge(off);
     // the call for the latest play, shown over the field while it's the newest (it pops in when the play is new)
     const pm = /penalty on ([a-z]{2,4})-[^,]*,\s*([^,]+?),\s*(\d+)\s*yards?/i.exec(play.text || "");
-    const isPen = /penalty/.test(ptype), isInc = /incomplete/.test(ptype) && !isPen;
+    const isPen = /penalty/.test(ptype), isInc = /incomplete/.test(ptype) && !isPen && !isTD;
     const call = isTD ? "Touchdown"
       : /field goal|extra point/.test(ptype) ? (/no good|missed|blocked/.test(ptype) ? "No good" : "It's good")
       : /intercept/.test(ptype) ? "Intercepted" : /fumble/.test(ptype) && /recover/.test(ptype) ? "Fumble" : /safety/.test(ptype) ? "Safety"
@@ -1149,7 +1152,7 @@ const Live = (() => {
     const callHtml = call ? `<div class="gcv-call${freshPlay ? " pop" : ""}${isPen ? " flag" : ""}">${esc(call)}</div>` : "";
     // where across the field the play went, from the play text: "pass short right", "pass deep left", "left end", "up the middle"...
     // (the offense's left or right; on screen that depends on which way they're going). The ball goes there, then is spotted back.
-    const ptx = (play.text || "").toLowerCase();
+    const ptx = mainTxt.toLowerCase();
     const pm2 = /pass (?:incomplete )?(short|deep) (left|right|middle)/.exec(ptx);
     const rm2 = /\b(left|right) (end|tackle|guard)\b/.exec(ptx) || (/up the middle|\bmiddle\b/.test(ptx) ? [0, "middle", "guard"] : null);
     const latMag = pm2 ? (pm2[1] === "deep" ? 0.8 : 0.55) : rm2 ? ({ end: 0.85, tackle: 0.45, guard: 0.25 })[rm2[2]] : 0;
@@ -1216,15 +1219,30 @@ const Live = (() => {
     const clock = replaying ? `Replay · ${qn(play.period?.number || per)} ${play.clock?.displayValue || ""}` : isPost ? "Final" : stn === "STATUS_HALFTIME" ? "Halftime" : stn === "STATUS_END_PERIOD" ? (gst.type?.shortDetail || "End of quarter")
       : per ? `${qn(per)} · ${gst.displayClock || ""}` : "";
     // replaying: the score as it stood after this play (ESPN puts it on every play; the latest play that has one),
-    // since the page's own score is the live or final one. It pops when it changes, as the ball lands.
+    // since the page's own score is the live or final one. The points go up in step with the field, matching the
+    // "+6" / "Good +1" pops: the 6 when the touchdown lands, the extra point once it clears the uprights, a two-point
+    // try when it succeeds, a field goal as it clears, anything else (a safety) when the ball stops.
     let scoreHtml = "";
     if (replaying) {
-      const sp = [...(drives.previous || []), ...(drives.current ? [drives.current] : [])].flatMap((d) => d.plays || []).reverse()
-        .find((p) => p.awayScore != null && p.homeScore != null);
-      const a = sp ? +sp.awayScore : 0, h = sp ? +sp.homeScore : 0, key = `${a}-${h}`, prev = gcvRpScore.get(gameId);
-      gcvRpScore.set(gameId, key);
-      const [pa, ph] = (prev || key).split("-").map(Number), n = (v, was, lead) => `<b class="n${lead ? " lead" : ""}${v !== was ? " pop" : ""}">${v}</b>`;
-      scoreHtml = `<span class="gcv-score" aria-label="Score: ${ab(away)} ${a}, ${ab(home)} ${h}">${img(teamLogo(away.team), "xs")}<b>${ab(away)}</b>${n(a, pa, a > h)}<i>–</i>${n(h, ph, h > a)}<b>${ab(home)}</b>${img(teamLogo(home.team), "xs")}</span>`;
+      const ps = [...(drives.previous || []), ...(drives.current ? [drives.current] : [])].flatMap((d) => d.plays || []);
+      const hasSc = (p) => p.awayScore != null && p.homeScore != null, iPl = ps.findIndex((p) => String(p.id) === String(play.id));
+      const after = ps.slice(0, iPl + 1).reverse().find(hasSc), before = ps.slice(0, Math.max(0, iPl)).reverse().find(hasSc);
+      const a = after ? +after.awayScore : 0, h = after ? +after.homeScore : 0, a0 = before ? +before.awayScore : 0, h0 = before ? +before.homeScore : 0;
+      const da = a - a0, dh = h - h0, d = Math.max(da, dh), fgClear = 2.2 * 0.8;
+      const two = /two-point conversion attempt.*?attempt succeeds/i.test(play.text || "");
+      const steps = !freshPlay || d <= 0 ? [] // [seconds in, points so far]
+        : isTD && d > 6 ? [[bt, 6], [patTxt && !two ? bt + 0.8 + fgClear : bt + 1.4, d]]
+        : [[isFG ? fgClear : bt, d]];
+      // each side's number at every step (only the scoring side's goes up), stacked in place: each pops in on time and
+      // the one before it goes away. The other side gets a step too only when who's leading changes (its color).
+      const awayScored = da > 0 && da >= dh, series = (base, scored) => [base, ...steps.map((s) => base + (scored ? s[1] : 0))];
+      const av = steps.length ? series(a0, awayScored) : [a], hv = steps.length ? series(h0, !awayScored) : [h];
+      const cell = (vals, other, popIt) => {
+        const last = vals.length - 1, lead = (k) => vals[k] > other[k];
+        if (!last || (!popIt && vals.every((_, k) => lead(k) === lead(0)))) return `<b class="n${lead(last) ? " lead" : ""}">${vals[last]}</b>`;
+        return `<b class="n stk${popIt ? "" : " quiet"}">${vals.map((v, k) => `<span class="${[k ? "in" : "", k < last ? "out" : "", lead(k) ? "lead" : ""].filter(Boolean).join(" ")}" style="${k ? `--at:${steps[k - 1][0].toFixed(2)}s;` : ""}${k < last ? `--to:${steps[k][0].toFixed(2)}s` : ""}">${v}</span>`).join("")}</b>`;
+      };
+      scoreHtml = `<span class="gcv-score" aria-label="Score: ${ab(away)} ${a}, ${ab(home)} ${h}">${img(teamLogo(away.team), "xs")}<b>${ab(away)}</b>${cell(av, hv, awayScored)}<i>–</i>${cell(hv, av, !awayScored)}<b>${ab(home)}</b>${img(teamLogo(home.team), "xs")}</span>`;
     }
     // the looping glows and bobs are timed off the clock, so the redraw every few seconds doesn't make them jump
     return `<div class="card gcv${isTD ? " td" : ""}" style="--t:-${Date.now() % 26400}ms;--el:-${el}ms;--bt:${bt}s">

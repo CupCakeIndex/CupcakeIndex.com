@@ -1,5 +1,16 @@
 [
   {
+    "version": "1.59.1",
+    "build": 290,
+    "date": "2026-10-13",
+    "items": [
+      "Replay score counter now follows the scoring play: a touchdown adds 6 when the ball lands, then the extra point adds 1 after the kick clears (or 2 when a two-point try succeeds). Field goals count as the kick clears the uprights.",
+      "Fixed two footballs showing on a touchdown when your device has animations turned off (Windows \"Animation effects\" or reduced motion). The field now shows how the play ended: one ball, the call, and the final score, without the extra point ball or the +6 / Good +1 stacked on top.",
+      "At 2x replay speed, a touchdown now waits for the extra point to go through the uprights before the kickoff starts.",
+      "Fixed a second football on touchdowns followed by a failed two-point pass (\"...is incomplete. ATTEMPT FAILS\"). The field was reading the try as part of the touchdown and drew an incomplete pass too."
+    ]
+  },
+  {
     "version": "1.59.0",
     "build": 289,
     "date": "2026-10-13",

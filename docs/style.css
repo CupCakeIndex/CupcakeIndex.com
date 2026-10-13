@@ -1503,8 +1503,17 @@ a.pk-wk:hover { border-color: var(--accent); }
 /* replay score counter (Clean field playback): the score after the play being replayed */
 .gcv-score { display: inline-flex; align-items: center; gap: 6px; font: 700 13px var(--font-head); color: var(--ink); letter-spacing: .04em; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .gcv-score .n { display: inline-block; min-width: 1.3em; text-align: center; font-size: 18px; color: var(--muted); }
-.gcv-score .n.lead { color: var(--accent); }
-.gcv-score .n.pop { animation: gcv-pop .6s ease-out calc(var(--bt, 0s) + var(--el, 0s)) both; }
+.gcv-score .lead { color: var(--accent); }
+/* a scoring play: the numbers stacked in one spot, each popping in on time (6, then the extra point or two-point try) */
+.gcv-score .stk { display: inline-grid; }
+.gcv-score .stk > span { grid-area: 1 / 1; }
+.gcv-score .stk > .in { animation: gcv-pop .6s ease-out calc(var(--at) + var(--el, 0s)) both; }
+.gcv-score .stk > .out { animation: gcv-gone 0s linear calc(var(--to) + var(--el, 0s)) forwards; }
+.gcv-score .stk > .in.out { animation: gcv-pop .6s ease-out calc(var(--at) + var(--el, 0s)) both, gcv-gone 0s linear calc(var(--to) + var(--el, 0s)) forwards; }
+.gcv-score .stk.quiet > .in { animation-name: gcv-show; animation-duration: 0s; } /* the other side only changes color */
+.gcv-score .stk.quiet > .in.out { animation-name: gcv-show, gcv-gone; animation-duration: 0s, 0s; }
+@keyframes gcv-gone { to { opacity: 0; visibility: hidden; } }
+@keyframes gcv-show { from { opacity: 0; } to { opacity: 1; } }
 .gcv-score i { font-style: normal; color: var(--muted); }
 .gcv-stands { position: relative; container-type: inline-size; max-width: 920px; margin: 0 auto 8px; padding: 44px 4% 14px; overflow: hidden; touch-action: pan-y; }
 .gcv-stands.zoomed { touch-action: none; }
@@ -1719,6 +1728,10 @@ details[open] > .gcv-dh::before { transform: rotate(90deg); }
 .gcv-plays li.now.in { animation: gcv-in .6s ease-out both; }
 @keyframes gcv-in { from { transform: translateX(-14px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .gcv *, .gcv *::before { animation: none !important; } }
+/* no animation (Windows "Animation effects" off, common on VMs): show how the play ended, not every piece at once. The pieces that
+   normally fade away go (the touchdown ball before the extra point, the kick, the incomplete pass, the "+6" / "Good +1"), and the
+   replay score shows its final number instead of every step stacked */
+@media (prefers-reduced-motion: reduce) { .gcv .gcv-ballp.patout, .gcv .gcv-ballp.fg, .gcv .gcv-ballp.ghost, .gcv .gcv-pts, .gcv-score .stk > .out { display: none; } }
 @media (max-width: 560px) { .gcv-dd { font-size: 16px; } .gcv-k { min-width: 0; } .gcv-score img { display: none; } .gcv-score .n { font-size: 16px; } }
 .mb-foot { flex-wrap: wrap; }
 .mb-why { flex-basis: 100%; font-size: 10.5px; color: var(--muted); line-height: 1.35; padding-bottom: 2px; }
