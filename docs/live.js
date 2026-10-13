@@ -933,6 +933,11 @@ const Live = (() => {
     }
     if (off && toGo <= 20 && !isTD) svg.push(`<rect class="gcv-rzone" x="${dir > 0 ? X(80) : X(0)}" y="0" width="200" height="${H}"/>`); // red zone glows
     for (let yl = 0; yl <= 100; yl += 10) svg.push(`<line class="gcv-yl${yl === 50 ? " mid" : ""}${yl % 100 ? "" : " goal"}" x1="${X(yl)}" x2="${X(yl)}" y1="0" y2="${H}"/>`);
+    // a tick for every yard along both sidelines (longer every 5), so the exact first-down spot can be read
+    for (let yl = 1; yl < 100; yl++) if (yl % 10) {
+      const len = yl % 5 ? 9 : 16;
+      svg.push(`<line class="gcv-tick" x1="${X(yl)}" x2="${X(yl)}" y1="0" y2="${len}"/><line class="gcv-tick" x1="${X(yl)}" x2="${X(yl)}" y1="${H - len}" y2="${H}"/>`);
+    }
     for (let yl = 10; yl <= 90; yl += 10) svg.push(`<text class="gcv-num" x="${X(yl)}" y="${H - 22}">${yl > 50 ? 100 - yl : yl}</text>`);
     svg.push(`<rect x="0" y="0" width="1200" height="${H}" fill="url(#gcv-light)"/>`); // stadium lights
     if (off && start != null && start !== spot) {

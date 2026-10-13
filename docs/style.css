@@ -1501,6 +1501,7 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-eztx { fill: var(--accent); opacity: .75; font: 700 30px var(--font-head); text-anchor: middle; dominant-baseline: middle; letter-spacing: .08em; }
 .gcv-yl { stroke: var(--line); stroke-width: 2; }
 .gcv-yl.mid { stroke: var(--muted); }
+.gcv-tick { stroke: var(--muted); stroke-width: 2; opacity: .7; }
 .gcv-yl.goal { stroke: var(--accent); stroke-width: 3; }
 .gcv-num { fill: var(--muted); opacity: .8; font: 24px var(--font-head); text-anchor: middle; }
 .gcv-rzone { fill: var(--bad); animation: gcv-breathe 2.4s ease-in-out var(--t, 0s) infinite; }
