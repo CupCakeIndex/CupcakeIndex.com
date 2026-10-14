@@ -264,7 +264,7 @@ const Pickem = (() => {
       <p class="pk-status">${status}</p>
       <div class="br-tools pk-tools">${toggle}<button data-act="clear"${picks.size && !weekLocked ? "" : " disabled"}>Clear picks</button>
         ${cur.mine && !weekLocked ? `<button data-act="lock" class="pk-lockbtn"${picks.size ? "" : " disabled"}>🔒 Lock in my picks</button>` : ""}${Share.menuHtml()}
-        ${list.some((e) => cur.preds.has(String(e.id))) ? `<button data-act="modelimg" title="A picture of every winner our model picks this week">${Share.phone() ? "Share" : "Copy"} our predictions</button>` : ""}</div>
+        ${list.some((e) => cur.preds.has(String(e.id))) ? `<button data-act="modelimg" title="Download a picture of every winner our model picks this week">Share our picks</button>` : ""}</div>
       ${list.length ? `<div class="pk-grid">${list.map(game).join("")}</div>` : `<p class="muted">No games this week.</p>`}
       <p class="note">Tap a team to pick it; tap again to undo. Each game locks at kickoff, and the whole week locks Saturday at 11:59 PM Eastern (or as soon as you tap Lock in). Next week's games show up Sunday for college and Monday at 11:59 PM Eastern for the NFL.
         Your picks get a ✓ or ✗ when the game is final and add to your season record (a tie is void and doesn't count), which stays in this browser unless you clear its data.
@@ -310,7 +310,7 @@ const Pickem = (() => {
       }
     });
     Share.wire(root, { image });
-    // Copy our predictions: the model's picture goes to the clipboard (paste it into X or a text); phones get the share sheet
+    // Share our picks: downloads the model's picture (phones get the share sheet, where Save Image is)
     root.addEventListener("click", async (e) => {
       const btn = e.target.closest('[data-act="modelimg"]');
       if (!btn || btn.disabled) return;
@@ -319,16 +319,13 @@ const Pickem = (() => {
       const done = (t) => { btn.textContent = t; setTimeout(() => { btn.textContent = was; btn.disabled = false; }, 1600); };
       try {
         const { blob, name } = await modelImage();
-        if (Share.phone()) { await Share.download(blob, name); return done(was); }
-        try {
-          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-          done("Copied ✓ (paste it anywhere)");
-        } catch { Share.download(blob, name); done("Saved the picture"); } // browsers that can't copy pictures
+        await Share.download(blob, name);
+        done(was);
       } catch (err) { done(err.message || "Couldn't draw it"); }
     });
   }
 
-  // ---- Copy our predictions: every game on the slate with our model's pick in orange, its win chance and the
+  // ---- Share our picks: every game on the slate with our model's pick in orange, its win chance and the
   // predicted score (✓/✗ once final)
   async function modelImage() {
     const { lg, season, preds } = cur;
