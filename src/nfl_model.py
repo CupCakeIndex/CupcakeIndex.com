@@ -213,18 +213,27 @@ def predict_score(x, margin, S):
     return (total + margin) / 2, (total - margin) / 2
 
 
-def matchup_notes(x, R, S, games, nick, margin):
+def matchup_notes(x, R, S, games, nick, margin, skey=lambda t: t, home_text="worth a little (the home edge is small in today's NFL)"):
     """A few plain-English facts about this one game, for the game page's "Why" box (ranks and per-game numbers,
-    no point spreads). nick: team abbr -> short name ("49ers")."""
+    no point spreads). nick: team -> short name ("49ers"). College: skey maps a team to its score-model key (non-FBS
+    teams are pooled as "FCS", which gets no rank) and R holds FBS teams only."""
     O, D, avg = S
-    rank = lambda vals, t, low=False: 1 + sorted(vals, key=lambda k: vals[k] if low else -vals[k]).index(t)
+    O, D = {k: v for k, v in O.items() if k != "FCS"}, {k: v for k, v in D.items() if k != "FCS"}
+
+    def rank(vals, t, low=False):
+        return 1 + sorted(vals, key=lambda k: vals[k] if low else -vals[k]).index(t) if t in vals else None
+    rk = lambda r: f"#{r}" if r else "FCS"
     h, a = x["home"], x["away"]
     fav, dog = (h, a) if margin >= 0 else (a, h)  # margin: the model's expected home margin (QB changes included)
-    notes = [f"Our ratings: {nick(fav)} #{rank(R, fav)}, {nick(dog)} #{rank(R, dog)}."]
+    notes = [f"Our ratings: {nick(fav)} {rk(rank(R, fav))}, {nick(dog)} {rk(rank(R, dog))}."]
     for off, de in ((fav, dog), (dog, fav)):
-        orank, drank = rank(O, off), rank(D, de, low=True)  # defense: fewest points allowed = #1
-        tag = "strength vs. strength" if orank <= 10 and drank <= 10 else f"edge {nick(off)}" if orank + 8 <= drank else f"edge {nick(de)}" if drank + 8 <= orank else "even"
-        notes.append(f"{nick(off)} offense (#{orank}, about {avg + O[off]:.0f} points a game vs. an average defense) "
+        orank, drank = rank(O, skey(off)), rank(D, skey(de), low=True)  # defense: fewest points allowed = #1
+        if not orank or not drank:
+            continue
+        top = 10 if len(O) <= 40 else 25
+        gap = 8 if len(O) <= 40 else 20
+        tag = "strength vs. strength" if orank <= top and drank <= top else f"edge {nick(off)}" if orank + gap <= drank else f"edge {nick(de)}" if drank + gap <= orank else "even"
+        notes.append(f"{nick(off)} offense (#{orank}, about {avg + O[skey(off)]:.0f} points a game vs. an average defense) "
                      f"against the {nick(de)} defense (#{drank}): {tag}.")
     form = []
     for t in (fav, dog):
@@ -234,12 +243,12 @@ def matchup_notes(x, R, S, games, nick, margin):
             form.append(f"{nick(t)} {res}")
     if form:
         notes.append(f"Last 3 games (newest first): {', '.join(form)}.")
-    for t, qb in ((h, x["hqb"]), (a, x["aqb"])):
-        u = usual_qb(games, t, x["week"])
+    for t, qb in ((h, x.get("hqb")), (a, x.get("aqb"))):
+        u = usual_qb(games, t, x["week"]) if qb else None
         if qb and u and qb != u:
             notes.append(f"{nick(t)}: {qb} expected to start instead of {u}, which the model marks down.")
     if not x["neutral"]:
-        notes.append(f"Home field: {nick(h)}, worth a little (the home edge is small in today's NFL).")
+        notes.append(f"Home field: {nick(h)}, {home_text}.")
     return notes
 
 

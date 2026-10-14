@@ -20,6 +20,7 @@ import tune
 import highlights
 import daily_game
 import cfb_projections
+import cfb_scores
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "data"
@@ -67,6 +68,9 @@ def run_league(league, season, cfg_league, offline):
         by_id = {x["id"]: x for x in ngames}
         adjust = lambda x: nfl_model.qb_adjust(ngames, by_id[x["id"]]) if x["id"] in by_id else 0.0
         nfl_S = nfl_model.season_score_ratings(season)  # predicted scores (offense/defense points)
+    cfb_S = {}
+    if league == "cfb":  # same points model, non-FBS opponents pooled (src/cfb_scores.py)
+        cfb_S = cfb_scores.season_score_ratings(games, prev["games"], teams, prev_teams, last)
 
     out_dir = OUT / league / str(season)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -81,7 +85,20 @@ def run_league(league, season, cfg_league, offline):
             t["cotw_weeks"] = list(cotw_hist.get(t["team"], []))
         S = nfl_S.get(week)
         scores = (lambda x, m, S=S: nfl_model.predict_score(by_id[x["id"]], m, S) if x["id"] in by_id else None) if S else None
-        picks = model.predictions(games, res.pop("ratings"), week, cfg, lines, adjust, res.pop("eff"), scores)
+        CS = cfb_S.get(week)
+        if CS:
+            scores = lambda x, m, CS=CS: cfb_scores.predict(x, m, CS, teams)
+        week_R = res.pop("ratings")
+        picks = model.predictions(games, week_R, week, cfg, lines, adjust, res.pop("eff"), scores)
+        if CS:  # college: game-specific notes for the game page's "Why" box
+            fbs_R = {t: r for t, r in week_R.items() if t in teams}
+            by_cid = {str(x["espn"]): x for x in games}
+            for p in picks:
+                x = by_cid.get(str(p["espn_id"]))
+                if x:
+                    p["notes"] = nfl_model.matchup_notes(x, fbs_R, CS, games, lambda t: t, p["spread"],
+                                                         skey=lambda t: t if t in teams else cfb_scores.FCS,
+                                                         home_text="a real edge in college")
         if S:  # NFL: game-specific notes for the game page's "Why" box
             by_espn = {str(x["espn"]): x for x in ngames if x["espn"]}
             nick = lambda a: name_of.get(a, a).split()[-1]
