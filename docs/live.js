@@ -285,7 +285,7 @@ const Live = (() => {
     };
     const odds = c.odds?.[0];
     const p = preds.get(String(e.id));
-    const model = p && chanceText(p) ? `<span${p.why ? ` title="${esc(p.why)}"` : ""}>Model: ${chanceText(p)}</span>` : "";
+    const model = p && chanceText(p) ? `<span${p.why ? ` title="${esc(p.why)}"` : ""}>Model: ${chanceText(p)}${scorePred(p) ? `, ${scorePred(p)}` : ""}</span>` : "";
     const foot = [odds?.details ? `${esc(odds.details)}${odds.overUnder ? ` · O/U ${esc(odds.overUnder)}` : ""}` : "", model, watch(c.broadcast || c.broadcasts?.[0]?.names?.[0] || "", st)].filter(Boolean).join(" · ");
     return `<a class="game-card ${st}" href="${link("game", e.id)}">
       <div class="gc-status">${st === "in" ? '<span class="live-dot"></span>' : ""}${esc(statusText(e.status, e.date))}</div>
@@ -1631,12 +1631,27 @@ const Live = (() => {
             <span class="clip-title">${esc(v.headline)}</span></a>`).join("")}</div><p class="note">ESPN clips open on espn.com.</p>` : ""}
       </div>`);
     }
+    // our predicted score (NFL), and after the final how far off it was, plus how close it's been all season
+    const predScoreBox = (p) => {
+      if (p?.home_pts == null) return "";
+      const fin = st === "post" && home.score != null && away.score != null;
+      const off = fin ? Math.abs(p.away_pts - +away.score) + Math.abs(p.home_pts - +home.score) : null;
+      const acc = INDEX.leagues[lg].seasons[season]?.accuracy;
+      return `<div class="pred-score">
+          <span class="ps-label">Predicted score</span>
+          <span class="ps-line"><span class="sb-chip" style="--c:${tc.away}"></span>${esc(away.team.abbreviation)} <b>${p.away_pts}</b>
+            <span class="muted">-</span> <b>${p.home_pts}</b> ${esc(home.team.abbreviation)}<span class="sb-chip" style="--c:${tc.home}"></span></span>
+          ${fin ? `<span class="ps-final">Final ${esc(away.score)}-${esc(home.score)} · off by ${off} point${off === 1 ? "" : "s"} in all</span>` : ""}
+        </div>
+        ${acc?.score_mae != null ? `<p class="note">How close we've been: through ${acc.score_games} games this season, each team's predicted score has been off by ${acc.score_mae} points on average. Tested on every game from 2020 to 2025: 7.5.</p>` : ""}`;
+    };
     // odds + model
     const pc = s.pickcenter || [];
     if (pc.length || pred) {
       col.left.push(`<div class="card"><h3>Lines</h3><div class="books">
         ${pc.map((o) => `<span class="book">${esc(o.provider?.name || "Book")}: ${esc(o.details || "—")}${o.overUnder ? ` · O/U ${esc(o.overUnder)}` : ""}</span>`).join("")}
         ${pred && chanceText(pred) ? `<span class="book hot">Cupcake Index model: ${chanceText(pred)}</span>` : ""}</div>
+        ${predScoreBox(pred)}
         ${pred?.why ? `<p class="why"><b>Why:</b> ${esc(pred.why)}</p>` : ""}</div>`);
     }
     // win probability

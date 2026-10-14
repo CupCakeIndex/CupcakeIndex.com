@@ -479,11 +479,12 @@ def comparison(fbs, polls, week, fpi, sp):
     return {t: {"ap": ap.get(t), "coaches": coaches.get(t), "fpi": f.get(t), "sp": s.get(t)} for t in fbs}
 
 
-def predictions(games, ratings, week, cfg, lines=None, adjust=None, eff=None):
+def predictions(games, ratings, week, cfg, lines=None, adjust=None, eff=None, scores=None):
     """Model picks for week+1 games vs. the sportsbooks, graded if they've been played.
 
     `spread` / `vegas` are expected home margins (positive = home favored).
     `edge` = model minus Vegas: positive means the model likes the home side more than the books do.
+    scores(x, spread) -> (home points, away points): the predicted score (NFL so far, src/nfl_model.py).
     """
     out = []
     for x in games:
@@ -498,6 +499,12 @@ def predictions(games, ratings, week, cfg, lines=None, adjust=None, eff=None):
              "pick": x["home"] if spread >= 0 else x["away"]}
         if x["hqb"] or x["aqb"]:
             p.update(home_qb=x["hqb"], away_qb=x["aqb"])
+        sc = scores(x, spread) if scores else None
+        if sc:
+            hp_, ap_ = round(sc[0]), round(sc[1])
+            if hp_ == ap_:  # no predicted ties: the favorite gets the extra point
+                hp_, ap_ = (hp_ + 1, ap_) if spread >= 0 else (hp_, ap_ + 1)
+            p.update(home_pts=hp_, away_pts=ap_)
         books = (lines or {}).get(x["id"])
         if books:
             vegas = -float(np.median([b["spread"] for b in books]))
@@ -512,6 +519,8 @@ def predictions(games, ratings, week, cfg, lines=None, adjust=None, eff=None):
             actual = x["hp"] - x["ap"]
             p.update(actual=actual, correct=(actual > 0) == (spread >= 0) if actual != 0 else None,
                      error=round(abs(actual - spread), 1))
+            if "home_pts" in p:
+                p.update(score_error=abs(p["home_pts"] - x["hp"]) + abs(p["away_pts"] - x["ap"]))
             if books:
                 cover = actual - p["vegas"]  # home margin beyond the line
                 p.update(vegas_correct=(actual > 0) == (p["vegas"] > 0) if actual and p["vegas"] else None,

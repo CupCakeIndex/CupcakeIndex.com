@@ -62,6 +62,7 @@ def load_games(path=RAW / "games.csv"):
                 "hp": hs, "ap": as_, "done": hs is not None and as_ is not None, "neutral": r["location"] == "Neutral",
                 "hqb": r.get("home_qb_name") or None, "aqb": r.get("away_qb_name") or None,
                 "line": _num(r.get("spread_line")),  # books: + = home favored
+                "total_line": _num(r.get("total_line")),
                 "espn": r.get("espn") or None,
             })
     return out
@@ -153,6 +154,81 @@ def predict(x, R, games, P=PARAMS):
     return m, 0.5 * (1 + math.erf(m / (P["sigma"] * math.sqrt(2))))
 
 
+# ------------------------------------------------------------------ predicted scores
+# The margin above says who wins and by how much; this says how many points the game has. Each team gets an
+# offense number (points it scores above average) and a defense number (points it allows above average), fit to
+# this season's scores with opponents adjusted, recent weeks counting more and last season carried over.
+# Predicted total = both offenses vs. both defenses; the two scores split that total by the margin.
+TOTALS = {
+    "pts_cap": 40,         # points; a 52-point blowout says little more about the offense than 40 does
+    "carry_over": 0.7,     # share of last season's offense/defense numbers a team starts with
+    "prior_games": 16,     # last season counts like this many games (chosen by --score-search on 2020-2025)
+    "avg_games": 32,       # league scoring level: last season's average counts like this many games
+    "decay": 0.95,
+}
+
+
+def score_ratings(games, before_week, prior, T=TOTALS):
+    """(offense, defense, league average points per team) from games before `before_week`.
+    prior = (offense, defense, average) from last season, or None."""
+    teams = sorted({x[s] for x in games for s in ("home", "away")})
+    idx = {t: i for i, t in enumerate(teams)}
+    n = len(teams)
+    played = [x for x in games if x["done"] and x["week"] < before_week]
+    last = max((x["week"] for x in played), default=0)
+    po, pd, pavg = prior or ({}, {}, 22.0)
+    A, y = [], []
+    for x in played:  # unknowns: offense[0..n), defense[n..2n), average[2n]
+        w = math.sqrt(T["decay"] ** (last - x["week"]))
+        for us, them, pts in ((x["home"], x["away"], x["hp"]), (x["away"], x["home"], x["ap"])):
+            r = np.zeros(2 * n + 1)
+            r[idx[us]], r[n + idx[them]], r[2 * n] = 1, 1, 1
+            A.append(r * w)
+            y.append(min(pts, T["pts_cap"]) * w)
+    k = math.sqrt(T["prior_games"])
+    for t in teams:
+        for off, val in ((0, po.get(t, 0.0)), (n, pd.get(t, 0.0))):
+            r = np.zeros(2 * n + 1)
+            r[off + idx[t]] = k
+            A.append(r)
+            y.append(k * T["carry_over"] * val)
+    r = np.zeros(2 * n + 1)
+    r[2 * n] = math.sqrt(T["avg_games"])
+    A.append(r)
+    y.append(math.sqrt(T["avg_games"]) * pavg)
+    for off in (0, n):  # offense and defense each average 0
+        r = np.zeros(2 * n + 1)
+        r[off:off + n] = 100.0 / n
+        A.append(r)
+        y.append(0.0)
+    sol, *_ = np.linalg.lstsq(np.array(A), np.array(y), rcond=None)
+    return ({t: float(sol[idx[t]]) for t in teams}, {t: float(sol[n + idx[t]]) for t in teams}, float(sol[2 * n]))
+
+
+def predict_score(x, margin, S):
+    """(home points, away points) for game x, given the expected home margin and score_ratings() output."""
+    O, D, avg = S
+    total = 2 * avg + O.get(x["home"], 0) + D.get(x["away"], 0) + O.get(x["away"], 0) + D.get(x["home"], 0)
+    total = max(total, abs(margin) + 6)  # the loser still scores something
+    return (total + margin) / 2, (total - margin) / 2
+
+
+def final_score_ratings(games, prior, T=TOTALS):
+    return score_ratings(games, 99, prior, T)
+
+
+def season_score_ratings(season, back=4, T=TOTALS):
+    """For the weekly job: {week: score_ratings} after each played week (0 = preseason)."""
+    all_games = load_games()
+    prior = None
+    for s in range(season - back, season):
+        if all_games.get(s):
+            prior = final_score_ratings(all_games[s], prior, T)
+    games = all_games.get(season, [])
+    last = max((x["week"] for x in games if x["done"]), default=0)
+    return {w: score_ratings(games, w + 1, prior, T) for w in range(0, last + 1)}
+
+
 def final_ratings(games, epa, prior_m, prior_e, P=PARAMS):
     """End-of-season (margin, efficiency) ratings, used as next season's prior."""
     _, Rm, Re = ratings(games, epa, 99, prior_m, prior_e, P)
@@ -218,6 +294,65 @@ def backtest(P=PARAMS, seasons=range(2020, 2026), all_games=None, epas=None, qui
     return res
 
 
+def score_backtest(T=TOTALS, seasons=range(2020, 2026), all_games=None, epas=None, quiet=False):
+    """How close the predicted scores were, every week of `seasons`, vs. the books' spread and total."""
+    all_games = all_games or load_games()
+    epas = epas or {s: load_epa(s) for s in range(min(seasons) - 1, max(seasons) + 1)}
+    first = min(seasons) - 1
+    pm, pe = final_ratings(all_games[first], epas.get(first, {}), {}, {})
+    sp = final_score_ratings(all_games[first], None, T)
+    rows = []
+    for s in seasons:
+        games, epa = all_games[s], epas.get(s, {})
+        for w in range(1, 19):
+            wk = [x for x in games if x["week"] == w and x["done"]]
+            if not wk:
+                continue
+            R, _, _ = ratings(games, epa, w, pm, pe)
+            S = score_ratings(games, w, sp, T)
+            for x in wk:
+                m, _ = predict(x, R, games)
+                h, a = predict_score(x, m, S)
+                rows.append((x, round(h), round(a), m, h + a))
+        pm, pe = final_ratings(games, epa, pm, pe)
+        sp = final_score_ratings(games, sp, T)
+    n = len(rows)
+    team_err = sum(abs(h - x["hp"]) + abs(a - x["ap"]) for x, h, a, _, _ in rows) / (2 * n)
+    tot_err = sum(abs(t - x["hp"] - x["ap"]) for x, _, _, _, t in rows) / n
+    mar_err = sum(abs(m - x["hp"] + x["ap"]) for x, _, _, m, _ in rows) / n
+    within7 = sum(abs(h - x["hp"]) <= 7 and abs(a - x["ap"]) <= 7 for x, h, a, _, _ in rows) / n
+    bt = [(x, t) for x, _, _, _, t in rows if x.get("total_line")]
+    books_tot = sum(abs(x["total_line"] - x["hp"] - x["ap"]) for x, _ in bt) / max(1, len(bt))
+    ours_tot = sum(abs(t - x["hp"] - x["ap"]) for x, t in bt) / max(1, len(bt))
+    bm = [(x, m) for x, _, _, m, _ in rows if x["line"] is not None]
+    books_mar = sum(abs(x["line"] - x["hp"] + x["ap"]) for x, _ in bm) / max(1, len(bm))
+    ours_mar = sum(abs(m - x["hp"] + x["ap"]) for x, m in bm) / max(1, len(bm))
+    res = {"games": n, "team_err": team_err, "total_err": tot_err, "margin_err": mar_err, "within7": within7,
+           "books_total_err": books_tot, "ours_total_err_lined": ours_tot, "books_margin_err": books_mar, "ours_margin_err_lined": ours_mar}
+    if not quiet:
+        print(f"  {n} games: each team's score off by {team_err:.1f} pts on average, total off by {tot_err:.1f}, "
+              f"margin off by {mar_err:.1f}; both scores within 7: {within7:.1%}")
+        print(f"  books on the same games: total off by {books_tot:.1f} (ours {ours_tot:.1f}), "
+              f"margin off by {books_mar:.1f} (ours {ours_mar:.1f})")
+    return res
+
+
+def score_search(passes=2):
+    g, e = load_games(), {s: load_epa(s) for s in range(2019, 2026)}
+    grid = {"pts_cap": [35, 40, 45, 60], "carry_over": [0.3, 0.5, 0.7, 0.9], "prior_games": [3, 5, 8, 12, 16],
+            "avg_games": [8, 16, 32, 64, 128], "decay": [0.85, 0.9, 0.95, 1.0]}
+    T = dict(TOTALS)
+    best = score_backtest(T, all_games=g, epas=e, quiet=True)
+    for _ in range(passes):
+        for k, vals in grid.items():
+            for v in vals:
+                r = score_backtest({**T, k: v}, all_games=g, epas=e, quiet=True)
+                if r["total_err"] < best["total_err"] - 1e-6:
+                    best, T = r, {**T, k: v}
+            print(f"  {k}={T[k]}: total off by {best['total_err']:.2f}, team score off by {best['team_err']:.2f}")
+    print(T)
+
+
 OLD = {**PARAMS, "carry_over": 0.65, "prior_games": 3, "prior_fade": 6, "decay": 1.0, "epa_blend": 0.0, "backup_qb": 0.0, "sigma": 13.5}
 
 
@@ -246,9 +381,15 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--backtest", action="store_true")
     ap.add_argument("--search", action="store_true")
+    ap.add_argument("--scores", action="store_true", help="grade the predicted scores")
+    ap.add_argument("--score-search", action="store_true")
     a = ap.parse_args()
     if a.search:
         search()
+    elif a.scores:
+        score_backtest()
+    elif a.score_search:
+        score_search()
     else:
         print("old settings (fading prior, scores only):")
         backtest(OLD)

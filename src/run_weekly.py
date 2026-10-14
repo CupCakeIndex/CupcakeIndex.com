@@ -58,7 +58,7 @@ def run_league(league, season, cfg_league, offline):
     print(f"  {len(teams)} teams, {sum(x['done'] for x in games)} completed games, through week {last}")
 
     # NFL: its own rating model (src/nfl_model.py): last season carries over all year, efficiency + margin, QB changes
-    nfl_R, adjust = {}, None
+    nfl_R, adjust, nfl_S = {}, None, {}
     if league == "nfl":
         nfl_data.ensure_team_stats(range(season - 4, season + 1), refresh_last=not offline)
         byweek, ngames = nfl_model.season_ratings(season)
@@ -66,6 +66,7 @@ def run_league(league, season, cfg_league, offline):
         nfl_R = {w: {name_of.get(a, a): r for a, r in R.items()} for w, R in byweek.items()}
         by_id = {x["id"]: x for x in ngames}
         adjust = lambda x: nfl_model.qb_adjust(ngames, by_id[x["id"]]) if x["id"] in by_id else 0.0
+        nfl_S = nfl_model.season_score_ratings(season)  # predicted scores (offense/defense points)
 
     out_dir = OUT / league / str(season)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -78,7 +79,9 @@ def run_league(league, season, cfg_league, offline):
         res["cupcake_of_week"] = cotw
         for t in res["teams"]:
             t["cotw_weeks"] = list(cotw_hist.get(t["team"], []))
-        picks = model.predictions(games, res.pop("ratings"), week, cfg, lines, adjust, res.pop("eff"))
+        S = nfl_S.get(week)
+        scores = (lambda x, m, S=S: nfl_model.predict_score(by_id[x["id"]], m, S) if x["id"] in by_id else None) if S else None
+        picks = model.predictions(games, res.pop("ratings"), week, cfg, lines, adjust, res.pop("eff"), scores)
         graded += [p for p in picks if "actual" in p]
         res.update(season=season, league=league, predictions=picks,
                    generated=datetime.now(timezone.utc).isoformat(timespec="minutes"))
@@ -121,12 +124,18 @@ def accuracy(graded):
         "ats_strong": record("ats_correct", [p for p in with_line if abs(p["edge"]) >= 3]),
         "vegas_mae": round(sum(abs(p["actual"] - p["vegas"]) for p in with_line) / len(with_line), 1) if with_line else None,
     }
+    scored = [p for p in graded if "score_error" in p]
+    if scored:  # predicted scores: how many points each team's score was off, on average
+        acc["score_games"] = len(scored)
+        acc["score_mae"] = round(sum(p["score_error"] for p in scored) / (2 * len(scored)), 1)
     pct = lambda r: f"{r['correct']}/{r['games']} ({r['correct'] / r['games']:.1%})" if r["games"] else "n/a"
     if graded:
         print(f"  model straight up: {pct(su)}, avg miss {acc['mae']} pts")
         print(f"  on games with a line: model {pct(acc['model_su_lined'])} vs books {pct(acc['vegas_su'])}; "
               f"books avg miss {acc['vegas_mae']} pts")
         print(f"  model vs the spread: {pct(acc['ats'])}; edges of 3+ pts: {pct(acc['ats_strong'])}")
+        if scored:
+            print(f"  predicted scores: each team off by {acc['score_mae']} pts on average ({len(scored)} games)")
     return acc
 
 

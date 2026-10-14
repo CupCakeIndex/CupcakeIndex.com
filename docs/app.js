@@ -225,7 +225,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "292"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "293"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -1576,6 +1576,12 @@ const chanceText = (g) => {
   if (hp == null) return "";
   const home = hp >= 0.5;
   return `${esc(home ? g.home : g.away)} ${chancePct(home ? hp : 1 - hp)} to win`;
+};
+// The model's predicted score, the favorite's points first -> "27-20" (NFL only so far; "" when there isn't one)
+const scorePred = (g) => {
+  if (g?.home_pts == null || g?.away_pts == null) return "";
+  const home = g.home_win_prob != null ? g.home_win_prob >= 0.5 : g.home_pts >= g.away_pts;
+  return home ? `${g.home_pts}-${g.away_pts}` : `${g.away_pts}-${g.home_pts}`;
 };
 
 document.addEventListener("DOMContentLoaded", init);
