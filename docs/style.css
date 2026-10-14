@@ -1499,7 +1499,13 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-spd button { padding: 2px 7px; font: 700 11px var(--font-head); color: var(--muted); background: none; border: 0; cursor: pointer; }
 .gcv-spd button.on { color: var(--on-accent, #000); background: var(--accent); }
 /* game cast replay: Pause / Play (a paused replay freezes every animation where it is) */
-.gcv-pause { padding: 2px 9px; font: 700 11px var(--font-head); color: var(--ink); background: none; border: 1px solid var(--line); cursor: pointer; min-width: 74px; }
+.gcv-pause { color: var(--ink); background: var(--card); border: 1px solid var(--line); cursor: pointer; width: 78px; }
+/* the replay controls line up as one row: same height, type and padding */
+.gcv-rpctl > button, .gcv-rpctl .gcv-spd { height: 26px; box-sizing: border-box; }
+.gcv-rpctl > button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 0 10px; font: 700 11px var(--font-head); letter-spacing: .05em; text-transform: uppercase; line-height: 1; }
+.gcv-rpctl .gcv-spd button { height: 100%; padding: 0 8px; }
+.gcv-rpctl > button { white-space: nowrap; }
+@media (max-width: 560px) { .gcv-rpctl .gcv-bt { display: none; } .gcv-rpctl > button { padding: 0 8px; } .gcv-pause { width: 70px; } }
 .gcv-pause[aria-pressed="true"] { color: var(--on-accent, #000); background: var(--accent); border-color: var(--accent); }
 .gcv-wrap.paused .gcv *, .gcv-wrap.paused .gcv *::before, .gcv-wrap.paused .gcv *::after { animation-play-state: paused !important; }
 .gcv-plays li[data-pid] { cursor: pointer; }
