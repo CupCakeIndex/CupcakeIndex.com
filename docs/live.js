@@ -1643,7 +1643,7 @@ const Live = (() => {
             <span class="muted">-</span> <b>${p.home_pts}</b> ${esc(home.team.abbreviation)}<span class="sb-chip" style="--c:${tc.home}"></span></span>
           ${fin ? `<span class="ps-final">Final ${esc(away.score)}-${esc(home.score)} · off by ${off} point${off === 1 ? "" : "s"} in all</span>` : ""}
         </div>
-        ${acc?.score_mae != null ? `<p class="note">How close we've been: through ${acc.score_games} games this season, each team's predicted score has been off by ${acc.score_mae} points on average. Tested on every game from 2020 to 2025: 7.5.</p>` : ""}`;
+        ${acc?.score_mae != null ? `<p class="note">How close we get: on average, each team's real score lands about ${Math.round(acc.score_mae)} points from our prediction (${acc.score_mae} this season over ${acc.score_games} games, 7.5 over 2020–2025).</p>` : ""}`;
     };
     // odds + model
     const pc = s.pickcenter || [];
