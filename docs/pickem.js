@@ -142,9 +142,14 @@ const Pickem = (() => {
     else if (events.some((e) => state(e) === "pre" && new Date(e.date) - Date.now() < 3600000)) K.poll(() => render(parseHash().params, true), 120000);
   }
 
+  // Which version of our model graded a week ("Our model on your games"). When the model changes, the weekly files are
+  // rebuilt with the new model's picks, and every week graded with an older one gets graded again (catchUp).
+  // NFL 2 = injuries + QB quality (v1.63.0).
+  const MODEL_V = { nfl: 2, cfb: 1 };
+
   function logWeek() {
     const { lg, season, type, week, events, picks, preds } = cur;
-    const log = readLog(lg, season), g = gradeWeek(events, picks, preds);
+    const log = readLog(lg, season), g = { ...gradeWeek(events, picks, preds), mv: MODEL_V[lg] };
     if (g.w + g.l + g.v || log[`${type}:${week}`]) { log[`${type}:${week}`] = g; writeLog(lg, season, log); }
     checkPerfect(lg, season, type, week, cur.key, events, picks, g);
   }
@@ -157,9 +162,9 @@ const Pickem = (() => {
     for (let i = 0; i < n; i++) {
       const k = localStorage.key(i), m = k && k.match(new RegExp(`^pickem-${lg}-${season}-(\\d+)-(\\d+)$`));
       const g = log[`${m?.[1]}:${m?.[2]}`];
-      if (m && !(+m[1] === type && +m[2] === week) && (!g?.done || g.v == null)) todo.push([+m[1], +m[2], k]); // v == null: graded before ties were void, so grade it again
+      if (m && !(+m[1] === type && +m[2] === week) && (!g?.done || g.v == null || (g.mv || 1) < MODEL_V[lg])) todo.push([+m[1], +m[2], k]); // v == null: graded before ties were void; old mv: graded with an older model
     }
-    for (const [t, w, k] of todo.slice(0, 6)) {
+    for (const [t, w, k] of todo.slice(0, 8)) {
       try {
         const q = new URLSearchParams({ seasontype: t, week: w, dates: season });
         if (lg === "cfb") { q.set("groups", "80"); q.set("limit", "300"); }
@@ -170,7 +175,7 @@ const Pickem = (() => {
         if (t === 2 && INDEX.leagues[lg].seasons[season]?.weeks.includes(w - 1)) {
           ((await weekData(lg, season, w - 1).catch(() => null))?.predictions || []).forEach((p) => preds.set(String(p.espn_id), p));
         }
-        const g = gradeWeek(sb.events || [], picks, preds);
+        const g = { ...gradeWeek(sb.events || [], picks, preds), mv: MODEL_V[lg] };
         if (g.w + g.l + g.v) { log[`${t}:${w}`] = g; writeLog(lg, season, log); }
         checkPerfect(lg, season, t, w, k, sb.events || [], picks, g);
       } catch (e) { /* ESPN hiccup: try again next visit */ }
