@@ -130,7 +130,7 @@ const Pickem = (() => {
     });
     const due = deadline(events), mine = !params.has("picks") || params.get("picks") === store.get(key); // a friend's link isn't your record
     const lockedAt = +store.get(`${key}-lock`) || null;
-    cur = { lg, season, type, week, events, picks, preds, ranks, key, mine, due, lockedAt,
+    cur = { lg, season, type, week, events, picks, preds, ranks, key, mine, due, lockedAt, browsing: !!(wk && /^\d+:\d+$/.test(wk)), // browsing: an earlier week from the boxes
       weekLocked: !!lockedAt || (due != null && Date.now() > due), all: lg === "nfl" || params.get("all") === "1" };
     if (mine && picks.size) logWeek();
     if (mine) Leaderboard.publish(lg, season, readLog(lg, season)); // your row on the leaderboard (only if you have a leaderboard name)
@@ -212,7 +212,8 @@ const Pickem = (() => {
         ${MW + ML ? `<span title="Our model's record picking the same games you picked">Our model on your games: <b>${MW}-${ML}</b> · ${beatModel}</span>` : ""}
       </div>
       <div class="pk-weeks">${weeks.map(([k, g]) => `<a class="pk-wk${k === `${type}:${week}` ? " now" : ""}${g.done ? "" : " open"}" href="${link("picks", null, { season, week: k })}" title="${g.done ? "Final" : "Games still to play"}: see your picks">
-        <i style="--p:${pct(g.w, g.l)}%"></i><small>${wkName(k)}</small><b>${g.w}-${g.l}</b></a>`).join("")}</div>
+        <i style="--p:${pct(g.w, g.l)}%"></i><small>${wkName(k)}</small><b>${g.w}-${g.l}</b></a>`).join("")}${cur.browsing
+          ? `<a class="pk-wk pk-this" href="${link("picks")}" title="Back to this week's games"><small>Back to</small><b>This week →</b></a>` : ""}</div>
     </div>`;
   }
 
