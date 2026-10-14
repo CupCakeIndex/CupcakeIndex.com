@@ -1652,7 +1652,9 @@ const Live = (() => {
         ${pc.map((o) => `<span class="book">${esc(o.provider?.name || "Book")}: ${esc(o.details || "—")}${o.overUnder ? ` · O/U ${esc(o.overUnder)}` : ""}</span>`).join("")}
         ${pred && chanceText(pred) ? `<span class="book hot">Cupcake Index model: ${chanceText(pred)}</span>` : ""}</div>
         ${predScoreBox(pred)}
-        ${pred?.why ? `<p class="why"><b>Why:</b> ${esc(pred.why)}</p>` : ""}</div>`);
+        ${pred?.notes?.length ? `<div class="why why-notes"><b>Why we lean ${esc(pred.home_win_prob >= 0.5 ? pred.home : pred.away)}</b>
+          <ul>${pred.notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul></div>`
+          : pred?.why ? `<p class="why"><b>Why:</b> ${esc(pred.why)}</p>` : ""}</div>`);
     }
     // win probability
     const wp = s.winprobability || [];

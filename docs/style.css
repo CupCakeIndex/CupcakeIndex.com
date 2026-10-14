@@ -1758,6 +1758,12 @@ details[open] > .gcv-dh::before { transform: rotate(90deg); }
 .mb-why { flex-basis: 100%; font-size: 10.5px; color: var(--muted); line-height: 1.35; padding-bottom: 2px; }
 .why { margin: 10px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
 .why b { color: var(--ink); }
+/* Game page: the game-specific "Why we lean ..." notes (NFL) */
+.why-notes { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+.why-notes ul { list-style: none; margin: 6px 0 0; padding: 0; }
+.why-notes li { position: relative; padding: 4px 0 4px 14px; border-top: 1px solid var(--line); }
+.why-notes li:first-child { border-top: 0; }
+.why-notes li::before { content: ">"; position: absolute; left: 0; color: var(--accent); }
 /* finished games: green = win, red = loss, yellow = tie (outline + tinted week box, middle and footer) */
 .mbug.res-W { --res: #22c55e; } .mbug.res-L { --res: #ef4444; } .mbug.res-T { --res: #eab308; }
 .mbug[class*="res-"] { border-color: color-mix(in srgb, var(--res) 70%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--res) 25%, transparent); }

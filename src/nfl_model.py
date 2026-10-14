@@ -213,6 +213,36 @@ def predict_score(x, margin, S):
     return (total + margin) / 2, (total - margin) / 2
 
 
+def matchup_notes(x, R, S, games, nick, margin):
+    """A few plain-English facts about this one game, for the game page's "Why" box (ranks and per-game numbers,
+    no point spreads). nick: team abbr -> short name ("49ers")."""
+    O, D, avg = S
+    rank = lambda vals, t, low=False: 1 + sorted(vals, key=lambda k: vals[k] if low else -vals[k]).index(t)
+    h, a = x["home"], x["away"]
+    fav, dog = (h, a) if margin >= 0 else (a, h)  # margin: the model's expected home margin (QB changes included)
+    notes = [f"Our ratings: {nick(fav)} #{rank(R, fav)}, {nick(dog)} #{rank(R, dog)}."]
+    for off, de in ((fav, dog), (dog, fav)):
+        orank, drank = rank(O, off), rank(D, de, low=True)  # defense: fewest points allowed = #1
+        tag = "strength vs. strength" if orank <= 10 and drank <= 10 else f"edge {nick(off)}" if orank + 8 <= drank else f"edge {nick(de)}" if drank + 8 <= orank else "even"
+        notes.append(f"{nick(off)} offense (#{orank}, about {avg + O[off]:.0f} points a game vs. an average defense) "
+                     f"against the {nick(de)} defense (#{drank}): {tag}.")
+    form = []
+    for t in (fav, dog):
+        last = sorted((g for g in games if g["done"] and g["week"] < x["week"] and t in (g["home"], g["away"])), key=lambda g: g["week"])[-3:]
+        if last:
+            res = "-".join("T" if g["hp"] == g["ap"] else "W" if (g["hp"] > g["ap"]) == (g["home"] == t) else "L" for g in reversed(last))
+            form.append(f"{nick(t)} {res}")
+    if form:
+        notes.append(f"Last 3 games (newest first): {', '.join(form)}.")
+    for t, qb in ((h, x["hqb"]), (a, x["aqb"])):
+        u = usual_qb(games, t, x["week"])
+        if qb and u and qb != u:
+            notes.append(f"{nick(t)}: {qb} expected to start instead of {u}, which the model marks down.")
+    if not x["neutral"]:
+        notes.append(f"Home field: {nick(h)}, worth a little (the home edge is small in today's NFL).")
+    return notes
+
+
 def final_score_ratings(games, prior, T=TOTALS):
     return score_ratings(games, 99, prior, T)
 

@@ -82,6 +82,13 @@ def run_league(league, season, cfg_league, offline):
         S = nfl_S.get(week)
         scores = (lambda x, m, S=S: nfl_model.predict_score(by_id[x["id"]], m, S) if x["id"] in by_id else None) if S else None
         picks = model.predictions(games, res.pop("ratings"), week, cfg, lines, adjust, res.pop("eff"), scores)
+        if S:  # NFL: game-specific notes for the game page's "Why" box
+            by_espn = {str(x["espn"]): x for x in ngames if x["espn"]}
+            nick = lambda a: name_of.get(a, a).split()[-1]
+            for p in picks:
+                x = by_espn.get(str(p["espn_id"]))
+                if x:
+                    p["notes"] = nfl_model.matchup_notes(x, byweek[week], S, ngames, nick, p["spread"])
         graded += [p for p in picks if "actual" in p]
         res.update(season=season, league=league, predictions=picks,
                    generated=datetime.now(timezone.utc).isoformat(timespec="minutes"))
