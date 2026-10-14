@@ -267,7 +267,7 @@ def matchup_notes(x, R, S, games, nick, margin, skey=lambda t: t, home_text="wor
             notes.append(f"{nick(t)}: {qb} expected to start instead of {u}, which the model marks down.")
     if F:  # regulars listed Out or Doubtful on the final injury report
         for t in (fav, dog):
-            out = F.out(t, x["season"], x["week"])
+            out = F.out(t, x.get("season"), x["week"])
             if out:
                 notes.append(f"{nick(t)} injuries: {', '.join(out[:4])}{f' and {len(out) - 4} more' if len(out) > 4 else ''} listed out.")
     if not x["neutral"]:

@@ -2443,6 +2443,15 @@ html:not([data-theme-name="mono"]):not([data-theme-name="terminal"]):not([data-t
 .inj-head img.lg { width: 56px; height: 56px; }
 .inj-head b { display: block; font-size: 15px; }
 .inj-big { display: block; font-size: 30px; font-weight: 800; line-height: 1.15; font-variant-numeric: tabular-nums; }
+/* college availability reports (team page, game page, Stats > Injuries) */
+.cfb-st { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 0 6px; border: 1px solid currentColor; margin-left: 4px; text-transform: uppercase; letter-spacing: .03em; }
+.cfb-st.out { color: var(--inj-bad, var(--bad)); }
+.cfb-st.d { color: var(--inj-mid, var(--accent)); }
+.cfb-st.q { color: var(--muted); }
+.cfb-inj-list li { padding: 5px 0; }
+details.cfb-inj { border-top: 1px solid var(--line); padding: 8px 0; }
+details.cfb-inj summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+details.cfb-inj .cfb-cnt { margin-left: auto; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .inj-chart { display: flex; flex-direction: column; gap: 3px; }
 .inj-row { display: grid; grid-template-columns: 26px 74px 1fr 46px 120px; align-items: center; gap: 8px; width: 100%; padding: 4px 6px; background: none; border: 1px solid transparent; color: var(--ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
 .inj-row:hover { background: var(--accent-soft); }

@@ -280,7 +280,7 @@ def explain(parts, us, them):
         return {"power": f"a {adv(v)}stronger team",
                 "efficiency": f"{adv(v)}more efficient play",
                 "home": "home field",
-                "qb": "the other side starting a backup QB"}[k]
+                "qb": "the other side's injuries or backup QB"}[k]
     edges = {us: [], them: []}
     for k, v in sorted(parts.items(), key=lambda kv: -abs(kv[1])):
         if abs(v) >= 0.75:

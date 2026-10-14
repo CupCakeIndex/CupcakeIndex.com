@@ -209,6 +209,23 @@ const Live = (() => {
     return lg === "nfl" ? ranks.byName.get(espnTeam.displayName) : ranks.byId.get(String(espnTeam.id));
   }
 
+  // ---------------------------------------------------------------- college availability reports (src/cfb_injuries.py)
+  // weeks: { "6": { "Alabama": { opp, qb: passing leader, players: [[name, "#4", "QB", status]] } } }
+  let cfbInjP = null;
+  const cfbInj = () => (cfbInjP ||= getJSON(`data/cfb/${INDEX.leagues.cfb.latest.season}/injuries.json`).catch(() => { cfbInjP = null; return null; }));
+  const INJ_ORDER = ["Out", "Out - (1st Half)", "Out (1st Half)", "Doubtful", "Game Time Decision", "Questionable"];
+  const nmKey = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const CFB_INJ_NOTE = "From the conference availability reports: the SEC, ACC, Big 12, Big Ten and MAC publish them for conference games. Anyone not listed is available.";
+  // one team's report for a week (or its latest one): { wk, opp, qb, players }
+  function cfbInjFor(d, team, wk = null) {
+    if (!d?.weeks || !team) return null;
+    const w = wk != null ? (d.weeks[wk]?.[team] ? wk : null) : Object.keys(d.weeks).map(Number).sort((a, b) => b - a).find((k) => d.weeks[k][team]);
+    return w == null ? null : { wk: w, ...d.weeks[w][team] };
+  }
+  const cfbInjList = (r) => `<ul class="inj-list cfb-inj-list">${r.players.slice().sort((a, b) => INJ_ORDER.indexOf(a[3]) - INJ_ORDER.indexOf(b[3])).map(([n, num, pos, st]) =>
+    `<li><div><b>${esc(n)}</b> <small class="muted">${esc([pos, num].filter(Boolean).join(" "))}</small> <span class="cfb-st ${st.startsWith("Out") ? "out" : st === "Doubtful" ? "d" : "q"}">${esc(st)}</span>${r.qb && nmKey(r.qb) === nmKey(n) ? ` <span class="inj-starter" title="This team's passing leader">STARTING QB</span>` : ""}</div></li>`).join("")
+    || `<li class="muted">Nobody listed.</li>`}</ul>`;
+
   // ---------------------------------------------------------------- scores
   const CFB_GROUPS = [["80", "All FBS"], ["top25", "AP Top 25"], ["8", "SEC"], ["5", "Big Ten"], ["4", "Big 12"], ["1", "ACC"],
     ["151", "American"], ["12", "Conference USA"], ["15", "MAC"], ["17", "Mountain West"], ["9", "Pac-12"], ["37", "Sun Belt"], ["18", "Independents"]];
@@ -1781,6 +1798,12 @@ const Live = (() => {
       col.right.push(`<div class="card"><h3>Injuries</h3><div class="box-pair">${inj.map((t) => `<div><b>${esc(t.team?.displayName || "")}</b><ul class="inj">${t.injuries.slice(0, 15).map((i) =>
         `<li><a href="${link("player", i.athlete?.id)}">${esc(i.athlete?.displayName)}</a> <span class="muted">${esc(i.athlete?.position?.abbreviation || "")}</span> ${injTag(i, i.athlete?.id, t.team?.id)}${injInfo(i)?.part ? ` <small class="muted">${esc(injInfo(i).part)}</small>` : ""}</li>`).join("")}</ul></div>`).join("")}</div></div>`);
     }
+    if (!inj.length && lg === "cfb" && st !== "post") {
+      const d = await cfbInj();
+      if (my !== token) return;
+      const reps = [away, home].map((c) => [c, cfbInjFor(d, ourTeam(ranks, lg, c.team)?.team, s.header?.week)]).filter(([, r]) => r);
+      if (reps.length) col.right.push(`<div class="card"><h3>Availability report</h3><div class="box-pair">${reps.map(([c, r]) => `<div><b>${esc(c.team.displayName || c.team.location)}</b>${cfbInjList(r)}</div>`).join("")}</div><p class="note">${CFB_INJ_NOTE}</p></div>`);
+    }
     const oldField = view("game").querySelector(".tecmo"); // same play as last time: keep it so a running animation isn't restarted
     const pbpTop = view("game").querySelector(".gcv-pbp")?.scrollTop || 0; // keep your place in the Clean play-by-play through the refresh
     view("game").innerHTML = `<p><a href="${link("scores")}" class="boxlink">← Scores</a></p>${head}${leadersStrip}<div class="game-cols"><div class="gcol">${col.left.join("")}</div><div class="gcol">${col.right.join("")}</div></div>${col.full.join("")}`;
@@ -2215,8 +2238,19 @@ const Live = (() => {
 
   async function injuries(params, refresh = false) {
     const my = token;
-    if (league !== "nfl") {
-      view("stats").innerHTML = stSubStats("injuries") + `<div class="card">The injury report is NFL only: ESPN doesn't publish one for college. <a href="${link("stats", null, { show: "injuries", league: "nfl" })}">See NFL injuries →</a></div>`;
+    if (league !== "nfl") { // college: the conference availability reports, most banged-up first
+      if (!refresh) view("stats").innerHTML = stSubStats("injuries") + `<div class="card muted">Loading the availability reports…</div>`;
+      const d = await cfbInj();
+      if (my !== token) return;
+      const weeks = Object.keys(d?.weeks || {}).map(Number).sort((a, b) => b - a);
+      const wk = weeks.find((w) => Object.keys(d.weeks[w]).length >= 10) ?? weeks[0]; // early in the week only a few teams have reported
+      const wt = (st) => (st.startsWith("Out") ? 1 : st === "Doubtful" ? 0.75 : 0.3);
+      const rows = wk == null ? [] : Object.entries(d.weeks[wk]).map(([t, r]) => ({ t, ...r, load: r.players.reduce((a, p) => a + wt(p[3]), 0) })).sort((a, b) => b.load - a.load);
+      view("stats").innerHTML = stSubStats("injuries") + `<div class="card"><h2>College availability reports${wk != null ? ` <span class="muted">Week ${wk}</span>` : ""}</h2>
+        ${rows.length ? rows.map((r) => `<details class="cfb-inj"><summary><b>${esc(r.t)}</b> <span class="muted">vs ${esc(r.opp)}</span>
+          <span class="cfb-cnt">${r.players.filter((p) => p[3].startsWith("Out")).length} out · ${r.players.filter((p) => !p[3].startsWith("Out")).length} other</span></summary>${cfbInjList(r)}</details>`).join("")
+          : `<p class="muted">No reports yet.</p>`}
+        <p class="note">${CFB_INJ_NOTE} Each week's reports start two or three days before the game. Tap a team to see its list. <a href="${link("stats", null, { show: "injuries", league: "nfl" })}">NFL injuries →</a></p></div>`;
       return;
     }
     if (!refresh) view("stats").innerHTML = stSubStats("injuries") + `<div class="card muted">Loading every team's injury report and depth chart…</div>`;
@@ -4019,7 +4053,7 @@ const Live = (() => {
     const lg = league, my = token;
     store.set("lastTeam-" + lg, String(id)); // standings open on this team's conference
     const nfl = lg === "nfl";
-    const tab = ["roster", "takes", ...(nfl ? ["depth", "moves", "injuries"] : [])].includes(params.get("tab")) ? params.get("tab") : "schedule";
+    const tab = ["roster", "takes", "injuries", ...(nfl ? ["depth", "moves"] : [])].includes(params.get("tab")) ? params.get("tab") : "schedule";
     loading("team");
     let sch, ros, ranks, extra, takes, starters;
     try {
@@ -4028,7 +4062,7 @@ const Live = (() => {
         api(`${SITE(lg)}/teams/${encodeURIComponent(id)}/roster`, 600000).catch(() => null),
         modelRanks(lg),
         tab === "depth" || (tab === "roster" && nfl) ? api(`${SITE(lg)}/teams/${encodeURIComponent(id)}/depthcharts`, 600000).catch(() => null)
-          : tab === "injuries" ? injData().catch(() => null)
+          : tab === "injuries" ? (nfl ? injData() : cfbInj()).catch(() => null)
           : tab === "moves" ? api(`${SITE(lg)}/transactions?limit=1000`, 1800000).catch(() => null) : null,
         Takes.about("teams", `${lg}:${id}`).catch(() => []), // our X posts about this team (takes.js)
         Takes.starters(`${lg}:${id}`).catch(() => []), // top 25: conversation starters
@@ -4148,7 +4182,10 @@ const Live = (() => {
     const injTeam = tab === "injuries" && Array.isArray(extra) ? extra.find((t) => String(t.id) === String(T.id)) : null;
     const injRank = injTeam ? extra.indexOf(injTeam) + 1 : 0;
     const injAvg = injTeam ? extra.reduce((a, t) => a + t.health, 0) / extra.length : 0;
-    const injHtml = !injTeam ? "" : `<div class="inj-head"><div><span class="inj-big" style="color:${injTeam.health >= 92 ? "var(--inj-good)" : injTeam.health >= 82 ? "var(--inj-mid)" : "var(--inj-bad)"}">Operating at ${Math.round(injTeam.health)}%</span>
+    const cfbRep = !nfl && tab === "injuries" ? cfbInjFor(extra, ourTeam(ranks, lg, T)?.team) : null;
+    const injHtml = !nfl ? (cfbRep ? `<h3>Week ${cfbRep.wk} availability report <span class="muted">vs ${esc(cfbRep.opp)}</span></h3>${cfbInjList(cfbRep)}<p class="note">${CFB_INJ_NOTE}</p>`
+        : `<p class="muted">No availability report for this team yet.</p><p class="note">${CFB_INJ_NOTE}</p>`)
+      : !injTeam ? "" : `<div class="inj-head"><div><span class="inj-big" style="color:${injTeam.health >= 92 ? "var(--inj-good)" : injTeam.health >= 82 ? "var(--inj-mid)" : "var(--inj-bad)"}">Operating at ${Math.round(injTeam.health)}%</span>
         <small class="muted">${injRank === 1 ? "The most banged-up team in the NFL" : `#${injRank} most banged-up of ${extra.length}`} · ${injTeam.keyOut} key player${injTeam.keyOut === 1 ? "" : "s"}, ${injTeam.hurt.length} total on the report · league average ${Math.round(injAvg)}%</small></div></div>
       ${injList(injTeam)}
       <p class="note">Starters, the next man up and regular starters count fully; a QB about 10x a punter. Out or IR counts fully, Doubtful 3/4, Questionable 1/4. <a href="${link("stats", null, { show: "injuries", team: injTeam.team.abbreviation })}">Compare every team →</a></p>`;
@@ -4174,7 +4211,7 @@ const Live = (() => {
     const movesRows = moves.map((t) => `<tr><td class="muted">${esc(new Date(t.date).toLocaleDateString(undefined, { month: "short", day: "numeric" }))}</td><td>${esc(t.description)}</td></tr>`).join("");
     const tabLink = (t, label) => `<a class="subtab${tab === t ? " on" : ""}" href="${link("team", id, { tab: t })}">${label}</a>`;
     view("team").innerHTML = `${hub}
-      <div class="subtabs">${tabLink("schedule", "Schedule")}${tabLink("roster", "Roster")}${nfl ? tabLink("depth", "Depth chart") + tabLink("injuries", "Injuries") + tabLink("moves", "Transactions") : ""}${takes.length || starters.length ? tabLink("takes", `Takes <small>${takes.length + starters.length}</small>`) : ""}</div>
+      <div class="subtabs">${tabLink("schedule", "Schedule")}${tabLink("roster", "Roster")}${nfl ? tabLink("depth", "Depth chart") + tabLink("injuries", "Injuries") + tabLink("moves", "Transactions") : tabLink("injuries", "Injuries")}${takes.length || starters.length ? tabLink("takes", `Takes <small>${takes.length + starters.length}</small>`) : ""}</div>
       <div class="card">${tab === "takes" ? Takes.startersHtml(starters) + (takes.length ? `${starters.length ? `<h3 class="tk-posts-h">From our X account</h3>` : ""}${Takes.list(takes)}` : starters.length ? "" : `<p class="muted">No takes about this team yet.</p>`)
         : tab === "roster"
         ? rosterRows || `<p class="muted">Roster not available.</p>`

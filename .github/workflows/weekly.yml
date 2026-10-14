@@ -24,6 +24,10 @@ on:
     # Thursday 18:37 UTC for Thursday night, Sunday 14:37 UTC (10:37am EDT / 9:37am EST) for Sunday and Monday.
     - cron: "37 18 * 9-12,1 4"
     - cron: "37 14 * 9-12,1 0"
+    # College prediction refreshes after the availability reports (minute 38 = college only, rankings date left alone):
+    # Friday 22:38 UTC (the day-before reports) and Saturday 14:38 UTC (10:38am EDT, before the noon games).
+    - cron: "38 22 * 8-12,1 5"
+    - cron: "38 14 * 8-12,1 6"
   workflow_dispatch:          # "Run workflow" button on GitHub
     inputs:
       season:
@@ -63,7 +67,7 @@ jobs:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           SEASON: ${{ inputs.season }}
           LEAGUE: ${{ github.event_name == 'schedule' && startsWith(github.event.schedule, '37 ') && 'nfl' || github.event_name == 'schedule' && !startsWith(github.event.schedule, '7 13') && 'cfb' || inputs.league || 'all' }}
-          KEEP_DATE: ${{ github.event_name == 'schedule' && startsWith(github.event.schedule, '37 ') && '--keep-date' || '' }}
+          KEEP_DATE: ${{ github.event_name == 'schedule' && (startsWith(github.event.schedule, '37 ') || startsWith(github.event.schedule, '38 ')) && '--keep-date' || '' }}
         run: |
           [[ "$LEAGUE" =~ ^(all|cfb|nfl)$ ]] || LEAGUE=all
           if [[ "$SEASON" =~ ^[0-9]{4}$ ]]; then python src/run_weekly.py --league "$LEAGUE" --season "$SEASON" $KEEP_DATE; else python src/run_weekly.py --league "$LEAGUE" $KEEP_DATE; fi

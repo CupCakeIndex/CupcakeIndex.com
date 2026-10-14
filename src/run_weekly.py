@@ -22,6 +22,7 @@ import highlights
 import daily_game
 import cfb_projections
 import cfb_scores
+import cfb_injuries
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "data"
@@ -77,9 +78,14 @@ def run_league(league, season, cfg_league, offline):
             hp_, ap_ = nfl_model.predict_score(g, m, S)
             w = nfl_features.weather_points({**g, "wind": winds.get(x["id"])}) / 2  # forecast wind, upcoming games only
             return hp_ + w, ap_ + w
-    cfb_S = {}
+    cfb_S, CI = {}, None
     if league == "cfb":  # same points model, non-FBS opponents pooled (src/cfb_scores.py)
         cfb_S = cfb_scores.season_score_ratings(games, prev["games"], teams, prev_teams, last)
+        try:  # availability reports (SEC, ACC, Big 12, Big Ten, MAC): starting QB out and new absences (src/cfb_injuries.py)
+            CI = cfb_injuries.Reports(season, offline)
+            adjust = CI.adjust if CI.reps else None
+        except Exception as e:  # never let the reports block the rankings
+            print(f"  injuries: skipped ({e!r})")
 
     out_dir = OUT / league / str(season)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -107,7 +113,7 @@ def run_league(league, season, cfg_league, offline):
                 if x:
                     p["notes"] = nfl_model.matchup_notes(x, fbs_R, CS, games, lambda t: t, p["spread"],
                                                          skey=lambda t: t if t in teams else cfb_scores.FCS,
-                                                         home_text="a real edge in college")
+                                                         home_text="a real edge in college", F=CI if CI and CI.reps else None)
         if S:  # NFL: game-specific notes for the game page's "Why" box
             by_espn = {str(x["espn"]): x for x in ngames if x["espn"]}
             nick = lambda a: name_of.get(a, a).split()[-1]
@@ -131,6 +137,8 @@ def run_league(league, season, cfg_league, offline):
         # CFB: only games involving ranked/top-30 teams, to stay inside the free YouTube quota
         wanted = None if league == "nfl" else {t["team"] for t in res["teams"] if t["power_rank"] <= 30 or t["ap_rank"]}
         highlights.update(league, season, games, weeks[-1], wanted)
+    if CI and CI.reps:
+        CI.save(out_dir / "injuries.json")
     if league == "cfb" and weeks:
         comp = model.comparison(teams, d["polls"], weeks[-1], d.get("fpi"), d.get("sp"))
         (out_dir / "compare.json").write_text(json.dumps({"week": weeks[-1], "teams": comp}, separators=(",", ":")), encoding="utf-8")
