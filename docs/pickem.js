@@ -263,7 +263,8 @@ const Pickem = (() => {
       ${cur.mine ? seasonPanel() : `<div class="pk-season muted">These are a friend's picks from a shared link. Make your own picks to start your record.</div>`}
       <p class="pk-status">${status}</p>
       <div class="br-tools pk-tools">${toggle}<button data-act="clear"${picks.size && !weekLocked ? "" : " disabled"}>Clear picks</button>
-        ${cur.mine && !weekLocked ? `<button data-act="lock" class="pk-lockbtn"${picks.size ? "" : " disabled"}>🔒 Lock in my picks</button>` : ""}${Share.menuHtml()}</div>
+        ${cur.mine && !weekLocked ? `<button data-act="lock" class="pk-lockbtn"${picks.size ? "" : " disabled"}>🔒 Lock in my picks</button>` : ""}${Share.menuHtml()}
+        ${list.some((e) => cur.preds.has(String(e.id))) ? `<button data-act="modelimg" title="A picture of every winner our model picks this week">${Share.phone() ? "Share" : "Copy"} our predictions</button>` : ""}</div>
       ${list.length ? `<div class="pk-grid">${list.map(game).join("")}</div>` : `<p class="muted">No games this week.</p>`}
       <p class="note">Tap a team to pick it; tap again to undo. Each game locks at kickoff, and the whole week locks Saturday at 11:59 PM Eastern (or as soon as you tap Lock in). Next week's games show up Sunday for college and Monday at 11:59 PM Eastern for the NFL.
         Your picks get a ✓ or ✗ when the game is final and add to your season record (a tie is void and doesn't count), which stays in this browser unless you clear its data.
@@ -309,6 +310,81 @@ const Pickem = (() => {
       }
     });
     Share.wire(root, { image });
+    // Copy our predictions: the model's picture goes to the clipboard (paste it into X or a text); phones get the share sheet
+    root.addEventListener("click", async (e) => {
+      const btn = e.target.closest('[data-act="modelimg"]');
+      if (!btn || btn.disabled) return;
+      const was = btn.textContent;
+      btn.textContent = "Drawing…"; btn.disabled = true;
+      const done = (t) => { btn.textContent = t; setTimeout(() => { btn.textContent = was; btn.disabled = false; }, 1600); };
+      try {
+        const { blob, name } = await modelImage();
+        if (Share.phone()) { await Share.download(blob, name); return done(was); }
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+          done("Copied ✓ (paste it anywhere)");
+        } catch { Share.download(blob, name); done("Saved the picture"); } // browsers that can't copy pictures
+      } catch (err) { done(err.message || "Couldn't draw it"); }
+    });
+  }
+
+  // ---- Copy our predictions: every game on the slate with our model's pick in orange, its win chance and the
+  // predicted score (✓/✗ once final)
+  async function modelImage() {
+    const { lg, season, preds } = cur;
+    const games = slate().filter((e) => preds.has(String(e.id)));
+    if (!games.length) throw new Error("No predictions yet");
+    const pickOf = (e) => { const p = preds.get(String(e.id)); return p.home_win_prob >= 0.5 ? "home" : "away"; };
+    let w = 0, l = 0;
+    games.forEach((e) => {
+      const won = state(e) === "post" && comp(e).competitors.find((c) => c.winner);
+      if (won) won.homeAway === pickOf(e) ? w++ : l++;
+    });
+    const logoUrls = new Map();
+    games.forEach((e) => comp(e).competitors.forEach((c) => logoUrls.set(String(c.team.id), thumb(Live.kit.teamLogo(c.team), 40))));
+    const n = games.length, cols = n <= 4 ? 2 : n <= 9 ? 3 : n <= 20 ? 4 : n <= 40 ? 5 : 6, rows = Math.ceil(n / cols);
+    const blob = await Share.png({
+      title: `OUR ${weekName().toUpperCase()} PREDICTIONS · ${LEAGUE_NAME[lg] || lg.toUpperCase()}`,
+      sub: `${n} game${n === 1 ? "" : "s"} · our pick in orange, with its chance to win and our predicted score` + (w + l ? ` · ${w}-${l} so far` : ""),
+      logoUrls,
+      paint: ({ x, text, F, C, W, H, logos }) => {
+        const ax = 48, ay = 150, aw = W - 96, ah = H - 80 - ay - 20;
+        const gap = rows > 8 ? 8 : 14, cw = (aw - gap * (cols - 1)) / cols, ch = Math.min(96, (ah - gap * (rows - 1)) / rows);
+        const top = ay + (ah - (ch * rows + gap * (rows - 1))) / 2, rh = ch / 2, fs = Math.max(11, Math.min(18, rh * 0.42)), ls = Math.min(26, rh - 8);
+        x.textBaseline = "middle";
+        games.forEach((e, i) => {
+          const p = preds.get(String(e.id)), pick = pickOf(e), st = state(e);
+          const gx = ax + (i % cols) * (cw + gap), gy = top + Math.floor(i / cols) * (ch + gap);
+          const graded = st === "post" && comp(e).competitors.some((c) => c.winner);
+          x.fillStyle = C.card; x.fillRect(gx, gy, cw, ch);
+          x.strokeStyle = C.line; x.lineWidth = 1;
+          x.beginPath(); x.moveTo(gx, gy + rh); x.lineTo(gx + cw, gy + rh); x.stroke();
+          x.strokeRect(gx + 0.5, gy + 0.5, cw - 1, ch - 1);
+          [side(e, "away"), side(e, "home")].forEach((c, r) => {
+            const t = c.team, on = c.homeAway === pick, ry = gy + r * rh, mid = ry + rh / 2, lx = gx + 12;
+            if (on) { x.fillStyle = "#2a1a12"; x.fillRect(gx + 1, ry + 1, cw - 2, rh - 1); x.fillStyle = C.accent; x.fillRect(gx, ry, 4, rh); }
+            const im = logos.get(String(t.id));
+            if (im) x.drawImage(im, lx, mid - ls / 2, ls, ls);
+            else text(String(t.abbreviation || "").slice(0, 4), lx + ls / 2, mid, F(700, 9), C.muted, "center");
+            const pts = p[c.homeAway === "home" ? "home_pts" : "away_pts"];
+            const chance = on ? chancePct(c.homeAway === "home" ? p.home_win_prob : 1 - p.home_win_prob) : "";
+            const mark = graded && on ? fs * 1.4 : 0;
+            x.font = F(400, fs * 0.75);
+            const right = mark + (pts != null ? fs * 1.6 : 0) + (chance && cw > 220 ? x.measureText(chance).width + 10 : 0);
+            let tx = lx + ls + 8;
+            if (r) { text("@", tx, mid, F(400, fs), C.muted); x.font = F(400, fs); tx += x.measureText("@ ").width; }
+            text(tname(lg, t), tx, mid, F(on ? 700 : 400, fs), on ? C.accent : C.muted, "left", gx + cw - tx - right - 12);
+            let rx = gx + cw - 10;
+            if (graded && on) { text(c.winner ? "✓" : "✗", rx, mid, F(700, fs), c.winner ? C.good : C.bad, "right"); rx -= mark; }
+            if (pts != null) { text(String(pts), rx, mid, F(on ? 700 : 400, fs), on ? C.ink : C.muted, "right"); rx -= fs * 1.6; }
+            if (chance && cw > 220) text(chance, rx, mid, F(400, fs * 0.75), C.accent, "right");
+          });
+        });
+        x.textBaseline = "alphabetic";
+        text("Cupcake Index model · just for fun", 48, H - 40, F(400, 14), C.muted);
+      },
+    });
+    return { blob, name: `cupcake-index-${lg}-predictions-${season}-${weekName().toLowerCase().replace(/\s+/g, "")}.png` };
   }
 
   // ---- Save Image: the games you picked as a grid of matchups, your pick in orange, ✓/✗ once final
