@@ -16,6 +16,7 @@ import fetch_data
 import model
 import nfl_data
 import nfl_model
+import nfl_features
 import tune
 import highlights
 import daily_game
@@ -66,8 +67,16 @@ def run_league(league, season, cfg_league, offline):
         name_of = {t["abbr"]: t["school"] for t in d["teams"]}
         nfl_R = {w: {name_of.get(a, a): r for a, r in R.items()} for w, R in byweek.items()}
         by_id = {x["id"]: x for x in ngames}
-        adjust = lambda x: nfl_model.qb_adjust(ngames, by_id[x["id"]]) if x["id"] in by_id else 0.0
+        F = nfl_features.Features([season], refresh_last=not offline, live=True)  # QB quality, injury reports
+        adjust = lambda x: nfl_model.adjustments(by_id[x["id"]], ngames, nfl_model.PARAMS, F) if x["id"] in by_id else 0.0
         nfl_S = nfl_model.season_score_ratings(season)  # predicted scores (offense/defense points)
+        winds = {} if offline else {x["id"]: nfl_features.forecast_wind(x) for x in ngames if x["week"] == last + 1 and not x["done"]}
+
+        def nfl_score(x, m, S):
+            g = by_id[x["id"]]
+            hp_, ap_ = nfl_model.predict_score(g, m, S)
+            w = nfl_features.weather_points({**g, "wind": winds.get(x["id"])}) / 2  # forecast wind, upcoming games only
+            return hp_ + w, ap_ + w
     cfb_S = {}
     if league == "cfb":  # same points model, non-FBS opponents pooled (src/cfb_scores.py)
         cfb_S = cfb_scores.season_score_ratings(games, prev["games"], teams, prev_teams, last)
@@ -84,7 +93,7 @@ def run_league(league, season, cfg_league, offline):
         for t in res["teams"]:
             t["cotw_weeks"] = list(cotw_hist.get(t["team"], []))
         S = nfl_S.get(week)
-        scores = (lambda x, m, S=S: nfl_model.predict_score(by_id[x["id"]], m, S) if x["id"] in by_id else None) if S else None
+        scores = (lambda x, m, S=S: nfl_score(x, m, S) if x["id"] in by_id else None) if S else None
         CS = cfb_S.get(week)
         if CS:
             scores = lambda x, m, CS=CS: cfb_scores.predict(x, m, CS, teams)
@@ -105,7 +114,8 @@ def run_league(league, season, cfg_league, offline):
             for p in picks:
                 x = by_espn.get(str(p["espn_id"]))
                 if x:
-                    p["notes"] = nfl_model.matchup_notes(x, byweek[week], S, ngames, nick, p["spread"])
+                    p["notes"] = nfl_model.matchup_notes(x, byweek[week], S, ngames, nick, p["spread"], F=F)
+        keep_scores(out_dir / f"week_{week}.json", picks)
         graded += [p for p in picks if "actual" in p]
         res.update(season=season, league=league, predictions=picks,
                    generated=datetime.now(timezone.utc).isoformat(timespec="minutes"))
@@ -130,6 +140,21 @@ def run_league(league, season, cfg_league, offline):
             print(f"  projections: skipped ({e!r})")
     print(f"  wrote {len(weeks)} week(s) to {out_dir.relative_to(ROOT)}")
     return weeks, accuracy(graded)
+
+
+def keep_scores(path, picks):
+    """Once a game is played, keep the predicted score that was shown before it (made with that week's forecast and
+    injury report) instead of re-predicting it with hindsight."""
+    try:
+        old = {str(p["espn_id"]): p for p in json.loads(path.read_text(encoding="utf-8"))["predictions"]}
+    except (OSError, ValueError, KeyError):
+        return
+    for p in picks:
+        o = old.get(str(p["espn_id"]))
+        if "actual" in p and o and "home_pts" in o and "home_pts" in p:
+            hs, as_ = p["final"]
+            p["home_pts"], p["away_pts"] = o["home_pts"], o["away_pts"]
+            p["score_error"] = abs(p["home_pts"] - hs) + abs(p["away_pts"] - as_)
 
 
 def accuracy(graded):
@@ -168,6 +193,8 @@ def main():
     ap.add_argument("--league", choices=["cfb", "nfl", "all"], default="all")
     ap.add_argument("--season", type=int, default=default_season())
     ap.add_argument("--offline", action="store_true", help="use cached data only")
+    ap.add_argument("--keep-date", action="store_true",
+                    help="prediction refresh (new injury reports and forecasts): leave the 'Rankings updated' date alone")
     args = ap.parse_args()
 
     cfg_all = yaml.safe_load((ROOT / "src" / "config.yaml").read_text(encoding="utf-8"))
@@ -198,9 +225,10 @@ def main():
                       **({"invert": True} if k in model.INVERTED else {})}
                      for k, lbl, h in model.FACTORS if k in weights],
             default_weights=weights,
-            updated=datetime.now(timezone.utc).isoformat(timespec="minutes"),
+            **({} if args.keep_date and "updated" in L else {"updated": datetime.now(timezone.utc).isoformat(timespec="minutes")}),
         )
-    idx["updated"] = datetime.now(timezone.utc).isoformat(timespec="minutes")
+    if not (args.keep_date and "updated" in idx):
+        idx["updated"] = datetime.now(timezone.utc).isoformat(timespec="minutes")
     idx_file.write_text(json.dumps(idx, indent=1), encoding="utf-8")
     if failed:
         raise SystemExit(f"Failed: {', '.join(failed)}")

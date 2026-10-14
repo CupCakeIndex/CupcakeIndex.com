@@ -36,8 +36,10 @@ PARAMS = {
     "decay": 0.95,         # each older week counts this much of the next newer one
     "epa_blend": 0.5,      # share of the rating that comes from efficiency (EPA/play) instead of scoring margin
     "epa_points": 90,      # 1.0 net EPA/play over a game ~= this many points of margin (0.1 EPA/play ~ 9 pts)
-    "backup_qb": 4.5,      # points off for a team not starting its usual quarterback
+    "backup_qb": 3.0,      # points off for a team not starting its usual quarterback (4.5 before QB quality and injuries)
     "sigma": 13.0,         # spread of NFL results around the prediction, for win chances
+    "qb_epa": 10.0,        # plus points per 1.0 EPA/dropback the fill-in QB has been better/worse than the usual one
+    "injury": 0.5,         # points per full-time starter listed Out or Doubtful (snap-weighted); both chosen on 2013-2019
 }
 
 
@@ -63,6 +65,9 @@ def load_games(path=RAW / "games.csv"):
                 "hqb": r.get("home_qb_name") or None, "aqb": r.get("away_qb_name") or None,
                 "line": _num(r.get("spread_line")),  # books: + = home favored
                 "total_line": _num(r.get("total_line")),
+                "hqb_id": r.get("home_qb_id") or None, "aqb_id": r.get("away_qb_id") or None,
+                "roof": r.get("roof") or None, "temp": _num(r.get("temp")), "wind": _num(r.get("wind")),
+                "gameday": r.get("gameday") or None, "gametime": r.get("gametime") or None,
                 "espn": r.get("espn") or None,
             })
     return out
@@ -134,23 +139,36 @@ def ratings(games, epa, before_week, prior_m, prior_e, P=PARAMS):
     return {t: (1 - b) * Rm[t] + b * Re[t] for t in teams}, Rm, Re
 
 
-def usual_qb(games, team, before_week):
-    """The QB who started most of this team's games so far (None before 2 starts)."""
-    c = Counter((x["hqb"] if x["home"] == team else x["aqb"]) for x in games
+def usual_qb(games, team, before_week, ids=False):
+    """The QB who started most of this team's games so far (None before 2 starts). ids: his nflverse id instead."""
+    h, a = ("hqb_id", "aqb_id") if ids else ("hqb", "aqb")
+    c = Counter((x.get(h) if x["home"] == team else x.get(a)) for x in games
                 if x["done"] and x["week"] < before_week and team in (x["home"], x["away"]))
     c.pop(None, None)
     top = c.most_common(1)
     return top[0][0] if top and top[0][1] >= 2 else None
 
 
-def predict(x, R, games, P=PARAMS):
-    """Expected home margin and home win chance for game x."""
-    m = R.get(x["home"], 0.0) - R.get(x["away"], 0.0) + (0 if x["neutral"] else P["home_field"])
-    for side, sign in (("h", 1), ("a", -1)):
-        team, qb = (x["home"], x["hqb"]) if side == "h" else (x["away"], x["aqb"])
+def adjustments(x, games, P=PARAMS, F=None):
+    """Points to add to the home side's expected margin: QB changes and injuries.
+    F = Features (src/nfl_features.py) or None (then a flat markdown for any QB who isn't the usual starter)."""
+    m = 0.0
+    for team, qb, qid, sign in ((x["home"], x["hqb"], x.get("hqb_id"), 1), (x["away"], x["aqb"], x.get("aqb_id"), -1)):
         u = usual_qb(games, team, x["week"])
         if qb and u and qb != u:
             m -= sign * P["backup_qb"]
+            if F and F.qbs and P.get("qb_epa"):  # how much better or worse this QB has been than the usual one
+                uid = usual_qb(games, team, x["week"], ids=True)
+                if qid and uid:
+                    m += sign * P["qb_epa"] * (F.qbs.value(qid, x["season"], x["week"]) - F.qbs.value(uid, x["season"], x["week"]))
+        if F and P.get("injury"):
+            m -= sign * P["injury"] * F.injury(team, x["season"], x["week"])
+    return m
+
+
+def predict(x, R, games, P=PARAMS, F=None):
+    """Expected home margin and home win chance for game x."""
+    m = R.get(x["home"], 0.0) - R.get(x["away"], 0.0) + (0 if x["neutral"] else P["home_field"]) + adjustments(x, games, P, F)
     return m, 0.5 * (1 + math.erf(m / (P["sigma"] * math.sqrt(2))))
 
 
@@ -213,7 +231,7 @@ def predict_score(x, margin, S):
     return (total + margin) / 2, (total - margin) / 2
 
 
-def matchup_notes(x, R, S, games, nick, margin, skey=lambda t: t, home_text="worth a little (the home edge is small in today's NFL)"):
+def matchup_notes(x, R, S, games, nick, margin, skey=lambda t: t, home_text="worth a little (the home edge is small in today's NFL)", F=None):
     """A few plain-English facts about this one game, for the game page's "Why" box (ranks and per-game numbers,
     no point spreads). nick: team -> short name ("49ers"). College: skey maps a team to its score-model key (non-FBS
     teams are pooled as "FCS", which gets no rank) and R holds FBS teams only."""
@@ -247,6 +265,11 @@ def matchup_notes(x, R, S, games, nick, margin, skey=lambda t: t, home_text="wor
         u = usual_qb(games, t, x["week"]) if qb else None
         if qb and u and qb != u:
             notes.append(f"{nick(t)}: {qb} expected to start instead of {u}, which the model marks down.")
+    if F:  # regulars listed Out or Doubtful on the final injury report
+        for t in (fav, dog):
+            out = F.out(t, x["season"], x["week"])
+            if out:
+                notes.append(f"{nick(t)} injuries: {', '.join(out[:4])}{f' and {len(out) - 4} more' if len(out) > 4 else ''} listed out.")
     if not x["neutral"]:
         notes.append(f"Home field: {nick(h)}, {home_text}.")
     return notes
@@ -274,16 +297,6 @@ def final_ratings(games, epa, prior_m, prior_e, P=PARAMS):
     return Rm, Re
 
 
-def qb_adjust(games, x):
-    """Points to add to the home side's expected margin for backup-QB starts (game x in this module's format)."""
-    adj = 0.0
-    for team, qb, sign in ((x["home"], x["hqb"], 1), (x["away"], x["aqb"], -1)):
-        u = usual_qb(games, team, x["week"])
-        if qb and u and qb != u:
-            adj -= sign * PARAMS["backup_qb"]
-    return adj
-
-
 def season_ratings(season, P=PARAMS, back=4):
     """For the weekly job: {week: {team abbr: rating}} after each played week (0 = preseason), plus this
     season's games in this module's format. Last season's prior is rebuilt from `back` seasons ago."""
@@ -299,7 +312,7 @@ def season_ratings(season, P=PARAMS, back=4):
 
 
 # ------------------------------------------------------------------ backtest
-def backtest(P=PARAMS, seasons=range(2020, 2026), all_games=None, epas=None, quiet=False):
+def backtest(P=PARAMS, seasons=range(2020, 2026), all_games=None, epas=None, quiet=False, F=None):
     all_games = all_games or load_games()
     epas = epas or {s: load_epa(s) for s in range(min(seasons) - 1, max(seasons) + 1)}
     first = min(seasons) - 1
@@ -314,7 +327,7 @@ def backtest(P=PARAMS, seasons=range(2020, 2026), all_games=None, epas=None, qui
                 continue
             R, _, _ = ratings(games, epa, w, pm, pe, P)
             for x in wk:
-                m, p = predict(x, R, games, P)
+                m, p = predict(x, R, games, P, F)
                 act = x["hp"] - x["ap"]
                 if act == 0:
                     continue
@@ -333,7 +346,7 @@ def backtest(P=PARAMS, seasons=range(2020, 2026), all_games=None, epas=None, qui
     return res
 
 
-def score_backtest(T=TOTALS, seasons=range(2020, 2026), all_games=None, epas=None, quiet=False):
+def score_backtest(T=TOTALS, seasons=range(2020, 2026), all_games=None, epas=None, quiet=False, F=None, weather=None):
     """How close the predicted scores were, every week of `seasons`, vs. the books' spread and total."""
     all_games = all_games or load_games()
     epas = epas or {s: load_epa(s) for s in range(min(seasons) - 1, max(seasons) + 1)}
@@ -350,8 +363,10 @@ def score_backtest(T=TOTALS, seasons=range(2020, 2026), all_games=None, epas=Non
             R, _, _ = ratings(games, epa, w, pm, pe)
             S = score_ratings(games, w, sp, T)
             for x in wk:
-                m, _ = predict(x, R, games)
+                m, _ = predict(x, R, games, F=F)
                 h, a = predict_score(x, m, S)
+                if weather:  # wind adjustment (src/nfl_features.py weather_points), split between the two teams
+                    h, a = h + weather(x) / 2, a + weather(x) / 2
                 rows.append((x, round(h), round(a), m, h + a))
         pm, pe = final_ratings(games, epa, pm, pe)
         sp = final_score_ratings(games, sp, T)

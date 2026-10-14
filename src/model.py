@@ -520,7 +520,7 @@ def predictions(games, ratings, week, cfg, lines=None, adjust=None, eff=None, sc
             p.update(actual=actual, correct=(actual > 0) == (spread >= 0) if actual != 0 else None,
                      error=round(abs(actual - spread), 1))
             if "home_pts" in p:
-                p.update(score_error=abs(p["home_pts"] - x["hp"]) + abs(p["away_pts"] - x["ap"]))
+                p.update(score_error=abs(p["home_pts"] - x["hp"]) + abs(p["away_pts"] - x["ap"]), final=[x["hp"], x["ap"]])
             if books:
                 cover = actual - p["vegas"]  # home margin beyond the line
                 p.update(vegas_correct=(actual > 0) == (p["vegas"] > 0) if actual and p["vegas"] else None,
