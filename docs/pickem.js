@@ -325,116 +325,137 @@ const Pickem = (() => {
     });
   }
 
-  // ---- Share our picks: every game on the slate with our model's pick in orange, its win chance and the
-  // predicted score (✓/✗ once final)
+  // ---- Pictures (Save Image and Share our picks): the same card grid, drawn to fill the 1600x900 frame.
+  // Each card: kickoff (or FINAL) on top, then away and home rows; the chosen team gets the orange tint and bar.
+  // opts: { title, sub, stats: [[big, small]], games, chosen(e) -> "home" | "away" | null,
+  //         right(e, c, on) -> [{ t, color, bold, small }] drawn right to left, footer, name }
+  async function gridImage(opts) {
+    const { lg } = cur, games = opts.games;
+    const logoUrls = new Map();
+    games.forEach((e) => comp(e).competitors.forEach((c) => logoUrls.set(String(c.team.id), thumb(Live.kit.teamLogo(c.team), 80))));
+    const n = games.length, cols = n <= 2 ? n : n <= 4 ? 2 : n <= 9 ? 3 : n <= 16 ? 4 : n <= 30 ? 5 : 6, rows = Math.ceil(n / cols);
+    const kick = (e) => {
+      const st = state(e);
+      if (st === "post") return e.status?.type?.shortDetail || "FINAL";
+      if (st === "in") return "LIVE · " + (e.status?.type?.shortDetail || "");
+      return new Date(e.date).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "2-digit" }) + " ET";
+    };
+    const blob = await Share.png({
+      title: opts.title, sub: opts.sub, logoUrls,
+      paint: ({ x, text, F, C, W, H, logos }) => {
+        const rr = (px, py, w, h, r) => { x.beginPath(); if (x.roundRect) x.roundRect(px, py, w, h, r); else x.rect(px, py, w, h); };
+        // stat chips, top right
+        let sx = W - 48;
+        x.textBaseline = "alphabetic";
+        (opts.stats || []).slice().reverse().forEach(([big, small]) => {
+          x.font = F(700, 30); const bw = x.measureText(big).width; x.font = F(400, 13); const sw = x.measureText(small).width;
+          const w = Math.max(bw, sw) + 32, px = sx - w;
+          rr(px, 44, w, 76, 10); x.fillStyle = C.card; x.fill(); x.strokeStyle = C.line; x.lineWidth = 1; x.stroke();
+          text(big, px + w / 2, 86, F(700, 30), C.accent, "center");
+          text(small.toUpperCase(), px + w / 2, 108, F(400, 13), C.muted, "center");
+          sx = px - 12;
+        });
+        // the grid fills everything between the header and the footer
+        const ay = 150, ah = H - 92 - ay, gap = rows > 5 ? 10 : 16;
+        const cw = Math.min(560, (W - 96 - gap * (cols - 1)) / cols), ch = Math.min(190, (ah - gap * (rows - 1)) / rows);
+        const ax = (W - (cw * cols + gap * (cols - 1))) / 2; // a short list stays centered instead of stretching
+        const top = ay + (ah - (ch * rows + gap * (rows - 1))) / 2;
+        const hh = Math.max(18, Math.min(30, ch * 0.2)), rh = (ch - hh) / 2;
+        const fs = Math.max(12, Math.min(26, rh * 0.36)), ls = Math.min(44, rh * 0.62), ks = Math.max(10, Math.min(14, hh * 0.5));
+        games.forEach((e, i) => {
+          const gx = ax + (i % cols) * (cw + gap), gy = top + Math.floor(i / cols) * (ch + gap), pick = opts.chosen(e);
+          x.save();
+          rr(gx, gy, cw, ch, 12); x.fillStyle = C.card; x.fill(); x.clip();
+          x.textBaseline = "middle";
+          text(kick(e).toUpperCase(), gx + 16, gy + hh / 2 + 2, F(400, ks), C.muted, "left", cw - 32);
+          [side(e, "away"), side(e, "home")].forEach((c, r) => {
+            const t = c.team, on = c.homeAway === pick, ry = gy + hh + r * rh, mid = ry + rh / 2;
+            if (on) {
+              const gr = x.createLinearGradient(gx, 0, gx + cw, 0);
+              gr.addColorStop(0, "rgba(255,122,61,0.30)"); gr.addColorStop(1, "rgba(255,122,61,0.06)");
+              x.fillStyle = gr; x.fillRect(gx, ry, cw, rh);
+              x.fillStyle = C.accent; x.fillRect(gx, ry, 5, rh);
+            }
+            if (r) { x.strokeStyle = C.line; x.lineWidth = 1; x.beginPath(); x.moveTo(gx + 14, ry); x.lineTo(gx + cw - 14, ry); x.stroke(); }
+            const lx = gx + 18, im = logos.get(String(t.id));
+            x.globalAlpha = on || !pick ? 1 : 0.55;
+            if (im) x.drawImage(im, lx, mid - ls / 2, ls, ls);
+            else text(String(t.abbreviation || "").slice(0, 4), lx + ls / 2, mid, F(700, fs * 0.5), C.muted, "center");
+            x.globalAlpha = 1;
+            // right side, drawn right to left
+            let rx = gx + cw - 16;
+            for (const part of opts.right(e, c, on)) {
+              const f = F(part.bold ? 700 : 400, part.small ? fs * 0.7 : fs);
+              text(part.t, rx, mid, f, part.color, "right"); x.font = f; rx -= x.measureText(part.t).width + 12;
+            }
+            let tx = lx + ls + 12;
+            if (r) { text("@", tx, mid, F(400, fs * 0.8), C.muted); x.font = F(400, fs * 0.8); tx += x.measureText("@ ").width; }
+            const ap = apRank(c);
+            if (ap) { text(String(ap), tx, mid, F(400, fs * 0.7), C.muted); x.font = F(400, fs * 0.7); tx += x.measureText(String(ap)).width + 6; }
+            text(tname(lg, t), tx, mid, F(on ? 700 : 400, fs), on ? C.accent : C.ink, "left", rx - tx - 4);
+          });
+          x.restore();
+          rr(gx + 0.5, gy + 0.5, cw - 1, ch - 1, 12); x.strokeStyle = C.line; x.lineWidth = 1; x.stroke();
+        });
+        x.textBaseline = "alphabetic";
+        text(opts.footer, 48, H - 40, F(400, 14), C.muted);
+      },
+    });
+    return { blob, name: opts.name };
+  }
+  const graded = (e) => state(e) === "post" && comp(e).competitors.some((c) => c.winner);
+  const fileWeek = () => weekName().toLowerCase().replace(/\s+/g, "");
+
+  // ---- Share our picks: our model's pick in each game on the slate, its win chance and the predicted score
   async function modelImage() {
     const { lg, season, preds } = cur;
     const games = slate().filter((e) => preds.has(String(e.id)));
     if (!games.length) throw new Error("No predictions yet");
-    const pickOf = (e) => { const p = preds.get(String(e.id)); return p.home_win_prob >= 0.5 ? "home" : "away"; };
+    const chosen = (e) => (preds.get(String(e.id)).home_win_prob >= 0.5 ? "home" : "away");
     let w = 0, l = 0;
-    games.forEach((e) => {
-      const won = state(e) === "post" && comp(e).competitors.find((c) => c.winner);
-      if (won) won.homeAway === pickOf(e) ? w++ : l++;
-    });
-    const logoUrls = new Map();
-    games.forEach((e) => comp(e).competitors.forEach((c) => logoUrls.set(String(c.team.id), thumb(Live.kit.teamLogo(c.team), 40))));
-    const n = games.length, cols = n <= 4 ? 2 : n <= 9 ? 3 : n <= 20 ? 4 : n <= 40 ? 5 : 6, rows = Math.ceil(n / cols);
-    const blob = await Share.png({
-      title: `OUR ${weekName().toUpperCase()} PREDICTIONS · ${LEAGUE_NAME[lg] || lg.toUpperCase()}`,
-      sub: `${n} game${n === 1 ? "" : "s"} · our pick in orange, with its chance to win and our predicted score` + (w + l ? ` · ${w}-${l} so far` : ""),
-      logoUrls,
-      paint: ({ x, text, F, C, W, H, logos }) => {
-        const ax = 48, ay = 150, aw = W - 96, ah = H - 80 - ay - 20;
-        const gap = rows > 8 ? 8 : 14, cw = (aw - gap * (cols - 1)) / cols, ch = Math.min(96, (ah - gap * (rows - 1)) / rows);
-        const top = ay + (ah - (ch * rows + gap * (rows - 1))) / 2, rh = ch / 2, fs = Math.max(11, Math.min(18, rh * 0.42)), ls = Math.min(26, rh - 8);
-        x.textBaseline = "middle";
-        games.forEach((e, i) => {
-          const p = preds.get(String(e.id)), pick = pickOf(e), st = state(e);
-          const gx = ax + (i % cols) * (cw + gap), gy = top + Math.floor(i / cols) * (ch + gap);
-          const graded = st === "post" && comp(e).competitors.some((c) => c.winner);
-          x.fillStyle = C.card; x.fillRect(gx, gy, cw, ch);
-          x.strokeStyle = C.line; x.lineWidth = 1;
-          x.beginPath(); x.moveTo(gx, gy + rh); x.lineTo(gx + cw, gy + rh); x.stroke();
-          x.strokeRect(gx + 0.5, gy + 0.5, cw - 1, ch - 1);
-          [side(e, "away"), side(e, "home")].forEach((c, r) => {
-            const t = c.team, on = c.homeAway === pick, ry = gy + r * rh, mid = ry + rh / 2, lx = gx + 12;
-            if (on) { x.fillStyle = "#2a1a12"; x.fillRect(gx + 1, ry + 1, cw - 2, rh - 1); x.fillStyle = C.accent; x.fillRect(gx, ry, 4, rh); }
-            const im = logos.get(String(t.id));
-            if (im) x.drawImage(im, lx, mid - ls / 2, ls, ls);
-            else text(String(t.abbreviation || "").slice(0, 4), lx + ls / 2, mid, F(700, 9), C.muted, "center");
-            const pts = p[c.homeAway === "home" ? "home_pts" : "away_pts"];
-            const chance = on ? chancePct(c.homeAway === "home" ? p.home_win_prob : 1 - p.home_win_prob) : "";
-            const mark = graded && on ? fs * 1.4 : 0;
-            x.font = F(400, fs * 0.75);
-            const right = mark + (pts != null ? fs * 1.6 : 0) + (chance && cw > 220 ? x.measureText(chance).width + 10 : 0);
-            let tx = lx + ls + 8;
-            if (r) { text("@", tx, mid, F(400, fs), C.muted); x.font = F(400, fs); tx += x.measureText("@ ").width; }
-            text(tname(lg, t), tx, mid, F(on ? 700 : 400, fs), on ? C.accent : C.muted, "left", gx + cw - tx - right - 12);
-            let rx = gx + cw - 10;
-            if (graded && on) { text(c.winner ? "✓" : "✗", rx, mid, F(700, fs), c.winner ? C.good : C.bad, "right"); rx -= mark; }
-            if (pts != null) { text(String(pts), rx, mid, F(on ? 700 : 400, fs), on ? C.ink : C.muted, "right"); rx -= fs * 1.6; }
-            if (chance && cw > 220) text(chance, rx, mid, F(400, fs * 0.75), C.accent, "right");
-          });
-        });
-        x.textBaseline = "alphabetic";
-        text("Cupcake Index model · just for fun", 48, H - 40, F(400, 14), C.muted);
+    games.forEach((e) => { const won = graded(e) && comp(e).competitors.find((c) => c.winner); if (won) won.homeAway === chosen(e) ? w++ : l++; });
+    return gridImage({
+      title: `OUR ${weekName().toUpperCase()} PICKS · ${LEAGUE_NAME[lg] || lg.toUpperCase()}`,
+      sub: "Our pick in orange, with its chance to win and our predicted score",
+      stats: [[String(games.length), "games"], ...(w + l ? [[`${w}-${l}`, "so far"]] : [])],
+      games, chosen,
+      right: (e, c, on) => {
+        const p = preds.get(String(e.id)), C = Share.C, out = [];
+        if (graded(e) && on) out.push({ t: c.winner ? "✓" : "✗", color: c.winner ? C.good : C.bad, bold: true });
+        const pts = p[c.homeAway === "home" ? "home_pts" : "away_pts"];
+        if (pts != null) out.push({ t: String(pts), color: on ? C.ink : C.muted, bold: on });
+        if (on) out.push({ t: chancePct(c.homeAway === "home" ? p.home_win_prob : 1 - p.home_win_prob), color: C.accent, small: true });
+        return out;
       },
+      footer: "Cupcake Index model · just for fun",
+      name: `cupcake-index-${lg}-predictions-${season}-${fileWeek()}.png`,
     });
-    return { blob, name: `cupcake-index-${lg}-predictions-${season}-${weekName().toLowerCase().replace(/\s+/g, "")}.png` };
   }
 
-  // ---- Save Image: the games you picked as a grid of matchups, your pick in orange, ✓/✗ once final
+  // ---- Save Image: the games you picked, your pick in orange, ✓/✗ once final
   async function image() {
     const { lg, events, picks, season } = cur;
     const games = events.filter((e) => picks.has(String(e.id)));
     if (!games.length) throw new Error("Pick a game first");
     const [w, l] = record(events, picks);
-    const logoUrls = new Map();
-    games.forEach((e) => comp(e).competitors.forEach((c) => logoUrls.set(String(c.team.id), thumb(Live.kit.teamLogo(c.team), 40))));
-    const n = games.length, cols = n <= 4 ? 2 : n <= 9 ? 3 : n <= 20 ? 4 : n <= 40 ? 5 : 6, rows = Math.ceil(n / cols);
-    const blob = await Share.png({
+    const lg2 = readLog(lg, season), SW = Object.values(lg2).reduce((a, g) => a + g.w, 0), SL = Object.values(lg2).reduce((a, g) => a + g.l, 0);
+    const chosen = (e) => { const id = picks.get(String(e.id)); return comp(e).competitors.find((c) => String(c.team.id) === id)?.homeAway || null; };
+    return gridImage({
       title: `MY ${weekName().toUpperCase()} PICKS · ${LEAGUE_NAME[lg] || lg.toUpperCase()}`,
-      sub: (w + l ? `${w}-${l} this week · ` : "") + `${n} pick${n === 1 ? "" : "s"}` + (() => {
-        const lg2 = readLog(lg, season), W = Object.values(lg2).reduce((a, g) => a + g.w, 0), L = Object.values(lg2).reduce((a, g) => a + g.l, 0);
-        return W + L ? ` · ${W}-${L} on the season` : "";
-      })(),
-      logoUrls,
-      paint: ({ x, text, F, C, W, H, logos }) => {
-        const ax = 48, ay = 150, aw = W - 96, ah = H - 80 - ay - 20;
-        const gap = rows > 8 ? 8 : 14, cw = (aw - gap * (cols - 1)) / cols, ch = Math.min(96, (ah - gap * (rows - 1)) / rows);
-        const top = ay + (ah - (ch * rows + gap * (rows - 1))) / 2, rh = ch / 2, fs = Math.max(11, Math.min(18, rh * 0.42)), ls = Math.min(26, rh - 8);
-        x.textBaseline = "middle";
-        games.forEach((e, i) => {
-          const gx = ax + (i % cols) * (cw + gap), gy = top + Math.floor(i / cols) * (ch + gap), st = state(e);
-          const pickId = picks.get(String(e.id)), graded = st === "post" && comp(e).competitors.some((c) => c.winner);
-          x.fillStyle = C.card; x.fillRect(gx, gy, cw, ch);
-          x.strokeStyle = C.line; x.lineWidth = 1;
-          x.beginPath(); x.moveTo(gx, gy + rh); x.lineTo(gx + cw, gy + rh); x.stroke();
-          x.strokeRect(gx + 0.5, gy + 0.5, cw - 1, ch - 1);
-          [side(e, "away"), side(e, "home")].forEach((c, r) => {
-            const t = c.team, on = String(t.id) === pickId, ry = gy + r * rh, mid = ry + rh / 2, lx = gx + 12;
-            if (on) { x.fillStyle = "#2a1a12"; x.fillRect(gx + 1, ry + 1, cw - 2, rh - 1); x.fillStyle = C.accent; x.fillRect(gx, ry, 4, rh); }
-            const im = logos.get(String(t.id));
-            if (im) x.drawImage(im, lx, mid - ls / 2, ls, ls);
-            else text(String(t.abbreviation || "").slice(0, 4), lx + ls / 2, mid, F(700, 9), C.muted, "center"); // logo didn't load
-            const right = (graded && on ? fs * 1.4 : 0) + fs * (st === "pre" ? 3 : 2.2);
-            const ap = apRank(c), nx = lx + ls + 8;
-            let tx = nx;
-            if (r) { text("@", tx, mid, F(400, fs), C.muted); x.font = F(400, fs); tx += x.measureText("@ ").width; }
-            if (ap) { text(String(ap), tx, mid, F(400, fs * 0.75), C.muted); x.font = F(400, fs * 0.75); tx += x.measureText(String(ap)).width + 6; }
-            text(tname(lg, t), tx, mid, F(on ? 700 : 400, fs), on ? C.accent : C.muted, "left", gx + cw - tx - right - 10);
-            if (st === "pre" && cw > 240) text(c.records?.[0]?.summary || "", gx + cw - 10, mid, F(400, fs * 0.8), C.muted, "right"); // record before kickoff
-            if (st !== "pre") text(String(c.score ?? ""), gx + cw - 10 - (graded && on ? fs * 1.4 : 0), mid, F(c.winner ? 700 : 400, fs), c.winner ? C.ink : C.muted, "right");
-            if (graded && on) text(c.winner ? "✓" : "✗", gx + cw - 10, mid, F(700, fs), c.winner ? C.good : C.bad, "right");
-            else if (st === "post" && on) text("VOID", gx + cw - 10, mid, F(700, fs * 0.6), C.muted, "right"); // a tie
-          });
-        });
-        x.textBaseline = "alphabetic";
-        text("Pick'em · just for fun", 48, H - 40, F(400, 14), C.muted);
+      sub: `${games.length} pick${games.length === 1 ? "" : "s"} · my pick in orange`,
+      stats: [...(w + l ? [[`${w}-${l}`, "this week"]] : []), ...(SW + SL ? [[`${SW}-${SL}`, "season"]] : [])],
+      games, chosen,
+      right: (e, c, on) => {
+        const C = Share.C, st = state(e), out = [];
+        if (graded(e) && on) out.push({ t: c.winner ? "✓" : "✗", color: c.winner ? C.good : C.bad, bold: true });
+        else if (st === "post" && on) out.push({ t: "VOID", color: C.muted, bold: true, small: true }); // a tie
+        if (st === "pre") out.push({ t: c.records?.[0]?.summary || "", color: C.muted, small: true }); // record before kickoff
+        else out.push({ t: String(c.score ?? ""), color: c.winner ? C.ink : C.muted, bold: !!c.winner });
+        return out;
       },
+      footer: "Pick'em · just for fun",
+      name: `cupcake-index-${lg}-pickem-${season}-${fileWeek()}.png`,
     });
-    return { blob, name: `cupcake-index-${lg}-pickem-${season}-${weekName().toLowerCase().replace(/\s+/g, "")}.png` };
   }
 
   return { render, image };
