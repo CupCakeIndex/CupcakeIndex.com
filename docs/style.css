@@ -1510,14 +1510,6 @@ a.pk-wk:hover { border-color: var(--accent); }
 .gcv-mid { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .gcv-clock { font: 700 12px var(--font-head); color: var(--ink); letter-spacing: .06em; padding: 1px 8px; border: 1px solid var(--line); background: var(--bg); font-variant-numeric: tabular-nums; }
 .gcv-rz { color: var(--bad); }
-.gcv-plays li[data-pid] { cursor: pointer; }
-.gcv-plays li[data-pid]:hover { color: var(--ink); background: color-mix(in srgb, var(--accent) 6%, transparent); }
-.gcv-plays li.rp-on { color: var(--ink); border-left: 3px solid var(--accent); padding-left: 8px; background: color-mix(in srgb, var(--accent) 10%, transparent); }
-.gcv-off { display: inline-flex; align-items: center; gap: 6px; }
-.gcv-dd { font-family: var(--font-head); font-size: 20px; color: var(--accent); }
-.gcv-mid { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.gcv-clock { font: 700 12px var(--font-head); color: var(--ink); letter-spacing: .06em; padding: 1px 8px; border: 1px solid var(--line); background: var(--bg); font-variant-numeric: tabular-nums; }
-.gcv-rz { color: var(--bad); }
 /* replay score counter (Clean field playback): the score after the play being replayed */
 .gcv-score { display: inline-flex; align-items: center; gap: 6px; font: 700 13px var(--font-head); color: var(--ink); letter-spacing: .04em; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .gcv-score .n { display: inline-block; min-width: 1.3em; text-align: center; font-size: 18px; color: var(--muted); }
