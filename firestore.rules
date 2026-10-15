@@ -37,15 +37,22 @@ service cloud.firestore {
       allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
     }
     // the Pick'em leaderboard: leaderboard/<league>-<season>-<uid>, one row per player per season. Anyone can read it;
-    // only you can write your row, under a name you own, with sane numbers.
+    // only you can write your row, under a name you own, with sane numbers. Every field is checked (Oct 15): season is a
+    // real year, weeks and perfect are small counts, best is short text like "11-5", updated is the server's timestamp.
     match /leaderboard/{id} {
       allow read: if true;
       allow create, update: if request.auth != null && request.resource.data.uid == request.auth.uid
         && request.resource.data.keys().hasOnly(["uid", "name", "nameKey", "lg", "season", "w", "l", "weeks", "best", "perfect", "updated"])
-        && request.resource.data.lg in ["cfb", "nfl"] && request.resource.data.season is int
+        && request.resource.data.lg in ["cfb", "nfl"]
+        && request.resource.data.season is int && request.resource.data.season >= 2000 && request.resource.data.season <= 2100
         && id == request.resource.data.lg + "-" + string(request.resource.data.season) + "-" + request.auth.uid
         && request.resource.data.w is int && request.resource.data.w >= 0 && request.resource.data.w <= 600
         && request.resource.data.l is int && request.resource.data.l >= 0 && request.resource.data.l <= 600
+        && request.resource.data.weeks is int && request.resource.data.weeks >= 0 && request.resource.data.weeks <= 60
+        && request.resource.data.perfect is int && request.resource.data.perfect >= 0 && request.resource.data.perfect <= 60
+        && request.resource.data.best is string && request.resource.data.best.size() <= 7
+        && request.resource.data.name is string && request.resource.data.name.size() >= 3 && request.resource.data.name.size() <= 20
+        && request.resource.data.updated is timestamp
         && get(/databases/$(database)/documents/names/$(request.resource.data.nameKey)).data.uid == request.auth.uid
         && get(/databases/$(database)/documents/names/$(request.resource.data.nameKey)).data.name == request.resource.data.name;
       allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
