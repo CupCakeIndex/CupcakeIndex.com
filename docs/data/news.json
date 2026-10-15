@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-15T04:40:42Z",
+ "updated": "2026-10-15T05:09:19Z",
  "teams": {
   "nfl:22": {
    "name": "Arizona Cardinals",
@@ -113,6 +113,13 @@
    "id": "13",
    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lv.png"
   },
+  "nfl:24": {
+   "name": "Los Angeles Chargers",
+   "short": "Chargers",
+   "lg": "nfl",
+   "id": "24",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lac.png"
+  },
   "nfl:14": {
    "name": "Los Angeles Rams",
    "short": "Rams",
@@ -210,13 +217,6 @@
    "lg": "cfb",
    "id": "9",
    "logo": "https://cdn.collegefootballdata.com/logos/500/9.png"
-  },
-  "cfb:8": {
-   "name": "Arkansas",
-   "short": "Arkansas",
-   "lg": "cfb",
-   "id": "8",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/8.png"
   },
   "cfb:2": {
    "name": "Auburn",
@@ -316,13 +316,6 @@
    "id": "248",
    "logo": "https://cdn.collegefootballdata.com/logos/500/248.png"
   },
-  "cfb:356": {
-   "name": "Illinois",
-   "short": "Illinois",
-   "lg": "cfb",
-   "id": "356",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/356.png"
-  },
   "cfb:84": {
    "name": "Indiana",
    "short": "Indiana",
@@ -371,6 +364,13 @@
    "lg": "cfb",
    "id": "99",
    "logo": "https://cdn.collegefootballdata.com/logos/500/99.png"
+  },
+  "cfb:97": {
+   "name": "Louisville",
+   "short": "Louisville",
+   "lg": "cfb",
+   "id": "97",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/97.png"
   },
   "cfb:2390": {
    "name": "Miami",
@@ -540,19 +540,19 @@
    "id": "26",
    "logo": "https://cdn.collegefootballdata.com/logos/500/26.png"
   },
+  "cfb:30": {
+   "name": "USC",
+   "short": "USC",
+   "lg": "cfb",
+   "id": "30",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/30.png"
+  },
   "cfb:254": {
    "name": "Utah",
    "short": "Utah",
    "lg": "cfb",
    "id": "254",
    "logo": "https://cdn.collegefootballdata.com/logos/500/254.png"
-  },
-  "cfb:238": {
-   "name": "Vanderbilt",
-   "short": "Vanderbilt",
-   "lg": "cfb",
-   "id": "238",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/238.png"
   },
   "cfb:154": {
    "name": "Wake Forest",
@@ -584,6 +584,57 @@
   }
  },
  "items": [
+  {
+   "title": "Colorado football analysis: OC Brennan Marion maintains confidence in Buffs’ offense",
+   "url": "https://www.on3.com/sites/buff-blitz/news/colorado-football-analysis-oc-brennan-marion-maintains-confidence-in-buffs-offense/",
+   "source": "On3",
+   "league": "cfb",
+   "published": "2026-10-15T04:44:44Z",
+   "summary": "Colorado football beat writer Brian Howell is joined by Leo Rivera of BuffStampede to talk about the Buffs, as offensive coordinator Brennan Marion spoke to media and expressed his confidence in the…",
+   "image": "https://on3static.com/cdn-cgi/image/height=1024,width=1024,quality=90,fit=scale-down,format=auto,metadata=none/uploads/dev/assets/cms/2026/08/27175843/CU-football-1.jpg",
+   "teams": [
+    "cfb:38"
+   ]
+  },
+  {
+   "title": "Broncos vs. Seahawks score predictions for Week 6",
+   "url": "https://sports.yahoo.com/articles/broncos-vs-seahawks-score-predictions-043748209.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-15T04:37:48Z",
+   "summary": "The Denver Broncos will be home underdogs on Thursday Night Football when they take on the defending Super Bowl champion Seattle Seahawks in Week 6. Both teams have stumbled out of the gates…",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/87080d46854a3a4cfa91f5f9cf0bd448.jpg",
+   "teams": [
+    "nfl:26",
+    "nfl:7"
+   ]
+  },
+  {
+   "title": "Opponent Offense Preview: Purdue Boilermakers",
+   "url": "https://sports.yahoo.com/articles/opponent-offense-preview-purdue-boilermakers-043532111.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-15T04:35:32Z",
+   "summary": "It seems like Purdue is finally turning a corner under Coach Brian Odom. A lot of that has to do with improved quarterback play. Ryan Browne has gone from a turnover machine to one of the most…",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/ffad83a8698eb188e1410bf7a3a06986.jpg",
+   "teams": [
+    "cfb:2509",
+    "cfb:135"
+   ]
+  },
+  {
+   "title": "Northwestern vs Michigan State Prediction: Pat Fitzgerald's Moment Against His Former Team",
+   "url": "https://sports.yahoo.com/articles/northwestern-vs-michigan-state-prediction-043152535.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-15T04:31:52Z",
+   "summary": "Northwestern is rolling, and Pat Fitzgerald would love for Michigan State to put a stop to his old team's momentum. Here's the CFN preview and prediction.",
+   "image": "",
+   "teams": [
+    "cfb:127",
+    "cfb:77"
+   ]
+  },
   {
    "title": "WATCH: Head coach Cori Close, players after UCLA’s 87-53 exhibition win at Cal",
    "url": "https://www.on3.com/sites/bruin-report-online/news/watch-head-coach-cori-close-players-after-uclas-87-53-exhibition-win-at-cal/",
@@ -620,6 +671,20 @@
    "teams": [
     "nfl:26",
     "nfl:7"
+   ]
+  },
+  {
+   "title": "Week 7 Big 12 Notebook | All eyes on BYU's top-10 clash with Notre Dame",
+   "url": "https://sports.yahoo.com/articles/week-7-big-12-notebook-035900760.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-15T03:59:00Z",
+   "summary": "All eyes will be on Provo, Utah, Saturday night for one of the biggest games of the college football regular season. BYU hosts Notre Dame in a top-10 showdown with College Football Playoff…",
+   "image": "",
+   "teams": [
+    "cfb:87",
+    "cfb:254",
+    "cfb:252"
    ]
   },
   {
@@ -845,6 +910,18 @@
    "teams": [
     "nfl:27",
     "nfl:23"
+   ]
+  },
+  {
+   "title": "Louisville football: Bowl projections",
+   "url": "https://www.on3.com/sites/cardinal-sports/news/louisville-football-way-to-early-bowl-projections/",
+   "source": "On3",
+   "league": "cfb",
+   "published": "2026-10-15T03:00:00Z",
+   "summary": "Louisville football is being mentioned in all sorts of bowl projections. It's still early but let's take a look at the projections for the Cardinals",
+   "image": "https://on3static.com/cdn-cgi/image/height=1024,width=1024,quality=90,fit=scale-down,format=auto,metadata=none/uploads/dev/assets/cms/2026/10/14234255/IMG_3159.jpg",
+   "teams": [
+    "cfb:97"
    ]
   },
   {
@@ -1138,19 +1215,6 @@
    ]
   },
   {
-   "title": "Michigan State Football: Joe Rossi explains defensive breakdown in OT",
-   "url": "https://www.on3.com/teams/michigan-state-spartans/news/michigan-state-football-joe-rossi-explains-defensive-breakdown-in-ot/",
-   "source": "On3",
-   "league": "cfb",
-   "published": "2026-10-15T01:30:44Z",
-   "summary": "Michigan State defensive coordinator Joe Rossi discusses what went wrong on the overtime breakdown against Illinois, and measures it against other things that happened against the Illini.",
-   "image": "https://on3static.com/cdn-cgi/image/height=1024,width=1024,quality=90,fit=scale-down,format=auto,metadata=none/uploads/dev/assets/cms/2026/10/14202953/rossi-celebrate-nick-king.jpg",
-   "teams": [
-    "cfb:127",
-    "cfb:356"
-   ]
-  },
-  {
    "title": "Bradley Chubb explains his side of altercation with Alaric Jackson",
    "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/bradley-chubb-explains-his-side-of-altercation-with-alaric-jackson",
    "source": "Pro Football Talk",
@@ -1173,16 +1237,6 @@
    "teams": [
     "nfl:11"
    ]
-  },
-  {
-   "title": "No. 1-Ranked JJ Crawford Picks Up UNC Basketball’s First Class of 2029 Offer",
-   "url": "https://www.on3.com/teams/north-carolina-tar-heels/news/no-1-ranked-jj-crawford-picks-up-unc-basketballs-first-class-of-2029-offer/",
-   "source": "On3",
-   "league": "cfb",
-   "published": "2026-10-15T01:21:43Z",
-   "summary": "JJ Crawford, the son of a former NBA player coached by Michael Malone, got the offer call from the Tar Heel head coach on Wednesday.",
-   "image": "https://on3static.com/cdn-cgi/image/height=1024,width=1024,quality=90,fit=scale-down,format=auto,metadata=none/uploads/dev/assets/cms/2026/07/29164740/usa5-4.jpg",
-   "teams": []
   },
   {
    "title": "Staff Roundtable: Who is Purdue Football’s Most Improved?",
@@ -1285,6 +1339,18 @@
    ]
   },
   {
+   "title": "USC Quarterback Jayden Maiava Sends Honest Pitch to NFL Scouts",
+   "url": "https://sports.yahoo.com/articles/usc-quarterback-jayden-maiava-sends-010057944.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-15T01:00:57Z",
+   "summary": "The USC Trojans quarterback Jayden Maiava dropped this sales pitch to the league general managers who are looking at him closely.",
+   "image": "https://media.zenfs.com/en/usc_trojans_on_si_articles_602/a3f62c3254e655e3959124386f2d2a68.jpg",
+   "teams": [
+    "cfb:30"
+   ]
+  },
+  {
    "title": "NFL Week 6 injury report: Broncos' Patrick Surtain, Talanoa Hufanga ruled out",
    "url": "https://www.cbssports.com/nfl/news/nfl-week-6-injury-report-broncos-patrick-surtain-talanoa-hufanga-ruled-out/",
    "source": "CBS Sports",
@@ -1348,45 +1414,6 @@
    ]
   },
   {
-   "title": "Ohio State down two key players against Indiana | Buckeyes Wire",
-   "url": "https://sports.yahoo.com/articles/ohio-state-down-two-key-005348888.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-15T00:53:48Z",
-   "summary": "The initial Big Ten availability report came out on Wednesday for Ohio State's matchup vs. Indiana. The Buckeyes are dealing with some health issues.",
-   "image": "",
-   "teams": [
-    "cfb:194",
-    "cfb:84"
-   ]
-  },
-  {
-   "title": "Florida State and Miami release initial availability report ahead of Saturday night showdown",
-   "url": "https://sports.yahoo.com/articles/florida-state-miami-release-initial-005210709.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-15T00:52:10Z",
-   "summary": "Florida State football (3-3, 1-2) will have its hands full on Saturday against #3 Miami (5-0, 3-0), as head coach Mike Norvell looks to quiet the noise ahead of FSU’s second bye week. On Wednesday…",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/8cf1cfad6828b245562928efd074a26a.jpg",
-   "teams": [
-    "cfb:52",
-    "cfb:2390"
-   ]
-  },
-  {
-   "title": "Vanderbilt football injury report vs Arkansas, Blaze Berlowitz, others out",
-   "url": "https://sports.yahoo.com/articles/vanderbilt-football-injury-report-vs-004909686.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-15T00:49:09Z",
-   "summary": "See the Vanderbilt football injury report for its matchup with Arkansas at FirstBank Stadium.",
-   "image": "",
-   "teams": [
-    "cfb:238",
-    "cfb:8"
-   ]
-  },
-  {
    "title": "Broncos vs. Seahawks injury report: Riley Moss questionable for TNF game",
    "url": "https://sports.yahoo.com/articles/broncos-vs-seahawks-injury-report-004637997.html",
    "source": "Yahoo Sports",
@@ -1411,27 +1438,30 @@
    "teams": []
   },
   {
-   "title": "Rams LB Nate Landman was limited in Wednesday's practice",
-   "url": "https://sports.yahoo.com/articles/rams-lb-nate-landman-limited-004415348.html",
+   "title": "Rams’ Alaric Jackson wins appeal as Bradley Chubb reveals what sparked fight",
+   "url": "https://sports.yahoo.com/articles/rams-alaric-jackson-wins-appeal-004429710.html",
    "source": "Yahoo Sports",
    "league": "nfl",
-   "published": "2026-10-15T00:44:15Z",
-   "summary": "The Rams did not practice Wednesday, two days after losing to the Bills in overtime.",
-   "image": "",
+   "published": "2026-10-15T00:44:29Z",
+   "summary": "Rams tackle Alaric Jackson wins his NFL appeal, reducing his two-game suspension to one after punching Bills linebacker Bradley Chubb following MNF.",
+   "image": "https://media.zenfs.com/en/ny_post_sports_articles_389/2e5682f3bb57f576d25b24c1695c0bb4.jpg",
    "teams": [
     "nfl:2",
     "nfl:14"
    ]
   },
   {
-   "title": "8 things to know about UND's next opponent No. 1 South Dakota State",
-   "url": "https://sports.yahoo.com/articles/8-things-know-unds-next-003800963.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-15T00:38:00Z",
-   "summary": "Oct. 14—GRAND FORKS — The UND football program will look to bounce back Saturday when the Fighting Hawks host the No. 1-ranked team in the FCS. South Dakota State comes to the Alerus Center for a 1…",
-   "image": "",
-   "teams": []
+   "title": "Rams LB Nate Landman was limited in Wednesday's practice",
+   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/rams-lb-nate-landman-was-limited-in-wednesdays-practice",
+   "source": "Pro Football Talk",
+   "league": "nfl",
+   "published": "2026-10-15T00:44:15Z",
+   "summary": "The Rams did not practice Wednesday, two days after losing to the Bills in overtime.",
+   "image": "https://nbcsports.brightspotcdn.com/dims4/default/b614212/2147483647/strip/false/crop/3000x1688+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2Ffd%2Fdf%2F32e938964999aec8f8aeb4cc3a11%2F2300068034.jpg",
+   "teams": [
+    "nfl:2",
+    "nfl:14"
+   ]
   },
   {
    "title": "Bears offense searching for consistency",
@@ -1443,6 +1473,18 @@
    "image": "https://media.zenfs.com/en/sb_nation_articles_115/66a0fb303444355160ca34cc68fd0f3e.jpg",
    "teams": [
     "nfl:3"
+   ]
+  },
+  {
+   "title": "Hall of Fame QB uncovers real reasons for Chargers star Justin Herbert’s massive fall from grace",
+   "url": "https://sports.yahoo.com/articles/hall-fame-qb-uncovers-real-002513161.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-15T00:25:13Z",
+   "summary": "The Justin Herbert-Mike McDaniel pairing has been disastrous. The Chargers quarterback looks lost through the first five weeks of the season in a new system under McDaniel. Hall of Famer...",
+   "image": "https://media.zenfs.com/en/ny_post_sports_articles_389/0da0049d3583c8e56de63efc749016c7.jpg",
+   "teams": [
+    "nfl:24"
    ]
   },
   {
@@ -1471,19 +1513,6 @@
    ]
   },
   {
-   "title": "Rams' Alaric Jackson has suspension reduced to one game",
-   "url": "https://sports.yahoo.com/articles/rams-alaric-jackson-suspension-reduced-002033459.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-15T00:20:33Z",
-   "summary": "The veteran left tackle punched Bills linebacker Bradley Chubb after an overtime loss on Sunday and was originally give two-game suspension.",
-   "image": "https://media.zenfs.com/en/la_times_articles_853/f4ab72e4365144286a116909c78fcf24.jpg",
-   "teams": [
-    "nfl:2",
-    "nfl:14"
-   ]
-  },
-  {
    "title": "Oregon rules Dante Moore 'out' against Nebraska as QB competition looms",
    "url": "https://www.cbssports.com/college-football/news/oregon-qb-dante-moore-out-nebraska-competition/",
    "source": "CBS Sports",
@@ -1494,18 +1523,6 @@
    "teams": [
     "cfb:158",
     "cfb:2483"
-   ]
-  },
-  {
-   "title": "How would you grade the 2026 Bengals through the first 5 games?",
-   "url": "https://sports.yahoo.com/articles/grade-2026-bengals-first-5-000437283.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-15T00:04:37Z",
-   "summary": "Do the Bengals get a passing grade so far?",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/27bef34111e4dfebb10a7b369498ffc5.jpg",
-   "teams": [
-    "nfl:4"
    ]
   },
   {
@@ -1754,16 +1771,6 @@
    "teams": [
     "nfl:22"
    ]
-  },
-  {
-   "title": "Mike Tomlin's interpretation of players-only meetings: \"I think you're dead\"",
-   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/mike-tomlins-interpretation-of-players-only-meetings-i-think-youre-dead",
-   "source": "Pro Football Talk",
-   "league": "nfl",
-   "published": "2026-10-14T20:14:55Z",
-   "summary": "\"The fact that you hear about it is what makes it BS,\" Tomiin said on the New Heights podcast.",
-   "image": "https://nbcsports.brightspotcdn.com/dims4/default/c23f719/2147483647/strip/false/crop/2455x1381+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F06%2F88%2F9bab961c4fefab0b54897a9aa8f5%2F2296029721.jpg",
-   "teams": []
   },
   {
    "title": "Shedeur Sanders just made a curious move that could signal a trade is coming in Cleveland",
@@ -2188,7 +2195,7 @@
    "source": "SB Nation",
    "league": "nfl",
    "published": "2026-10-13T21:01:16Z",
-   "summary": "Update: Following an appeal, the suspension has been reduced to one game. Previously: The NFL has suspended Los Angeles Rams offensive lineman Alaric Jackson two games, without pay, for punching…",
+   "summary": "The NFL has suspended Los Angeles Rams offensive lineman Alaric Jackson two games, without pay, for punching Buffalo Bills pass rusher Bradley Chubb following Monday night’s game between the two…",
    "image": "https://platform.sbnation.com/wp-content/uploads/sites/2/2026/10/Screenshot-2026-10-13-at-4.59.21-PM.png?quality=90&strip=all&crop=0,0,100,100",
    "teams": [
     "nfl:14",
