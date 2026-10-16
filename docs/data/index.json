@@ -217,28 +217,28 @@
       5
      ],
      "accuracy": {
-      "games": 62,
+      "games": 63,
       "correct": 36,
-      "mae": 9.5,
+      "mae": 9.6,
       "vegas_su": {
-       "games": 62,
+       "games": 63,
        "correct": 38
       },
       "model_su_lined": {
-       "games": 62,
+       "games": 63,
        "correct": 36
       },
       "ats": {
        "games": 58,
-       "correct": 31
+       "correct": 30
       },
       "ats_strong": {
-       "games": 13,
+       "games": 12,
        "correct": 5
       },
-      "vegas_mae": 9.4,
-      "score_games": 63,
-      "score_mae": 7.3
+      "vegas_mae": 9.3,
+      "score_games": 64,
+      "score_mae": 7.2
      }
     }
    },
@@ -250,7 +250,7 @@
     {
      "key": "power",
      "label": "Power",
-     "help": "Team strength in points from our NFL model: opponent-adjusted scoring margin (capped at 17) blended with EPA per play, with last season carried over and recent weeks counting a bit more."
+     "help": "Team strength in points from our NFL model: opponent-adjusted scoring margin (capped at 17) blended with EPA per play, with last season carried over, recent weeks counting a bit more, and a small boost (or ding) for the head coach."
     },
     {
      "key": "resume",
@@ -286,7 +286,7 @@
     "recent": 10,
     "luck": 5
    },
-   "updated": "2026-10-12T16:00+00:00",
+   "updated": "2026-10-16T11:48+00:00",
    "modes": {
     "best": {
      "power": 75,
@@ -300,22 +300,22 @@
      "resume": 71,
      "sos": 29
     },
-    "games": 317,
+    "games": 318,
     "accuracy": {
-     "best": 0.6182965299684543,
-     "deserving": 0.6277602523659306,
-     "old_default": 0.6182965299684543,
-     "power_only": 0.6360759493670886
+     "best": 0.6226415094339622,
+     "deserving": 0.6289308176100629,
+     "old_default": 0.6132075471698113,
+     "power_only": 0.6435331230283912
     },
     "out_of_sample": {
      "trained_on": 2025,
      "tested_on": 2026,
-     "games": 62,
-     "best": 0.5645161290322581,
-     "old_default": 0.5806451612903226
+     "games": 63,
+     "best": 0.5238095238095238,
+     "old_default": 0.5555555555555556
     }
    }
   }
  },
- "updated": "2026-10-12T16:00+00:00"
+ "updated": "2026-10-16T11:48+00:00"
 }
