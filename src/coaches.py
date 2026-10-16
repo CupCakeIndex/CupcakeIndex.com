@@ -8,6 +8,8 @@ For each coach, career and last 3 seasons: record, postseason record, titles, re
 with a winning record, wins over expected, one-score games, how many of his wins came against cupcakes (losing
 teams, and FCS teams in college), and how much better his teams were than the year before he got there.
 
+Each coach has three sets: with his current team (the page's default), all time, and the last 3 seasons.
+
 Coach score (0-100, 50 = average coach with enough games):
   35% wins over expected   NFL: the books' lines going into each game. College: our ratings from the year before
                            (did he beat where the program was?).
@@ -34,7 +36,7 @@ HIST = ROOT / "data" / "history"
 MOVED = {"OAK": "LV", "SD": "LAC", "STL": "LA"}
 NAME_FIX = {"Klint Kubliak": "Klint Kubiak"}  # nflverse typos
 WEIGHTS = {"woe": 0.35, "good": 0.30, "post": 0.15, "lift": 0.10, "cup": -0.10}
-MIN_GAMES = {"nfl": {"c": 34, "r": 17}, "cfb": {"c": 24, "r": 12}}  # fewer games: listed, but no score
+MIN_GAMES = {"nfl": {"c": 34, "r": 17, "t": 17}, "cfb": {"c": 24, "r": 12, "t": 12}}  # c = all time, r = last 3 seasons, t = current team  # fewer games: listed, but no score
 
 
 def season_now():
@@ -235,12 +237,15 @@ def build(lg, rows, current, fbs=None, edge=None):
             else:
                 stints.append([x[2], x[0], x[0]])
         recent = [x for x in games if x[0] > now - 3]
-        c = {"n": NAME_FIX.get(name, name), "tm": active.get(name) or stints[-1][0], "on": name in active, "st": stints,
-             "c": stats(games, rec, fbs, coach_of), "r": stats(recent, rec, fbs, coach_of) if recent else None}
+        tm = active.get(name) or stints[-1][0]
+        here = [x for x in games if x[2] == tm]  # just his current (or last) team
+        c = {"n": NAME_FIX.get(name, name), "tm": tm, "on": name in active, "st": stints,
+             "c": stats(games, rec, fbs, coach_of), "r": stats(recent, rec, fbs, coach_of) if recent else None,
+             "t": stats(here, rec, fbs, coach_of) if here else None}
         if edge and name in active:
             c["edge"] = round(edge(name), 2)
         out.append(c)
-    for sc in ("c", "r"):
+    for sc in ("c", "r", "t"):
         score(out, sc, MIN_GAMES[lg][sc])
     out.sort(key=lambda c: (not c["on"], -(c["c"].get("score") or 0), -c["c"]["g"]))
     print(f"  {lg}: {len(out)} coaches, {sum(c['on'] for c in out)} current, {sum('score' in c['c'] for c in out)} with a career score")

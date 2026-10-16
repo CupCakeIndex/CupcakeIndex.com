@@ -31,7 +31,7 @@ const Coaches = (() => {
     if (!D) el.innerHTML = `<div class="card muted">Loading…</div>`;
     await load();
     const lg = league, L = D[lg];
-    const scope = params.get("scope") === "r" ? "r" : "c", all = params.get("all") === "1";
+    const scope = ["c", "r"].includes(params.get("scope")) ? params.get("scope") : "t", all = params.get("all") === "1"; // t = current team
     const sort = COLS.some(([k]) => k === params.get("sort")) || params.get("sort") === "edge" ? params.get("sort") : "score";
     const dir = params.get("dir") === "asc" ? -1 : 1;
     const go = (ch) => {
@@ -57,11 +57,11 @@ const Coaches = (() => {
       return `<div class="team">${logo(t)}<div><b>${esc(c.n)}</b>
         <small>${t.id ? `<a href="#/team/${esc(t.id)}?league=${lg}">${esc(lg === "nfl" ? t.abbr : t.name)}</a>` : esc(c.tm)}${c.on ? "" : " (last team)"}${teams > 1 ? ` · ${teams} teams` : ""}</small></div></div>`;
     };
-    const min = { nfl: { c: 34, r: 17 }, cfb: { c: 24, r: 12 } }[lg][scope];
+    const min = { nfl: { c: 34, r: 17, t: 17 }, cfb: { c: 24, r: 12, t: 12 } }[lg][scope];
     el.innerHTML = head + `
       <div class="sc-bar co-bar">
         ${seg("co-all", [["", "Current coaches"], ["1", `Everyone since ${L.from}`]], all ? "1" : "")}
-        ${seg("co-scope", [["c", "Career"], ["r", "Last 3 seasons"]], scope)}
+        ${seg("co-scope", [["t", all ? "Current/last team" : "Current team"], ["c", "All time"], ["r", "Last 3 seasons"]], scope)}
         <input id="co-search" type="search" placeholder="Filter coach or team…">
       </div>
       <div class="table-wrap"><table id="co-table"><thead><tr><th class="num">#</th><th>Coach</th>${cols.map(th).join("")}</tr></thead>
@@ -70,7 +70,7 @@ const Coaches = (() => {
           || `<tr><td colspan="${cols.length + 2}" class="muted">No coaches.</td></tr>`}</tbody></table></div>
       <div class="card prose co-how">
         <h3>How the Coach score works</h3>
-        <p>It's 0 to 100, and 50 is an average head coach. ${scope === "c" ? "Career" : "Last 3 seasons"} only, and a coach needs ${min} games to get one.</p>
+        <p>It's 0 to 100, and 50 is an average head coach. ${{ t: "Only his games with his current team", c: "His whole career", r: "Last 3 seasons only" }[scope]}, and a coach needs ${min} games to get one.</p>
         <ul>
           <li><b>35% wins over expected.</b> ${lg === "nfl" ? "How many more games his teams won than the books' lines said they would." : "How many more games his teams won than you'd expect from how good both teams were the year before. Did he beat where the program was?"}</li>
           <li><b>30% record vs winning teams.</b> Beating good teams is what counts. A short record gets pulled toward average.</li>
@@ -82,7 +82,7 @@ const Coaches = (() => {
         <p class="muted">Data: ${lg === "nfl" ? `every NFL game since ${L.from} (nflverse)` : `every FBS game since ${L.from} (CollegeFootballData)`}, including the playoffs. Click a column to sort by it.</p>
       </div>`;
     $("#co-all").onclick = (e) => { const b = e.target.closest("[data-v]"); if (b) go({ all: b.dataset.v }); };
-    $("#co-scope").onclick = (e) => { const b = e.target.closest("[data-v]"); if (b) go({ scope: b.dataset.v === "r" ? "r" : null }); };
+    $("#co-scope").onclick = (e) => { const b = e.target.closest("[data-v]"); if (b) go({ scope: b.dataset.v === "t" ? null : b.dataset.v }); };
     el.querySelector("#co-table thead").onclick = (e) => {
       const k = e.target.closest("th")?.dataset.sort;
       if (k) go({ sort: k === "score" ? null : k, dir: k === sort && dir > 0 ? "asc" : null });
