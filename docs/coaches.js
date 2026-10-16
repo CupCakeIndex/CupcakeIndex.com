@@ -54,7 +54,7 @@ const Coaches = (() => {
     const th = ([k, l, tip]) => `<th class="num sortable${k === sort ? " on" : ""}" data-sort="${k}" title="${esc(tip)}">${esc(l)}${k === sort ? (dir > 0 ? " ▼" : " ▲") : ""}</th>`;
     const who = (c) => {
       const t = team(lg, c.tm), teams = new Set(c.st.map((s) => s[0])).size;
-      return `<div class="team">${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy">` : `<span class="logo-ph"></span>`}<div><b>${esc(c.n)}</b>
+      return `<div class="team">${logo(t)}<div><b>${esc(c.n)}</b>
         <small>${t.id ? `<a href="#/team/${esc(t.id)}?league=${lg}">${esc(lg === "nfl" ? t.abbr : t.name)}</a>` : esc(c.tm)}${c.on ? "" : " (last team)"}${teams > 1 ? ` · ${teams} teams` : ""}</small></div></div>`;
     };
     const min = { nfl: { c: 34, r: 17 }, cfb: { c: 24, r: 12 } }[lg][scope];

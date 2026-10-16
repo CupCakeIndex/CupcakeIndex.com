@@ -46,6 +46,8 @@ def main():
             nfl.append({"name": r["team_name"], "id": NFL_ESPN[a], "abbr": a, "mascot": r.get("team_nick") or "", "group": r.get("team_division") or "",
                         "color": hexc(r.get("team_color")), "alt": hexc(r.get("team_color2")),
                         "logo": f"https://a.espncdn.com/i/teamlogos/nfl/500/{ESPN_LOGO.get(a, a.lower())}.png"})
+    if not cfb and OUT.exists():  # NFL-only runs don't download the FBS list: keep the last one instead of emptying it
+        cfb = json.loads(OUT.read_text(encoding="utf-8")).get("cfb", [])
     out = {"cfb": sorted(cfb, key=lambda t: t["name"]), "nfl": sorted(nfl, key=lambda t: t["name"])}
     OUT.write_text(json.dumps(out, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
     print(f"{len(cfb)} FBS + {len(nfl)} NFL teams -> {OUT.relative_to(ROOT)}")
