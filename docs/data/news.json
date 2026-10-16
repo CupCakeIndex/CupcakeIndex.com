@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-16T20:41:19Z",
+ "updated": "2026-10-16T21:08:57Z",
  "teams": {
   "nfl:22": {
    "name": "Arizona Cardinals",
@@ -77,6 +77,13 @@
    "lg": "nfl",
    "id": "34",
    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/hou.png"
+  },
+  "nfl:11": {
+   "name": "Indianapolis Colts",
+   "short": "Colts",
+   "lg": "nfl",
+   "id": "11",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ind.png"
   },
   "nfl:30": {
    "name": "Jacksonville Jaguars",
@@ -225,20 +232,6 @@
    "id": "252",
    "logo": "https://cdn.collegefootballdata.com/logos/500/252.png"
   },
-  "cfb:68": {
-   "name": "Boise State",
-   "short": "Boise State",
-   "lg": "cfb",
-   "id": "68",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/68.png"
-  },
-  "cfb:2132": {
-   "name": "Cincinnati",
-   "short": "Cincinnati",
-   "lg": "cfb",
-   "id": "2132",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/2132.png"
-  },
   "cfb:38": {
    "name": "Colorado",
    "short": "Colorado",
@@ -365,6 +358,13 @@
    "id": "344",
    "logo": "https://cdn.collegefootballdata.com/logos/500/344.png"
   },
+  "cfb:142": {
+   "name": "Missouri",
+   "short": "Missouri",
+   "lg": "cfb",
+   "id": "142",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/142.png"
+  },
   "cfb:158": {
    "name": "Nebraska",
    "short": "Nebraska",
@@ -400,12 +400,12 @@
    "id": "201",
    "logo": "https://cdn.collegefootballdata.com/logos/500/201.png"
   },
-  "cfb:197": {
-   "name": "Oklahoma State",
-   "short": "Oklahoma State",
+  "cfb:145": {
+   "name": "Ole Miss",
+   "short": "Ole Miss",
    "lg": "cfb",
-   "id": "197",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/197.png"
+   "id": "145",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/145.png"
   },
   "cfb:2483": {
    "name": "Oregon",
@@ -525,46 +525,298 @@
    "lg": "cfb",
    "id": "264",
    "logo": "https://cdn.collegefootballdata.com/logos/500/264.png"
-  },
-  "cfb:277": {
-   "name": "West Virginia",
-   "short": "West Virginia",
-   "lg": "cfb",
-   "id": "277",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/277.png"
   }
  },
  "items": [
+  {
+   "title": "Trent McDuffie, Kam Curl questionable for Rams-Cardinals",
+   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/trent-mcduffie-kam-curl-questionable-for-rams-cardinals",
+   "source": "Pro Football Talk",
+   "league": "nfl",
+   "published": "2026-10-16T21:04:43Z",
+   "summary": "Two of the Rams defensive backs are uncertain to play Sunday's game against the Cardinals.",
+   "image": "https://nbcsports.brightspotcdn.com/dims4/default/13c4630/2147483647/strip/false/crop/5000x2813+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F83%2F09%2Fa7a082374629b9b0f30b7fcd9397%2F2298747300.jpg",
+   "teams": [
+    "nfl:22",
+    "nfl:14"
+   ]
+  },
+  {
+   "title": "Off the Cuff: It’s time for the Buckeyes to take back control of the Big Ten",
+   "url": "https://sports.yahoo.com/articles/off-cuff-time-buckeyes-back-210100723.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-16T21:01:00Z",
+   "summary": "Saturday is a massive opportunity for Ohio State to reclaim its spot atop the Big Ten",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/ca573b21a8c27785aed0f61c81162310.jpg",
+   "teams": [
+    "cfb:194"
+   ]
+  },
+  {
+   "title": "Is Chicago Bears’ secondary the team’s biggest concern?",
+   "url": "https://sports.yahoo.com/articles/chicago-bears-secondary-team-biggest-210000446.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-16T21:00:00Z",
+   "summary": "The Chicago Bears have plenty of questions, hopefully Caleb Williams’ return can cover some of those. Brendan Sugrue discusses on the latest Bears Banter!",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/c87cbc03daa082da8369433ae4a7786f.jpg",
+   "teams": [
+    "nfl:3"
+   ]
+  },
+  {
+   "title": "NFL Week 6 injury report: Lamar Jackson, Jalen Hurts sidelined; Caleb Williams could return",
+   "url": "https://www.cbssports.com/nfl/news/nfl-week-6-injury-report-lamar-jackson-jalen-hurts-caleb-williams/",
+   "source": "CBS Sports",
+   "league": "nfl",
+   "published": "2026-10-16T20:59:31Z",
+   "summary": "Tyler Huntley and Tanner McKee will start in place of Jackson and Hurts, while Michael Penix Jr. is cleared to face Chicago",
+   "image": "https://sportshub.cbsistatic.com/i/2026/10/09/27f53490-eb5a-4b3f-aaf8-7a73ce447a5d/lamar-jackson-baltimore-ravens-imagn-images.jpg",
+   "teams": []
+  },
+  {
+   "title": "John Lynch: George Kittle asked me if we're trying to trade for Khalil Mack",
+   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/john-lynch-george-kittle-asked-me-if-were-trying-to-trade-for-khalil-mack",
+   "source": "Pro Football Talk",
+   "league": "nfl",
+   "published": "2026-10-16T20:59:31Z",
+   "summary": "The trade deadline was a topic of conversation for General Manager John Lynch on Friday.",
+   "image": "https://nbcsports.brightspotcdn.com/dims4/default/b497c0a/2147483647/strip/false/crop/6946x3907+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F97%2F21%2F1f708fb94fd4ae08eb46f8a976a3%2F2299588733.jpg",
+   "teams": []
+  },
+  {
+   "title": "Week 6 Big Ten Preview",
+   "url": "https://sports.yahoo.com/articles/week-6-big-ten-preview-205902494.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-16T20:59:02Z",
+   "summary": "Purdue on a winning streak? In this economy?",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/5cb25d92446d0b0bfba0f2c31fa028ee.jpg",
+   "teams": [
+    "cfb:2509"
+   ]
+  },
+  {
+   "title": "Eagles poach QB from Cowboys amid Jalen Hurts blood clot uncertainty",
+   "url": "https://sports.yahoo.com/articles/eagles-poach-qb-cowboys-amid-205339496.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-16T20:53:39Z",
+   "summary": "With QB Jalen Hurts sidelined by a blood clot in his calf, the Philadelphia Eagles are signing an intriguing player from the Dallas Cowboys' practice squad.",
+   "image": "",
+   "teams": [
+    "nfl:21",
+    "nfl:6"
+   ]
+  },
+  {
+   "title": "Five Key Visits to Track Out West This Weekend",
+   "url": "https://sports.yahoo.com/articles/five-key-visits-track-west-205307807.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-16T20:53:07Z",
+   "summary": "We track the five most significant visits being taken by Western recruits this weekend...",
+   "image": "https://media.zenfs.com/en/on3_recruiting_articles_521/95d1ad1250b5047c9f455fce3513df20.jpg",
+   "teams": []
+  },
+  {
+   "title": "Missouri vs Ole Miss Prediction: Odds, expert picks, team and player news, betting trends, and stats",
+   "url": "https://sports.yahoo.com/articles/missouri-vs-ole-miss-prediction-205151929.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-16T20:51:51Z",
+   "summary": "Missouri Tigers vs Ole Miss Rebels Game Preview",
+   "image": "",
+   "teams": [
+    "cfb:142",
+    "cfb:145"
+   ]
+  },
+  {
+   "title": "LSU hosting blue-chip quarterback and a few flip targets for Mississippi State game",
+   "url": "https://on3.com/rivals/news/lsu-hosting-blue-chip-quarterback-and-a-few-flip-targets-for-mississippi-state-game/",
+   "source": "On3",
+   "league": "cfb",
+   "published": "2026-10-16T20:51:06Z",
+   "summary": "Recruiting intel on a few key visitors in Baton Rouge",
+   "image": "https://on3static.com/cdn-cgi/image/height=630,width=1200,quality=90,fit=cover/uploads/dev/assets/cms/2026/10/16154026/HG6mo5na8AAePCs.jpg",
+   "teams": [
+    "cfb:344",
+    "cfb:99"
+   ]
+  },
+  {
+   "title": "Kirk Herbstreit tees off on Notre Dame's 'embarrassment' of a schedule",
+   "url": "https://sports.yahoo.com/articles/kirk-herbstreit-tees-off-notre-204709205.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-16T20:47:09Z",
+   "summary": "As Kirk Herbstreit prepares for \"College GameDay\" in Provo, the analyst has some things to say about BYU's opponent Notre Dame.",
+   "image": "",
+   "teams": [
+    "cfb:87",
+    "cfb:252"
+   ]
+  },
+  {
+   "title": "Abdul Carter among Giants listed as questionable for Week 6 game vs. Saints",
+   "url": "https://sports.yahoo.com/articles/abdul-carter-among-giants-listed-204540946.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-16T20:45:40Z",
+   "summary": "The Giants are listing three key players as questionable for Sunday's game against the New Orleans Saints.",
+   "image": "",
+   "teams": [
+    "nfl:18",
+    "nfl:19"
+   ]
+  },
+  {
+   "title": "Colts add Tyler Warren to injury report, list him as questionable",
+   "url": "https://sports.yahoo.com/articles/colts-add-tyler-warren-injury-204436664.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-16T20:44:36Z",
+   "summary": "The Colts added quarterback Daniel Jones's most frequent target to their injury report on Friday.",
+   "image": "",
+   "teams": [
+    "nfl:11"
+   ]
+  },
+  {
+   "title": "Colorado's struggling offense faces tough test against Utah defense",
+   "url": "https://sports.yahoo.com/articles/colorados-struggling-offense-faces-tough-204423634.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-16T20:44:23Z",
+   "summary": "Colorado's offense averages just 18.6 points per game entering its matchup with No. 11 Utah, whose defense allows only 13 points per game this season.",
+   "image": "https://media.zenfs.com/en/buffaloes_wire_usa_today_articles_968/6489503cb92c5a9031acbeaaed7f7354.jpg",
+   "teams": [
+    "cfb:38",
+    "cfb:254"
+   ]
+  },
+  {
+   "title": "CSC Reacts Results: Can the Saints turn things around and save the season?",
+   "url": "https://sports.yahoo.com/articles/csc-reacts-results-saints-turn-203858552.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-16T20:38:58Z",
+   "summary": "CSC readers give their thoughts on whether the Saints can turn their season around.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/871881bb6d17b9f9e7e4f5857e42c1cf.jpg",
+   "teams": [
+    "nfl:18"
+   ]
+  },
   {
    "title": "Judge grants temporary injunction in eligibility lawsuit involving Thomas Castellanos, Mark Mitchell, Seth Trimble",
    "url": "https://on3.com/news/judge-grants-temporary-injunction-eligibility-lawsuit-thomas-castellanos-mark-mitchell-seth-trimble/",
    "source": "On3",
    "league": "cfb",
    "published": "2026-10-16T20:37:08Z",
-   "summary": "A judge has granted a motion for a temporary injunction in a fifth-year eligibility lawsuit involving Thomas Castellanos and Seth Trimble , according to court records. It clears the way for the…",
+   "summary": "A judge has granted a motion for a temporary injunction in a fifth-year eligibility lawsuit involving Thomas Castellanos , Mark Mitchell and Seth Trimble , according to court records. It clears the…",
    "image": "https://on3static.com/cdn-cgi/image/height=630,width=1200,quality=90,fit=cover/uploads/dev/assets/cms/2026/08/21111045/NCAA-AFI.png",
    "teams": []
   },
   {
+   "title": "Packers Injury Report: Green Bay rules out 4 vs. Dallas Cowboys",
+   "url": "https://sports.yahoo.com/articles/packers-injury-report-green-bay-203531114.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-16T20:35:31Z",
+   "summary": "Green Bay will need to make roster moves this weekend just to put together a functional game-day roster",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/707c4c3ba278fbe3255e8a92ef95629f.jpg",
+   "teams": [
+    "nfl:6",
+    "nfl:9"
+   ]
+  },
+  {
+   "title": "Kentucky at Oklahoma: Final thoughts and prediction",
+   "url": "https://sports.yahoo.com/articles/kentucky-oklahoma-final-thoughts-prediction-203420684.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-16T20:34:20Z",
+   "summary": "I give my final thoughts and prediction for Kentucky football at Oklahoma on Saturday night in week seven.",
+   "image": "",
+   "teams": [
+    "cfb:96",
+    "cfb:201"
+   ]
+  },
+  {
+   "title": "Seahawks make unwanted NFL history in loss vs. Broncos",
+   "url": "https://sports.yahoo.com/articles/seahawks-unwanted-nfl-history-loss-203322520.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-16T20:33:22Z",
+   "summary": "Seattle’s defense showed out but it was the offensive struggles that put Denver in the record books.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/a3133aeee60f15ad97fd7b16cddfde26.jpg",
+   "teams": [
+    "nfl:26",
+    "nfl:7"
+   ]
+  },
+  {
    "title": "Lions put OL Ben Bartch, WR Tom Kennedy, LB Devin White on injured reserve",
-   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/lions-put-ol-ben-bartch-wr-tom-kennedy-lb-devin-white-on-injured-reserve",
-   "source": "Pro Football Talk",
+   "url": "https://sports.yahoo.com/articles/lions-put-ol-ben-bartch-203112793.html",
+   "source": "Yahoo Sports",
    "league": "nfl",
    "published": "2026-10-16T20:31:12Z",
    "summary": "The Lions took care of some roster business during their bye week.",
-   "image": "https://nbcsports.brightspotcdn.com/dims4/default/c09816a/2147483647/strip/false/crop/3541x1992+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F33%2F78%2Ff33507454e1e917a39537bd00ff2%2F2296157071.jpg",
+   "image": "",
    "teams": [
     "nfl:8"
    ]
   },
   {
+   "title": "3 keys to an Oklahoma Sooners win over the Kentucky Wildcats",
+   "url": "https://sports.yahoo.com/articles/3-keys-oklahoma-sooners-win-203029674.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-16T20:30:29Z",
+   "summary": "The Oklahoma Sooners take on the Kentucky Wildcats for their third ranked opponent in a row. What are the keys to a Sooners victory?",
+   "image": "",
+   "teams": [
+    "cfb:96",
+    "cfb:201"
+   ]
+  },
+  {
+   "title": "No. 3 Miami Hurricanes Host Local Five-Star Recruit Against Florida State Seminoles?",
+   "url": "https://sports.yahoo.com/articles/no-3-miami-hurricanes-host-203028896.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-16T20:30:28Z",
+   "summary": "Miami Hurricanes' Mario Cristobal aims to flip elite Texas A&M commit Mark Matthews as a loaded guest list of five-star prospects descends upon Hard Rock Stadium for a heated rivalry.",
+   "image": "",
+   "teams": [
+    "cfb:52",
+    "cfb:2390",
+    "cfb:245"
+   ]
+  },
+  {
+   "title": "Panthers Injury Report & Transactions – Week 6",
+   "url": "https://sports.yahoo.com/articles/panthers-injury-report-transactions-week-203000586.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-16T20:30:00Z",
+   "summary": "Let’s take a look at the Panthers key roster moves and the injury report heading into this week’s matchup.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/c1091c0e7cdd695c0c1c260a9f4177ce.jpg",
+   "teams": [
+    "nfl:29"
+   ]
+  },
+  {
    "title": "Saquon Barkley out, DeVonta Smith off injury report and will play vs. Panthers",
-   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/saquon-barkley-out-devonta-smith-off-injury-report-and-will-play-vs-panthers",
-   "source": "Pro Football Talk",
+   "url": "https://sports.yahoo.com/articles/saquon-barkley-devonta-smith-off-202951601.html",
+   "source": "Yahoo Sports",
    "league": "nfl",
    "published": "2026-10-16T20:29:51Z",
    "summary": "The Eagles will have their top receiver back for Sunday, but they won't have another one of their top offensive players.",
-   "image": "https://nbcsports.brightspotcdn.com/dims4/default/2cc8a16/2147483647/strip/false/crop/5835x3282+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F4a%2F40%2Fedbd7eeb4f7094f813b1d93c31cc%2F2298624951.jpg",
+   "image": "",
    "teams": [
     "nfl:29",
     "nfl:21"
@@ -583,6 +835,41 @@
    ]
   },
   {
+   "title": "Cowboys injuries: DeMarvion Overshown questionable, Cobie Durant ruled out",
+   "url": "https://sports.yahoo.com/articles/cowboys-injuries-demarvion-overshown-questionable-202816893.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-16T20:28:16Z",
+   "summary": "Here is Friday's injury report for the Dallas Cowboys",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/aedf09ef1ad997339c83f42698813c2b.jpg",
+   "teams": [
+    "nfl:6"
+   ]
+  },
+  {
+   "title": "Josh Jacobs, Jonathon Cooper to come off NFL commissioner exempt list, eligible to return in Week 7",
+   "url": "https://www.cbssports.com/nfl/news/josh-jacobs-jonathon-cooper-nfl-commissioner-exempt-list-week-7-return/",
+   "source": "CBS Sports",
+   "league": "nfl",
+   "published": "2026-10-16T20:26:38Z",
+   "summary": "Both players will become eligible for Week 7, although their teams must determine whether they are ready to play",
+   "image": "https://sportshub.cbsistatic.com/i/2026/10/16/2213ef28-d073-4ee1-8fca-069b4c7f87f2/josh-jacobs-imagn.jpg",
+   "teams": []
+  },
+  {
+   "title": "Washington QB Demond Williams Jr. to miss game vs. Purdue with rib injury",
+   "url": "https://www.cbssports.com/college-football/news/washington-qb-demond-williams-jr-purdue-injury/",
+   "source": "CBS Sports",
+   "league": "cfb",
+   "published": "2026-10-16T20:25:02Z",
+   "summary": "Junior backup signal caller Elijah Brown will get the start for the Huskies as they look to correct their offenisve woes against the Boilermakers",
+   "image": "https://sportshub.cbsistatic.com/i/2026/10/16/86fa0a33-4485-44ba-b4fc-49cb9c3f8420/demond-williams-1.jpg",
+   "teams": [
+    "cfb:2509",
+    "cfb:264"
+   ]
+  },
+  {
    "title": "Eagles place Will Shipley on injured reserve",
    "url": "https://sports.yahoo.com/articles/eagles-place-shipley-injured-202421345.html",
    "source": "Yahoo Sports",
@@ -592,6 +879,18 @@
    "image": "https://media.zenfs.com/en/sb_nation_articles_115/60a9d3079f562b0c3d3b257a6bc82c18.jpg",
    "teams": [
     "nfl:21"
+   ]
+  },
+  {
+   "title": "‘Completely Ruined and Undermined the Regular Season’ — Ex-Texas LB Rips Expanded College Football Playoff Format With Harsh Verdict",
+   "url": "https://sports.yahoo.com/articles/completely-ruined-undermined-regular-season-202338743.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-16T20:23:38Z",
+   "summary": "The inevitable College Football Playoff expansion news landed like a ton of bricks on Thursday when it was reported that a deal to expand the showpiece event to 24 teams was nearing completion. The…",
+   "image": "https://media.zenfs.com/en/pro_football_network_512/b9d55005fa4d071bb691759f1385b2cc.jpg",
+   "teams": [
+    "cfb:251"
    ]
   },
   {
@@ -619,6 +918,19 @@
    ]
   },
   {
+   "title": "Kalani Sitake Wants More Resources at BYU — A Win Over Notre Dame Could Strengthen His Case",
+   "url": "https://sports.yahoo.com/articles/kalani-sitake-wants-more-resources-201526910.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-16T20:15:26Z",
+   "summary": "As College GameDay hits Provo for a historic top-10 showdown, the Cougars aim to validate their elite status and secure the financial backing required to remain national contenders.",
+   "image": "",
+   "teams": [
+    "cfb:87",
+    "cfb:252"
+   ]
+  },
+  {
    "title": "Abdul Carter returns to practice, draws questionable tag for Sunday",
    "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/abdul-carter-returns-to-practice-draws-questionable-tag-for-sunday",
    "source": "Pro Football Talk",
@@ -628,6 +940,44 @@
    "image": "https://nbcsports.brightspotcdn.com/dims4/default/3177116/2147483647/strip/false/crop/4500x2531+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F81%2F23%2F419188df4f5e880d21c5cd525079%2F2300208544.jpg",
    "teams": [
     "nfl:19"
+   ]
+  },
+  {
+   "title": "NFL odds: Week 6 parlays featuring favorites, underdogs include Panthers-Eagles, Texans-Jaguars",
+   "url": "https://www.cbssports.com/betting/news/nfl-odds-week-6-parlays-featuring-favorites-underdogs-include-panthers-eagles-texans-jaguars/",
+   "source": "CBS Sports",
+   "league": "nfl",
+   "published": "2026-10-16T20:14:47Z",
+   "summary": "SportsLine football expert Mike Tierney gives out his favorite parlays for Week 6 of the NFL season",
+   "image": "https://sportshub.cbsistatic.com/i/2026/10/06/eabe4f2c-f3ec-430c-b0bd-a31902adcc07/nico-collins-cj-stroud-houston-texans-imagn.jpg",
+   "teams": [
+    "nfl:29",
+    "nfl:30",
+    "nfl:34",
+    "nfl:21"
+   ]
+  },
+  {
+   "title": "‘How Much Is Too Much?’ — Nick Saban Sounds Alarm Over College Football Playoffs Expansion to 24 Teams",
+   "url": "https://sports.yahoo.com/articles/much-too-much-nick-saban-201236894.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-16T20:12:36Z",
+   "summary": "Nick Saban understands why a bigger playoff sounds appealing. The more fan bases stay interested, the more teams get an opportunity, and the more players can picture themselves competing for a…",
+   "image": "https://media.zenfs.com/en/pro_football_network_512/f212597b3f901f29db560106915360b7.jpg",
+   "teams": []
+  },
+  {
+   "title": "Broncos OLB Jonathon Cooper has been removed from the Commissioner’s exempt list",
+   "url": "https://sports.yahoo.com/articles/broncos-olb-jonathon-cooper-removed-194438382.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-16T20:10:48Z",
+   "summary": "According to 9NEWS Denver’s Mike Klis, the NFL has removed Denver Broncos edge rusher Jonathon Cooper from the Commissioner’s exempt list. The Broncos veteran starting edge rusher will be eligible…",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/c78de6a8f8b30d9d7277e4b342b2a661.jpg",
+   "teams": [
+    "nfl:7",
+    "nfl:22"
    ]
   },
   {
@@ -641,7 +991,7 @@
    "teams": []
   },
   {
-   "title": "Notre Dame vs. BYU history: How Catholics vs. Mormons finally happened after years of Irish avoidance",
+   "title": "Notre Dame-BYU football history: How Catholics vs. Mormons finally happened after years of Irish avoidance",
    "url": "https://sports.yahoo.com/articles/notre-dame-vs-byu-history-200950490.html",
    "source": "Yahoo Sports",
    "league": "cfb",
@@ -743,16 +1093,6 @@
     "nfl:26",
     "nfl:12"
    ]
-  },
-  {
-   "title": "NFL Week 6 injury report: Lamar Jackson, Jalen Hurts sidelined; Caleb Williams could return",
-   "url": "https://www.cbssports.com/nfl/news/nfl-week-6-injury-report-lamar-jackson-jalen-hurts-caleb-williams/",
-   "source": "CBS Sports",
-   "league": "nfl",
-   "published": "2026-10-16T20:03:54Z",
-   "summary": "Tyler Huntley and Tanner McKee will start in place of Jackson and Hurts, while Michael Penix Jr. is cleared to face Chicago",
-   "image": "https://sportshub.cbsistatic.com/i/2026/10/09/27f53490-eb5a-4b3f-aaf8-7a73ce447a5d/lamar-jackson-baltimore-ravens-imagn-images.jpg",
-   "teams": []
   },
   {
    "title": "No. 11 Utah vs. Colorado: How to watch, listen to or stream the game",
@@ -878,18 +1218,6 @@
    ]
   },
   {
-   "title": "Trent McDuffie injured in Rams practice",
-   "url": "https://sports.yahoo.com/articles/trent-mcduffie-injured-rams-practice-195903481.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-16T19:59:03Z",
-   "summary": "McDuffie is questionable to play Sunday after suffering a groin injury in practice",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/75c7178cec910c8e4bae67de8abcdcf6.jpg",
-   "teams": [
-    "nfl:14"
-   ]
-  },
-  {
    "title": "Week 7 Open Thread",
    "url": "https://sports.yahoo.com/articles/week-7-open-thread-195800657.html",
    "source": "Yahoo Sports",
@@ -916,18 +1244,6 @@
    ]
   },
   {
-   "title": "Packers RB Josh Jacobs to be removed from NFL's commissioner exempt list, will be eligible to play Week 7",
-   "url": "https://sports.yahoo.com/nfl/article/packers-rb-josh-jacobs-to-be-removed-from-nfls-commissioner-exempt-list-will-be-eligible-to-play-week-7-195433021.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-16T19:54:33Z",
-   "summary": "Jacobs was arrested for domestic abuse last May and was placed on the list ahead of the season. The league says the investigation into Jacobs' conduct is still ongoing.",
-   "image": "",
-   "teams": [
-    "nfl:9"
-   ]
-  },
-  {
    "title": "Panthers list Taylor Moton as questionable, Monroe Freeling as doubtful",
    "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/panthers-list-taylor-moton-as-questionable-monroe-freeling-as-doubtful",
    "source": "Pro Football Talk",
@@ -951,32 +1267,6 @@
    "teams": []
   },
   {
-   "title": "NFL reinstates Broncos' Jonathon Cooper after placing LB on exempt list following alleged incident of domestic violence",
-   "url": "https://sports.yahoo.com/nfl/breaking-news/article/nfl-reinstates-broncos-jonathon-cooper-after-placing-lb-on-exempt-list-following-alleged-incident-of-domestic-violence-201036231.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-16T19:49:47Z",
-   "summary": "Cooper, absent for Denver's 4-2 start to the season, will be eligible to return for the team's Week 7 road game versus the Arizona Cardinals.",
-   "image": "",
-   "teams": [
-    "nfl:22",
-    "nfl:7"
-   ]
-  },
-  {
-   "title": "Patriots vs. Jets Friday injury report: Carlton Davis III, Karon Prunty ruled out for Week 6",
-   "url": "https://sports.yahoo.com/articles/patriots-vs-jets-friday-injury-194743840.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-16T19:47:43Z",
-   "summary": "Game designations for Week 6 at Gillette Stadium.",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/8d899b93ec6e5bd0aaebbf6e4af5480e.jpg",
-   "teams": [
-    "nfl:17",
-    "nfl:20"
-   ]
-  },
-  {
    "title": "Virginia Tech Hokies vs. Georgia Tech Yellow Jackets: News, Information, and Predictions",
    "url": "https://sports.yahoo.com/articles/virginia-tech-hokies-vs-georgia-194631395.html",
    "source": "Yahoo Sports",
@@ -990,56 +1280,6 @@
    ]
   },
   {
-   "title": "DeVonta Smith says his hamstring is \"good,\" but his availability is \"up to the doctors\"",
-   "url": "https://sports.yahoo.com/articles/devonta-smith-says-hamstring-good-194616841.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-16T19:46:16Z",
-   "summary": "DeVonta Smith is listed with toe and hamstring injuries.",
-   "image": "",
-   "teams": []
-  },
-  {
-   "title": "Top Big 12 football games to watch, best matchups and upset pick",
-   "url": "https://sports.yahoo.com/articles/top-big-12-football-games-194534842.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-16T19:45:34Z",
-   "summary": "Notre Dame-BYU and Oklahoma State-Houston headline the Big 12's Week 7 slate, while Cincinnati-West Virginia is another interesting matchup.",
-   "image": "https://media.zenfs.com/en/buffaloes_wire_usa_today_articles_968/1e5587d71782b5d3fc1a3abc74d90272.jpg",
-   "teams": [
-    "cfb:197",
-    "cfb:277",
-    "cfb:2132",
-    "cfb:87",
-    "cfb:248",
-    "cfb:252"
-   ]
-  },
-  {
-   "title": "Broncos OLB Jonathon Cooper has been removed from the Commissioner’s exempt list",
-   "url": "https://sports.yahoo.com/articles/broncos-olb-jonathon-cooper-removed-194438382.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-16T19:44:38Z",
-   "summary": "According to 9NEWS Denver’s Mike Klis, the NFL has removed Denver Broncos edge rusher Jonathon Cooper from the Commissioner’s exempt list. The Broncos veteran starting edge rusher will be eligible…",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/c78de6a8f8b30d9d7277e4b342b2a661.jpg",
-   "teams": [
-    "nfl:7",
-    "nfl:22"
-   ]
-  },
-  {
-   "title": "The Texas 10 personnel package produced two TDs vs. Oklahoma",
-   "url": "https://sports.yahoo.com/articles/texas-10-personnel-package-produced-194112695.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-16T19:41:12Z",
-   "summary": "Touchdown catches by Ryan Wingo and Jermaine Bishop highlight the value of spreading the field.",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/125a3d67db34049baf7bf2b6ce19de25.jpg",
-   "teams": []
-  },
-  {
    "title": "David Blough takes responsibility for clock debacle",
    "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/david-blough-takes-responsibility-for-clock-debacle",
    "source": "Pro Football Talk",
@@ -1048,58 +1288,6 @@
    "summary": "When a soldier is captured by the enemy, he knows to say only three things: Name, rank, and serial number.",
    "image": "https://nbcsports.brightspotcdn.com/dims4/default/390546b/2147483647/strip/false/crop/4108x2311+0+214/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F93%2F17%2F928b1a494595a739af7381c5543e%2F2297428494.jpg",
    "teams": []
-  },
-  {
-   "title": "DK Metcalf is questionable for Sunday after missing practice with an illness",
-   "url": "https://sports.yahoo.com/articles/dk-metcalf-questionable-sunday-missing-193337740.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-16T19:33:37Z",
-   "summary": "Steelers wide receiver DK Metcalf's status for Sunday's game against the Buccaneers is in some doubt.",
-   "image": "",
-   "teams": [
-    "nfl:27",
-    "nfl:23"
-   ]
-  },
-  {
-   "title": "Steelers may be without DK Metcalf vs. Buccaneers",
-   "url": "https://sports.yahoo.com/articles/steelers-may-without-dk-metcalf-193319058.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-16T19:33:19Z",
-   "summary": "Steelers WR DK Metcalf questionable for Week 6 vs. Bucs.",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/8e21b002cf6ee0dd681bfd20036a237e.jpg",
-   "teams": [
-    "nfl:27",
-    "nfl:23"
-   ]
-  },
-  {
-   "title": "Ladd McConkey, Quentin Johnston off injury report, set to play vs. Chiefs",
-   "url": "https://sports.yahoo.com/articles/ladd-mcconkey-quentin-johnston-off-193107765.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-16T19:31:07Z",
-   "summary": "The Chargers will have two key receivers back for Sunday's game against the Chiefs.",
-   "image": "",
-   "teams": [
-    "nfl:24",
-    "nfl:12"
-   ]
-  },
-  {
-   "title": "3 & Out: Ohio State aims to snap Indiana’s winning streak",
-   "url": "https://sports.yahoo.com/articles/3-ohio-state-aims-snap-193100614.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-16T19:31:00Z",
-   "summary": "What Ohio State has to do to win, key players for Indiana, notable connections between the schools, and a score prediction!",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/9bb094cedbf90a202798c0cd6ed39bdb.jpg",
-   "teams": [
-    "cfb:194",
-    "cfb:84"
-   ]
   },
   {
    "title": "Today's top games to watch, best bets, odds: Rays at Guardians Game 4, Washington at Purdue and more",
@@ -1112,44 +1300,6 @@
    "teams": [
     "cfb:264",
     "cfb:2509"
-   ]
-  },
-  {
-   "title": "No. 8 Cougars’ national standing, and the Big 12’s reputation, on the line in Provo",
-   "url": "https://sports.yahoo.com/articles/no-8-cougars-national-standing-193000823.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-16T19:30:00Z",
-   "summary": "Importance of Saturday's game against Notre Dame in Provo can't be overstated for BYU, Big 12.",
-   "image": "https://media.zenfs.com/en/deseret_news_992/7502f846dbdcd6f99504a6f794a5525a.jpg",
-   "teams": [
-    "cfb:87",
-    "cfb:252"
-   ]
-  },
-  {
-   "title": "Bears vs. Falcons Injury Report: Caleb Williams is Questionable",
-   "url": "https://sports.yahoo.com/articles/bears-vs-falcons-injury-report-193000871.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-16T19:30:00Z",
-   "summary": "The Bears got some good news on their injury report, but 4 players are ruled out for the game against the Falcons. @wiltfongjr has details here:",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/ca083d94eebf80c5d6c3da41eed59bfe.jpg",
-   "teams": [
-    "nfl:1",
-    "nfl:3"
-   ]
-  },
-  {
-   "title": "Which non-Nick Bosa injury return will have the biggest impact on the 49ers?",
-   "url": "https://sports.yahoo.com/articles/non-nick-bosa-injury-return-193000119.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-16T19:30:00Z",
-   "summary": "It’s the 49ers, so you have plenty of options.",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/fa536642eede7e70f7297c0e5e5cee46.jpg",
-   "teams": [
-    "nfl:25"
    ]
   },
   {
@@ -1166,96 +1316,6 @@
    ]
   },
   {
-   "title": "TENNESSEE VOLS FOOTBALL: Third Saturday in October is finally here",
-   "url": "https://sports.yahoo.com/articles/tennessee-vols-football-third-saturday-192459368.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-16T19:24:59Z",
-   "summary": "A massive opportunity awaits No. 14/14 Tennessee against No. 6/7 Alabama as the two longtime rivals prepare to face off in one of college football's most exciting rivalry games on The Third Saturday…",
-   "image": "",
-   "teams": [
-    "cfb:2633",
-    "cfb:333"
-   ]
-  },
-  {
-   "title": "Nebraska’s Youth Can Wait — Experience Could Be the Difference Against Oregon",
-   "url": "https://sports.yahoo.com/articles/nebraska-youth-wait-experience-could-191500709.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-16T19:15:00Z",
-   "summary": "Matt Rhule has spent years building a veteran-heavy roster through development, retention and the transfer portal. Against Oregon, that experience could prove to be Nebraska’s greatest advantage…",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/daaad85d605a4f3fcd8c9b420db36446.jpg",
-   "teams": [
-    "cfb:158",
-    "cfb:2483"
-   ]
-  },
-  {
-   "title": "It’s time for Notre Dame’s first big test",
-   "url": "https://sports.yahoo.com/articles/time-notre-dame-first-big-191300986.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-16T19:13:00Z",
-   "summary": "If the college football season was looked at like a semester of school, it would be midterms right now. It’s the perfect midway point of the regular season for Notre Dame: six games down, six more…",
-   "image": "",
-   "teams": [
-    "cfb:87"
-   ]
-  },
-  {
-   "title": "Vols offer Alabama running back ahead of Third Saturday in October",
-   "url": "https://sports.yahoo.com/articles/vols-offer-alabama-running-back-190115106.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-16T19:01:15Z",
-   "summary": "Tennessee football offers a four-star Alabama running back prospect.",
-   "image": "",
-   "teams": [
-    "cfb:2633",
-    "cfb:333"
-   ]
-  },
-  {
-   "title": "Alabama's Path to Beating Tennessee Starts With One Major Offensive Adjustment",
-   "url": "https://sports.yahoo.com/articles/alabamas-path-beating-tennessee-starts-190039178.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-16T19:00:39Z",
-   "summary": "After a heartbreaking loss to Georgia, Alabama faces a tall task against rival Tennessee for the annual third Saturday of October matchup.",
-   "image": "",
-   "teams": [
-    "cfb:2633",
-    "cfb:333",
-    "cfb:61"
-   ]
-  },
-  {
-   "title": "3 bold predictions for Indiana football vs Ohio State",
-   "url": "https://sports.yahoo.com/articles/3-bold-predictions-indiana-football-190000079.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-16T19:00:00Z",
-   "summary": "From Isaiah Jones stifling the run to Charlie Becker making plays through the air, here’s three things to watch for.",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/360c587334e1e2a76622fc314e1b52fd.jpg",
-   "teams": [
-    "cfb:194",
-    "cfb:84"
-   ]
-  },
-  {
-   "title": "The Bye Week Midterm Report Card: No. 23 Boise State Taking Care of Business",
-   "url": "https://sports.yahoo.com/articles/bye-week-midterm-report-card-190000065.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-16T19:00:00Z",
-   "summary": "Somehow…someway. It is already the middle of October, and the Broncos have already completed half of its 2026 campaign. At 5-1 and nationally ranked, there are no other Group of Six programs that…",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/4f05a019b2167ce12a0fff84d841f6a3.jpg",
-   "teams": [
-    "cfb:68"
-   ]
-  },
-  {
    "title": "After Gayle Benson attends Saints practice, Kellen Moore says they're \"all good\"",
    "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/after-gayle-benson-attends-saints-practice-kellen-moore-says-theyre-all-good",
    "source": "Pro Football Talk",
@@ -1266,16 +1326,6 @@
    "teams": [
     "nfl:18"
    ]
-  },
-  {
-   "title": "College football Week 7 TV schedule, start times, TV channel for every game",
-   "url": "https://sports.yahoo.com/articles/college-football-week-7-tv-185120605.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-16T18:51:20Z",
-   "summary": "Make sure you don't miss any of the must-see Week 7 action during the 2026 college football season.",
-   "image": "https://media.zenfs.com/en/the_big_lead_articles_114/3810ab0655f6227a2cd6937090188236.jpg",
-   "teams": []
   },
   {
    "title": "Nick Saban opposes 24-team College Football Playoff expansion, says money is 'the bottom line'",
@@ -1665,31 +1715,6 @@
    ]
   },
   {
-   "title": "Nick Sirianni: Jalen Hurts' health is our concern, not going to get into details",
-   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/nick-sirianni-jalen-hurts-health-is-our-concern-not-going-to-get-into-details",
-   "source": "Pro Football Talk",
-   "league": "nfl",
-   "published": "2026-10-16T15:45:39Z",
-   "summary": "Eagles coach Nick Sirianni repeatedly declined to discuss quarterback Jalen Hurts' health today, a day after the Eagles announced that Hurts will miss Sunday's game because of a blood clot.",
-   "image": "https://nbcsports.brightspotcdn.com/dims4/default/515a4b6/2147483647/strip/false/crop/3002x1689+0+156/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2Fef%2F07%2F15448ddc46d6bd26851c34a5ed94%2F2233872408.jpg",
-   "teams": [
-    "nfl:21"
-   ]
-  },
-  {
-   "title": "NFL confirms it had pregame communications with Eagles regarding Jalen Hurts's blood clot",
-   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/nfl-confirms-it-had-pregame-communications-with-eagles-regarding-jalen-hurtss-blood-clot",
-   "source": "Pro Football Talk",
-   "league": "nfl",
-   "published": "2026-10-16T15:44:55Z",
-   "summary": "The outside world (including anyone considering placing wagers on the game and/or the specific player's performance) had no idea that Eagles quarterback Jalen Hurts had developed a blood clot in his…",
-   "image": "https://nbcsports.brightspotcdn.com/dims4/default/7ac2545/2147483647/strip/false/crop/6134x3450+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F13%2F0e%2Faed24e21462aa7a6274f7ef3795b%2F2026-10-11t211426z-667833645-mt1usatoday30057867-rtrmadp-3-nfl-philadelphia-eagles-at-jacksonville-jaguars.jpg",
-   "teams": [
-    "nfl:30",
-    "nfl:21"
-   ]
-  },
-  {
    "title": "NCAA sues Ohio Gov. Mike DeWine over executive order on fifth-year players",
    "url": "https://www.cbssports.com/college-football/news/ncaa-sues-ohio-gov-mike-dewine-executive-order-fifth-year-players/",
    "source": "CBS Sports",
@@ -1699,19 +1724,6 @@
    "image": "https://sportshub.cbsistatic.com/i/2026/10/16/d9c395c9-d1d6-4d9e-abdd-385b31a20e59/nca.png",
    "teams": [
     "cfb:195"
-   ]
-  },
-  {
-   "title": "Eagles sign QB Joe Milton off Cowboys practice squad",
-   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/eagles-sign-qb-joe-milton-off-cowboys-practice-squad",
-   "source": "Pro Football Talk",
-   "league": "nfl",
-   "published": "2026-10-16T15:10:49Z",
-   "summary": "With Jalen Hurts out indefinitely due to a blood clot, the Eagles are bringing in another quarterback from a division rival.",
-   "image": "https://nbcsports.brightspotcdn.com/dims4/default/5aa5075/2147483647/strip/false/crop/3553x1999+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2Fb6%2F12%2F89c39e234dafb5aabe3ba5d7a354%2F2292863006.jpg",
-   "teams": [
-    "nfl:6",
-    "nfl:21"
    ]
   },
   {
@@ -1878,16 +1890,6 @@
    "teams": []
   },
   {
-   "title": "Top 10 Big 12 basketball transfers changing teams ahead of 2026-27 season",
-   "url": "https://on3.com/news/top-10-big-12-basketball-transfers-changing-teams-ahead-of-2026-27-season/",
-   "source": "On3",
-   "league": "cfb",
-   "published": "2026-10-16T14:00:00Z",
-   "summary": "The Big 12 enters the 2026-27 college basketball season with one of the deepest groups of contenders ready to battle for the top spot in the conference. In order to compete at the top, every program…",
-   "image": "https://on3static.com/cdn-cgi/image/height=630,width=1200,quality=90,fit=cover/uploads/dev/assets/cms/2026/10/14185542/Paulius-Murauskas-Kayden-Mingo-Dedan-Thomas-Mouhamed-Sylla-afi.png",
-   "teams": []
-  },
-  {
    "title": "Dan Lanning and Mike Elko made huge coaching mistakes, can they dig out this season?",
    "url": "https://on3.com/news/dan-lanning-and-mike-elko-made-first-huge-coaching-mistakes-can-they-dig-out-this-season/",
    "source": "On3",
@@ -1895,6 +1897,16 @@
    "published": "2026-10-16T14:00:00Z",
    "summary": "Mike Elko verbally stepped on a rake on Saturday and walked it back Monday . Dan Lanning said he didn’t owe anyone an explanation Monday and then went on to explain why he said that . Awkward…",
    "image": "https://on3static.com/cdn-cgi/image/height=630,width=1200,quality=90,fit=cover/uploads/dev/assets/cms/2026/10/16082343/Lanning-Elko-AFI.png",
+   "teams": []
+  },
+  {
+   "title": "Top 10 Big 12 basketball transfers changing teams ahead of 2026-27 season",
+   "url": "https://on3.com/news/top-10-big-12-basketball-transfers-changing-teams-ahead-of-2026-27-season/",
+   "source": "On3",
+   "league": "cfb",
+   "published": "2026-10-16T14:00:00Z",
+   "summary": "The Big 12 enters the 2026-27 college basketball season with one of the deepest groups of contenders ready to battle for the top spot in the conference. In order to compete at the top, every program…",
+   "image": "https://on3static.com/cdn-cgi/image/height=630,width=1200,quality=90,fit=cover/uploads/dev/assets/cms/2026/10/14185542/Paulius-Murauskas-Kayden-Mingo-Dedan-Thomas-Mouhamed-Sylla-afi.png",
    "teams": []
   },
   {
@@ -2112,19 +2124,6 @@
    "teams": []
   },
   {
-   "title": "Broncos' cheating accusation against Seahawks almost led to lawsuit in 2024, according to Mike Macdonald",
-   "url": "https://www.cbssports.com/nfl/news/broncos-cheating-accusation-seahawks-mike-macdonald/",
-   "source": "CBS Sports",
-   "league": "nfl",
-   "published": "2026-10-15T23:53:10Z",
-   "summary": "This is one of the wildest stories you'll ever hear in the NFL",
-   "image": "https://sportshub.cbsistatic.com/i/2026/09/22/161adf4f-f056-40cd-b968-ecf5cfb45a66/macandpayton-jpeg.jpg",
-   "teams": [
-    "nfl:26",
-    "nfl:7"
-   ]
-  },
-  {
    "title": "College Football Playoff nears agreement on 24-team expansion that could end title games",
    "url": "https://www.cbssports.com/college-football/news/college-football-playoff-expand-24-teams-2027/",
    "source": "CBS Sports",
@@ -2304,19 +2303,6 @@
    "teams": [
     "cfb:36",
     "cfb:326"
-   ]
-  },
-  {
-   "title": "College Football Playoff resume rankings: Why Alabama is still No. 1 after loss to Georgia",
-   "url": "https://www.cbssports.com/college-football/news/college-football-playoff-resume-rankings-alabama-georgia/",
-   "source": "CBS Sports",
-   "league": "cfb",
-   "published": "2026-10-15T13:57:19Z",
-   "summary": "With four top-65 victories, including two top-15 road wins, the Crimson Tide's body of work remains ironclad",
-   "image": "https://sportshub.cbsistatic.com/i/2026/10/15/f55f1790-04a1-4f29-837e-9c8bc3b951ef/2026-10-11t003834z-1901166912-mt1usatoday30052291-rtrmadp-3-ncaa-football-georgia-at-alabama.jpg",
-   "teams": [
-    "cfb:333",
-    "cfb:61"
    ]
   },
   {
