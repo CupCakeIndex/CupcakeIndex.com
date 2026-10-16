@@ -2487,3 +2487,12 @@ table.roster th.sortable.on a { color: var(--accent); }
 .vz-q { margin: 0 0 12px; }
 .vz-q input { width: 100%; box-sizing: border-box; font: inherit; font-size: 16px; color: var(--ink); background: var(--bg); border: 1px solid var(--accent); padding: 9px 10px; }
 .vz-q .vz-sugg { max-height: 60vh; }
+
+/* Coaches page (coaches.js) */
+.co-sub { margin: -4px 0 12px; font-size: 13px; }
+.co-bar { flex-wrap: wrap; gap: 8px; }
+.co-bar .presets { margin-bottom: 0; }
+#co-table td.num { white-space: nowrap; }
+#co-table td small { margin-left: 2px; }
+.co-how { margin-top: 14px; }
+.co-how h3 { margin: 0 0 8px; font-size: 14px; }

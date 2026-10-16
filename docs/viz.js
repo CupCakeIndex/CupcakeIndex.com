@@ -68,6 +68,15 @@ const Viz = (() => {
       ["ci_resume", "Résumé score (0–100)", (S) => S.ci_resume, { d: 0, season: 1 }],
       ["ci_eff", "Efficiency score (0–100)", (S) => S.ci_eff, { d: 0, season: 1 }],
     ]],
+    // the team's head coach that season, with his career numbers (the Coaches page, coaches.js)
+    ["Head coach (career)", [
+      ["co_score", "Coach score (0–100)", (S) => S.co_score, { d: 0, season: 1 }],
+      ["co_pct", "Coach career win %", (S) => S.co_pct, { d: 1, pct: 1, season: 1 }],
+      ["co_good", "Coach win % vs winning teams", (S) => S.co_good, { d: 1, pct: 1, season: 1 }],
+      ["co_woe", "Coach wins over expected per season", (S) => S.co_woe, { d: 1, fmt: "+", season: 1 }],
+      ["co_yrs", "Coach seasons as head coach", (S) => S.co_yrs, { d: 0, season: 1 }],
+      ["co_edge", "Coach rating boost (our model, points)", (S) => S.co_edge, { d: 1, fmt: "+", season: 1, lg: "nfl" }],
+    ]],
     ["Advanced", [
       ["epa_play", "EPA per play (offense)", (S) => S.adv_plays != null ? div(S.epa, S.adv_plays) : div(S.pass_epa + S.rush_epa, S.plays), { den: (S) => S.adv_plays ?? S.plays, d: 3 }],
       ["def_epa_play", "EPA per play allowed (defense)", (S) => S.def_adv_plays != null ? div(S.def_epa, S.def_adv_plays) : div(S.opp_epa, S.opp_plays), { den: (S) => S.def_adv_plays ?? S.opp_plays, d: 3, low: 1 }],
@@ -241,12 +250,16 @@ const Viz = (() => {
     if (D.ours) return;
     D.ours = {};
     const weeks = INDEX.leagues[D.league]?.seasons?.[D.season]?.weeks || [];
-    if (!weeks.length) return;
-    const R = await getJSON(`data/${D.league}/${D.season}/week_${weeks.at(-1)}.json`).catch(() => null);
+    const R = weeks.length ? await getJSON(`data/${D.league}/${D.season}/week_${weeks.at(-1)}.json`).catch(() => null) : null;
     const byName = Object.fromEntries(Object.entries(D.teams).map(([k, t]) => [t[0], k]));
     for (const t of R?.teams || []) {
       const k = D.league === "cfb" ? `cfb:${t.id}` : byName[t.team];
       if (k) D.ours[k] = { ci_rating: t.rating, ci_rank: t.power_rank, ci_sos: t.scores?.sos, ci_cupcake: t.scores?.cupcake, ci_resume: t.scores?.resume, ci_eff: t.scores?.efficiency };
+    }
+    const co = await Coaches.forSeason(D.league, D.season).catch(() => ({})); // NFL by abbreviation, college by name
+    for (const [k, t] of Object.entries(D.teams)) {
+      const c = co[D.league === "nfl" ? t[1] : t[0]];
+      if (c) D.ours[k] = { ...D.ours[k], ...c };
     }
   }
   // team logos: ESPN's small logos (they allow drawing into a picture, so "Download picture" keeps them)
@@ -343,6 +356,7 @@ const Viz = (() => {
     nfl: [
       ["Schedule vs record (the Schedules chart)", T_({ type: "scatter", stat: "ci_sos", y: "win_pct", top: "all" })],
       ["Who's for real: EPA per play vs points", T_({ type: "scatter", stat: "epa_play", y: "pts", top: "all" })],
+      ["Coach score vs power rating", T_({ type: "scatter", stat: "co_score", y: "ci_rating", top: "all" })],
       ["Best offenses (EPA per play)", T_({ type: "bar", stat: "epa_play", top: "15" })],
       ["Best defenses (EPA per play allowed)", T_({ type: "bar", stat: "def_epa_play", top: "15" })],
       ["Turnover margin", T_({ type: "bar", stat: "to_margin", per: "total", top: "all" })],
@@ -387,6 +401,7 @@ const Viz = (() => {
       ["Schedule vs cupcakes (the Schedules chart)", T_({ type: "scatter", stat: "ci_sos", y: "ci_cupcake", top: "all" })],
       ["Who's for real: EPA per play vs points", T_({ type: "scatter", stat: "epa_play", y: "pts", top: "50" })],
       ["Power rating vs record (who's lucky?)", T_({ type: "scatter", stat: "ci_rating", y: "win_pct", top: "50" })],
+      ["Coach score vs power rating", T_({ type: "scatter", stat: "co_score", y: "ci_rating", top: "50" })],
       ["Best offenses (EPA per play)", T_({ type: "bar", stat: "epa_play", top: "15" })],
       ["Best defenses (EPA per play allowed)", T_({ type: "bar", stat: "def_epa_play", top: "15" })],
       ["Success rate vs EPA (consistent or explosive?)", T_({ type: "scatter", stat: "succ", y: "epa_play", top: "50" })],

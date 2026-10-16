@@ -22,7 +22,7 @@ FACTORS = [
 ]
 
 NFL_HELP = {
-    "power": "Team strength in points from our NFL model: opponent-adjusted scoring margin (capped at 17) blended with EPA per play, with last season carried over and recent weeks counting a bit more.",
+    "power": "Team strength in points from our NFL model: opponent-adjusted scoring margin (capped at 17) blended with EPA per play, with last season carried over, recent weeks counting a bit more, and a small boost (or ding) for the head coach.",
     "resume": "Strength of record: how many more wins than a top-8 team would have with this schedule.",
     "efficiency": "Opponent-adjusted EPA per play (offense minus defense).",
     "sos": "How hard was your road? The average strength of every opponent played. Higher = tougher schedule.",

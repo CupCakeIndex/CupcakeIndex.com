@@ -12,6 +12,8 @@ What's different from college, and why (each one was checked in the backtest):
      of one-score games. The rating blends both.
   3. Recent games count a bit more than September games.
   4. Quarterbacks. A team starting someone other than its usual QB is marked down.
+  5. Head coaches. A coach whose teams have beaten the books' expectations in past seasons (playoffs too) adds to
+     his team's rating, shrunk for coaches with few games (coach_edge). Only past seasons count, never this one.
 Ratings are in points: +3 = a field goal better than an average team on a neutral field.
 """
 import argparse
@@ -40,6 +42,8 @@ PARAMS = {
     "sigma": 13.0,         # spread of NFL results around the prediction, for win chances
     "qb_epa": 10.0,        # plus points per 1.0 EPA/dropback the fill-in QB has been better/worse than the usual one
     "injury": 0.5,         # points per full-time starter listed Out or Doubtful (snap-weighted); both chosen on 2013-2019
+    "coach": 0.5,          # share of a coach's past points-per-game over the books' expectation added to his team's rating
+    "coach_games": 17,     # ...shrunk as if he also had this many average games (a one-year coach counts about half)
 }
 
 
@@ -69,6 +73,7 @@ def load_games(path=RAW / "games.csv"):
                 "roof": r.get("roof") or None, "temp": _num(r.get("temp")), "wind": _num(r.get("wind")),
                 "gameday": r.get("gameday") or None, "gametime": r.get("gametime") or None,
                 "espn": r.get("espn") or None,
+                "hcoach": r.get("home_coach") or None, "acoach": r.get("away_coach") or None,
             })
     return out
 
@@ -111,6 +116,47 @@ def _solve(teams, rows, prior, k):
     y.append(0.0)
     sol, *_ = np.linalg.lstsq(np.array(A), np.array(y), rcond=None)
     return {t: float(sol[idx[t]]) for t in teams}
+
+
+def coach_record(path=RAW / "games.csv", cap=17):
+    """{coach: {season: [points over the books' expected margin, games]}}, every game with a line (playoffs too).
+    Margins are capped like the ratings, so one blowout doesn't make a coach."""
+    out = defaultdict(lambda: defaultdict(lambda: [0.0, 0]))
+    with open(path, encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            hs, as_, line = _num(r["home_score"]), _num(r["away_score"]), _num(r.get("spread_line"))
+            if hs is None or as_ is None or line is None:
+                continue
+            d = max(-cap, min(cap, hs - as_ - line))
+            for c, sign in ((r.get("home_coach"), 1), (r.get("away_coach"), -1)):
+                if c:
+                    out[c][int(r["season"])][0] += sign * d
+                    out[c][int(r["season"])][1] += 1
+    return out
+
+
+def coach_value(rec, coach, season, P=PARAMS):
+    """A coach's points per game over expectation in seasons before `season`, shrunk toward 0."""
+    s = n = 0
+    for y, (pts, g) in rec.get(coach, {}).items():
+        if y < season:
+            s, n = s + pts, n + g
+    return s / (n + P["coach_games"])
+
+
+def coach_of(games, team, week):
+    """The team's head coach for `week`: from that week's game, else its latest game before it, else its first one."""
+    mine = sorted((x for x in games if team in (x["home"], x["away"])), key=lambda x: x["week"])
+    pick = next((x for x in mine if x["week"] == week), None) or next((x for x in reversed(mine) if x["week"] < week), None) or (mine[0] if mine else None)
+    return pick and (pick["hcoach"] if pick["home"] == team else pick["acoach"])
+
+
+def coach_edge(R, games, week, rec, P=PARAMS):
+    """Ratings with each team's coach edge added (points)."""
+    if not rec or not P.get("coach"):
+        return R
+    season = games[0]["season"] if games else 0
+    return {t: r + P["coach"] * coach_value(rec, coach_of(games, t, week), season, P) for t, r in R.items()}
 
 
 def ratings(games, epa, before_week, prior_m, prior_e, P=PARAMS):
@@ -305,9 +351,9 @@ def season_ratings(season, P=PARAMS, back=4):
     for s in range(season - back, season):
         if all_games.get(s):
             pm, pe = final_ratings(all_games[s], load_epa(s), pm, pe, P)
-    games, epa = all_games.get(season, []), load_epa(season)
+    games, epa, rec = all_games.get(season, []), load_epa(season), coach_record()
     last = max((x["week"] for x in games if x["done"]), default=0)
-    out = {w: ratings(games, epa, w + 1, pm, pe, P)[0] for w in range(0, last + 1)}
+    out = {w: coach_edge(ratings(games, epa, w + 1, pm, pe, P)[0], games, w + 1, rec, P) for w in range(0, last + 1)}
     return out, games
 
 
@@ -317,6 +363,7 @@ def backtest(P=PARAMS, seasons=range(2020, 2026), all_games=None, epas=None, qui
     epas = epas or {s: load_epa(s) for s in range(min(seasons) - 1, max(seasons) + 1)}
     first = min(seasons) - 1
     pm, pe = final_ratings(all_games[first], epas.get(first, {}), {}, {}, P)
+    rec = coach_record()
     n = right = books_n = books_right = 0
     err = brier = 0.0
     for s in seasons:
@@ -325,7 +372,7 @@ def backtest(P=PARAMS, seasons=range(2020, 2026), all_games=None, epas=None, qui
             wk = [x for x in games if x["week"] == w and x["done"]]
             if not wk:
                 continue
-            R, _, _ = ratings(games, epa, w, pm, pe, P)
+            R = coach_edge(ratings(games, epa, w, pm, pe, P)[0], games, w, rec, P)
             for x in wk:
                 m, p = predict(x, R, games, P, F)
                 act = x["hp"] - x["ap"]
@@ -353,6 +400,7 @@ def score_backtest(T=TOTALS, seasons=range(2020, 2026), all_games=None, epas=Non
     first = min(seasons) - 1
     pm, pe = final_ratings(all_games[first], epas.get(first, {}), {}, {})
     sp = final_score_ratings(all_games[first], None, T)
+    rec = coach_record()
     rows = []
     for s in seasons:
         games, epa = all_games[s], epas.get(s, {})
@@ -360,7 +408,7 @@ def score_backtest(T=TOTALS, seasons=range(2020, 2026), all_games=None, epas=Non
             wk = [x for x in games if x["week"] == w and x["done"]]
             if not wk:
                 continue
-            R, _, _ = ratings(games, epa, w, pm, pe)
+            R = coach_edge(ratings(games, epa, w, pm, pe)[0], games, w, rec)
             S = score_ratings(games, w, sp, T)
             for x in wk:
                 m, _ = predict(x, R, games, F=F)
