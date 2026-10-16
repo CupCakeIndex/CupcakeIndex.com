@@ -87,7 +87,19 @@ const Viz = (() => {
       ["def_succ", "Success rate allowed (defense)", (S) => div(100 * S.def_succ, S.def_adv_plays), { den: (S) => S.def_adv_plays, pct: 1, low: 1, need: ["def_succ"] }],
       ["epa_total", "Total EPA (offense)", (S) => S.epa ?? S.pass_epa + S.rush_epa, { count: 1, d: 1 }],
     ]],
+    // a whole defense's run stops and pressures: its players' numbers added up (NFL deep cuts; sum() adds the TX columns up by team).
+    // Two players on one tackle both get it, as on their own pages.
+    ["Run defense and pressure (players added up)", [
+      ["run_stop", "Run stops", (S) => S.run_stop, { count: 1, need: ["run_stop"] }],
+      ["stop_pct", "Stop % of run tackles", (S) => div(100 * S.run_stop, S.run_tkl), { den: (S) => S.run_tkl, pct: 1, unit: "run tackles", need: ["run_tkl"] }],
+      ["stuff", "Stuffs (run tackles at or behind the line)", (S) => S.stuff, { count: 1, need: ["stuff"] }],
+      ["run_depth", "Avg gain on run tackles", (S) => div(S.run_tkl_yds, S.run_tkl), { den: (S) => S.run_tkl, d: 1, low: 1, unit: "run tackles", need: ["run_tkl_yds"] }],
+      ["sy_stop", "Short-yardage stops (3rd/4th & 2 or less)", (S) => S.sy_stop, { count: 1, need: ["sy_stop"] }],
+      ["third_stop", "3rd/4th-down stops", (S) => S.third_stop, { count: 1, need: ["third_stop"] }],
+      ["pressure", "Pressures (sacks, hits, hurries)", (S) => S.pressure, { count: 1, need: ["pressure"] }],
+    ]],
   ];
+  const TX = ["run_stop", "run_tkl", "run_tkl_yds", "stuff", "sy_stop", "third_stop", "pressure"]; // player columns a team's total is added up from
   const rating = (S) => { // NFL passer rating
     if (!S.att) return null;
     const c = (x) => Math.max(0, Math.min(2.375, x));
@@ -220,12 +232,68 @@ const Viz = (() => {
   const statsFor = (who, D) => (who === "players" ? P : T).map(([g, list]) => [g, list.filter(([, , , o]) =>
     (!o.lg || o.lg === D.league) && (!o.need || o.need.every((c) => (who === "players" ? D.pcols : D.tcols).includes(c))))]).filter(([, l]) => l.length);
   const findStat = (who, D, k) => statsFor(who, D).flatMap(([, l]) => l).find((s) => s[0] === k);
+  // a stat from loose words ("defensive epa", "ints", "run stops"): the one whose name covers the words best. A whole word in
+  // its name counts most, part of a word a bit less, a word only in its group half; most of the words have to be covered.
+  const norm = (x) => x.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[.'’-]/g, "").toLowerCase();
+  const QSYN = { def: "defense", defensive: "defense", defence: "defense", ints: "interceptions", int: "interceptions", picks: "interceptions",
+    td: "tds", touchdown: "tds", touchdowns: "tds", yds: "yards", yd: "yards", yard: "yards", pct: "%", percent: "%", percentage: "%",
+    catches: "receptions", passing: "pass", rushing: "rush", running: "run", receiving: "rec", tackle: "tackles", sacks: "sack" };
+  const qStem = (t) => (t.length > 3 && !/ss$/.test(t) ? t.replace(/s$/, "") : t);
+  const qTok = (s) => norm(s).split(/[\s/()]+/).filter((t) => t && !["the", "of", "a", "per"].includes(t)).map((t) => qStem(QSYN[t] || t));
+  const bestStats = (side, groups) => {
+    const ws = qTok(side);
+    if (!ws.length) return [];
+    return groups.flatMap(([g, l]) => l.map((x) => {
+      const hl = norm(`${x[1]} ${x[0].replace(/_/g, " ")}`), hg = norm(g), hw = new Set(qTok(x[1])); // whole words: the name you see, not the key
+      return [x, ws.reduce((n, t) => n + (hw.has(t) ? 1 : hl.includes(t) ? 0.8 : hg.includes(t) ? 0.5 : 0), 0) / ws.length - hl.length / 1e4];
+    })).filter((s) => s[1] >= 0.7).sort((a, b) => b[1] - a[1]);
+  };
+  // the Filter box: "run stops > 20 and sacks >= 3", "QB, EPA per dropback over .1", "rookies and tackles at least 30 or sacks > 5".
+  // "or" splits it into groups (any group can match), "and" / "&" / a comma splits a group into conditions (all must match).
+  // A condition is a stat, a comparison and a number, or a position, team, division, "rookies" or "undrafted".
+  const OPS = [["≥", /^(>=|≥|=>|at least|no less than)$/], ["≤", /^(<=|≤|=<|at most|no more than)$/], [">", /^(>|over|more than|above|greater than)$/],
+    ["<", /^(<|under|less than|fewer than|below)$/], ["≠", /^(!=|≠|<>|not)$/], ["=", /^(=|==|is|equals)$/]];
+  const OP_RE = /^(.*?)\s*(>=|<=|=>|=<|!=|<>|==|≥|≤|≠|>|<|=|at least|at most|no less than|no more than|more than|greater than|less than|fewer than|over|under|above|below|equals|is|not)\s*(-?\d*\.?\d+)\s*%?$/i;
+  const cmp = (op, v, n) => (op === "≥" ? v >= n : op === "≤" ? v <= n : op === ">" ? v > n : op === "<" ? v < n : op === "≠" ? Math.abs(v - n) > 1e-9 : Math.abs(v - n) < 1e-9);
+  const POS_WORDS = { qb: "QB", qbs: "QB", quarterback: "QB", quarterbacks: "QB", rb: "RB", rbs: "RB", running: "RB", back: "RB", backs: "RB", wr: "WR", wrs: "WR",
+    receiver: "WR", receivers: "WR", te: "TE", tes: "TE", "tight end": "TE", "tight ends": "TE", k: "K", kicker: "K", kickers: "K", ol: "OL", "o-line": "OL", oline: "OL", linemen: "OL",
+    def: "DEF", defense: "DEF", defenders: "DEF", edge: "EDGE", "edge rushers": "EDGE", idl: "IDL", dl: "IDL", "d-line": "IDL", lb: "LB", lbs: "LB", linebacker: "LB", linebackers: "LB",
+    cb: "CB", cbs: "CB", corner: "CB", corners: "CB", cornerbacks: "CB", s: "S", safety: "S", safeties: "S", "running backs": "RB", "wide receivers": "WR" };
+  function parseWhere(text, who, groups, teams, confs) {
+    const out = { groups: [], read: [], bad: [] };
+    for (const grp of String(text || "").split(/\s+or\s+|\s*\|\|\s*/i)) {
+      const conds = [];
+      for (let c of grp.split(/\s+and\s+|\s*&&?\s*|\s*,\s*|\s*;\s*/i).map((x) => x.trim()).filter(Boolean)) {
+        const m = OP_RE.exec(c);
+        if (m) {
+          const s = bestStats(m[1], groups)[0]?.[0], op = OPS.find(([, r]) => r.test(m[2].toLowerCase()))?.[0];
+          if (s && op) { conds.push({ k: "stat", s, op, n: +m[3], txt: `${s[1]} ${op} ${m[3]}` }); continue; }
+          out.bad.push(c); continue;
+        }
+        const w = norm(c).replace(/\s+only$/, "");
+        const pos = POS_WORDS[w] || (["QB", "RB", "WR", "TE", "K", "OL", "DEF", "EDGE", "IDL", "LB", "CB", "S"].includes(c.toUpperCase()) && c.toUpperCase());
+        const team = Object.entries(teams).find(([, t]) => [t[0], t[1], t[0].split(" ").at(-1)].some((x) => norm(x || "") === w));
+        const conf = confs.find((x) => norm(x) === w);
+        if (pos && who === "players") conds.push({ k: "pos", v: pos, txt: pos });
+        else if (/^rookies?$/.test(w) && who === "players") conds.push({ k: "exp", v: "1", txt: "rookies" });
+        else if (/^undrafted$|^udfa$/.test(w) && who === "players") conds.push({ k: "draft", v: "U", txt: "undrafted" });
+        else if (team) conds.push({ k: "team", v: team[0], txt: team[1][0] });
+        else if (conf) conds.push({ k: "group", v: conf, txt: conf });
+        else out.bad.push(c);
+      }
+      if (conds.length) { out.groups.push(conds); out.read.push(conds.map((x) => x.txt).join(" and ")); }
+    }
+    return out;
+  }
 
   // ---------------------------------------------------------------- state (all in the link)
   const DEF = { who: "teams", type: "bar", stat: "epa_play", y: "pts", from: "", to: "", wk1: "", wk2: "", per: "game", top: "10",
     group: "", team: "", pos: "", pick: "", order: "best", cum: "", scope: "", radar: "", logo: "", names: "", min: "", role: "", noexit: "", exp: "", draft: "",
     // Style and picture: scheme = colors, ttl/subt = your own title, bg/size = the downloaded picture; nums/grid/curve: "" = on, "0" = off; big/round: "1" = on
-    scheme: "", ttl: "", subt: "", bg: "", size: "", nums: "", grid: "", curve: "", big: "", round: "" }; // logo/names: "" = on, "0" = off; min: "" = automatic
+    scheme: "", ttl: "", subt: "", bg: "", size: "", nums: "", grid: "", curve: "", big: "", round: "", // logo/names: "" = on, "0" = off; min: "" = automatic
+    // where = the filter typed in plain English ("run stops > 20 and sacks >= 3"), every chart; cols = the Table's columns;
+    // quad = scatter quadrant names, "top left|top right|bottom left|bottom right"
+    where: "", cols: "", quad: "" };
   let st = { ...DEF };
   const save = () => {
     const q = new URLSearchParams({ league, show: "visualize" });
@@ -241,6 +309,7 @@ const Viz = (() => {
         D.pcols = D.pcols.concat(D.xcols);
         for (const r of D.prows) { const x = r.length > n ? r.pop() : []; for (let i = 0; i < D.xcols.length; i++) r.push(0); for (let i = 0; i < x.length; i += 2) r[n + x[i]] = x[i + 1]; }
       }
+      if (D) D.tx = D.pcols && D.prows ? TX.filter((c) => D.pcols.includes(c)) : []; // player columns teams get added up from
       return D;
     }).catch(() => null));
     return files.get(k);
@@ -303,6 +372,17 @@ const Viz = (() => {
       if (byWeek) { const w = o.wk[r[1]] || (o.wk[r[1]] = Object.fromEntries(cols.map((c) => [c, 0]))); cols.forEach((c, i) => { w[c] += r[i + 3]; }); }
     }
     if (who === "players" && D.pseason) for (const [k, v] of Object.entries(D.pseason)) if (out[k]) D.pseason_cols.forEach((c, i) => { out[k].S["ss_" + c] = v[i]; });
+    if (who === "teams" && D.tx?.length) { // team run stops etc.: the team's players added up, same weeks
+      const ix = D.tx.map((c) => D.pcols.indexOf(c) + 3);
+      for (const k in out) for (const c of D.tx) out[k].S[c] = 0;
+      for (const r of D.prows) {
+        if (r[1] < w1 || r[1] > w2) continue;
+        const o = out[r[2]];
+        if (!o) continue;
+        D.tx.forEach((c, i) => { o.S[c] += r[ix[i]] || 0; });
+        if (byWeek && o.wk[r[1]]) { const w = o.wk[r[1]]; D.tx.forEach((c, i) => { w[c] = (w[c] || 0) + (r[ix[i]] || 0); }); }
+      }
+    }
     if (who === "teams") for (const k in out) if (!D.tcols.includes("opp_yds")) out[k].S.opp_yds = out[k].S.opp_pass_yds + out[k].S.opp_rush_yds;
     return out;
   }
@@ -428,7 +508,8 @@ const Viz = (() => {
 
   function draw(el, seasons, Ds) {
     const D = Ds.at(-1), who = st.who, multi = Ds.length > 1;
-    const have = { league: D.league, tcols: D.tcols.filter((c) => Ds.every((d) => d.tcols.includes(c))), pcols: D.pcols }; // a stat shows if every season picked has it
+    const have = { league: D.league, pcols: D.pcols, // a stat shows if every season picked has it (team run stops etc.: added up from players)
+      tcols: [...D.tcols.filter((c) => Ds.every((d) => d.tcols.includes(c))), ...(D.tx || []).filter((c) => Ds.every((d) => d.tx?.includes(c)))] };
     const groups = statsFor(who, have), all = groups.flatMap(([, l]) => l);
     const stat = all.find((s) => s[0] === st.stat) || all[0];
     st.stat = stat[0];
@@ -497,10 +578,21 @@ const Viz = (() => {
     const unitOf = (s) => UNITS[s[0]] || s[3].unit || (["ypa", "cmp_pct", "rating", "eff"].includes(s[0]) ? "pass attempts" : who === "teams" ? "plays" : "attempts");
     const per = st.type === "pie" ? "total" : st.per; // a pie is a share of the whole: always season totals
     const val = (s, k) => value(s, agg[k].S, agg[k].g, per);
+    // the Filter box (every chart type): keep who matches any "or" group, where every condition in the group holds
+    const W = (st.type === "line" || st.type === "bar") && who === "teams" && st.scope === "league" ? { groups: [], read: [], bad: [] } : parseWhere(st.where, who, groups, D.teams, confs);
+    const condOk = (c, k) => c.k === "stat" ? (() => { const v = val(c.s, k); return v != null && !Number.isNaN(v) && cmp(c.op, v, c.n); })()
+      : c.k === "pos" ? (FINE[c.v] ? meta(k)?.[3] === c.v : POS_OF(meta(k)?.[1], agg[k].S) === c.v)
+      : c.k === "exp" ? expOk(meta(k)?.[4], c.v) : c.k === "draft" ? draftOk(meta(k)?.[5], c.v)
+      : c.k === "team" ? teamOf(k) === c.v : c.k === "group" ? tm(teamOf(k))[3] === c.v : true;
+    if (W.groups.length) keys = keys.filter((k) => picks.includes(k) || W.groups.some((g) => g.every((c) => condOk(c, k))));
+    const whereRead = W.groups.length ? W.read.join(" or ") + (W.groups.flat().some((c) => c.k === "stat" && c.s[3].count) && per === "game" ? " (per game)" : "") : "";
     const rank = (s, list) => list.filter((k) => val(s, k) != null).sort((a, b) => (s[3].low ? 1 : -1) * (val(s, a) - val(s, b)) * (st.order === "worst" ? -1 : 1));
     const top = st.top === "all" ? 9999 : +st.top || 10;
-    const name = (k) => who === "players" ? meta(k)?.[0] || k : tm(k)[0];
-    const short = (k) => who === "players" ? (meta(k)?.[0] || k).replace(/^(\S)\S*\s/, "$1. ") : tm(k)[1] || tm(k)[0];
+    // a Head coach stat on the chart: teams go by their coach ("Macdonald", hover: "Mike Macdonald (Seattle Seahawks)")
+    const coachy = who === "teams" && [stat[0], st.type === "scatter" ? st.y : ""].some((s) => s.startsWith("co_"));
+    const coach = (k) => (coachy ? agg[k]?.S.co_name : null);
+    const name = (k) => who === "players" ? meta(k)?.[0] || k : coach(k) ? `${coach(k)} (${tm(k)[0]})` : tm(k)[0];
+    const short = (k) => who === "players" ? (meta(k)?.[0] || k).replace(/^(\S)\S*\s/, "$1. ") : coach(k) ? coach(k).split(" ").slice(1).join(" ") : tm(k)[1] || tm(k)[0];
     const css = getComputedStyle(document.body), C = (v) => css.getPropertyValue(v).trim();
     let ink = C("--ink"), muted = C("--muted"), line = C("--line"); // let: a light picture swaps them for a moment (picture())
     const accent = C("--accent") || "#ff6b2c";
@@ -535,7 +627,15 @@ const Viz = (() => {
       return out;
     };
     const lgTxt = league === "nfl" ? "NFL" : "College";
-    let title = "", body = "", note = "";
+    let title = "", body = "", note = "", tableRows = [], tableHead = [];
+    // the Table's columns: the sort stat, the stats in the filter, then yours (or a set that fits the position)
+    function tableCols() {
+      const conds = W.groups.flat(), pk = st.pos || conds.find((c) => c.k === "pos")?.v || "";
+      const def = who === "teams" ? RADAR.teams : pk === "OL" ? ["off_snaps", "pen", "pen_yds", "pen_rate"]
+        : RADAR.players[{ TE: "WR", EDGE: "DEF", IDL: "DEF", LB: "DEF" }[pk] || pk] || RADAR.players[""];
+      const ks = [...new Set([stat[0], ...conds.filter((c) => c.k === "stat").map((c) => c.s[0]), ...(st.cols ? st.cols.split(",") : def)])];
+      return ks.map((k) => all.find((s) => s[0] === k)).filter(Boolean).slice(0, 14);
+    }
     const sel = (id, opts, v) => `<select id="${id}">${opts.map(([k, l]) => `<option value="${esc(k)}"${String(k) === String(v) ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
     const statSel = (id, v) => `<select id="${id}">${groups.map(([g, l]) => `<optgroup label="${esc(g)}">${l.map((s) => `<option value="${s[0]}"${s[0] === v ? " selected" : ""}>${esc(s[1])}</option>`).join("")}</optgroup>`).join("")}</select>`;
     const seg = (id, opts, v) => `<div class="seg vz-seg" id="${id}">${opts.map(([k, l]) => `<button data-v="${k}" class="${k === v ? "active" : ""}">${l}</button>`).join("")}</div>`;
@@ -704,7 +804,16 @@ const Viz = (() => {
           const { ctx, chartArea: a, scales: { x, y } } = c;
           ctx.save(); ctx.setLineDash([4, 4]); ctx.strokeStyle = muted; ctx.lineWidth = 1;
           ctx.beginPath(); ctx.moveTo(x.getPixelForValue(mx), a.top); ctx.lineTo(x.getPixelForValue(mx), a.bottom); ctx.moveTo(a.left, y.getPixelForValue(my)); ctx.lineTo(a.right, y.getPixelForValue(my)); ctx.stroke();
-          ctx.setLineDash([]); ctx.font = `${px(10)}px JetBrains Mono`; ctx.fillStyle = ink;
+          ctx.setLineDash([]);
+          // your quadrant names (Style and picture), in the corners: on screen, so "top right" is top right even on a flipped axis
+          const Q = (st.quad || "").split("|");
+          if (Q.some(Boolean)) {
+            ctx.font = `bold ${px(12)}px JetBrains Mono`; ctx.fillStyle = hi; ctx.globalAlpha = 0.8;
+            [[0, a.left + 8, a.top + 6, "left", "top"], [1, a.right - 8, a.top + 6, "right", "top"], [2, a.left + 8, a.bottom - 6, "left", "bottom"], [3, a.right - 8, a.bottom - 6, "right", "bottom"]]
+              .forEach(([i, x0, y0, al, bl]) => { if (Q[i]) { ctx.textAlign = al; ctx.textBaseline = bl; ctx.fillText(Q[i].toUpperCase(), x0, y0); } });
+            ctx.globalAlpha = 1; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+          }
+          ctx.font = `${px(10)}px JetBrains Mono`; ctx.fillStyle = ink;
           c.getDatasetMeta(0).data.forEach((p, i) => {
             const sz = hl(pts[i].k) ? 26 : 20, logo = showLogo && drawLogo(ctx, pts[i].k, p.x, p.y, sz);
             if (showLogo && !logo) { ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, 7); ctx.fillStyle = color(pts[i].k); ctx.fill(); ctx.fillStyle = ink; } // no logo (an FCS team): a dot
@@ -713,6 +822,21 @@ const Viz = (() => {
           ctx.restore(); } }] };
       body = { h: 440 };
       note = `${both.length < pool.length ? `Top ${both.length} of ${pool.length} ${who} by ${stat[1].toLowerCase()}` : `${both.length} ${who}`}${stat[3].den ? ` (at least ${minFor(stat)} ${unitOf(stat)} for ${stat[1].toLowerCase()})` : ""}. Dashed lines are the averages. ${stat[3].low || ystat[3].low ? "Axes are flipped where lower is better, so up and right is always good." : "Up and right is good."}`;
+    } else if (st.type === "table") { // a data table: pick the columns, sort by any of them (click a header), filter with words
+      const list = rank(stat, qualify(stat)), shown = [...new Set([...list.slice(0, top), ...picks.filter((k) => list.includes(k))])];
+      const cs = tableCols();
+      title = `${who === "players" ? "Players" : "Teams"}${whereRead ? ` where ${whereRead}` : ""}, by ${stat[1].toLowerCase()}${perTxt(stat)}`;
+      const lg = (k) => { const u = LOGOS?.[teamOf(k)]; return u ? `<img src="${esc(u)}" alt="" loading="lazy">` : ""; };
+      const link = (k) => who === "players" && /^\d+$/.test(k) ? `<a href="#/player/${esc(k)}?league=${league}">${esc(name(k))}</a>`
+        : who === "teams" ? `<a href="#/team/${esc(k.split(":")[1])}?league=${league}">${esc(name(k))}</a>` : esc(name(k));
+      const pos = (k) => meta(k)?.[3] || meta(k)?.[1] || "";
+      tableRows = shown.map((k, i) => [i + 1, name(k), ...(who === "players" ? [tm(teamOf(k))[1], pos(k)] : []), ...cs.map((s) => fmt(s, val(s, k), per))]);
+      tableHead = ["#", who === "players" ? "Player" : "Team", ...(who === "players" ? ["Team", "Pos"] : []), ...cs.map((s) => s[1] + perTxt(s))];
+      body = { h: 0, html: `<div class="vz-twrap"><table class="box vz-table"><thead><tr><th class="num">#</th><th>${who === "players" ? "Player" : "Team"}</th>${who === "players" ? "<th>Team</th><th>Pos</th>" : ""}
+        ${cs.map((s) => `<th class="num${s === stat ? " on" : ""}" data-sort="${s[0]}" title="${esc(s[1] + perTxt(s))}: click to sort">${esc(s[1].replace(/ \(.+\)$/, ""))}${s === stat ? (st.order === "worst" ? " ▲" : " ▼") : ""}</th>`).join("")}</tr></thead>
+        <tbody>${shown.map((k, i) => `<tr${hl(k) ? ' class="hl"' : ""}><td class="num muted">${i + 1}</td><td class="vz-tname">${lg(k)}${link(k)}</td>${who === "players" ? `<td>${esc(tm(teamOf(k))[1])}</td><td class="muted">${esc(pos(k))}</td>` : ""}
+          ${cs.map((s) => `<td class="num${s === stat ? " on" : ""}">${esc(fmt(s, val(s, k), per))}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${cs.length + 4}" class="muted">Nobody matches.</td></tr>`}</tbody></table></div>` };
+      note = `${shown.length < list.length ? `Top ${shown.length} of ${list.length}` : `${list.length}`} ${who}${whereRead ? " that match the filter" : ""}${stat[3].den ? ` (at least ${minFor(stat)} ${unitOf(stat)} for ${stat[1].toLowerCase()})` : ""}. Click a column to sort by it, again to flip it.`;
     } else { // radar: percentiles among everyone shown
       const want = who === "teams" ? RADAR.teams : RADAR.players[st.pos] || RADAR.players[""];
       const custom = st.radar ? st.radar.split(",") : want;
@@ -734,9 +858,11 @@ const Viz = (() => {
       body = { h: 440 };
       note = "100 = the best among everyone listed, 0 = the worst. Lower-is-better stats are flipped.";
     }
+    const whereBox = `<label class="vz-wide">Filter <small class="muted">e.g. run stops > 20 and sacks >= 3, or QB, EPA per dropback over .1</small><input id="vz-where" type="search" maxlength="200" placeholder="Type conditions… (and / or, > < >= <=)" value="${esc(st.where)}" autocomplete="off" spellcheck="false">
+        ${W.bad.length ? `<small class="vz-wbad">Couldn't read ${W.bad.map((b) => `“${esc(b)}”`).join(", ")}. Try a stat, a comparison and a number (“tackles >= 30”), a position, a team or “rookies”.</small>` : whereRead ? `<small class="muted">Showing ${who} where ${esc(whereRead)}.</small>` : ""}</label>`;
     const autoTitle = title;
     if (st.ttl) title = st.ttl; // Style > Your title
-    const autoSub = `${lgTxt} · ${seasonTxt} · ${weeksTxt}${st.group ? ` · ${st.group}` : ""}${st.team ? ` · ${tm(st.team)[0]}` : ""}${st.role ? ` · ${st.role}s` : st.pos ? ` · ${st.pos === "DEF" ? "Defense" : FINE[st.pos] || st.pos}` : ""}${who === "players" && st.exp ? ` · ${EXP.find(([k]) => k === st.exp)?.[1]}` : ""}${who === "players" && st.draft ? ` · ${st.draft === "U" ? "Undrafted" : `Drafted: ${DRAFT.find(([k]) => k === st.draft)?.[1]}`}` : ""}`;
+    const autoSub = `${lgTxt} · ${seasonTxt} · ${weeksTxt}${st.group ? ` · ${st.group}` : ""}${st.team ? ` · ${tm(st.team)[0]}` : ""}${st.role ? ` · ${st.role}s` : st.pos ? ` · ${st.pos === "DEF" ? "Defense" : FINE[st.pos] || st.pos}` : ""}${who === "players" && st.exp ? ` · ${EXP.find(([k]) => k === st.exp)?.[1]}` : ""}${who === "players" && st.draft ? ` · ${st.draft === "U" ? "Undrafted" : `Drafted: ${DRAFT.find(([k]) => k === st.draft)?.[1]}`}` : ""}${whereRead && st.type !== "table" ? ` · where ${whereRead}` : ""}`;
     const sub = st.subt || autoSub;
     const src = league === "nfl" ? "nflverse play-by-play (EPA)" : "CollegeFootballData.com (box scores; PPA = college EPA, garbage time left out)";
     const seasonOnly = [stat, ystat].some((s) => s[3].season) && (w1 > 1 || w2 < 99);
@@ -755,22 +881,24 @@ const Viz = (() => {
         <small class="muted" id="vz-pmsg"></small>
       </div>
       <div class="vz-ctl">
-        <label>Chart${seg("vz-type", [["bar", "Bar"], ["line", "Line"], ["pie", "Pie"], ["scatter", "Scatter"], ["radar", "Radar"]], st.type)}</label>
+        <label>Chart${seg("vz-type", [["bar", "Bar"], ["line", "Line"], ["pie", "Pie"], ["scatter", "Scatter"], ["radar", "Radar"], ["table", "Table"]], st.type)}</label>
         <label>Of${seg("vz-who", [["teams", "Teams"], ["players", "Players"]], who)}</label>
         ${st.type === "radar" ? `<details class="vz-wide vz-rstats"><summary>Stats on the web (${axes().length}) · tap to change</summary><div id="vz-radar">${groups.map(([g, l]) => `<fieldset><legend>${esc(g)}</legend>${l.map((s) => `<label><input type="checkbox" value="${s[0]}"${custom().includes(s[0]) ? " checked" : ""}> ${esc(s[1])}</label>`).join("")}</fieldset>`).join("")}<p class="muted">Pick 3 to 8.</p></div></details>`
-          : `<label class="vz-wide">${st.type === "scatter" ? "Across (X)" : "Stat"}${statSel("vz-stat", stat[0])}</label>${st.type === "scatter" ? `<label class="vz-wide">Up (Y)${statSel("vz-y", ystat[0])}</label>` : ""}`}
+          : `<label class="vz-wide">${st.type === "scatter" ? "Across (X)" : st.type === "table" ? "Sort by" : "Stat"}${statSel("vz-stat", stat[0])}</label>${st.type === "scatter" ? `<label class="vz-wide">Up (Y)${statSel("vz-y", ystat[0])}</label>` : ""}`}
         <label>Seasons${who === "players" && idx.players?.[league] > (idx[league] || [])[0] ? ` <small class="muted">player stats start in ${idx.players[league]}</small>` : ""}<span class="vz-pair">${sel("vz-from", seasons.map((s) => [s, s]), st.from)}<i>to</i>${sel("vz-to", seasons.map((s) => [s, s]), st.to)}</span></label>
         <label>Weeks<span class="vz-pair">${sel("vz-wk1", wkOpts, st.wk1)}<i>to</i>${sel("vz-wk2", wkOpts, st.wk2)}</span></label>
         ${st.type === "pie" ? "" : `<label>Totals${seg("vz-per", [["game", "Per game"], ["total", "Total"]], st.per)}</label>`}
-        ${st.type === "bar" && !whole ? `<label>Show${seg("vz-order", [["best", "Best"], ["worst", "Worst"]], st.order)}</label>` : ""}
+        ${(st.type === "bar" || st.type === "table") && !whole ? `<label>Show${seg("vz-order", [["best", "Best"], ["worst", "Worst"]], st.order)}</label>` : ""}
+        ${st.type === "table" ? whereBox + `<details class="vz-wide vz-rstats"><summary>Columns (${tableCols().length}) · tap to change</summary><div id="vz-cols">${groups.map(([g, l]) => `<fieldset><legend>${esc(g)}</legend>${l.map((s) => `<label><input type="checkbox" value="${s[0]}"${tableCols().includes(s) ? " checked" : ""}> ${esc(s[1])}</label>`).join("")}</fieldset>`).join("")}<p class="muted">Up to 14. The sort column and the stats in your filter always show.</p></div></details>` : ""}
         ${(st.type === "line" || st.type === "bar") && who === "teams" ? `<label>${st.type === "bar" ? "Bars" : "Lines"}${seg("vz-scope", [["", st.type === "bar" ? "Each team" : "Top teams"], ["league", `Whole ${league === "nfl" ? "NFL" : "league"}${st.type === "bar" ? " by season" : ""}`]], st.scope)}</label>` : ""}
         ${st.type === "line" && (!multi || whole) ? `<label>Line${seg("vz-cum", [["", "Each week"], ["1", whole && per === "game" ? "Running average" : "Running total"]], st.cum)}</label>` : ""}
         ${whole ? "" : `<label>How many${sel("vz-top", [...[5, 10, 15, 20, 25, 50, 100].map((x) => [x, `Top ${x}`]), ["all", "All"]], st.top)}</label>`}
         ${whole ? "" : stat[3].den && st.type !== "pie" || (st.type === "radar" && who === "players") ? `<label>Minimum <small class="muted">${esc(st.type === "radar" ? { QB: "pass attempts", RB: "carries", WR: "catches", DEF: "tackles", CB: "tackles", S: "tackles", K: "field goal tries" }[st.pos] || "touches" : unitOf(stat))}</small><input id="vz-min" type="number" min="0" inputmode="numeric" placeholder="auto ${st.type === "radar" ? "" : autoMin(stat)}" value="${esc(st.min)}"></label>` : ""}
         ${who === "players" && D.pcols.includes("left") ? `<div class="vz-chks"><label title="Games a player left by halftime (usually hurt, sometimes rested in a blowout). QBs: threw or ran in the first half and never after. Everyone else: a regular who played under half his side's snaps."><input type="checkbox" id="vz-noexit"${st.noexit ? " checked" : ""}> Leave out games they left by halftime</label></div>` : ""}
-        ${st.type !== "radar" && !whole ? `<div class="vz-chks"><label><input type="checkbox" id="vz-logo"${st.logo !== "0" ? " checked" : ""}> Team logos</label><label><input type="checkbox" id="vz-names"${st.names !== "0" ? " checked" : ""}> ${who === "teams" ? "Team" : "Player"} names</label></div>` : ""}
+        ${st.type !== "radar" && st.type !== "table" && !whole ? `<div class="vz-chks"><label><input type="checkbox" id="vz-logo"${st.logo !== "0" ? " checked" : ""}> Team logos</label><label><input type="checkbox" id="vz-names"${st.names !== "0" ? " checked" : ""}> ${who === "teams" ? "Team" : "Player"} names</label></div>` : ""}
       </div>
-      <details class="vz-more"${st.group || st.team || st.pos || st.exp || st.draft || picks.length ? " open" : ""}><summary>Filters and highlights</summary><div class="vz-ctl">
+      <details class="vz-more"${st.group || st.team || st.pos || st.exp || st.draft || picks.length || st.where ? " open" : ""}><summary>Filters and highlights</summary><div class="vz-ctl">
+        ${st.type !== "table" && !whole ? whereBox : ""}
         <label>${league === "nfl" ? "Division" : "Conference"}${sel("vz-group", [["", "All"], ...confs.map((c) => [c, c])], st.group)}</label>
         ${who === "players" ? `<label>Team${sel("vz-team", [["", "All teams"], ...Object.entries(D.teams).sort((a, b) => a[1][0].localeCompare(b[1][0])).map(([k, t]) => [k, t[0]])], st.team)}</label>
           <label>Position${sel("vz-pos", posOpts, st.pos)}</label>
@@ -779,10 +907,11 @@ const Viz = (() => {
         <label class="vz-wide vz-findwrap">Highlight / compare<input id="vz-find" placeholder="Type a ${who === "teams" ? "team" : "player"}…" autocomplete="off" spellcheck="false"><div class="vz-sugg" id="vz-sugg" hidden></div></label>
         <div class="vz-picks">${picks.map((k) => `<button data-k="${esc(k)}" title="Remove">${esc(name(k))} ×</button>`).join("")}</div>
       </div></details>
-      <details class="vz-more"${st.scheme || st.ttl || st.subt || st.bg || st.size || st.nums || st.grid || st.curve || st.big || st.round ? " open" : ""}><summary>Style and picture</summary><div class="vz-ctl">
+      <details class="vz-more"${st.scheme || st.ttl || st.subt || st.quad || st.bg || st.size || st.nums || st.grid || st.curve || st.big || st.round ? " open" : ""}><summary>Style and picture</summary><div class="vz-ctl">
         <label>Colors${sel("vz-scheme", Object.entries(SCHEMES).map(([k, x]) => [k, x[0]]), st.scheme)}</label>
         <label class="vz-wide">Your title<input id="vz-ttl" maxlength="80" placeholder="${esc(autoTitle)}" value="${esc(st.ttl)}" spellcheck="true"></label>
         <label class="vz-wide">Your subtitle<input id="vz-subt" maxlength="100" placeholder="${esc(autoSub)}" value="${esc(st.subt)}" spellcheck="true"></label>
+        ${st.type === "scatter" ? `<fieldset class="vz-wide vz-quad"><legend>Name the quadrants <small class="muted">(split by the dashed average lines)</small></legend>${["Top left", "Top right", "Bottom left", "Bottom right"].map((l, i) => `<label>${l}<input data-quad="${i}" maxlength="24" placeholder="${esc(["e.g. Lucky", "e.g. Elite", "e.g. Bad", "e.g. Unlucky"][i])}" value="${esc((st.quad || "").split("|")[i] || "")}" spellcheck="true"></label>`).join("")}</fieldset>` : ""}
         <label>Picture background${seg("vz-bg", [["", "Dark"], ["light", "Light"], ["clear", "See-through"]], st.bg)}</label>
         <label>Picture size${sel("vz-size", [["", "Like the screen"], ["x", "X post (16:9)"], ["sq", "Square"], ["story", "Phone story (9:16)"]], st.size)}</label>
         <div class="vz-chks">${[["nums", "Numbers on bars", 1], ["grid", "Gridlines", 1], ["curve", "Smooth lines", 1], ["round", "Rounded bars", 0], ["big", "Bigger text", 0]]
@@ -790,17 +919,17 @@ const Viz = (() => {
         <p class="muted vz-wide">Background and size are for Download picture and Share; the chart here stays as is.</p>
       </div></details>
       <div class="vz-frame" id="vz-frame"><div class="vz-title"><b>${esc(title)}</b><small>${esc(sub)}</small></div>
-        <div class="vz-canvas" style="height:${body.h}px"><canvas id="vz-chart"></canvas></div>
+        ${body.html || `<div class="vz-canvas" style="height:${body.h}px"><canvas id="vz-chart"></canvas></div>`}
         <div class="vz-mark">cupcakeindex.com · ${esc(league === "nfl" ? "data: nflverse" : "data: CollegeFootballData.com")}</div></div>
       ${seasonOnly ? `<p class="note">Our ratings and college PPA are season-long numbers (as of the latest rankings), so they ignore the weeks you picked.</p>` : ""}
-      <div class="vz-actions">${Share.phone() && navigator.share ? "" : `<button class="btn" id="vz-png">Download picture</button>`}<button class="btn" id="vz-link">Copy link</button>${navigator.share ? `<button class="btn" id="vz-share">Share</button>` : ""}<button class="btn vz-reset" id="vz-reset">Start over</button></div>
+      <div class="vz-actions">${st.type === "table" ? `<button class="btn" id="vz-csv">Download spreadsheet (CSV)</button>` : Share.phone() && navigator.share ? "" : `<button class="btn" id="vz-png">Download picture</button>`}<button class="btn" id="vz-link">Copy link</button>${navigator.share && st.type !== "table" ? `<button class="btn" id="vz-share">Share</button>` : ""}<button class="btn vz-reset" id="vz-reset">Start over</button></div>
       ${body.table ? `<details class="vz-tbl"><summary>See the numbers</summary><table class="box"><tbody>${body.table.map(([i, k, v]) => `<tr><td class="num muted">${i}</td><td>${whole ? esc(k) : who === "players" && /^\d+$/.test(k) ? `<a href="#/player/${esc(k)}?league=${league}">${esc(name(k))}</a>` : who === "teams" ? `<a href="#/team/${esc(k.split(":")[1])}?league=${league}">${esc(name(k))}</a>` : esc(name(k))}</td><td class="num">${esc(v)}</td></tr>`).join("")}</tbody></table></details>` : ""}
       <p class="note">${st.role ? esc(`${st.role} = each team's ${(({ QB: "quarterback with the most pass attempts", RB: "back with the most carries + catches", WR: "wide receiver with the most targets", TE: "tight end with the most targets" })[st.role.slice(0, 2)]).replace("the most", st.role.endsWith("1") ? "the most" : `the ${{ 2: "2nd", 3: "3rd", 4: "4th" }[st.role.slice(2)]}-most`)} in the weeks you picked${league === "cfb" ? " (catches stand in for targets in college)" : ""}. `) : ""}${esc(note)} Source: ${esc(src)}. Rates are total ÷ total over the weeks you pick, not an average of weekly averages. Updated ${esc(new Date(D.updated).toLocaleDateString(undefined, { month: "short", day: "numeric" }))}.</p></div>`;
     function custom() { return st.radar ? st.radar.split(",") : who === "teams" ? RADAR.teams : RADAR.players[st.pos] || RADAR.players[""]; }
     function axes() { return custom().filter((k) => all.some((s) => s[0] === k)); }
 
     chart?.destroy();
-    chart = new Chart(document.getElementById("vz-chart"), cfg);
+    chart = cfg ? new Chart(document.getElementById("vz-chart"), cfg) : null;
     if (typeof Stats !== "undefined") Stats.count("charts"); // analytics: charts made
     save();
 
@@ -833,10 +962,37 @@ const Viz = (() => {
       st.radar = v.join(","); redo();
       document.querySelector(".vz-rstats")?.setAttribute("open", "");
     };
+    // Filter box, the Table's columns and header sorting, quadrant names, the spreadsheet download
+    const wh = document.getElementById("vz-where");
+    if (wh) wh.onchange = () => { st.where = wh.value.trim(); redo(); };
+    const cl = document.getElementById("vz-cols");
+    if (cl) cl.onchange = (e) => {
+      const v = [...cl.querySelectorAll("input:checked")].map((o) => o.value);
+      if (v.length > 14) { e.target.checked = false; return; }
+      st.cols = v.join(","); redo();
+      document.getElementById("vz-cols")?.closest("details")?.setAttribute("open", "");
+    };
+    el.querySelectorAll(".vz-table th[data-sort]").forEach((th) => th.onclick = () => {
+      if (st.stat === th.dataset.sort) st.order = st.order === "worst" ? "best" : "worst"; else { st.stat = th.dataset.sort; st.order = "best"; st.min = ""; }
+      redo();
+    });
+    el.querySelectorAll("[data-quad]").forEach((x) => x.onchange = () => {
+      const q = [0, 1, 2, 3].map((i) => (el.querySelector(`[data-quad="${i}"]`)?.value || "").replace(/\|/g, "/").trim());
+      st.quad = q.some(Boolean) ? q.join("|") : ""; redo();
+    });
+    const csv = document.getElementById("vz-csv");
+    if (csv) csv.onclick = () => {
+      const cell = (v) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
+      const text = [tableHead, ...tableRows].map((r) => r.map(cell).join(",")).join("\n");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob(["﻿" + text], { type: "text/csv" })); // the mark makes Excel read it as UTF-8
+      a.download = `cupcake-index-${who}-${st.stat}.csv`; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      if (typeof Stats !== "undefined") Stats.count("downloads");
+    };
     // search every team/player in the data (not just the first few thousand): best name match first, then the bigger stat line
     const find = document.getElementById("vz-find"), sugg = document.getElementById("vz-sugg");
-    const norm = (x) => x.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[.'’-]/g, "").toLowerCase();
-    const pool = Object.keys(agg).filter(ok).map((k) => [k, norm(name(k)), agg[k].S]);
+    const pool =Object.keys(agg).filter(ok).map((k) => [k, norm(name(k)), agg[k].S]);
     const size = (S) => who === "teams" ? 0 : (S.pass_yds || 0) + (S.rush_yds || 0) + (S.rec_yds || 0) + 10 * (S.tackles || 0) + 30 * (S.fg_made || 0);
     let hits = [], cur = -1;
     const add = (k) => { if (k && !picks.includes(k)) { st.pick = [...picks, k].slice(-6).join(","); redo(); } };
@@ -879,29 +1035,26 @@ const Viz = (() => {
       ...Object.entries(D.teams).map(([k, t]) => [t[0], "Team", `${t[1]} ${t[3] || ""}`, () => {
         if (st.who === "players") st.team = k; else st.pick = [...(st.pick ? st.pick.split(",") : []).filter((x) => x !== k), k].slice(-6).join(","); redo(); }]),
       ...confs.map((c) => [c, league === "nfl" ? "Division" : "Conference", "group", () => { st.group = c; redo(); }]),
-      ...[["bar", "Bar"], ["line", "Line"], ["pie", "Pie"], ["scatter", "Scatter"], ["radar", "Radar"]].map(([k, l]) => [`${l} chart`, "Chart type", "chart type", () => { st.type = k; st.radar = ""; redo(); }]),
+      ...[["bar", "Bar"], ["line", "Line"], ["pie", "Pie"], ["scatter", "Scatter"], ["radar", "Radar"], ["table", "Table"]].map(([k, l]) => [k === "table" ? "Data table" : `${l} chart`, "Chart type", k === "table" ? "chart type table spreadsheet rows columns sort filter query" : "chart type", () => { if (k === "table" && st.type !== "table") st.per = "total"; st.type = k; st.radar = ""; redo(); }]),
       [`Whole ${lgTxt} by week`, "Line chart", "league wide nfl-wide trend week by week season vs season all teams", () => { setWho("teams"); st.type = "line"; st.scope = "league"; redo(); }],
       [`Whole ${lgTxt} by season`, "Bar chart", "league wide nfl-wide trend year by year season vs season all teams history", () => { setWho("teams"); st.type = "bar"; st.scope = "league"; redo(); }],
     ];
     // Two stats at once: "run stops AND defensive EPA", "sacks vs pressures", "ypc & carries" (and / vs / & / x / a comma)
-    // makes a scatter of the two, first one across. Any wording works: each side goes to the stat whose name covers its
-    // words best (a whole word in its name counts most, part of a word a bit less, a word found only in the stat's group
-    // half; every side needs most of its words covered).
-    const QSYN = { def: "defense", defensive: "defense", defence: "defense", ints: "interceptions", int: "interceptions", picks: "interceptions",
-      td: "tds", touchdown: "tds", touchdowns: "tds", yds: "yards", yd: "yards", yard: "yards", pct: "%", percent: "%", percentage: "%",
-      qb: "qb", catches: "receptions", passing: "pass", rushing: "rush", running: "run", receiving: "rec", tackle: "tackles", sacks: "sack" };
-    const qStem = (t) => (t.length > 3 && !/ss$/.test(t) ? t.replace(/s$/, "") : t);
-    const qTok = (s) => norm(s).split(/[\s/()]+/).filter((t) => t && !["the", "of", "a", "per"].includes(t)).map((t) => qStem(QSYN[t] || t));
-    const qBest = (side, w) => {
-      const ws = qTok(side);
-      if (!ws.length) return [];
-      return statsFor(w, have).flatMap(([g, l]) => l.map((x) => {
-        const hl = norm(`${x[1]} ${x[0].replace(/_/g, " ")}`), hg = norm(g), hw = new Set(qTok(x[1])); // whole words: the name you see, not the key
-        return [x, ws.reduce((n, t) => n + (hw.has(t) ? 1 : hl.includes(t) ? 0.8 : hg.includes(t) ? 0.5 : 0), 0) / ws.length - hl.length / 1e4];
-      })).filter((s) => s[1] >= 0.7).sort((a, b) => b[1] - a[1]);
-    };
+    // makes a scatter of the two, first one across (each side read by bestStats). A comparison ("run stops > 20 and
+    // sacks >= 3") offers a Table filtered that way instead.
+    const qBest = (side, w) => bestStats(side, statsFor(w, have));
     const qPair = (q) => {
-      const parts = q.split(/\s+(?:and|vs\.?|versus|against|x)\s+|\s*(?:&|,)\s*/i).map((s) => s.trim()).filter(Boolean);
+      if (OP_RE.test(q.split(/\s+or\s+|\s*,\s*|\s+and\s+|\s*&&?\s*/i)[0].trim()) || /\d/.test(q) && /[<>≥≤]|at least|at most|more than|less than|over|under/i.test(q)) {
+        const tryWho = (w) => { const p = parseWhere(q, w, statsFor(w, have), D.teams, confs); return p.groups.length && !p.bad.length ? p : null; };
+        const w = tryWho(st.who) ? st.who : tryWho(st.who === "players" ? "teams" : "players") ? (st.who === "players" ? "teams" : "players") : null;
+        if (!w) return { hits: [], note: `Couldn't read all of that as a filter. Try “run stops > 20 and sacks >= 3”.` };
+        const p = tryWho(w);
+        return { hits: [[`Table of ${w} where ${p.read.join(" or ")}`, "Table · filter", "", () => {
+          setWho(w); st.type = "table"; st.where = q; st.per = "total"; st.cols = "";
+          const s1 = p.groups.flat().find((c) => c.k === "stat"); if (s1) { st.stat = s1.s[0]; st.order = s1.op === "<" || s1.op === "≤" ? "worst" : "best"; }
+          redo(); }]], note: "" };
+      }
+      const parts =q.split(/\s+(?:and|vs\.?|versus|against|x)\s+|\s*(?:&|,)\s*/i).map((s) => s.trim()).filter(Boolean);
       if (parts.length !== 2) return null;
       const out = [], miss = {};
       for (const w of st.who === "teams" ? ["teams", "players"] : ["players", "teams"]) {
@@ -1004,6 +1157,7 @@ const Viz = (() => {
         whole ? `${st.group || "whole league"}, one ${st.type} per season` : (st.type === "line" || st.type === "radar" || st.type === "pie") && !picks.length && `Top ${top}`,
         picks.length && `Highlighted: ${picks.map(name).join(", ")}`,
         st.noexit && "games left by halftime left out",
+        whereRead && `Filter: ${whereRead}`,
         st.type === "line" && st.cum && "running total",
       ].filter(Boolean);
       return `Filters: ${parts.join(" · ")}. Data: ${league === "nfl" ? "nflverse play-by-play" : "CollegeFootballData.com"}.`;

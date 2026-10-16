@@ -99,7 +99,7 @@ const Coaches = (() => {
     const out = {};
     for (const c of D[lg]?.coaches || []) {
       const s = c.st.find(([, a, b]) => a <= season && season <= b);
-      if (s && c.c) out[s[0]] = { co_score: c.c.score, co_pct: c.c.pct == null ? null : 100 * c.c.pct, co_good: pct(c.c.gw, c.c.gl) == null ? null : 100 * pct(c.c.gw, c.c.gl), co_woe: c.c.woe_s, co_yrs: c.c.yrs, co_edge: c.edge };
+      if (s && c.c) out[s[0]] = { co_name: c.n, co_score: c.c.score, co_pct: c.c.pct == null ? null : 100 * c.c.pct, co_good: pct(c.c.gw, c.c.gl) == null ? null : 100 * pct(c.c.gw, c.c.gl), co_woe: c.c.woe_s, co_yrs: c.c.yrs, co_edge: c.edge };
     }
     return out;
   }
