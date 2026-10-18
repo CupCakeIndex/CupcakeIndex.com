@@ -1979,7 +1979,14 @@ const Live = (() => {
       const P = (fx, v) => [W / 2 + (fx - 0.5) * NW * S(v), NEAR - ((NEAR - FAR) * (1 - S(v))) / (1 - 1 / (1 + K))];
       const pt = (fx, v) => P(fx, v).map((n) => n.toFixed(1)).join(",");
       const band = (v0, v1, f0 = 0, f1 = 1) => `${pt(f0, v0)} ${pt(f1, v0)} ${pt(f1, v1)} ${pt(f0, v1)}`;
-      const jit = (x, w) => { let h = 0; for (const c of String(x.p.id || "")) h = (h * 31 + c.charCodeAt(0)) >>> 0; return ((h % 1000) / 1000 - 0.5) * w; };
+      // spread each dot across its third of the field with a well-mixed hash of the play id (so the same play always lands
+      // in the same spot, but neighbors like "4-pass-12" and "4-pass-13" don't stack in a column)
+      const jit = (x, w) => {
+        let h = 2166136261;
+        for (const c of String(x.p.id || "")) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+        h = Math.imul(h ^ (h >>> 15), 0x5bd1e995); h ^= h >>> 13;
+        return (((h >>> 0) % 1000) / 1000 - 0.5) * w;
+      };
       const FX = (x) => (rush ? GAPS[x.gap] + jit(x, /end|tackle|guard|up the/.test(x.gap) ? 0.09 : 0.24) : { left: 0.21, middle: 0.5, right: 0.79 }[x.dir] + jit(x, 0.26));
       const g = [`<linearGradient id="pc-turf" x1="0" y1="1" x2="0" y2="0"><stop offset="0" class="pc-turf-near"/><stop offset="1" class="pc-turf-far"/></linearGradient>`,
         `<polygon class="pc-turf" points="${band(bot, top)}"/>`];
@@ -1994,7 +2001,7 @@ const Live = (() => {
       }
       g.push(`<polygon class="pc-side" points="${band(bot, top)}"/>`);
       const [lx0, ly] = P(0, 0), [lx1] = P(1, 0);
-      g.push(`<line class="ay-los" x1="${lx0}" x2="${lx1}" y1="${ly}" y2="${ly}" filter="url(#gcv-glow)"/><text class="pc-los" x="${lx0 + 4}" y="${ly + 13}">LOS</text><text class="pc-los r" x="${lx1 - 4}" y="${ly + 13}">LOS</text>`);
+      g.push(`<line class="ay-los pc-losl" x1="${lx0}" x2="${lx1}" y1="${ly}" y2="${ly}"/><text class="pc-los" x="${lx0 + 4}" y="${ly + 13}">LOS</text><text class="pc-los r" x="${lx1 - 4}" y="${ly + 13}">LOS</text>`);
       const mid = rush ? avg(caught) : avg(pts); // the dashed line: yards per carry, or aDOT
       if (mid != null) { const [mx0, my] = P(0, mid), [mx1] = P(1, mid); g.push(`<line class="ay-avg" x1="${mx0}" x2="${mx1}" y1="${my}" y2="${my}"/><text class="pc-avg" x="${mx1 - 8}" y="${my + 12}">${rush ? "AVG" : "aDOT"} ${f1(mid)}</text>`); }
       // where each lane is, under the field
