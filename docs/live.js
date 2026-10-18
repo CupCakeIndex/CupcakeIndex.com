@@ -2100,7 +2100,7 @@ const Live = (() => {
         if (k >= pts.length) { now.textContent = `${pts.length} ${M.noun}`; return stop(true); }
         const x = pts[k], i = k, to = pos[k], peak = rush ? 0 : 2.2 + Math.max(0, x.air) * 0.16;
         const air = (u) => { const f = QB.f + (to.f - QB.f) * u, v = QB.v + (to.v - QB.v) * u, [px, py] = P(f, v); return [px, py - 4 * peak * u * (1 - u) * 7 * S(v)]; };
-        const dur = rush ? 300 : 380;
+        const dur = rush ? 560 : 650; // how long the line takes to draw in
         arc.setAttribute("d", rush ? runD(i) : `M${Array.from({ length: 21 }, (_, n) => air(n / 20).map((q) => q.toFixed(1)).join(",")).join(" L")}`);
         arc.style.setProperty("--d", `${dur}ms`);
         arc.classList.remove("go"); void arc.getBBox(); arc.classList.add("go");
@@ -2115,7 +2115,7 @@ const Live = (() => {
         const yacTxt = mode === "target" && !x.inc && x.yac ? ` + ${x.yac} after the catch` : "";
         now.textContent = `${k + 1}/${pts.length} · Q${x.p.period?.number || ""} ${x.p.clock?.displayValue || ""} · ${x.air} yds${yacTxt}${what(x) ? " · " + what(x) : ""}`;
         k++;
-        timer = setTimeout(step, Math.max(600, Math.min(1000, 22000 / pts.length)));
+        timer = setTimeout(step, 1300); // one play every 1.3 s
       };
       halt = () => { if (timer) stop(false); };
       if (btn) btn.onclick = () => {
