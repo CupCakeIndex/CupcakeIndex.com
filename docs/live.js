@@ -2010,8 +2010,9 @@ const Live = (() => {
       });
       g.push(`<path class="pc-arc" id="pc-arc" d=""/>`);
       const what = (x) => (x.td ? "touchdown" : x.int ? (rush ? "fumble lost" : "intercepted") : x.inc ? "incomplete" : "");
-      // misses first, so the catches sit on top of them
-      pts.map((x, i) => i).sort((i, j) => (pts[j].inc ? 1 : 0) - (pts[i].inc ? 1 : 0) || pts[j].air - pts[i].air).forEach((i) => {
+      // misses first, then catches, then picks on top so they never hide
+      const layer = (x) => (x.int ? 2 : x.inc ? 0 : 1);
+      pts.map((x, i) => i).sort((i, j) => layer(pts[i]) - layer(pts[j]) || pts[j].air - pts[i].air).forEach((i) => {
         const x = pts[i], [cx, cy] = P(pos[i].f, x.air);
         let tip = `${games.find((q) => q.gi === x.g)?.label || ""} · Q${x.p.period?.number || ""} ${x.p.clock?.displayValue || ""}: ${x.air} ${M.y}${what(x) ? ", " + what(x) : ""}. ${(x.p.text || "").replace(/^(\([^)]*\)\s*)+/, "")}`;
         if (mode === "target" && x.yac && !x.inc) tip = tip.replace(`${x.air} ${M.y}`, `caught ${x.air} yds out, ${x.yac} after the catch`);

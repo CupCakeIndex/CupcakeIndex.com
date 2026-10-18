@@ -2530,7 +2530,7 @@ table.roster th.sortable.on a { color: var(--accent); }
 .ay-dot { fill: var(--accent); stroke: var(--bg); stroke-width: 1.5; transition: opacity .25s, r .25s; }
 .ay-dot.td { fill: var(--good); stroke: var(--ink); }
 .ay-dot.inc { fill: none; stroke: var(--ink); stroke-width: 1.5; opacity: .7; }
-.ay-dot.int { fill: var(--bg); stroke: var(--bad); stroke-width: 2.5; opacity: 1; }
+.ay-dot.int { fill: #ff2e63; stroke: #fff; stroke-width: 1.8; opacity: 1; filter: drop-shadow(0 0 4px rgba(255, 46, 99, .7)); }
 .ay-dot:hover { r: 7; }
 .ay-dot.pc-hide { opacity: 0; }
 .pc-qb { fill: var(--card); stroke: var(--accent); stroke-width: 2; }
@@ -2549,7 +2549,7 @@ table.roster th.sortable.on a { color: var(--accent); }
 .ay-key { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); vertical-align: middle; }
 .ay-key.td { background: var(--good); }
 .ay-key.inc { background: none; border: 1.5px solid var(--ink); box-sizing: border-box; }
-.ay-key.int { background: none; border: 2px solid var(--bad); box-sizing: border-box; }
+.ay-key.int { background: #ff2e63; border: 1.5px solid #fff; box-sizing: border-box; }
 .ay-gap { fill: var(--muted); font: 700 8px var(--font-head); text-anchor: middle; letter-spacing: .05em; opacity: .7; }
 .pc .sc-bar { flex-wrap: wrap; gap: 8px; }
 .ay-yd.l, .ay-lbl.l { text-anchor: start; }
