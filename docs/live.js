@@ -1854,6 +1854,184 @@ const Live = (() => {
     return raw.map((t) => t / total);
   }
 
+  // Air yards: how far past the line of scrimmage each pass was caught, for each QB.
+  // NFL: ESPN gives yards after catch, so air = gain - YAC (rows that don't match ESPN's "short"/"deep" label are dropped, since
+  // ESPN's YAC is sometimes wrong). College: the play text says where it was caught ("caught at OU40", or "thrown to OU40" when
+  // incomplete). The text's team letters can differ from ESPN's (UT vs TEX), so they're matched up from "to the UT43" spots first.
+  function airPasses(s) {
+    const plays = (s.drives?.previous || []).concat(s.drives?.current && !(s.drives.previous || []).some((d) => d.id === s.drives.current.id) ? [s.drives.current] : []).flatMap((d) => d.plays || []);
+    const sp = (t) => { const m = /^([A-Z&]+)\s+(\d+)$/.exec((t || "").trim()); return m ? [m[1], +m[2]] : null; };
+    const alias = {}, own = {}, known = new Set();
+    for (const p of plays) {
+      for (const x of [p.start, p.end]) {
+        const a = sp(x?.possessionText);
+        if (!a) continue;
+        known.add(a[0]);
+        if (a[1] !== 50 && x.team?.id && x.yardsToEndzone === 100 - a[1]) own[x.team.id] = a[0];
+      }
+      const e = sp(p.end?.possessionText), m = / to the ([A-Z&]+) ?(\d+)/.exec(p.text || "");
+      if (e && m && +m[2] === e[1] && e[1] !== 50) alias[m[1]] = e[0];
+    }
+    const toGo = (side, n, team) => { // yards from the offense's goal line
+      if (n === 50) return 50;
+      const X = alias[side] || side;
+      return !known.has(X) || !own[team] ? null : X === own[team] ? 100 - n : n;
+    };
+    const out = [];
+    for (const p of plays) {
+      const t = p.text || "", type = p.type?.text || "";
+      if (!/\bpass\b/i.test(t) || /no play|spiked|two-point|2pt|conversion/i.test(`${t} ${type}`) || /sack/i.test(type)) continue;
+      const who = /(?:#\d+\s+)?([A-Z][A-Za-z.'\-]*(?:\s[A-Z][A-Za-z.'\-]+)?)\s+pass\b/.exec(t.replace(/^(\([^)]*\)\s*)+/, "").replace(/^[\w\- ]*?(?=#\d)/, ""));
+      const team = String(p.start?.team?.id || ""), los = p.start?.yardsToEndzone;
+      if (!who || !team || los == null) continue;
+      const inc = /incomplete/i.test(t), int = /intercept/i.test(t), depth = /pass (?:complete |incomplete )?(short|deep)/i.exec(t)?.[1]?.toLowerCase();
+      let air = null;
+      const spot = /(?:caught at|thrown to) ([A-Z&]+) ?(\d+)/.exec(t);
+      if (spot) { const y = toGo(spot[1], +spot[2], team); if (y != null) air = los - y; }
+      else if (!inc && !int && p.yardsAfterCatch != null && p.statYardage != null) {
+        air = p.statYardage - p.yardsAfterCatch;
+        if (p.yardsAfterCatch > 90 || (depth === "short" && air > 17) || (depth === "deep" && air < 14)) air = null;
+      }
+      if (air != null && (air < -20 || air > 75 || (depth === "short" && air > 30))) air = null;
+      const dir = /pass (?:complete |incomplete )?(?:(?:short|deep) )?(left|middle|right)/i.exec(t)?.[1]?.toLowerCase() || "middle";
+      const to = /\bpass\b.*?\bto (?:#\d+\s+)?([A-Z][A-Za-z'\-]*\.\s?[A-Z][A-Za-z'\-]+)/.exec(t)?.[1] || null;
+      out.push({ qb: who[1], to, team, half: (p.period?.number || 1) <= 2 ? 1 : 2, inc: inc || int, int, td: /touchdown/i.test(t) && !int && !inc, depth, dir, air, p });
+    }
+    return out;
+  }
+  // Every run, from the play-by-play: who carried it, which gap (NFL: "left end" ... "up the middle"; college only says left/middle/right), and the gain.
+  const GAPS = { "left end": 0.12, "left tackle": 0.27, "left guard": 0.39, "up the middle": 0.5, "right guard": 0.61, "right tackle": 0.73, "right end": 0.88, left: 0.27, middle: 0.5, right: 0.73 };
+  function rushPlays(s) {
+    const plays = (s.drives?.previous || []).concat(s.drives?.current && !(s.drives.previous || []).some((d) => d.id === s.drives.current.id) ? [s.drives.current] : []).flatMap((d) => d.plays || []);
+    const out = [];
+    for (const p of plays) {
+      const t = (p.text || "").replace(/^(\([^)]*\)\s*)+/, ""), type = p.type?.text || "";
+      if (!/rush/i.test(type) || /no play|two-point|2pt|conversion|kneel|spike/i.test(`${t} ${type}`) || p.statYardage == null) continue;
+      const m = /(?:#\d+\s+)?([A-Z][A-Za-z'\-]*\.\s?[A-Z][A-Za-z'\-]+)(?:\s(?:Jr|Sr|II|III|IV|V)\.?)?\s+(?:scrambles\s+|rush\s+)?(left end|left tackle|left guard|up the middle|right guard|right tackle|right end|left|middle|right)\b/.exec(t);
+      if (!m) continue;
+      out.push({ qb: m[1], team: String(p.start?.team?.id || ""), half: (p.period?.number || 1) <= 2 ? 1 : 2, gap: m[2], air: p.statYardage,
+        td: /touchdown/i.test(`${type} ${t}`) && !/fumble/i.test(type), int: /fumble/i.test(t) && /recovered by/i.test(t) && /opponent/i.test(type), inc: false, p });
+    }
+    return out;
+  }
+  // Player page: a chart of every throw (QBs), target (WRs, TEs, RBs) or run (RBs) this season, seen from behind the line.
+  // Left/middle/right across, yards downfield up. Pick a week to play it back one snap at a time; "All weeks" is the combined, still chart.
+  // Built from each game's play-by-play (airPasses / rushPlays above), so it only loads when you scroll to it.
+  const PC_MODES = {
+    pass: { tab: "Throws", title: "Pass chart", per: "air yards per catch", noun: "throws", y: "air yards" },
+    target: { tab: "Targets", title: "Target chart", per: "air yards per catch", noun: "targets", y: "air yards" },
+    rush: { tab: "Runs", title: "Rush chart", per: "yards per carry", noun: "runs", y: "yards" },
+  };
+  async function passChartInto(lg, a, gl, slot, modes) {
+    const ids = Object.keys(gl?.events || {});
+    if (!ids.length) return slot.remove();
+    const evs = ids.map((id) => ({ id, ...gl.events[id] })).sort((x, y) => new Date(x.gameDate) - new Date(y.gameDate));
+    const sums = await Promise.all(evs.map((e) => api(`${SITE(lg)}/summary?event=${encodeURIComponent(e.id)}`, 3600000).catch(() => null)));
+    if (!slot.isConnected) return;
+    const norm = (x) => (x || "").toLowerCase().replace(/[^a-z]/g, "");
+    const last = norm((a.lastName || "").split(" ")[0]), first = norm(a.firstName);
+    const isMe = (nm) => { const m = /^([A-Za-z']+)\.\s?([A-Za-z'\-]+)/.exec(nm || ""); return !!m && norm(m[2]) === last && first.startsWith(norm(m[1])); };
+    const plays = { pass: [], target: [], rush: [] };
+    evs.forEach((e, gi) => {
+      if (!sums[gi]) return;
+      const ps = airPasses(sums[gi]);
+      ps.filter((x) => isMe(x.qb)).forEach((x) => plays.pass.push({ ...x, g: gi }));
+      ps.filter((x) => isMe(x.to)).forEach((x) => plays.target.push({ ...x, g: gi }));
+      rushPlays(sums[gi]).filter((x) => isMe(x.qb)).forEach((x) => plays.rush.push({ ...x, g: gi }));
+    });
+    modes = modes.filter((m) => plays[m].some((x) => x.air != null));
+    if (!modes.length) return slot.remove();
+    let mode = modes[0], sel = "all", halt = () => {};
+    const gamesOf = (md) => evs.map((e, gi) => ({ gi, label: `Wk ${e.week ?? ""} ${e.atVs || ""} ${e.opponent?.abbreviation || ""}`.trim(), n: plays[md].filter((x) => x.g === gi && x.air != null).length })).filter((g) => g.n);
+    const shell = () => {
+      const games = gamesOf(mode);
+      if (sel !== "all" && !games.some((g) => String(g.gi) === sel)) sel = "all";
+      slot.innerHTML = `<div class="card pc"><div class="sc-bar"><h3>${PC_MODES[mode].title}</h3>
+          ${modes.length > 1 ? `<div class="seg pc-mode">${modes.map((m) => `<button data-pm="${m}" class="${m === mode ? "active" : ""}">${PC_MODES[m].tab}</button>`).join("")}</div>` : ""}
+          <select id="pc-game"><option value="all">All weeks (combined)</option>${games.map((g) => `<option value="${g.gi}"${String(g.gi) === sel ? " selected" : ""}>${esc(g.label)}</option>`).join("")}</select></div>
+        <div id="pc-body"></div></div>`;
+      slot.querySelector(".pc-mode")?.addEventListener("click", (e) => { const m = e.target.closest("[data-pm]")?.dataset.pm; if (m && m !== mode) { halt(); mode = m; shell(); } });
+      $("#pc-game").onchange = (e) => { sel = e.target.value; draw(); };
+      draw();
+    };
+    const draw = () => {
+      halt();
+      const M = PC_MODES[mode], rush = mode === "rush", games = gamesOf(mode);
+      const list = plays[mode].filter((x) => sel === "all" || x.g === +sel), pts = list.filter((x) => x.air != null);
+      const caught = pts.filter((x) => !x.inc), avg = (xs) => (xs.length ? xs.reduce((n, x) => n + x.air, 0) / xs.length : null);
+      const f1 = (v) => (v == null ? "–" : (v < 0 ? "−" : "") + Math.abs(v).toFixed(1));
+      const pct = (n, d) => (d ? Math.round((100 * n) / d) + "%" : "–");
+      const h1 = avg(caught.filter((x) => x.half === 1)), h2 = avg(caught.filter((x) => x.half === 2));
+      const W = 360, H = 440, top = Math.max(rush ? 20 : 40, Math.ceil((Math.max(...pts.map((x) => x.air)) + 4) / 10) * 10), bot = Math.min(-12, Math.floor((Math.min(...pts.map((x) => x.air)) - 3) / 5) * 5);
+      const Y = (v) => 16 + ((top - v) / (top - bot)) * (H - 56), QY = H - 22;
+      const jit = (x, w) => { let h = 0; for (const c of String(x.p.id || "")) h = (h * 31 + c.charCodeAt(0)) >>> 0; return ((h % 1000) / 1000 - 0.5) * w; };
+      const PX = (x) => W * (rush ? GAPS[x.gap] + jit(x, /end|tackle|guard|up the/.test(x.gap) ? 0.08 : 0.2) : { left: 0.2, middle: 0.5, right: 0.8 }[x.dir] + jit(x, 0.22));
+      const g = [`<rect class="gcv-turf" x="0" y="0" width="${W}" height="${H}"/>`, `<rect class="ay-behind" x="0" y="${Y(0)}" width="${W}" height="${H - Y(0)}"/>`];
+      for (let v = 0; v < top; v += 20) g.push(`<rect class="gcv-band" x="0" y="${Y(v + 10)}" width="${W}" height="${Y(v) - Y(v + 10)}"/>`);
+      for (let v = bot + 1; v < top; v++) if (v % 5) for (const hx of [W * 0.35, W * 0.65]) g.push(`<line class="gcv-tick ay-hash" x1="${hx - 4}" x2="${hx + 4}" y1="${Y(v)}" y2="${Y(v)}"/>`);
+      for (let v = Math.ceil(bot / 5) * 5; v <= top; v += 5) if (v) g.push(`<line class="gcv-yl ay-yl${v % 10 ? " five" : ""}" x1="0" x2="${W}" y1="${Y(v)}" y2="${Y(v)}"/>${v % 10 ? "" : `<text class="ay-yd" x="${W - 4}" y="${Y(v) - 4}">${v}</text><text class="ay-yd l" x="4" y="${Y(v) - 4}">${v}</text>`}`);
+      if (rush) for (const [gp, lb] of [["left end", "END"], ["left tackle", "TKL"], ["left guard", "GRD"], ["up the middle", "MID"], ["right guard", "GRD"], ["right tackle", "TKL"], ["right end", "END"]]) g.push(`<text class="ay-gap" x="${W * GAPS[gp]}" y="${QY - 16}">${lb}</text>`);
+      g.push(`<line class="ay-los" x1="0" x2="${W}" y1="${Y(0)}" y2="${Y(0)}" filter="url(#gcv-glow)"/>`, `<text class="ay-lbl l" x="4" y="${Y(0) + 13}">LINE OF SCRIMMAGE</text>`,
+        `<text class="ay-lbl bad" x="${W - 4}" y="${H - 8}">${rush ? "LOST YARDS" : "BEHIND THE LINE"}</text>`);
+      if (caught.length) g.push(`<line class="ay-avg h2" x1="0" x2="${W}" y1="${Y(avg(caught))}" y2="${Y(avg(caught))}"/><text class="ay-al h2" x="4" y="${Y(avg(caught)) + 13}">avg ${f1(avg(caught))}</text>`);
+      g.push(`<path class="pc-arc" id="pc-arc" d=""/><circle class="pc-ball" id="pc-ball" r="5" cx="${W / 2}" cy="${QY}" opacity="0"/>`);
+      const what = (x) => (x.td ? "touchdown" : x.int ? (rush ? "fumble lost" : "intercepted") : x.inc ? "incomplete" : "");
+      pts.forEach((x, i) => {
+        const tip = `${games.find((q) => q.gi === x.g)?.label || ""} · Q${x.p.period?.number || ""} ${x.p.clock?.displayValue || ""}: ${x.air} ${M.y}${what(x) ? ", " + what(x) : ""}. ${(x.p.text || "").replace(/^(\([^)]*\)\s*)+/, "")}`;
+        g.push(`<circle class="ay-dot${x.inc ? " inc" : ""}${x.int ? " int" : ""}${x.td ? " td" : ""}" data-i="${i}" cx="${PX(x).toFixed(1)}" cy="${Y(x.air).toFixed(1)}" r="5"><title>${esc(tip)}</title></circle>`);
+      });
+      const tag = mode === "pass" ? "QB" : (a.position?.abbreviation || "").slice(0, 2);
+      g.push(`<circle class="pc-qb" cx="${W / 2}" cy="${QY}" r="9"/><text class="pc-qbt" x="${W / 2}" y="${QY + 3}">${esc(mode === "target" ? "QB" : tag)}</text>`);
+      const nInc = list.filter((x) => x.inc && x.air == null).length;
+      const stat = (v, label, cls = "") => `<span class="ay-stat ${cls}"><b>${v}</b><small>${label}</small></span>`;
+      const halves = stat(f1(h1), "1st halves") + stat(f1(h2), "2nd halves", h1 != null && h2 != null ? (h2 < h1 ? "down" : "up") : "");
+      const stats = rush
+        ? stat(f1(avg(caught)), M.per, "big") + halves + stat(pct(caught.filter((x) => x.air >= 10).length, caught.length), "runs of 10+ yds") + stat(pct(caught.filter((x) => x.air <= 0).length, caught.length), "stuffed (0 or less)")
+        : stat(f1(avg(caught)), M.per, "big") + halves + (mode === "target" ? stat(pct(list.filter((x) => !x.inc).length, list.length), "catch rate") : stat(pct(caught.filter((x) => x.air >= 16).length, caught.length), "caught 16+ yds out")) + stat(caught.filter((x) => x.air < 0).length, "caught behind the line");
+      const keys = rush ? `<span class="ay-key"></span> run · <span class="ay-key td"></span> touchdown${pts.some((x) => x.int) ? ' · <span class="ay-key int"></span> fumble lost' : ""}. Gaps are from the offense's view (college play-by-play only says left, middle or right).`
+        : `<span class="ay-key"></span> caught · <span class="ay-key td"></span> touchdown${pts.some((x) => x.inc && !x.int) ? ' · <span class="ay-key inc"></span> incomplete (where it was thrown)' : ""}${pts.some((x) => x.int) ? ' · <span class="ay-key int"></span> intercepted' : ""}. Left, middle and right are from the QB's view; ESPN only gives the third of the field, so dots are spread out within it.${mode === "target" ? " ESPN doesn't log routes run, only the throws that came his way." : ""}
+          ${nInc ? `${nInc} incomplete pass${nInc === 1 ? "" : "es"} not shown (ESPN doesn't mark where ${nInc === 1 ? "it was" : "they were"} thrown).` : ""}`;
+      $("#pc-body").innerHTML = `<div class="ay-stats">${stats}</div>
+        <div class="pc-ctl">${sel === "all" ? "" : `<button class="gcv-live" id="pc-play">▶ Play</button>`}<span class="muted" id="pc-now">${pts.length} ${mode === "rush" ? "runs" : mode === "target" ? "catches" : "throws"} plotted${sel === "all" ? ` in ${games.length} game${games.length === 1 ? "" : "s"} · pick a week to play them back` : ""}</span></div>
+        <svg class="gcv-field ay-field pc-field" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(a.displayName)} ${esc(M.title.toLowerCase())}"><defs><filter id="gcv-glow" filterUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>${g.join("")}</svg>
+        <p class="note">${keys} Tap a dot for the play.</p>`;
+      // Play (one week only): hide every dot, then run them in order. A throw arcs from the QB; a run goes straight from the backfield.
+      let timer = null, k = 0;
+      const btn = $("#pc-play"), now = $("#pc-now"), dots = [...slot.querySelectorAll(".pc-field .ay-dot")];
+      const arc = $("#pc-arc"), ball = $("#pc-ball");
+      const stop = (done) => { clearTimeout(timer); timer = null; btn.textContent = done ? "↺ Replay" : "▶ Play"; ball.setAttribute("opacity", 0); arc.setAttribute("d", ""); };
+      const step = () => {
+        if (!btn.isConnected) { timer = null; return; } // left the page
+        if (k) dots[k - 1].classList.remove("pc-hide"); // in case the browser skipped animation frames
+        if (k >= pts.length) { now.textContent = `${pts.length} ${M.noun}`; return stop(true); }
+        const x = pts[k], d = dots[k], tx = +d.getAttribute("cx"), ty = +d.getAttribute("cy");
+        const cx0 = (W / 2 + tx) / 2, cy0 = rush ? (QY + ty) / 2 : Math.min(QY, ty) - 20 - Math.max(0, x.air) * 1.2;
+        arc.setAttribute("d", `M${W / 2},${QY} Q${cx0},${cy0} ${tx},${ty}`);
+        arc.classList.remove("go"); void arc.getBBox(); arc.classList.add("go");
+        ball.setAttribute("opacity", 1);
+        const t0 = performance.now(), dur = rush ? 320 : 380;
+        const fly = (t) => {
+          if (!timer && k < pts.length) return;
+          const u = Math.min(1, (t - t0) / dur);
+          ball.setAttribute("cx", (1 - u) ** 2 * (W / 2) + 2 * (1 - u) * u * cx0 + u * u * tx);
+          ball.setAttribute("cy", (1 - u) ** 2 * QY + 2 * (1 - u) * u * cy0 + u * u * ty);
+          if (u < 1) requestAnimationFrame(fly); else d.classList.remove("pc-hide");
+        };
+        requestAnimationFrame(fly);
+        now.textContent = `${k + 1}/${pts.length} · Q${x.p.period?.number || ""} ${x.p.clock?.displayValue || ""} · ${x.air} yds${what(x) ? " · " + what(x) : ""}`;
+        k++;
+        timer = setTimeout(step, Math.max(450, Math.min(900, 20000 / pts.length)));
+      };
+      halt = () => { if (timer) stop(false); };
+      if (btn) btn.onclick = () => {
+        if (timer) return stop(false);
+        if (k === 0 || k >= pts.length) { k = 0; dots.forEach((d) => d.classList.add("pc-hide")); }
+        btn.textContent = "❚❚ Pause"; timer = setTimeout(step, 50);
+      };
+    };
+    shell();
+  }
+
   function wpChart(wp, away, home, tc = {}, times = null, final = false) {
     const W = 600, H = 160, n = wp.length;
     const tx = (i) => (final && i === n - 1 ? 1 : times ? times[i] : i / (n - 1)) * W; // live: the line stops at the game clock
@@ -3090,9 +3268,11 @@ const Live = (() => {
       fillFaces(view("player"));
       return;
     }
+    const pcModes = { QB: ["pass"], WR: ["target"], TE: ["target"], RB: ["rush", "target"], FB: ["rush", "target"] }[a.position?.abbreviation] || [];
     view("player").innerHTML = head + `
       ${summary ? `<div class="stats wide">${summary}</div>${caughtUp ? `<p class="note muted">Added up from his game-by-game stats, so it includes his latest game. Ranks come back once the overnight totals update.</p>` : ""}` : ""}
       <div id="career-slot"><div class="card muted">Loading stats by year…</div></div>
+      ${pcModes.length && logGl?.events && Object.keys(logGl.events).length ? `<div id="pc-slot"><div class="card muted">Loading pass chart…</div></div>` : ""}
       <div class="card"><div class="sc-bar"><h3>Game log</h3>
         <select id="pl-season"${noLogs ? ` class="hidden"` : ""}>${years.filter((y) => !cYears.includes(y)).map((y) => `<option${!cseason && y === shown ? " selected" : ""}>${y}</option>`).join("")}${cYears.map((y) => `<option value="c${y}"${String(y) === cseason ? " selected" : ""}>${y} (college)</option>`).join("")}</select></div>
         ${log || (noLogs ? `<p class="muted">ESPN doesn't have game-by-game logs for this player's career. Season totals, where ESPN has them, are in Stats by year above.</p>` : shown < 2000 ? `<p class="muted">ESPN doesn't have game-by-game logs for ${shown} (older seasons are spotty before the late 1990s). Season totals are in Stats by year above.</p>`
@@ -3101,6 +3281,11 @@ const Live = (() => {
         : params.get("inj") ? `<div class="card inj-card" id="pl-inj"><h3>Injury</h3><p class="muted">ESPN has no injury details on file for this player right now.</p></div>` : ""}`;
     fillFaces(view("player"));
     if (my === token) outlookInto(lg, id, $("#career-slot"), season ? null : gl).catch(() => {});
+    const pcSlot = $("#pc-slot");
+    if (pcSlot) { // load every game's play-by-play only once you scroll near it
+      const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); if (my === token) passChartInto(logLg, a, logGl, pcSlot, pcModes).catch(() => pcSlot.remove()); } }, { rootMargin: "300px" });
+      io.observe(pcSlot);
+    }
     const toInj = params.get("inj") && $("#pl-inj");
     if (toInj) pulse(toInj);
     $("#pl-season").onchange = (e) => { const v = e.target.value; location.hash = link("player", id, v[0] === "c" ? { cseason: v.slice(1) } : { season: v }); };
