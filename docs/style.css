@@ -2589,3 +2589,7 @@ table.roster th.sortable.on a { color: var(--accent); }
 .pc-losl { stroke-width: 2; opacity: .9; }
 .pc-lanediv { stroke: var(--ink); stroke-width: 1; stroke-dasharray: 4 5; opacity: .3; }
 .pc-los, .pc-avg { paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; }
+.ay-stat.pc-live { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
+.ay-stat.pc-tick b { animation: pc-tick .35s ease-out; }
+@keyframes pc-tick { 0% { color: var(--accent); transform: scale(1.12); } 100% { transform: scale(1); } }
+.ay-stat b { display: inline-block; transform-origin: left center; }

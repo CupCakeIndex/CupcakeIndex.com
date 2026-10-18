@@ -2054,7 +2054,7 @@ const Live = (() => {
       // league ranks (NFL, from src/pass_charts.py) go under each stat on "All weeks"
       const R = sel === "all" ? file?.ranks?.[mode] : null;
       const rk = (key) => (R?.[key] ? `<em class="ay-rk${R[key][0] <= 5 ? " top" : ""}">#${R[key][0]} of ${R[key][1]}</em>` : "");
-      const stat = (v, label, cls = "", key = "") => `<span class="ay-stat ${cls}"><b>${v}</b><small>${label}</small>${rk(key)}</span>`;
+      const stat = (v, label, cls = "", key = "") => `<span class="ay-stat ${cls}"${key ? ` data-k="${key}"` : ""}><b>${v}</b><small>${label}</small>${rk(key)}</span>`;
       const share = (f, xs) => pct(xs.filter(f).length, xs.length);
       const mean = (xs) => (xs.length ? xs.reduce((n, v) => n + v, 0) / xs.length : null);
       const halvesOf = (xs) => { const a1 = avg(xs.filter((x) => x.half === 1)), a2 = avg(xs.filter((x) => x.half === 2));
@@ -2082,7 +2082,21 @@ const Live = (() => {
       const btn = $("#pc-play"), now = $("#pc-now"), els = pts.map((_, i) => [...slot.querySelectorAll(`.pc-field [data-i="${i}"]`)]);
       const arc = $("#pc-arc"), ball = $("#pc-ball"), shadow = $("#pc-shadow");
       const show = (i, on) => els[i]?.forEach((e) => e.classList.toggle("pc-hide", !on));
-      const stop = (done) => { clearTimeout(timer); timer = null; btn.textContent = done ? "↺ Replay" : "▶ Play"; ball.setAttribute("opacity", 0); shadow.setAttribute("opacity", 0); arc.setAttribute("d", ""); };
+      // the completions tile counts up as each throw lands (1/1, 1/2, 2/3 ...), and goes back to the full game when playback ends
+      const tile = slot.querySelector('.ay-stat[data-k="cmp"], .ay-stat[data-k="catch"]'), tileB = tile?.querySelector("b"), tileS = tile?.querySelector("small");
+      const full = tile ? [tileB.innerHTML, tileS.innerHTML] : null, word = mode === "target" ? "caught" : "completed";
+      let landed = 0;
+      const tally = (n) => {
+        if (!tile) return;
+        const c = pts.slice(0, n).filter((x) => !x.inc).length;
+        tileB.textContent = `${c}/${n}`; tileS.textContent = `${word} (${n ? pct(c, n) : "–"})`;
+        tile.classList.add("pc-live"); tile.classList.remove("pc-tick"); void tile.offsetWidth; if (n) tile.classList.add("pc-tick");
+      };
+      const land = (i) => { show(i, true); if (i + 1 > landed) { landed = i + 1; tally(landed); } };
+      const stop = (done) => {
+        clearTimeout(timer); timer = null; btn.textContent = done ? "↺ Replay" : "▶ Play"; ball.setAttribute("opacity", 0); shadow.setAttribute("opacity", 0); arc.setAttribute("d", "");
+        if (done && tile) { tileB.innerHTML = full[0]; tileS.innerHTML = full[1]; tile.classList.remove("pc-live", "pc-tick"); }
+      };
       // the ball at a spot on the field, h yards up in the air, pointed at angle ang (the football and its shadow shrink with distance)
       const put = (f, v, h, ang, spin = 1) => {
         const [x, y] = P(f, v), sc = S(v) * 1.35;
@@ -2091,7 +2105,7 @@ const Live = (() => {
       };
       const step = () => {
         if (!btn.isConnected) { timer = null; return; } // left the page
-        if (k) show(k - 1, true); // in case the browser skipped animation frames
+        if (k) land(k - 1); // in case the browser skipped animation frames
         if (k >= pts.length) { now.textContent = `${pts.length} ${M.noun}`; return stop(true); }
         const x = pts[k], i = k, to = pos[k], peak = rush ? 0.3 : 2.2 + Math.max(0, x.air) * 0.16;
         const [x0, y0] = P(QB.f, QB.v), [x1, y1] = P(to.f, to.v), ang = (Math.atan2(y1 - y0, x1 - x0) * 180) / Math.PI;
@@ -2108,8 +2122,8 @@ const Live = (() => {
             const [bx, by] = air(Math.min(1, u + 0.02)), [cx2, cy2] = air(Math.max(0, u - 0.02));
             put(QB.f + (to.f - QB.f) * u, QB.v + (to.v - QB.v) * u, 4 * peak * u * (1 - u), (Math.atan2(by - cy2, bx - cx2) * 180) / Math.PI, rush ? 1 : 0.8 + 0.2 * Math.cos(u * 26));
           }
-          else if (e < dur + dur2) { show(i, true); put(to.f, to.v + (yacTo - to.v) * ((e - dur) / dur2), 0, yacTo < to.v ? 90 : -90); }
-          else { put(to.f, yacTo ?? to.v, 0, ang); show(i, true); return; }
+          else if (e < dur + dur2) { land(i); put(to.f, to.v + (yacTo - to.v) * ((e - dur) / dur2), 0, yacTo < to.v ? 90 : -90); }
+          else { put(to.f, yacTo ?? to.v, 0, ang); land(i); return; }
           requestAnimationFrame(fly);
         };
         requestAnimationFrame(fly);
@@ -2120,7 +2134,7 @@ const Live = (() => {
       halt = () => { if (timer) stop(false); };
       if (btn) btn.onclick = () => {
         if (timer) return stop(false);
-        if (k === 0 || k >= pts.length) { k = 0; els.forEach((_, i) => show(i, false)); }
+        if (k === 0 || k >= pts.length) { k = 0; landed = 0; tally(0); els.forEach((_, i) => show(i, false)); }
         btn.textContent = "❚❚ Pause"; timer = setTimeout(step, 50);
       };
     };
