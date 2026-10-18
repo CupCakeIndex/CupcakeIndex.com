@@ -1895,7 +1895,8 @@ const Live = (() => {
       if (air != null && (air < -20 || air > 75 || (depth === "short" && air > 30))) air = null;
       const dir = /pass (?:complete |incomplete )?(?:(?:short|deep) )?(left|middle|right)/i.exec(t)?.[1]?.toLowerCase() || "middle";
       const to = /\bpass\b.*?\bto (?:#\d+\s+)?([A-Z][A-Za-z'\-]*\.\s?[A-Z][A-Za-z'\-]+)/.exec(t)?.[1] || null;
-      out.push({ qb: who[1], to, team, half: (p.period?.number || 1) <= 2 ? 1 : 2, inc: inc || int, int, td: /touchdown/i.test(t) && !int && !inc, depth, dir, air, p });
+      const yac = air != null && !inc && !int && p.statYardage != null ? p.statYardage - air : 0;
+      out.push({ qb: who[1], to, team, yac, half: (p.period?.number || 1) <= 2 ? 1 : 2, inc: inc || int, int, td: /touchdown/i.test(t) && !int && !inc, depth, dir, air, p });
     }
     return out;
   }
@@ -1922,17 +1923,24 @@ const Live = (() => {
     target: { tab: "Targets", title: "Target chart", per: "air yards per catch", noun: "targets", y: "air yards" },
     rush: { tab: "Runs", title: "Rush chart", per: "yards per carry", noun: "runs", y: "yards" },
   };
-  async function passChartInto(lg, a, gl, slot, modes) {
+  async function passChartInto(lg, a, gl, slot, modes, season) {
     const ids = Object.keys(gl?.events || {});
     if (!ids.length) return slot.remove();
     const evs = ids.map((id) => ({ id, ...gl.events[id] })).sort((x, y) => new Date(x.gameDate) - new Date(y.gameDate));
-    const sums = await Promise.all(evs.map((e) => api(`${SITE(lg)}/summary?event=${encodeURIComponent(e.id)}`, 3600000).catch(() => null)));
+    // NFL: src/pass_charts.py's file from nflverse (it has where every incomplete pass was thrown); its weeks are matched to ESPN's games by date
+    const file = lg === "nfl" && season ? await getJSON(`data/nfl/${season}/charts/${encodeURIComponent(a.id)}.json`).catch(() => null) : null;
+    const day = (d) => Math.round(new Date(d).getTime() / 864e5);
+    const fileWk = evs.map((e) => { const w = Object.keys(file?.dates || {}).find((k) => Math.abs(day(file.dates[k]) - day(e.gameDate)) <= 1); return w == null ? null : +w; });
+    const sums = await Promise.all(evs.map((e, gi) => fileWk[gi] != null ? null : api(`${SITE(lg)}/summary?event=${encodeURIComponent(e.id)}`, 3600000).catch(() => null)));
     if (!slot.isConnected) return;
     const norm = (x) => (x || "").toLowerCase().replace(/[^a-z]/g, "");
     const last = norm((a.lastName || "").split(" ")[0]), first = norm(a.firstName);
     const isMe = (nm) => { const m = /^([A-Za-z']+)\.\s?([A-Za-z'\-]+)/.exec(nm || ""); return !!m && norm(m[2]) === last && first.startsWith(norm(m[1])); };
     const plays = { pass: [], target: [], rush: [] };
+    const fromFile = (r, i, md, gi) => ({ g: gi, air: r[3], dir: r[4], gap: r[4], inc: r[5] === "i" || r[5] === "x", int: r[5] === "x" || r[5] === "f", td: r[5] === "t", yac: r[6] || 0,
+      half: r[1] <= 2 ? 1 : 2, p: { id: `${gi}-${md}-${i}`, period: { number: r[1] }, clock: { displayValue: String(r[2]).replace(/^0(?=\d)/, "") }, text: r[7] } });
     evs.forEach((e, gi) => {
+      if (fileWk[gi] != null) return ["pass", "target", "rush"].forEach((md) => (file[md] || []).forEach((r, i) => { if (r[0] === fileWk[gi]) plays[md].push(fromFile(r, i, md, gi)); }));
       if (!sums[gi]) return;
       const ps = airPasses(sums[gi]);
       ps.filter((x) => isMe(x.qb)).forEach((x) => plays.pass.push({ ...x, g: gi }));
@@ -1961,8 +1969,7 @@ const Live = (() => {
       const caught = pts.filter((x) => !x.inc), avg = (xs) => (xs.length ? xs.reduce((n, x) => n + x.air, 0) / xs.length : null);
       const f1 = (v) => (v == null ? "–" : (v < 0 ? "−" : "") + Math.abs(v).toFixed(1));
       const pct = (n, d) => (d ? Math.round((100 * n) / d) + "%" : "–");
-      const h1 = avg(caught.filter((x) => x.half === 1)), h2 = avg(caught.filter((x) => x.half === 2));
-      const W = 360, H = 440, top = Math.max(rush ? 20 : 40, Math.ceil((Math.max(...pts.map((x) => x.air)) + 4) / 10) * 10), bot = Math.min(-12, Math.floor((Math.min(...pts.map((x) => x.air)) - 3) / 5) * 5);
+      const W = 360, H = 440, top = Math.max(rush ? 20 : 40, Math.ceil((Math.max(...pts.map((x) => x.air + (mode === "target" && !x.inc ? Math.max(0, x.yac || 0) : 0))) + 4) / 10) * 10), bot = Math.min(-12, Math.floor((Math.min(...pts.map((x) => x.air)) - 3) / 5) * 5);
       const Y = (v) => 16 + ((top - v) / (top - bot)) * (H - 56), QY = H - 22;
       const jit = (x, w) => { let h = 0; for (const c of String(x.p.id || "")) h = (h * 31 + c.charCodeAt(0)) >>> 0; return ((h % 1000) / 1000 - 0.5) * w; };
       const PX = (x) => W * (rush ? GAPS[x.gap] + jit(x, /end|tackle|guard|up the/.test(x.gap) ? 0.08 : 0.2) : { left: 0.2, middle: 0.5, right: 0.8 }[x.dir] + jit(x, 0.22));
@@ -1973,59 +1980,78 @@ const Live = (() => {
       if (rush) for (const [gp, lb] of [["left end", "END"], ["left tackle", "TKL"], ["left guard", "GRD"], ["up the middle", "MID"], ["right guard", "GRD"], ["right tackle", "TKL"], ["right end", "END"]]) g.push(`<text class="ay-gap" x="${W * GAPS[gp]}" y="${QY - 16}">${lb}</text>`);
       g.push(`<line class="ay-los" x1="0" x2="${W}" y1="${Y(0)}" y2="${Y(0)}" filter="url(#gcv-glow)"/>`, `<text class="ay-lbl l" x="4" y="${Y(0) + 13}">LINE OF SCRIMMAGE</text>`,
         `<text class="ay-lbl bad" x="${W - 4}" y="${H - 8}">${rush ? "LOST YARDS" : "BEHIND THE LINE"}</text>`);
-      if (caught.length) g.push(`<line class="ay-avg h2" x1="0" x2="${W}" y1="${Y(avg(caught))}" y2="${Y(avg(caught))}"/><text class="ay-al h2" x="4" y="${Y(avg(caught)) + 13}">avg ${f1(avg(caught))}</text>`);
-      g.push(`<path class="pc-arc" id="pc-arc" d=""/><circle class="pc-ball" id="pc-ball" r="5" cx="${W / 2}" cy="${QY}" opacity="0"/>`);
+      const mid = rush ? avg(caught) : avg(pts); // the dashed line: yards per carry, or aDOT
+      if (mid != null) g.push(`<line class="ay-avg h2" x1="0" x2="${W}" y1="${Y(mid)}" y2="${Y(mid)}"/><text class="ay-al h2" x="4" y="${Y(mid) + 13}">${rush ? "avg" : "aDOT"} ${f1(mid)}</text>`);
+      // targets: a dotted line from where he caught it to where the play ended (yards after the catch)
+      const yacLines = mode === "target" ? pts.map((x, i) => (!x.inc && x.yac ? `<line class="pc-yac" data-i="${i}" x1="${PX(x).toFixed(1)}" x2="${PX(x).toFixed(1)}" y1="${Y(x.air).toFixed(1)}" y2="${Y(x.air + x.yac).toFixed(1)}"/><circle class="pc-yacend" data-i="${i}" cx="${PX(x).toFixed(1)}" cy="${Y(x.air + x.yac).toFixed(1)}" r="2"/>` : "")).join("") : "";
+      g.push(`<path class="pc-arc" id="pc-arc" d=""/>${yacLines}`);
       const what = (x) => (x.td ? "touchdown" : x.int ? (rush ? "fumble lost" : "intercepted") : x.inc ? "incomplete" : "");
       pts.forEach((x, i) => {
-        const tip = `${games.find((q) => q.gi === x.g)?.label || ""} · Q${x.p.period?.number || ""} ${x.p.clock?.displayValue || ""}: ${x.air} ${M.y}${what(x) ? ", " + what(x) : ""}. ${(x.p.text || "").replace(/^(\([^)]*\)\s*)+/, "")}`;
+        let tip = `${games.find((q) => q.gi === x.g)?.label || ""} · Q${x.p.period?.number || ""} ${x.p.clock?.displayValue || ""}: ${x.air} ${M.y}${what(x) ? ", " + what(x) : ""}. ${(x.p.text || "").replace(/^(\([^)]*\)\s*)+/, "")}`;
+        if (mode === "target" && x.yac && !x.inc) tip = tip.replace(`${x.air} ${M.y}`, `caught ${x.air} yds out, ${x.yac} after the catch`);
         g.push(`<circle class="ay-dot${x.inc ? " inc" : ""}${x.int ? " int" : ""}${x.td ? " td" : ""}" data-i="${i}" cx="${PX(x).toFixed(1)}" cy="${Y(x.air).toFixed(1)}" r="5"><title>${esc(tip)}</title></circle>`);
       });
       const tag = mode === "pass" ? "QB" : (a.position?.abbreviation || "").slice(0, 2);
-      g.push(`<circle class="pc-qb" cx="${W / 2}" cy="${QY}" r="9"/><text class="pc-qbt" x="${W / 2}" y="${QY + 3}">${esc(mode === "target" ? "QB" : tag)}</text>`);
+      g.push(`<circle class="pc-qb" cx="${W / 2}" cy="${QY}" r="9"/><text class="pc-qbt" x="${W / 2}" y="${QY + 3}">${esc(mode === "target" ? "QB" : tag)}</text>`,
+        `<ellipse class="pc-shadow" id="pc-shadow" rx="7" ry="2.6" opacity="0"/><g id="pc-ball" opacity="0">${FOOTBALL.replace("<svg ", '<svg x="-12" y="-7" width="24" height="14" ')}</g>`);
       const nInc = list.filter((x) => x.inc && x.air == null).length;
-      const stat = (v, label, cls = "") => `<span class="ay-stat ${cls}"><b>${v}</b><small>${label}</small></span>`;
-      const halves = stat(f1(h1), "1st halves") + stat(f1(h2), "2nd halves", h1 != null && h2 != null ? (h2 < h1 ? "down" : "up") : "");
+      // league ranks (NFL, from src/pass_charts.py) go under each stat on "All weeks"
+      const R = sel === "all" ? file?.ranks?.[mode] : null;
+      const rk = (key) => (R?.[key] ? `<em class="ay-rk${R[key][0] <= 5 ? " top" : ""}">#${R[key][0]} of ${R[key][1]}</em>` : "");
+      const stat = (v, label, cls = "", key = "") => `<span class="ay-stat ${cls}"><b>${v}</b><small>${label}</small>${rk(key)}</span>`;
+      const share = (f, xs) => pct(xs.filter(f).length, xs.length);
+      const mean = (xs) => (xs.length ? xs.reduce((n, v) => n + v, 0) / xs.length : null);
+      const halvesOf = (xs) => { const a1 = avg(xs.filter((x) => x.half === 1)), a2 = avg(xs.filter((x) => x.half === 2));
+        return stat(f1(a1), "1st halves") + stat(f1(a2), "2nd halves", a1 != null && a2 != null ? (a2 < a1 ? "down" : "up") : ""); };
       const stats = rush
-        ? stat(f1(avg(caught)), M.per, "big") + halves + stat(pct(caught.filter((x) => x.air >= 10).length, caught.length), "runs of 10+ yds") + stat(pct(caught.filter((x) => x.air <= 0).length, caught.length), "stuffed (0 or less)")
-        : stat(f1(avg(caught)), M.per, "big") + halves + (mode === "target" ? stat(pct(list.filter((x) => !x.inc).length, list.length), "catch rate") : stat(pct(caught.filter((x) => x.air >= 16).length, caught.length), "caught 16+ yds out")) + stat(caught.filter((x) => x.air < 0).length, "caught behind the line");
+        ? stat(f1(avg(caught)), "yards per carry", "big", "ypc") + halvesOf(caught) + stat(share((x) => x.air >= 10, caught), "runs of 10+ yds", "", "big") + stat(share((x) => x.air <= 0, caught), "stuffed (0 or less)", "", "stuff")
+        : mode === "target"
+          ? stat(f1(avg(pts)), "aDOT (avg depth of target)", "big", "adot") + stat(f1(mean(caught.map((x) => x.yac || 0))), "YAC per catch", "", "yac") + stat(pct(list.filter((x) => !x.inc).length, list.length), "catch rate", "", "catch") + stat(share((x) => x.air >= 20, pts), "targets 20+ yds out", "", "deep")
+          : stat(f1(avg(pts)), "aDOT (air yards per throw)", "big", "adot") + stat(f1(avg(caught)), "air yards per catch", "", "aypc") + halvesOf(pts) + stat(share((x) => x.air >= 20, pts), "throws 20+ yds out", "", "deep") + stat(share((x) => x.air < 0, pts), "thrown behind the line");
+      const rkNote = R ? `<p class="note ay-rknote">Ranks: among NFL players with ${R._min}+ ${M.noun} through Week ${R._wk} (nflverse play-by-play).${mode === "rush" ? " Stuffed: #1 = fewest." : ""}</p>` : "";
       const keys = rush ? `<span class="ay-key"></span> run · <span class="ay-key td"></span> touchdown${pts.some((x) => x.int) ? ' · <span class="ay-key int"></span> fumble lost' : ""}. Gaps are from the offense's view (college play-by-play only says left, middle or right).`
-        : `<span class="ay-key"></span> caught · <span class="ay-key td"></span> touchdown${pts.some((x) => x.inc && !x.int) ? ' · <span class="ay-key inc"></span> incomplete (where it was thrown)' : ""}${pts.some((x) => x.int) ? ' · <span class="ay-key int"></span> intercepted' : ""}. Left, middle and right are from the QB's view; ESPN only gives the third of the field, so dots are spread out within it.${mode === "target" ? " ESPN doesn't log routes run, only the throws that came his way." : ""}
+        : `<span class="ay-key"></span> caught · <span class="ay-key td"></span> touchdown${pts.some((x) => x.inc && !x.int) ? ' · <span class="ay-key inc"></span> incomplete (where it was thrown)' : ""}${pts.some((x) => x.int) ? ' · <span class="ay-key int"></span> intercepted' : ""}. Left, middle and right are from the QB's view; the play-by-play only gives the third of the field, so dots are spread out within it.${mode === "target" ? " ESPN doesn't log routes run, only the throws that came his way." : ""}
           ${nInc ? `${nInc} incomplete pass${nInc === 1 ? "" : "es"} not shown (ESPN doesn't mark where ${nInc === 1 ? "it was" : "they were"} thrown).` : ""}`;
-      $("#pc-body").innerHTML = `<div class="ay-stats">${stats}</div>
+      $("#pc-body").innerHTML = `<div class="ay-stats">${stats}</div>${rkNote}
         <div class="pc-ctl">${sel === "all" ? "" : `<button class="gcv-live" id="pc-play">▶ Play</button>`}<span class="muted" id="pc-now">${pts.length} ${mode === "rush" ? "runs" : mode === "target" ? "catches" : "throws"} plotted${sel === "all" ? ` in ${games.length} game${games.length === 1 ? "" : "s"} · pick a week to play them back` : ""}</span></div>
-        <svg class="gcv-field ay-field pc-field" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(a.displayName)} ${esc(M.title.toLowerCase())}"><defs><filter id="gcv-glow" filterUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>${g.join("")}</svg>
+        <div class="pc-stage"><svg class="gcv-field ay-field pc-field" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(a.displayName)} ${esc(M.title.toLowerCase())}"><defs><filter id="gcv-glow" filterUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>${g.join("")}</svg></div>
         <p class="note">${keys} Tap a dot for the play.</p>`;
-      // Play (one week only): hide every dot, then run them in order. A throw arcs from the QB; a run goes straight from the backfield.
+      // Play (one week only): hide everything, then run the plays in order. A throw leaves the QB and arcs over its shadow;
+      // a catch then runs on down its YAC line. A run stays on the ground. "All weeks" never animates.
       let timer = null, k = 0;
-      const btn = $("#pc-play"), now = $("#pc-now"), dots = [...slot.querySelectorAll(".pc-field .ay-dot")];
-      const arc = $("#pc-arc"), ball = $("#pc-ball");
-      const stop = (done) => { clearTimeout(timer); timer = null; btn.textContent = done ? "↺ Replay" : "▶ Play"; ball.setAttribute("opacity", 0); arc.setAttribute("d", ""); };
+      const btn = $("#pc-play"), now = $("#pc-now"), els = pts.map((_, i) => [...slot.querySelectorAll(`.pc-field [data-i="${i}"]`)]);
+      const arc = $("#pc-arc"), ball = $("#pc-ball"), shadow = $("#pc-shadow");
+      const show = (i, on) => els[i]?.forEach((e) => e.classList.toggle("pc-hide", !on));
+      const stop = (done) => { clearTimeout(timer); timer = null; btn.textContent = done ? "↺ Replay" : "▶ Play"; ball.setAttribute("opacity", 0); shadow.setAttribute("opacity", 0); arc.setAttribute("d", ""); };
+      const put = (x, y, h, ang) => { ball.setAttribute("transform", `translate(${x.toFixed(1)},${(y - h).toFixed(1)}) rotate(${ang.toFixed(0)})`); shadow.setAttribute("cx", x); shadow.setAttribute("cy", y); };
       const step = () => {
         if (!btn.isConnected) { timer = null; return; } // left the page
-        if (k) dots[k - 1].classList.remove("pc-hide"); // in case the browser skipped animation frames
+        if (k) show(k - 1, true); // in case the browser skipped animation frames
         if (k >= pts.length) { now.textContent = `${pts.length} ${M.noun}`; return stop(true); }
-        const x = pts[k], d = dots[k], tx = +d.getAttribute("cx"), ty = +d.getAttribute("cy");
-        const cx0 = (W / 2 + tx) / 2, cy0 = rush ? (QY + ty) / 2 : Math.min(QY, ty) - 20 - Math.max(0, x.air) * 1.2;
-        arc.setAttribute("d", `M${W / 2},${QY} Q${cx0},${cy0} ${tx},${ty}`);
+        const x = pts[k], i = k, d = els[k].find((e) => e.classList.contains("ay-dot")), tx = +d.getAttribute("cx"), ty = +d.getAttribute("cy");
+        const peak = rush ? 3 : 16 + Math.max(0, x.air) * 1.1, ang = (Math.atan2(ty - QY, tx - W / 2) * 180) / Math.PI;
+        const yacTo = mode === "target" && !x.inc && x.yac ? Y(x.air + x.yac) : null;
+        arc.setAttribute("d", `M${W / 2},${QY} Q${(W / 2 + tx) / 2},${(QY + ty) / 2 - 2 * peak} ${tx},${ty}`);
         arc.classList.remove("go"); void arc.getBBox(); arc.classList.add("go");
-        ball.setAttribute("opacity", 1);
-        const t0 = performance.now(), dur = rush ? 320 : 380;
+        ball.setAttribute("opacity", 1); shadow.setAttribute("opacity", 1);
+        const t0 = performance.now(), dur = rush ? 340 : 420, dur2 = yacTo == null ? 0 : 260;
         const fly = (t) => {
           if (!timer && k < pts.length) return;
-          const u = Math.min(1, (t - t0) / dur);
-          ball.setAttribute("cx", (1 - u) ** 2 * (W / 2) + 2 * (1 - u) * u * cx0 + u * u * tx);
-          ball.setAttribute("cy", (1 - u) ** 2 * QY + 2 * (1 - u) * u * cy0 + u * u * ty);
-          if (u < 1) requestAnimationFrame(fly); else d.classList.remove("pc-hide");
+          const e = t - t0, u = Math.min(1, e / dur);
+          if (e < dur) put(W / 2 + (tx - W / 2) * u, QY + (ty - QY) * u, 4 * peak * u * (1 - u), ang + (rush ? 0 : (u - 0.5) * 30));
+          else if (e < dur + dur2) { const v = (e - dur) / dur2; show(i, true); put(tx, ty + (yacTo - ty) * v, 0, yacTo < ty ? -90 : 90); }
+          else { put(tx, yacTo ?? ty, 0, ang); show(i, true); return; }
+          requestAnimationFrame(fly);
         };
         requestAnimationFrame(fly);
-        now.textContent = `${k + 1}/${pts.length} · Q${x.p.period?.number || ""} ${x.p.clock?.displayValue || ""} · ${x.air} yds${what(x) ? " · " + what(x) : ""}`;
+        now.textContent = `${k + 1}/${pts.length} · Q${x.p.period?.number || ""} ${x.p.clock?.displayValue || ""} · ${x.air} yds${yacTo != null ? ` + ${x.yac} after the catch` : ""}${what(x) ? " · " + what(x) : ""}`;
         k++;
-        timer = setTimeout(step, Math.max(450, Math.min(900, 20000 / pts.length)));
+        timer = setTimeout(step, Math.max(550, Math.min(1000, 22000 / pts.length)));
       };
       halt = () => { if (timer) stop(false); };
       if (btn) btn.onclick = () => {
         if (timer) return stop(false);
-        if (k === 0 || k >= pts.length) { k = 0; dots.forEach((d) => d.classList.add("pc-hide")); }
+        if (k === 0 || k >= pts.length) { k = 0; els.forEach((_, i) => show(i, false)); }
         btn.textContent = "❚❚ Pause"; timer = setTimeout(step, 50);
       };
     };
@@ -3283,7 +3309,7 @@ const Live = (() => {
     if (my === token) outlookInto(lg, id, $("#career-slot"), season ? null : gl).catch(() => {});
     const pcSlot = $("#pc-slot");
     if (pcSlot) { // load every game's play-by-play only once you scroll near it
-      const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); if (my === token) passChartInto(logLg, a, logGl, pcSlot, pcModes).catch(() => pcSlot.remove()); } }, { rootMargin: "300px" });
+      const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); if (my === token) passChartInto(logLg, a, logGl, pcSlot, pcModes, logLg === "nfl" ? shown : null).catch(() => pcSlot.remove()); } }, { rootMargin: "300px" });
       io.observe(pcSlot);
     }
     const toInj = params.get("inj") && $("#pl-inj");
