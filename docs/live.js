@@ -2028,6 +2028,12 @@ const Live = (() => {
         const [ax, ay] = P(pos[i].f, x.air), [bx, by] = P(pos[i].f, x.air + x.yac);
         g.push(`<line class="pc-yac" data-i="${i}" x1="${ax.toFixed(1)}" x2="${bx.toFixed(1)}" y1="${ay.toFixed(1)}" y2="${by.toFixed(1)}"/><circle class="pc-yacend" data-i="${i}" cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="${(2.6 * S(x.air + x.yac) + 0.8).toFixed(1)}"/>`);
       });
+      // runs: a dotted path from the ball carrier's spot behind the line, bending toward the gap he ran through, to where he was stopped
+      const runD = (i) => {
+        const [sx, sy] = P(0.5, bot + 3), [ex, ey] = P(pos[i].f, pts[i].air), [cx, cy] = P(0.5 + (pos[i].f - 0.5) * 0.9, Math.min(0, pts[i].air) - 1);
+        return `M${sx.toFixed(1)},${sy.toFixed(1)} Q${cx.toFixed(1)},${cy.toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)}`;
+      };
+      if (rush) pts.forEach((x, i) => g.push(`<path class="pc-run${x.td ? " td" : ""}" data-i="${i}" d="${runD(i)}"/>`));
       g.push(`<path class="pc-arc" id="pc-arc" d="" pathLength="1"/>`);
       const what = (x) => (x.td ? "touchdown" : x.int ? (rush ? "fumble lost" : "intercepted") : x.inc ? "incomplete" : "");
       // misses first, then catches, then picks on top so they never hide
@@ -2095,7 +2101,7 @@ const Live = (() => {
         const x = pts[k], i = k, to = pos[k], peak = rush ? 0 : 2.2 + Math.max(0, x.air) * 0.16;
         const air = (u) => { const f = QB.f + (to.f - QB.f) * u, v = QB.v + (to.v - QB.v) * u, [px, py] = P(f, v); return [px, py - 4 * peak * u * (1 - u) * 7 * S(v)]; };
         const dur = rush ? 300 : 380;
-        arc.setAttribute("d", `M${Array.from({ length: 21 }, (_, n) => air(n / 20).map((q) => q.toFixed(1)).join(",")).join(" L")}`);
+        arc.setAttribute("d", rush ? runD(i) : `M${Array.from({ length: 21 }, (_, n) => air(n / 20).map((q) => q.toFixed(1)).join(",")).join(" L")}`);
         arc.style.setProperty("--d", `${dur}ms`);
         arc.classList.remove("go"); void arc.getBBox(); arc.classList.add("go");
         landT = setTimeout(() => {
