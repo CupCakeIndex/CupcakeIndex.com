@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-17T23:57:40Z",
+ "updated": "2026-10-18T00:51:55Z",
  "teams": {
   "nfl:22": {
    "name": "Arizona Cardinals",
@@ -42,6 +42,13 @@
    "lg": "nfl",
    "id": "3",
    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/chi.png"
+  },
+  "nfl:4": {
+   "name": "Cincinnati Bengals",
+   "short": "Bengals",
+   "lg": "nfl",
+   "id": "4",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/cin.png"
   },
   "nfl:5": {
    "name": "Cleveland Browns",
@@ -211,6 +218,13 @@
    "id": "28",
    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png"
   },
+  "cfb:2005": {
+   "name": "Air Force",
+   "short": "Air Force",
+   "lg": "cfb",
+   "id": "2005",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/2005.png"
+  },
   "cfb:333": {
    "name": "Alabama",
    "short": "Alabama",
@@ -232,12 +246,12 @@
    "id": "252",
    "logo": "https://cdn.collegefootballdata.com/logos/500/252.png"
   },
-  "cfb:228": {
-   "name": "Clemson",
-   "short": "Clemson",
+  "cfb:2132": {
+   "name": "Cincinnati",
+   "short": "Cincinnati",
    "lg": "cfb",
-   "id": "228",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/228.png"
+   "id": "2132",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/2132.png"
   },
   "cfb:150": {
    "name": "Duke",
@@ -267,26 +281,19 @@
    "id": "61",
    "logo": "https://cdn.collegefootballdata.com/logos/500/61.png"
   },
+  "cfb:59": {
+   "name": "Georgia Tech",
+   "short": "Georgia Tech",
+   "lg": "cfb",
+   "id": "59",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/59.png"
+  },
   "cfb:84": {
    "name": "Indiana",
    "short": "Indiana",
    "lg": "cfb",
    "id": "84",
    "logo": "https://cdn.collegefootballdata.com/logos/500/84.png"
-  },
-  "cfb:2305": {
-   "name": "Kansas",
-   "short": "Kansas",
-   "lg": "cfb",
-   "id": "2305",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/2305.png"
-  },
-  "cfb:2306": {
-   "name": "Kansas State",
-   "short": "Kansas State",
-   "lg": "cfb",
-   "id": "2306",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/2306.png"
   },
   "cfb:96": {
    "name": "Kentucky",
@@ -315,13 +322,6 @@
    "lg": "cfb",
    "id": "130",
    "logo": "https://cdn.collegefootballdata.com/logos/500/130.png"
-  },
-  "cfb:127": {
-   "name": "Michigan State",
-   "short": "Michigan State",
-   "lg": "cfb",
-   "id": "127",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/127.png"
   },
   "cfb:344": {
    "name": "Mississippi State",
@@ -407,6 +407,13 @@
    "id": "213",
    "logo": "https://cdn.collegefootballdata.com/logos/500/213.png"
   },
+  "cfb:2509": {
+   "name": "Purdue",
+   "short": "Purdue",
+   "lg": "cfb",
+   "id": "2509",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/2509.png"
+  },
   "cfb:2579": {
    "name": "South Carolina",
    "short": "South Carolina",
@@ -428,19 +435,19 @@
    "id": "251",
    "logo": "https://cdn.collegefootballdata.com/logos/500/251.png"
   },
-  "cfb:245": {
-   "name": "Texas A&M",
-   "short": "Texas A&M",
-   "lg": "cfb",
-   "id": "245",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/245.png"
-  },
   "cfb:26": {
    "name": "UCLA",
    "short": "UCLA",
    "lg": "cfb",
    "id": "26",
    "logo": "https://cdn.collegefootballdata.com/logos/500/26.png"
+  },
+  "cfb:2439": {
+   "name": "UNLV",
+   "short": "UNLV",
+   "lg": "cfb",
+   "id": "2439",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/2439.png"
   },
   "cfb:30": {
    "name": "USC",
@@ -456,6 +463,20 @@
    "id": "254",
    "logo": "https://cdn.collegefootballdata.com/logos/500/254.png"
   },
+  "cfb:258": {
+   "name": "Virginia",
+   "short": "Virginia",
+   "lg": "cfb",
+   "id": "258",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/258.png"
+  },
+  "cfb:259": {
+   "name": "Virginia Tech",
+   "short": "Virginia Tech",
+   "lg": "cfb",
+   "id": "259",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/259.png"
+  },
   "cfb:154": {
    "name": "Wake Forest",
    "short": "Wake Forest",
@@ -469,9 +490,462 @@
    "lg": "cfb",
    "id": "264",
    "logo": "https://cdn.collegefootballdata.com/logos/500/264.png"
+  },
+  "cfb:277": {
+   "name": "West Virginia",
+   "short": "West Virginia",
+   "lg": "cfb",
+   "id": "277",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/277.png"
   }
  },
  "items": [
+  {
+   "title": "Eagles Film Preview: The Panthers’ defense can be exploited",
+   "url": "https://sports.yahoo.com/articles/eagles-film-preview-panthers-defense-004400786.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-18T00:44:00Z",
+   "summary": "All-22 analysis of Philadelphia’s Week 6 opponent.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/2ec6f9e2e5381c5db8228750633e1385.jpg",
+   "teams": [
+    "nfl:29",
+    "nfl:21"
+   ]
+  },
+  {
+   "title": "Kyle Whittingham Sends Strong Message About Tommy Carr",
+   "url": "https://sports.yahoo.com/articles/kyle-whittingham-sends-strong-message-003800411.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-18T00:38:00Z",
+   "summary": "Kyle Whittingham praises Tommy Carr's work ethic and development after the freshman replaced Bryce Underwood in Michigan's win over Penn State.",
+   "image": "https://media.zenfs.com/en/detroit_sports_nation_articles_492/d30dcddfe9e9160df913708928ce6e72.jpg",
+   "teams": [
+    "cfb:213",
+    "cfb:130"
+   ]
+  },
+  {
+   "title": "Florida State RB Ousmane Kromah placed in air cast, carted off after nasty injury vs. Miami",
+   "url": "https://on3.com/news/florida-state-running-back-ousmane-kromah-placed-in-air-cast-carted-off-after-nasty-injury-vs-miami/",
+   "source": "On3",
+   "league": "cfb",
+   "published": "2026-10-18T00:36:17Z",
+   "summary": "Florida State running back Ousmane Kromah was injured on a carry late in the first half against Miami . He appeared to be in need of an air cast on the field, as medical personnel quickly raced to…",
+   "image": "https://on3static.com/cdn-cgi/image/height=630,width=1200,quality=90,fit=cover/uploads/dev/assets/cms/2026/10/17194851/OusmaneKromah.jpg",
+   "teams": [
+    "cfb:52",
+    "cfb:2390"
+   ]
+  },
+  {
+   "title": "College football Week 7 overreactions: Big changes needed at Texas, Ohio State can survive Sayin injury",
+   "url": "https://www.cbssports.com/college-football/news/college-football-week-7-overreactions-big-changes-needed-at-texas-with-former-no-1-longhorns-in-freefall/",
+   "source": "CBS Sports",
+   "league": "cfb",
+   "published": "2026-10-18T00:34:16Z",
+   "summary": "Steve Sarkisian must overhaul an anemic offense, surrender playcalling duties and decide whether Arch Manning is truly the right quarterback to salvage a fading playoff run",
+   "image": "https://sportshub.cbsistatic.com/i/2026/10/17/f05ac25d-46bf-41bb-a256-178b954e2798/steve.jpg",
+   "teams": [
+    "cfb:194",
+    "cfb:251"
+   ]
+  },
+  {
+   "title": "Virginia Tech Beats Georgia Tech 34-24 to Snap Losing Streak",
+   "url": "https://sports.yahoo.com/articles/virginia-tech-beats-georgia-tech-003021032.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-18T00:30:21Z",
+   "summary": "Ethan Grunkemeyer Leads Hokies to Important ACC Victory Virginia Tech bounced back in a big way Saturday, defeating Georgia Tech 34-24 at Lane Stadium in Blacksburg. The Hokies built a 21 point…",
+   "image": "https://media.zenfs.com/en/easy_sportz_188/d93b318c014c2275f4d5549f02d8cded.jpg",
+   "teams": [
+    "cfb:259",
+    "cfb:59",
+    "cfb:258"
+   ]
+  },
+  {
+   "title": "Michigan Football beats Penn State after turning to QB Tommy Carr",
+   "url": "https://sports.yahoo.com/articles/michigan-football-beats-penn-state-003000949.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-18T00:30:00Z",
+   "summary": "After turning to QB Tommy Carr, Michigan Football beat Penn State to secure its first Big Ten win this season. Here’s the recap, highlights and stats:",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/70cac905d9375f5a7b7b58d21fa7ffbf.jpg",
+   "teams": [
+    "cfb:213",
+    "cfb:130"
+   ]
+  },
+  {
+   "title": "Georgia's Kirby Smart says 'Auburn played and executed better than us'",
+   "url": "https://sports.yahoo.com/articles/georgias-kirby-smart-says-auburn-002931318.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-18T00:29:31Z",
+   "summary": "Coach Kirby Smart says No. 1 Georgia beat itself in a loss to unranked Auburn, citing turnovers and undisciplined penalties.",
+   "image": "",
+   "teams": [
+    "cfb:61",
+    "cfb:2"
+   ]
+  },
+  {
+   "title": "No. 1 Georgia getting upset by Auburn has fans going berserk",
+   "url": "https://sports.yahoo.com/articles/no-1-georgia-getting-upset-002803786.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-18T00:28:03Z",
+   "summary": "Georgia football fell into disarray following two Gunner Stockton interceptions against Auburn . Now the Bulldogs will become the third No. 1 team to take a fall in the top 25 rankings. The Tigers…",
+   "image": "https://media.zenfs.com/en/clutchpoints_articles_939/5e57319a817775fdfb190b659e5afb6f.jpg",
+   "teams": [
+    "cfb:61",
+    "cfb:2"
+   ]
+  },
+  {
+   "title": "Kyle Whittingham Reveals Who Really Benched Bryce Underwood",
+   "url": "https://sports.yahoo.com/articles/kyle-whittingham-reveals-really-benched-002723735.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-18T00:27:23Z",
+   "summary": "Kyle Whittingham reveals who made the decision to bench Bryce Underwood against Penn State and explains how the Michigan quarterback responded.",
+   "image": "https://media.zenfs.com/en/detroit_sports_nation_articles_492/630dbf96f45d9283419b10c6f498f252.jpg",
+   "teams": [
+    "cfb:213",
+    "cfb:130"
+   ]
+  },
+  {
+   "title": "After overcoming severe colitis in 2024, Auburn's Alex McPherson kicks game-winner vs. No. 1 Georgia",
+   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/after-overcoming-severe-colitis-in-2024-auburns-alex-mcpherson-kicks-game-winner-vs-no-1-georgia",
+   "source": "Pro Football Talk",
+   "league": "nfl",
+   "published": "2026-10-18T00:26:27Z",
+   "summary": "Evan McPherson is in his sixth season as the kicker of the Cincinnati Bengals.",
+   "image": "https://nbcsports.brightspotcdn.com/dims4/default/ccd68b6/2147483647/strip/false/crop/2741x1542+0+141/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F96%2Fdf%2F44d92f4145089035f339fd8558b4%2F2300223182.jpg",
+   "teams": [
+    "nfl:4"
+   ]
+  },
+  {
+   "title": "North Carolina 24, Duke 20: Five Key Plays",
+   "url": "https://sports.yahoo.com/articles/north-carolina-24-duke-20-002519292.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-18T00:25:19Z",
+   "summary": "Tough loss, but onwards",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/db33871a2b16ce7a8ecceb5cec80f9d0.jpg",
+   "teams": []
+  },
+  {
+   "title": "LSU stomps Mississippi State -- and the Tigers make a splash with blue-chip QB, flip targets and more recruits",
+   "url": "https://on3.com/rivals/news/lsu-stomps-mississippi-state-and-the-tigers-make-a-splash-with-blue-chip-qb-flip-targets-and-more-recruits/",
+   "source": "On3",
+   "league": "cfb",
+   "published": "2026-10-18T00:22:52Z",
+   "summary": "Intel from a star-studded recruiting weekend in Baton Rouge",
+   "image": "https://on3static.com/cdn-cgi/image/height=630,width=1200,quality=90,fit=cover/uploads/dev/assets/cms/2026/09/21123505/2026-09-20T042733Z_1095779135_MT1USATODAY29869543_RTRMADP_3_LSU-HEAD-COACH-LANE-KIFFIN-WALKS-OFF-THE-FIELD-AFTER-A-1-e1790012123105.jpg",
+   "teams": [
+    "cfb:344",
+    "cfb:99"
+   ]
+  },
+  {
+   "title": "Keelon Russell on Ryan Coleman-Williams absence: 'It's not like we're missing Jesus'",
+   "url": "https://on3.com/news/keelon-russell-on-ryan-coleman-williams-absence-its-not-like-were-missing-jesus/",
+   "source": "On3",
+   "league": "cfb",
+   "published": "2026-10-18T00:21:31Z",
+   "summary": "Alabama suffered a second straight defeat on Saturday, falling to Tennessee while not quite at full strength from a health standpoint. Receiver Ryan Coleman-Williams missed the contest with a head…",
+   "image": "https://on3static.com/cdn-cgi/image/height=630,width=1200,quality=90,fit=cover/uploads/dev/assets/cms/2026/10/12113302/RyanColemanWilliams.png",
+   "teams": [
+    "cfb:333",
+    "cfb:2633"
+   ]
+  },
+  {
+   "title": "UNLV bombarded in fourth quarter as Air Force runs away with victory",
+   "url": "https://sports.yahoo.com/articles/unlv-bombarded-fourth-quarter-air-002043008.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-18T00:20:43Z",
+   "summary": "It was all going so well for the UNLV Rebels, and then they fell victim to the (might as well be) patented triple option.",
+   "image": "https://media.zenfs.com/en/the_sporting_tribune_articles_423/843272c87bb6bbbed9e49bacbac3c3c5.jpg",
+   "teams": [
+    "cfb:2439",
+    "cfb:2005"
+   ]
+  },
+  {
+   "title": "Auburn 27, Georgia 24: Bulldogs stuff a season’s worth of dumb into three quarters, get predictable result",
+   "url": "https://sports.yahoo.com/articles/auburn-27-georgia-24-bulldogs-002004705.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-18T00:20:04Z",
+   "summary": "Kirby Smart is going to very shortly be telling the assembled media that his team is mentally and physically exhausted. He’ll almost certainly mention that humility is never more than a week away in…",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/7e1db5d19e50c133f89895f1ad5681eb.jpg",
+   "teams": [
+    "cfb:61",
+    "cfb:2"
+   ]
+  },
+  {
+   "title": "Kyle Whittingham Answers Question About Who Is Michigan’s QB Moving Forward",
+   "url": "https://sports.yahoo.com/articles/kyle-whittingham-answers-michigan-qb-001706409.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-18T00:17:06Z",
+   "summary": "Kyle Whittingham discusses Michigan's quarterback decision after Tommy Carr replaced Bryce Underwood and helped lead a comeback win over Penn State.",
+   "image": "https://media.zenfs.com/en/detroit_sports_nation_articles_492/5a288e1f8b21a411954be4258e366cb3.jpg",
+   "teams": [
+    "cfb:213",
+    "cfb:130"
+   ]
+  },
+  {
+   "title": "SEC 'Hangover Saturday' with Texas, Alabama and Georgia losses comes with no excuses",
+   "url": "https://sports.yahoo.com/articles/sec-hangover-saturday-texas-alabama-001448600.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-18T00:14:48Z",
+   "summary": "Georgia, Texas and Alabama fall flat after rivalry games last week.",
+   "image": "https://media.zenfs.com/en/the_sporting_news_articles_584/0467d08163d8a53ae259f5b464150ed2",
+   "teams": [
+    "cfb:333",
+    "cfb:61",
+    "cfb:251"
+   ]
+  },
+  {
+   "title": "5 plays that did not shorten my life expectancy in Ohio State’s 19-15 win over Indiana",
+   "url": "https://sports.yahoo.com/articles/5-plays-did-not-shorten-001212978.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-18T00:12:12Z",
+   "summary": "It wasn’t pretty, but a win’s a win. These are the plays that left me screaming for all the right reasons in Saturday’s matchup between Ohio State and Indiana.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/c31fe7ee4fdf741b52477d0dcf208324.jpg",
+   "teams": [
+    "cfb:194",
+    "cfb:84"
+   ]
+  },
+  {
+   "title": "UC Bearcats stop WVU Mountaineers run game, but get exploited in air",
+   "url": "https://sports.yahoo.com/articles/uc-bearcats-stop-wvu-mountaineers-001204344.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-18T00:12:04Z",
+   "summary": "Cincinnati Bearcats, West Virginia Mountaineers came into Saturday with big run games. The game featured more throwing in the end.",
+   "image": "https://media.zenfs.com/en/the_enquirer_natl_articles_358/04afe98cf28dfd8cd23494dea05740eb.jpg",
+   "teams": [
+    "cfb:277",
+    "cfb:2132"
+   ]
+  },
+  {
+   "title": "Tennessee football raised its defense to new level in beating Alabama | Adams",
+   "url": "https://sports.yahoo.com/articles/tennessee-football-raised-defense-level-000825843.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-18T00:08:25Z",
+   "summary": "Tennessee defense dominated from start to finish against the Tide. Its Penn State connection figured prominently in its success.",
+   "image": "",
+   "teams": [
+    "cfb:213",
+    "cfb:2633",
+    "cfb:333"
+   ]
+  },
+  {
+   "title": "How Jim Knowles turned Tennessee's defense into a CFP-caliber force almost overnight",
+   "url": "https://www.cbssports.com/college-football/news/jim-knowles-tennessees-defense-cfp-caliber/",
+   "source": "CBS Sports",
+   "league": "cfb",
+   "published": "2026-10-18T00:07:18Z",
+   "summary": "In his first season as defensive coordinator, Knowles' unit has Vols fans dreaming big",
+   "image": "https://sportshub.cbsistatic.com/i/2026/10/17/a1964e58-c93b-4e04-a2a0-13b88566ec72/gettyimages-2300207796-2.jpg",
+   "teams": [
+    "cfb:2633"
+   ]
+  },
+  {
+   "title": "Notre Dame football has a chance to make history in Playoff era against BYU",
+   "url": "https://sports.yahoo.com/articles/notre-dame-football-chance-history-000622417.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-18T00:06:22Z",
+   "summary": "The Irish are next up to be the nation's top team.",
+   "image": "https://media.zenfs.com/en/the_sporting_news_articles_584/ef03e0f45b1b2a80c66936b95287159e",
+   "teams": [
+    "cfb:87",
+    "cfb:252"
+   ]
+  },
+  {
+   "title": "5 quick hitters with Baltimore Beatdown: How Jesse Minter has changed the Ravens, and can the Browns stop them?",
+   "url": "https://sports.yahoo.com/articles/5-quick-hitters-baltimore-beatdown-000159094.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-18T00:01:59Z",
+   "summary": "A look at how the Ravens differ under Jesse Minter, where some defensive strengths and weaknesses are, and more.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/50f767341a06f3a041d024bb1654c7ae.jpg",
+   "teams": [
+    "nfl:33",
+    "nfl:5"
+   ]
+  },
+  {
+   "title": "Cowboys vs. Packers prediction: Dak Prescott, Jordan Love set for high-flying showdown on 'SNF'",
+   "url": "https://www.cbssports.com/nfl/news/cowboys-vs-packers-prediction-where-to-watch-snf/",
+   "source": "CBS Sports",
+   "league": "nfl",
+   "published": "2026-10-18T00:00:57Z",
+   "summary": "The last time these two teams met in Week 4 of the 2025 season, they combined for the highest-scoring tie in the Super Bowl era",
+   "image": "https://sportshub.cbsistatic.com/i/2026/10/14/c0ec512d-8c52-4f4d-9cd6-08818d202750/jordan-love-green-bay-packers-imagn-images-ii.jpg",
+   "teams": [
+    "nfl:6",
+    "nfl:9"
+   ]
+  },
+  {
+   "title": "‘College GameDay’ crew debates controversial College Football Playoff expansion",
+   "url": "https://sports.yahoo.com/articles/college-gameday-crew-debates-controversial-000056706.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-18T00:00:56Z",
+   "summary": "Somewhere, Nicolas Cage is tipping his cap to the levels of meta ESPN achieved this week. On Thursday, ESPN’s Pete Thamel reported the College Football Playoff “nearing a deal to expand to 24 teams”…",
+   "image": "https://media.zenfs.com/en/awful_announcing_173/d140c2ca84d4955afe040bff9f9478bc.png",
+   "teams": []
+  },
+  {
+   "title": "Freshman RB Scores Twice to Spark Washington Offense in Win at Purdue",
+   "url": "https://sports.yahoo.com/articles/freshman-rb-scores-twice-spark-000038173.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-18T00:00:38Z",
+   "summary": "With Washington's group of running backs dwindling due to injury, freshman Brian Bonner stepped up in the Huskies' win at Purdue.",
+   "image": "",
+   "teams": [
+    "cfb:264",
+    "cfb:2509"
+   ]
+  },
+  {
+   "title": "Steve Sarkisian doesn't rule out benching Arch Manning",
+   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/steve-sarkisian-doesnt-rule-out-benching-arch-manning",
+   "source": "Pro Football Talk",
+   "league": "nfl",
+   "published": "2026-10-18T00:00:18Z",
+   "summary": "The 2026 season for the University of Texas is quickly imploding.",
+   "image": "https://nbcsports.brightspotcdn.com/dims4/default/55f8b50/2147483647/strip/false/crop/4606x2591+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F38%2Fa4%2F9cefe02a480da1358e2976227d2e%2F2300095303.jpg",
+   "teams": []
+  },
+  {
+   "title": "Miami Dolphins Fans: What You Want Addressed During The Bye",
+   "url": "https://sports.yahoo.com/articles/miami-dolphins-fans-want-addressed-000000873.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-18T00:00:00Z",
+   "summary": "Miami Dolphins fans sound off on what adjuments and changes need to be made by the team during their bye week.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/cd7104a6df1b848bb88c498da09eaaa1.jpg",
+   "teams": [
+    "nfl:15"
+   ]
+  },
+  {
+   "title": "5 takeaways from Michigan Football’s win vs Penn State",
+   "url": "https://sports.yahoo.com/articles/5-takeaways-michigan-football-win-000000301.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-18T00:00:00Z",
+   "summary": "QB Bryce Underwood got benched, and Tommy Carr played well. Here are 5 takeaways from Mcihigan Football’s win over Penn State:",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/c00ba4c1d07de35c92ee5f64903c5e51.jpg",
+   "teams": [
+    "cfb:213",
+    "cfb:130"
+   ]
+  },
+  {
+   "title": "Georgia report card: Grading the Bulldogs after Auburn pulls shocker",
+   "url": "https://sports.yahoo.com/articles/georgia-report-card-grading-bulldogs-235916429.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-17T23:59:16Z",
+   "summary": "How did Georgia perform against Auburn? We hand out grades for the offense, defense, coaching, special teams and overall performance after upset loss.",
+   "image": "",
+   "teams": [
+    "cfb:61",
+    "cfb:2"
+   ]
+  },
+  {
+   "title": "Georgia QB Gunner Stockton struggles in season's first loss to Auburn",
+   "url": "https://sports.yahoo.com/articles/georgia-qb-gunner-stockton-struggles-235654267.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-17T23:56:54Z",
+   "summary": "Georgia quarterback Gunner Stockton was having an off day against Auburn, evident when he was late to hold for kicker Peyton Woodring's missed field goal attempt.",
+   "image": "",
+   "teams": [
+    "cfb:61",
+    "cfb:2"
+   ]
+  },
+  {
+   "title": "Tommy Carr sparks Michigan comeback win over Penn State, 21-18",
+   "url": "https://sports.yahoo.com/articles/tommy-carr-sparks-michigan-comeback-235610422.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-17T23:56:10Z",
+   "summary": "Michigan football rallied past Penn State 21-18 after a second-half quarterback change sparked the offense.",
+   "image": "",
+   "teams": [
+    "cfb:213",
+    "cfb:130"
+   ]
+  },
+  {
+   "title": "Auburn STUNS No. 1 Georgia 27-24 for Historic Win in Athens",
+   "url": "https://sports.yahoo.com/articles/auburn-stuns-no-1-georgia-235523934.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-17T23:55:23Z",
+   "summary": "Auburn football stunned No. 1 Georgia 27-24 in Athens for its first road win over the Bulldogs since 2005. Byrum Brown delivered 265 total yards, DJ Durkin's defense shut down Georgia's rushing…",
+   "image": "",
+   "teams": [
+    "cfb:61",
+    "cfb:2"
+   ]
+  },
+  {
+   "title": "Chambliss accounts for 4 touchdowns as No. 9 Mississippi beats No. 13 Missouri 31-3",
+   "url": "https://sports.yahoo.com/articles/chambliss-accounts-4-touchdowns-no-235319812.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-17T23:53:19Z",
+   "summary": "No. 9 Ole Miss defeated No. 13 Missouri 31-3, holding the Tigers scoreless for the game's final 53 minutes.",
+   "image": "",
+   "teams": [
+    "cfb:142",
+    "cfb:145"
+   ]
+  },
+  {
+   "title": "Tennessee defeats Alabama for third straight time at Neyland Stadium",
+   "url": "https://sports.yahoo.com/articles/tennessee-defeats-alabama-third-straight-235217532.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-17T23:52:17Z",
+   "summary": "Tennessee extends home win streak over Alabama football.",
+   "image": "https://media.zenfs.com/en/vols_wire_usa_today_articles_138/99e1c75849222b24e0da4b8a25f0307c.jpg",
+   "teams": [
+    "cfb:2633",
+    "cfb:333"
+   ]
+  },
   {
    "title": "Kyle Whittingham on if benching Bryce Underwood for Tommy Carr is permanent: 'Not ready to make a decision'",
    "url": "https://on3.com/news/kyle-whittingham-on-if-benching-bryce-underwood-for-tommy-carr-is-permanent-not-ready-to-make-a-decision/",
@@ -483,83 +957,6 @@
    "teams": [
     "cfb:213",
     "cfb:130"
-   ]
-  },
-  {
-   "title": "Penn State’s Losing Streak Extends to Four Games in Michigan Loss",
-   "url": "https://sports.yahoo.com/articles/penn-state-losing-streak-extends-234808657.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:48:08Z",
-   "summary": "Penn State's losing streak has grown to four games with the 21-18 loss to Michigan on Saturday afternoon. The Nittany Lions held a 3-0 lead at halftime, but multiple turnovers and a quarterback…",
-   "image": "https://media.zenfs.com/en/last_word_on_sports_293/6949f424fa83a7950db39f4e6c1da7c7.jpg",
-   "teams": [
-    "cfb:213",
-    "cfb:130"
-   ]
-  },
-  {
-   "title": "Texas A&M cruises to easy victory over The Citadel",
-   "url": "https://sports.yahoo.com/articles/texas-m-cruises-easy-victory-234700544.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:47:00Z",
-   "summary": "Oct. 17—COLLEGE STATION, Texas — It was about what everyone expected. According to several reports, Texas A&M spends between $45-$50 million annually on its football roster each season. That's more…",
-   "image": "",
-   "teams": [
-    "cfb:245",
-    "cfb:251"
-   ]
-  },
-  {
-   "title": "Clemson handles business against Charleston Southern, cruises to 37-0 victory over FCS foe",
-   "url": "https://sports.yahoo.com/articles/clemson-handles-business-against-charleston-234600759.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:46:00Z",
-   "summary": "Oct. 17—CLEMSON — It's been quite some time since the Tigers had a sunny, relaxing afternoon of football. In the first few weeks of 2026, it's been all night games, rain delays, stressful wins and…",
-   "image": "",
-   "teams": [
-    "cfb:228"
-   ]
-  },
-  {
-   "title": "'We're on the field, bro': Alex Golesh has heartfelt moment with son after win vs Georgia",
-   "url": "https://sports.yahoo.com/articles/were-field-bro-alex-golesh-234434379.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:44:34Z",
-   "summary": "In a post-game interview with ESPN, Auburn coach Alex Golesh shared a touching moment with his son after the Tigers upset No. 1 Georgia:",
-   "image": "",
-   "teams": [
-    "cfb:61",
-    "cfb:2"
-   ]
-  },
-  {
-   "title": "Instant reactions to Alabama's ugly road loss vs. Tennessee",
-   "url": "https://sports.yahoo.com/articles/instant-reactions-alabamas-ugly-road-234031779.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:40:31Z",
-   "summary": "Alabama suffered a third-straight loss in Neyland Stadium on Saturday afternoon. Here are some instant reactions to a rough showing from the Tide.",
-   "image": "https://media.zenfs.com/en/roll_tide_wire_usa_today_articles_214/645fe146ad9fa5ca01f0f382bcadd361.jpg",
-   "teams": [
-    "cfb:2633",
-    "cfb:333"
-   ]
-  },
-  {
-   "title": "How much Tennessee will be fined for fans storming field after Vols beat Alabama",
-   "url": "https://sports.yahoo.com/articles/much-tennessee-fined-fans-storming-233919178.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:39:19Z",
-   "summary": "Tennessee will pay a heavy fine after fans stormed the field to celebrate a win over No. 7 Alabama on Oct. 17. Here's the amount of the fine.",
-   "image": "",
-   "teams": [
-    "cfb:2633",
-    "cfb:333"
    ]
   },
   {
@@ -598,55 +995,6 @@
    ]
   },
   {
-   "title": "Ashton Daniels leaves FSU football game vs. Miami after targeting",
-   "url": "https://sports.yahoo.com/articles/ashton-daniels-leaves-fsu-football-233558860.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:35:58Z",
-   "summary": "Florida State football QB Ashton Daniels was slow to get up and left the game after taking a hit while sliding from Miami's Zechariah Poyser.",
-   "image": "",
-   "teams": [
-    "cfb:52",
-    "cfb:2390"
-   ]
-  },
-  {
-   "title": "Georgia makes unfortunate college football history with brutal loss in Deep South’s Oldest Rivalry",
-   "url": "https://sports.yahoo.com/articles/georgia-makes-unfortunate-college-football-233511265.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:35:11Z",
-   "summary": "Georgia's loss to Auburn on Saturday made some tough history.",
-   "image": "https://media.zenfs.com/en/the_big_lead_articles_114/62d2845c9767b54ef8d6bea9eed0fe17.jpg",
-   "teams": [
-    "cfb:61",
-    "cfb:2"
-   ]
-  },
-  {
-   "title": "College football’s biggest weekend delivered absolute top-10 carnage",
-   "url": "https://sports.yahoo.com/articles/college-football-biggest-weekend-delivered-233459564.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:34:59Z",
-   "summary": "The college football top 10 imploded on Saturday with upset losses all around. Now comes the rankings chaos.",
-   "image": "",
-   "teams": []
-  },
-  {
-   "title": "David Braun makes a ‘horrible decision’ vs. Michigan State and Pat Fitzgerald — but Northwestern wins anyway",
-   "url": "https://sports.yahoo.com/articles/david-braun-makes-horrible-decision-233400599.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:34:00Z",
-   "summary": "EAST LANSING, Mich. — For a couple of minutes late in Saturday’s game at Spartan Stadium, it looked as if Northwestern coach David Braun had gifted his predecessor Pat Fitzgerald a win. In a tie…",
-   "image": "",
-   "teams": [
-    "cfb:127",
-    "cfb:77"
-   ]
-  },
-  {
    "title": "Florida State QB Ashton Daniels returns to game after targeting hit vs. Miami",
    "url": "https://on3.com/news/florida-state-qb-ashton-daniels-heads-to-injury-tent-after-targeting-hit-vs-miami/",
    "source": "On3",
@@ -673,99 +1021,6 @@
    ]
   },
   {
-   "title": "BYU Football Has a Major Opportunity Against Notre Dame",
-   "url": "https://sports.yahoo.com/articles/byu-football-major-opportunity-against-233008814.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:30:08Z",
-   "summary": "A high-stakes clash against the Irish offers the undefeated Cougars a chance to silence skeptics, climb into the top five, and prove their mettle on the national stage.",
-   "image": "",
-   "teams": [
-    "cfb:87",
-    "cfb:252"
-   ]
-  },
-  {
-   "title": "2 things I loved, 1 thing I hated: Michigan Football vs Penn State",
-   "url": "https://sports.yahoo.com/articles/2-things-loved-1-thing-233000050.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:30:00Z",
-   "summary": "The offense looked solid with Tommy Carr, but it took a horrible first half from Bryce Underwood to even get there. Here are 2 things we loved and 1 thing we hated from Michigan Football vs Penn…",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/db4f945c5fb58e43356eb4170d6ab106.jpg",
-   "teams": [
-    "cfb:213",
-    "cfb:130"
-   ]
-  },
-  {
-   "title": "What Georgia HC Kirby Smart told Gunner Stockton immediately after 2nd INT to Auburn",
-   "url": "https://sports.yahoo.com/articles/georgia-hc-kirby-smart-told-232823495.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:28:23Z",
-   "summary": "Georgia football entered Saturday as the new heavy favorite to run through the SEC . Auburn, however, placed the Bulldogs on upset alert. Especially after head coach Kirby Smart confronted…",
-   "image": "https://media.zenfs.com/en/clutchpoints_articles_939/3f34bb92430bd1666b1c46a966d81395.jpg",
-   "teams": [
-    "cfb:61",
-    "cfb:2"
-   ]
-  },
-  {
-   "title": "Tennessee fans storm field as Vols beat Alabama. Will program be fined?",
-   "url": "https://sports.yahoo.com/articles/tennessee-fans-storm-field-vols-232745665.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:27:45Z",
-   "summary": "Tennessee fans stormed the field vs. Alabama after the Vols upset their longtime SEC rivals on Saturday.",
-   "image": "",
-   "teams": [
-    "cfb:2633",
-    "cfb:333"
-   ]
-  },
-  {
-   "title": "Mike Bianchi: The wrong QB is famous! Florida’s Tramell Jones Jr. outplays overhyped Texas golden boy Arch Manning.",
-   "url": "https://sports.yahoo.com/articles/mike-bianchi-wrong-qb-famous-232700716.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:27:00Z",
-   "summary": "The Florida Gators staggered into Texas on Saturday looking like a punch-drunk prizefighter who had spent the previous two weeks getting his teeth knocked out, his nose rearranged and his dignity…",
-   "image": "",
-   "teams": [
-    "cfb:57",
-    "cfb:2579",
-    "cfb:142",
-    "cfb:251"
-   ]
-  },
-  {
-   "title": "Kansas State survives a rash of mistakes, beats Kansas 35-24 for 18th straight win over the Jayhawks",
-   "url": "https://sports.yahoo.com/articles/kansas-state-survives-rash-mistakes-232506549.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:25:06Z",
-   "summary": "Kansas State beat Kansas, 35-24, to extend the longest active winning streak by a team in a rivalry game to 18 wins.",
-   "image": "",
-   "teams": [
-    "cfb:2306",
-    "cfb:2305"
-   ]
-  },
-  {
-   "title": "Ohio State’s Ryan Day Gives Critical Injury Update on Julian Sayin After Win Over Indiana",
-   "url": "https://sports.yahoo.com/articles/ohio-state-ryan-day-gives-232442164.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:24:42Z",
-   "summary": "Ohio State beat Indiana 19-15 on Saturday. But the biggest story for the Buckeyes is quarterback Julian Sayin’s injury late in the game.Saying he hurt his arm in the fourth quarter and headed to the…",
-   "image": "https://media.zenfs.com/en/heavy_214/b918bbf8210bb773e776e31e20b3eb99.jpg",
-   "teams": [
-    "cfb:194",
-    "cfb:84"
-   ]
-  },
-  {
    "title": "Auburn takes down Georgia: Tigers score massive upset over No. 1 Bulldogs on walk-off FG",
    "url": "https://www.cbssports.com/college-football/news/auburn-georgia-upset-over-no-1-walk-of-fg/",
    "source": "CBS Sports",
@@ -779,32 +1034,6 @@
    ]
   },
   {
-   "title": "Is benching Texas football’s Arch Manning on the table? Steve Sarkisian weighs in",
-   "url": "https://sports.yahoo.com/articles/benching-texas-football-arch-manning-232305171.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:23:05Z",
-   "summary": "After the Texas football team’s brutal loss to the Florida Gators on Saturday afternoon, 27-24, all eyes are on star quarterback Arch Manning after another disappointing outing. While Manning’s…",
-   "image": "https://media.zenfs.com/en/clutchpoints_articles_939/1fbd0c3cfe133778fc13b457354fd9f6.jpg",
-   "teams": [
-    "cfb:57",
-    "cfb:251"
-   ]
-  },
-  {
-   "title": "Tennessee stunned Alabama. The 24-team playoff threatens everything that made it matter",
-   "url": "https://sports.yahoo.com/articles/tennessee-stunned-alabama-24-team-232240063.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:22:40Z",
-   "summary": "A result like Tennessee upsetting Alabama should feel seismic. The 24-team playoff will rob us of that.",
-   "image": "",
-   "teams": [
-    "cfb:2633",
-    "cfb:333"
-   ]
-  },
-  {
    "title": "Bill Belichick beats Duke for the first time, as North Carolina wins in Durham",
    "url": "https://sports.yahoo.com/articles/bill-belichick-beats-duke-first-232047585.html",
    "source": "Yahoo Sports",
@@ -815,31 +1044,6 @@
    "teams": []
   },
   {
-   "title": "Tennessee football makes a big playoff statement by bullying rival Alabama | Estes",
-   "url": "https://sports.yahoo.com/articles/tennessee-football-makes-big-playoff-232030215.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:20:30Z",
-   "summary": "This was a defensive masterpiece for Tennessee, which pushed around Alabama for a surprisingly thorough upset victory.",
-   "image": "",
-   "teams": [
-    "cfb:2633",
-    "cfb:333"
-   ]
-  },
-  {
-   "title": "Five takeaways from Mizzou’s 31-3 loss to Ole Miss",
-   "url": "https://sports.yahoo.com/articles/five-takeaways-mizzou-31-3-232020857.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:20:20Z",
-   "summary": "Mizzou’s Top 15 matchup with the Rebels turned out to be a dud.",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/ff96213056586dfc2c020a5d387df722.jpg",
-   "teams": [
-    "cfb:145"
-   ]
-  },
-  {
    "title": "AP Poll Prediction: Projecting Top 25 ranking after Week 7 of college football",
    "url": "https://on3.com/news/ap-poll-prediction-projecting-top-25-ranking-after-week-7-of-college-football-2026/",
    "source": "On3",
@@ -848,32 +1052,6 @@
    "summary": "Week 7 put us past the midway point of the regular season, and there were a slew of quality matchups on tap. The upsets in the Top 10 started in the early window, too. On3 stops to project the…",
    "image": "https://on3static.com/cdn-cgi/image/height=630,width=1200,quality=90,fit=cover/uploads/dev/assets/cms/2026/08/17114822/coaches-afi.png",
    "teams": []
-  },
-  {
-   "title": "Grading QB George MacIntyre in memorable Tennessee football win over Alabama",
-   "url": "https://sports.yahoo.com/articles/grading-qb-george-macintyre-memorable-231750662.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:17:50Z",
-   "summary": "Quarterback George MacIntyre made his second straight start for Tennessee against Alabama. Here's how we graded his performance.",
-   "image": "",
-   "teams": [
-    "cfb:2633",
-    "cfb:333"
-   ]
-  },
-  {
-   "title": "Leavitt throws for 4 TDs as No. 22 LSU routs No. 16 Mississippi State 31-0",
-   "url": "https://sports.yahoo.com/articles/leavitt-throws-4-tds-no-231740523.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-17T23:17:40Z",
-   "summary": "LSU beat No. 16 Mississippi State 31-0 on Saturday at Tiger Stadium.",
-   "image": "",
-   "teams": [
-    "cfb:344",
-    "cfb:99"
-   ]
   },
   {
    "title": "Notre Dame vs. BYU prediction, pick, odds, spread: Irish hit the road for top-10 showdown with Cougars",
@@ -968,18 +1146,6 @@
    "teams": [
     "nfl:6",
     "nfl:9"
-   ]
-  },
-  {
-   "title": "College football week 7 overreactions: Big changes needed at Texas with former No. 1 Longhorns in freefall",
-   "url": "https://www.cbssports.com/college-football/news/college-football-week-7-overreactions-big-changes-needed-at-texas-with-former-no-1-longhorns-in-freefall/",
-   "source": "CBS Sports",
-   "league": "cfb",
-   "published": "2026-10-17T22:12:55Z",
-   "summary": "Steve Sarkisian must overhaul an anemic offense, surrender playcalling duties and decide whether Arch Manning is truly the right quarterback to salvage a fading playoff run",
-   "image": "https://sportshub.cbsistatic.com/i/2026/10/17/f05ac25d-46bf-41bb-a256-178b954e2798/steve.jpg",
-   "teams": [
-    "cfb:251"
    ]
   },
   {
@@ -1183,7 +1349,7 @@
    ]
   },
   {
-   "title": "Steve Sarkisian, Texas offense are squarely to blame for Longhorns' losses",
+   "title": "Steve Sarkisian, Texas offense are squarely to blame for inexcusable losses",
    "url": "https://on3.com/news/steve-sarkisian-texas-offense-are-squarely-to-blame-for-longhorns-losses/",
    "source": "On3",
    "league": "cfb",
@@ -1271,42 +1437,6 @@
    ]
   },
   {
-   "title": "Eagles QB Jalen Hurts placed on IR, will miss the Week 9 Giants game",
-   "url": "https://sports.yahoo.com/articles/eagles-qb-jalen-hurts-placed-204716430.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-17T20:47:16Z",
-   "summary": "The Eagles will be without QB Jalen Hurts when they play the NY Giants in Week 9",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/f681c6fc643e72bbbf0026271d08162c.jpg",
-   "teams": [
-    "nfl:19",
-    "nfl:21"
-   ]
-  },
-  {
-   "title": "2026 NFL Week 6 Injury Report: A.J. Brown returns, LJax out another week, Jalen Hurts to IR",
-   "url": "https://sports.yahoo.com/articles/2026-nfl-week-6-injury-191812688.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-17T20:45:00Z",
-   "summary": "Track the injuries to know around the NFL, all in one place.",
-   "image": "",
-   "teams": []
-  },
-  {
-   "title": "Bears QB Caleb Williams (hamstring) expected to play vs. Falcons in Week 6",
-   "url": "https://sports.yahoo.com/nfl/article/caleb-williams-hamstirng-expected-to-play-vs-falcons-in-week-6-204234351.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-17T20:42:34Z",
-   "summary": "Williams has been sidelined since Week 2.",
-   "image": "",
-   "teams": [
-    "nfl:1",
-    "nfl:3"
-   ]
-  },
-  {
    "title": "Kewan Lacy dealt with lower body vs. Missouri, returned to game in second half",
    "url": "https://on3.com/news/kewan-lacy-dealing-with-lower-body-injury-no-helmet-in-sight-as-ole-miss-plays-missouri/",
    "source": "On3",
@@ -1317,18 +1447,6 @@
    "teams": [
     "cfb:142",
     "cfb:145"
-   ]
-  },
-  {
-   "title": "Eagles sign RB Jaydon Blue to active roster with Jalen Hurts officially on IR",
-   "url": "https://sports.yahoo.com/articles/eagles-sign-rb-jaydon-blue-203728804.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-17T20:37:28Z",
-   "summary": "The Eagles announced the move to place quarterback Jalen Hurts to injured reserve on Saturday afternoon and they also made a move to fill the open space on their 53-man roster.",
-   "image": "",
-   "teams": [
-    "nfl:21"
    ]
   },
   {
@@ -1868,19 +1986,6 @@
    ]
   },
   {
-   "title": "Alabama vs. Tennessee odds, parlay, picks, line: Home team dominates, Tide try to avoid back-to-back losses",
-   "url": "https://www.cbssports.com/betting/news/alabama-vs-tennessee-odds-parlay-picks-line-home-team-dominates-tide-try-to-avoid-back-to-back-losses/",
-   "source": "CBS Sports",
-   "league": "cfb",
-   "published": "2026-10-17T14:37:33Z",
-   "summary": "No. 6 Alabama at No. 14 Tennessee is one of four AP Top-15 matchups on a spectacular college football Saturday",
-   "image": "https://sportshub.cbsistatic.com/i/2026/10/09/4ea01ef6-6acf-4a18-b41f-46de398b5321/keelon-russell-alabama.jpg",
-   "teams": [
-    "cfb:2633",
-    "cfb:333"
-   ]
-  },
-  {
    "title": "College football player Tyler Ulrich dies five days after suffering traumatic injury during a game",
    "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/college-football-player-tyler-ulrich-dies-five-days-after-suffering-traumatic-injury-during-a-game",
    "source": "Pro Football Talk",
@@ -2013,31 +2118,6 @@
    ]
   },
   {
-   "title": "Troy Aikman's role with the Dolphins hovers over his broadcasting future",
-   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/troy-aikmans-role-with-the-dolphins-hovers-over-his-broadcasting-future",
-   "source": "Pro Football Talk",
-   "league": "nfl",
-   "published": "2026-10-17T02:24:22Z",
-   "summary": "Why would any network with options opt for someone who works for one of the NFL's teams?",
-   "image": "https://nbcsports.brightspotcdn.com/dims4/default/9b083ab/2147483647/strip/false/crop/7198x4049+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F92%2F9b%2Fc332168d4ced921e538eea3b9ead%2F2295967665.jpg",
-   "teams": [
-    "nfl:15"
-   ]
-  },
-  {
-   "title": "Terrion Arnold remains on paid leave",
-   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/terrion-arnold-remains-on-paid-leave",
-   "source": "Pro Football Talk",
-   "league": "nfl",
-   "published": "2026-10-17T01:52:50Z",
-   "summary": "The NFL's decision to reinstate Packers running back Josh Jacobs and Broncos linebacker Jonathon Cooper from the Commissioner Exempt list carried with it a conspicuous omission.",
-   "image": "https://nbcsports.brightspotcdn.com/dims4/default/9b01386/2147483647/strip/false/crop/3569x2008+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F47%2F11%2F3468567e4a2f849d5b73d83b8ed1%2Fhttps-delivery-gettyimages.com%2Fdownloads%2F2244253048",
-   "teams": [
-    "nfl:7",
-    "nfl:9"
-   ]
-  },
-  {
    "title": "Greg Sankey: SEC 'prepared to engage' in self-governance discussions if Protect College Sports Act fails",
    "url": "https://on3.com/nil/news/greg-sankey-sec-prepared-engage-self-governance-discussions-protect-college-sports-act-fails/",
    "source": "On3",
@@ -2047,44 +2127,6 @@
    "image": "https://on3static.com/cdn-cgi/image/height=630,width=1200,quality=90,fit=cover/uploads/dev/assets/cms/2026/10/16174857/On3-greg-sankey-hookly-3.png",
    "teams": [
     "cfb:264"
-   ]
-  },
-  {
-   "title": "Mississippi State QB Kamario Taylor expected to miss LSU game",
-   "url": "https://on3.com/news/mississippi-state-qb-kamario-taylor-expected-to-miss-lsu-game/",
-   "source": "On3",
-   "league": "cfb",
-   "published": "2026-10-16T23:17:22Z",
-   "summary": "Mississippi State star quarterback Kamario Taylor is expected to miss Saturday’s game at LSU , sources tell On3. He’s dealt with a turf toe injury since the end of the Missouri game and played…",
-   "image": "https://on3static.com/cdn-cgi/image/height=630,width=1200,quality=90,fit=cover/uploads/dev/assets/cms/2026/10/14155926/2026-10-06T083935Z_1776611646_MT1USATODAY30010403_RTRMADP_3_NCAA-FOOTBALL-ALABAMA-AT-MISSISSIPPI-STATE-1.jpg",
-   "teams": [
-    "cfb:344",
-    "cfb:142",
-    "cfb:333",
-    "cfb:99"
-   ]
-  },
-  {
-   "title": "Report: ESPN expected to pay additional $345 million per year for 24-team College Football Playoff",
-   "url": "https://on3.com/news/espn-expected-pay-additional-345-million-per-year-24-team-college-football-playoff-cfp/",
-   "source": "On3",
-   "league": "cfb",
-   "published": "2026-10-16T22:28:10Z",
-   "summary": "Under the 24-team College Football Playoff, ESPN is expected to pay an additional $345 million per year for the next five years, ESPN’s Pete Thamel reported . That’s in addition to the $1.3 billion…",
-   "image": "https://on3static.com/cdn-cgi/image/height=630,width=1200,quality=90,fit=cover/uploads/dev/assets/cms/2026/09/08152236/cfp-espn.jpeg",
-   "teams": []
-  },
-  {
-   "title": "Florida expected to start QB Tramell Jones at Texas",
-   "url": "https://on3.com/news/florida-set-to-start-qb-tramell-jones-at-texas/",
-   "source": "On3",
-   "league": "cfb",
-   "published": "2026-10-16T21:31:59Z",
-   "summary": "Florida is expected to start Tramell Jones at quarterback at Texas on Saturday, as starter Aaron Philo works through a shoulder injury, sources tell On3. Jones took reps with the first team…",
-   "image": "https://on3static.com/cdn-cgi/image/height=630,width=1200,quality=90,fit=cover/uploads/dev/assets/cms/2026/10/15123404/Untitled-design-64-1.png",
-   "teams": [
-    "cfb:57",
-    "cfb:251"
    ]
   },
   {
@@ -2229,18 +2271,6 @@
    "image": "https://sportshub.cbsistatic.com/i/2026/10/16/0580a09a-f87e-4a38-bbae-e6044a609599/bo-nix-broncos-9.jpg",
    "teams": [
     "nfl:7"
-   ]
-  },
-  {
-   "title": "Marvin Harrison Jr. set for Texans debut as C.J. Stroud defends former Ohio State teammate",
-   "url": "https://www.cbssports.com/nfl/news/marvin-harrison-texans-debut-c-j-stroud/",
-   "source": "CBS Sports",
-   "league": "nfl",
-   "published": "2026-10-16T13:29:10Z",
-   "summary": "After a quiet start to his second season in Arizona, Harrison will begin a new chapter alongside his former college quarterback",
-   "image": "https://sportshub.cbsistatic.com/i/2026/10/16/6fcf47b5-c8d0-4617-a2ec-539cfa1f761a/storudharrison.png",
-   "teams": [
-    "nfl:34"
    ]
   },
   {
