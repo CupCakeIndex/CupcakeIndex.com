@@ -1969,32 +1969,57 @@ const Live = (() => {
       const caught = pts.filter((x) => !x.inc), avg = (xs) => (xs.length ? xs.reduce((n, x) => n + x.air, 0) / xs.length : null);
       const f1 = (v) => (v == null ? "–" : (v < 0 ? "−" : "") + Math.abs(v).toFixed(1));
       const pct = (n, d) => (d ? Math.round((100 * n) / d) + "%" : "–");
-      const W = 360, H = 440, top = Math.max(rush ? 20 : 40, Math.ceil((Math.max(...pts.map((x) => x.air + (mode === "target" && !x.inc ? Math.max(0, x.yac || 0) : 0))) + 4) / 10) * 10), bot = Math.min(-12, Math.floor((Math.min(...pts.map((x) => x.air)) - 3) / 5) * 5);
-      const Y = (v) => 16 + ((top - v) / (top - bot)) * (H - 56), QY = H - 22;
+      // The field in perspective, drawn right in the SVG (a TV view from behind the line): far yards get narrower and closer together.
+      // fx = across the field (0 = left sideline, 1 = right), v = yards past the line of scrimmage.
+      const narrow = slot.clientWidth < 560; // phones get a taller field so the text stays readable
+      const W = narrow ? 400 : 640, H = narrow ? 460 : 380, NEAR = H - 34, FAR = 22, NW = W - 24, FW = W * (narrow ? 0.62 : 0.56), K = NW / FW - 1;
+      const maxV = Math.max(...pts.map((x) => x.air + (mode === "target" && !x.inc ? Math.max(0, x.yac || 0) : 0)));
+      const top = Math.max(rush ? 20 : 40, Math.ceil((maxV + 3) / 10) * 10), bot = Math.min(-8, Math.floor((Math.min(...pts.map((x) => x.air)) - 2) / 5) * 5);
+      const z = (v) => 1 + K * ((v - bot) / (top - bot)), S = (v) => 1 / z(v);
+      const P = (fx, v) => [W / 2 + (fx - 0.5) * NW * S(v), NEAR - ((NEAR - FAR) * (1 - S(v))) / (1 - 1 / (1 + K))];
+      const pt = (fx, v) => P(fx, v).map((n) => n.toFixed(1)).join(",");
+      const band = (v0, v1, f0 = 0, f1 = 1) => `${pt(f0, v0)} ${pt(f1, v0)} ${pt(f1, v1)} ${pt(f0, v1)}`;
       const jit = (x, w) => { let h = 0; for (const c of String(x.p.id || "")) h = (h * 31 + c.charCodeAt(0)) >>> 0; return ((h % 1000) / 1000 - 0.5) * w; };
-      const PX = (x) => W * (rush ? GAPS[x.gap] + jit(x, /end|tackle|guard|up the/.test(x.gap) ? 0.08 : 0.2) : { left: 0.2, middle: 0.5, right: 0.8 }[x.dir] + jit(x, 0.22));
-      const g = [`<rect class="gcv-turf" x="0" y="0" width="${W}" height="${H}"/>`, `<rect class="ay-behind" x="0" y="${Y(0)}" width="${W}" height="${H - Y(0)}"/>`];
-      for (let v = 0; v < top; v += 20) g.push(`<rect class="gcv-band" x="0" y="${Y(v + 10)}" width="${W}" height="${Y(v) - Y(v + 10)}"/>`);
-      for (let v = bot + 1; v < top; v++) if (v % 5) for (const hx of [W * 0.35, W * 0.65]) g.push(`<line class="gcv-tick ay-hash" x1="${hx - 4}" x2="${hx + 4}" y1="${Y(v)}" y2="${Y(v)}"/>`);
-      for (let v = Math.ceil(bot / 5) * 5; v <= top; v += 5) if (v) g.push(`<line class="gcv-yl ay-yl${v % 10 ? " five" : ""}" x1="0" x2="${W}" y1="${Y(v)}" y2="${Y(v)}"/>${v % 10 ? "" : `<text class="ay-yd" x="${W - 4}" y="${Y(v) - 4}">${v}</text><text class="ay-yd l" x="4" y="${Y(v) - 4}">${v}</text>`}`);
-      if (rush) for (const [gp, lb] of [["left end", "END"], ["left tackle", "TKL"], ["left guard", "GRD"], ["up the middle", "MID"], ["right guard", "GRD"], ["right tackle", "TKL"], ["right end", "END"]]) g.push(`<text class="ay-gap" x="${W * GAPS[gp]}" y="${QY - 16}">${lb}</text>`);
-      g.push(`<line class="ay-los" x1="0" x2="${W}" y1="${Y(0)}" y2="${Y(0)}" filter="url(#gcv-glow)"/>`, `<text class="ay-lbl l" x="4" y="${Y(0) + 13}">LINE OF SCRIMMAGE</text>`,
-        `<text class="ay-lbl bad" x="${W - 4}" y="${H - 8}">${rush ? "LOST YARDS" : "BEHIND THE LINE"}</text>`);
+      const FX = (x) => (rush ? GAPS[x.gap] + jit(x, /end|tackle|guard|up the/.test(x.gap) ? 0.09 : 0.24) : { left: 0.21, middle: 0.5, right: 0.79 }[x.dir] + jit(x, 0.26));
+      const g = [`<linearGradient id="pc-turf" x1="0" y1="1" x2="0" y2="0"><stop offset="0" class="pc-turf-near"/><stop offset="1" class="pc-turf-far"/></linearGradient>`,
+        `<polygon class="pc-turf" points="${band(bot, top)}"/>`];
+      for (let v = Math.ceil(bot / 10) * 10; v < top; v += 10) if (Math.round(v / 10) % 2 === 0) g.push(`<polygon class="pc-stripe" points="${band(Math.max(v, bot), Math.min(v + 10, top))}"/>`);
+      g.push(`<polygon class="pc-back" points="${band(bot, 0)}"/>`);
+      for (let v = bot + 1; v < top; v++) if (v % 5) for (const hf of [0.4, 0.6]) g.push(`<line class="pc-hash" x1="${P(hf - 0.012, v)[0].toFixed(1)}" x2="${P(hf + 0.012, v)[0].toFixed(1)}" y1="${P(hf, v)[1].toFixed(1)}" y2="${P(hf, v)[1].toFixed(1)}"/>`);
+      for (let v = Math.ceil(bot / 5) * 5; v <= top; v += 5) {
+        if (!v) continue;
+        const [x0, y] = P(0, v), [x1] = P(1, v), fs = (8 * S(v) + 4).toFixed(1);
+        g.push(`<line class="pc-yl${v % 10 ? " five" : ""}" x1="${x0.toFixed(1)}" x2="${x1.toFixed(1)}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"/>`);
+        if (!(v % 10)) g.push(`<text class="pc-num" x="${P(0.035, v)[0].toFixed(1)}" y="${(y - 3).toFixed(1)}" style="font-size:${fs}px">${v > 0 ? "+" : "−"}${Math.abs(v)}</text><text class="pc-num r" x="${P(0.965, v)[0].toFixed(1)}" y="${(y - 3).toFixed(1)}" style="font-size:${fs}px">${v > 0 ? "+" : "−"}${Math.abs(v)}</text>`);
+      }
+      g.push(`<polygon class="pc-side" points="${band(bot, top)}"/>`);
+      const [lx0, ly] = P(0, 0), [lx1] = P(1, 0);
+      g.push(`<line class="ay-los" x1="${lx0}" x2="${lx1}" y1="${ly}" y2="${ly}" filter="url(#gcv-glow)"/><text class="pc-los" x="${lx0 + 4}" y="${ly + 13}">LOS</text><text class="pc-los r" x="${lx1 - 4}" y="${ly + 13}">LOS</text>`);
       const mid = rush ? avg(caught) : avg(pts); // the dashed line: yards per carry, or aDOT
-      if (mid != null) g.push(`<line class="ay-avg h2" x1="0" x2="${W}" y1="${Y(mid)}" y2="${Y(mid)}"/><text class="ay-al h2" x="4" y="${Y(mid) + 13}">${rush ? "avg" : "aDOT"} ${f1(mid)}</text>`);
+      if (mid != null) { const [mx0, my] = P(0, mid), [mx1] = P(1, mid); g.push(`<line class="ay-avg" x1="${mx0}" x2="${mx1}" y1="${my}" y2="${my}"/><text class="pc-avg" x="${mx1 - 8}" y="${my + 12}">${rush ? "AVG" : "aDOT"} ${f1(mid)}</text>`); }
+      // where each lane is, under the field
+      const lanes = rush ? [["left end", "END"], ["left tackle", "TKL"], ["left guard", "GRD"], ["up the middle", "MID"], ["right guard", "GRD"], ["right tackle", "TKL"], ["right end", "END"]].map(([k2, l]) => [GAPS[k2], l])
+        : [[0.21, "LEFT"], [0.5, "MIDDLE"], [0.79, "RIGHT"]];
+      for (const [f, l] of lanes) g.push(`<text class="pc-lane" x="${P(f, bot)[0].toFixed(1)}" y="${H - 10}">${l}</text>`);
       // targets: a dotted line from where he caught it to where the play ended (yards after the catch)
-      const yacLines = mode === "target" ? pts.map((x, i) => (!x.inc && x.yac ? `<line class="pc-yac" data-i="${i}" x1="${PX(x).toFixed(1)}" x2="${PX(x).toFixed(1)}" y1="${Y(x.air).toFixed(1)}" y2="${Y(x.air + x.yac).toFixed(1)}"/><circle class="pc-yacend" data-i="${i}" cx="${PX(x).toFixed(1)}" cy="${Y(x.air + x.yac).toFixed(1)}" r="2"/>` : "")).join("") : "";
-      g.push(`<path class="pc-arc" id="pc-arc" d=""/>${yacLines}`);
-      const what = (x) => (x.td ? "touchdown" : x.int ? (rush ? "fumble lost" : "intercepted") : x.inc ? "incomplete" : "");
+      const pos = pts.map((x) => ({ f: Math.min(0.97, Math.max(0.03, FX(x))), v: x.air }));
       pts.forEach((x, i) => {
+        if (mode !== "target" || x.inc || !x.yac) return;
+        const [ax, ay] = P(pos[i].f, x.air), [bx, by] = P(pos[i].f, x.air + x.yac);
+        g.push(`<line class="pc-yac" data-i="${i}" x1="${ax.toFixed(1)}" x2="${bx.toFixed(1)}" y1="${ay.toFixed(1)}" y2="${by.toFixed(1)}"/><circle class="pc-yacend" data-i="${i}" cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="${(2.6 * S(x.air + x.yac) + 0.8).toFixed(1)}"/>`);
+      });
+      g.push(`<path class="pc-arc" id="pc-arc" d=""/>`);
+      const what = (x) => (x.td ? "touchdown" : x.int ? (rush ? "fumble lost" : "intercepted") : x.inc ? "incomplete" : "");
+      // misses first, so the catches sit on top of them
+      pts.map((x, i) => i).sort((i, j) => (pts[j].inc ? 1 : 0) - (pts[i].inc ? 1 : 0) || pts[j].air - pts[i].air).forEach((i) => {
+        const x = pts[i], [cx, cy] = P(pos[i].f, x.air);
         let tip = `${games.find((q) => q.gi === x.g)?.label || ""} · Q${x.p.period?.number || ""} ${x.p.clock?.displayValue || ""}: ${x.air} ${M.y}${what(x) ? ", " + what(x) : ""}. ${(x.p.text || "").replace(/^(\([^)]*\)\s*)+/, "")}`;
         if (mode === "target" && x.yac && !x.inc) tip = tip.replace(`${x.air} ${M.y}`, `caught ${x.air} yds out, ${x.yac} after the catch`);
-        g.push(`<circle class="ay-dot${x.inc ? " inc" : ""}${x.int ? " int" : ""}${x.td ? " td" : ""}" data-i="${i}" cx="${PX(x).toFixed(1)}" cy="${Y(x.air).toFixed(1)}" r="5"><title>${esc(tip)}</title></circle>`);
+        g.push(`<circle class="ay-dot${x.inc ? " inc" : ""}${x.int ? " int" : ""}${x.td ? " td" : ""}" data-i="${i}" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${(4 * S(x.air) + 1.8).toFixed(1)}"><title>${esc(tip)}</title></circle>`);
       });
-      const tag = mode === "pass" ? "QB" : (a.position?.abbreviation || "").slice(0, 2);
-      g.push(`<circle class="pc-qb" cx="${W / 2}" cy="${QY}" r="9"/><text class="pc-qbt" x="${W / 2}" y="${QY + 3}">${esc(mode === "target" ? "QB" : tag)}</text>`,
-        `<ellipse class="pc-shadow" id="pc-shadow" rx="7" ry="2.6" opacity="0"/><g id="pc-ball" opacity="0">${FOOTBALL.replace("<svg ", '<svg x="-12" y="-7" width="24" height="14" ')}</g>`);
-      const nInc = list.filter((x) => x.inc && x.air == null).length;
+      const QB = { f: 0.5, v: bot + 3 }, [qx, qy] = P(QB.f, QB.v), tag = mode === "rush" ? (a.position?.abbreviation || "RB").slice(0, 2) : "QB";
+      g.push(`<circle class="pc-qb" cx="${qx}" cy="${qy}" r="10"/><text class="pc-qbt" x="${qx}" y="${qy + 3.5}">${esc(tag)}</text>`,
+        `<ellipse class="pc-shadow" id="pc-shadow" rx="8" ry="3" opacity="0"/><g id="pc-ball" opacity="0">${FOOTBALL.replace("<svg ", '<svg x="-13" y="-8" width="26" height="16" ')}</g>`);
       // league ranks (NFL, from src/pass_charts.py) go under each stat on "All weeks"
       const R = sel === "all" ? file?.ranks?.[mode] : null;
       const rk = (key) => (R?.[key] ? `<em class="ay-rk${R[key][0] <= 5 ? " top" : ""}">#${R[key][0]} of ${R[key][1]}</em>` : "");
@@ -2002,20 +2027,24 @@ const Live = (() => {
       const share = (f, xs) => pct(xs.filter(f).length, xs.length);
       const mean = (xs) => (xs.length ? xs.reduce((n, v) => n + v, 0) / xs.length : null);
       const halvesOf = (xs) => { const a1 = avg(xs.filter((x) => x.half === 1)), a2 = avg(xs.filter((x) => x.half === 2));
-        return stat(f1(a1), "1st halves") + stat(f1(a2), "2nd halves", a1 != null && a2 != null ? (a2 < a1 ? "down" : "up") : ""); };
+        return stat(`${f1(a1)} <i>→</i> <span class="${a1 != null && a2 != null ? (a2 < a1 ? "down" : "up") : ""}">${f1(a2)}</span>`, "1st half → 2nd half", "halves"); };
       const stats = rush
         ? stat(f1(avg(caught)), "yards per carry", "big", "ypc") + halvesOf(caught) + stat(share((x) => x.air >= 10, caught), "runs of 10+ yds", "", "big") + stat(share((x) => x.air <= 0, caught), "stuffed (0 or less)", "", "stuff")
         : mode === "target"
           ? stat(f1(avg(pts)), "aDOT (avg depth of target)", "big", "adot") + stat(f1(mean(caught.map((x) => x.yac || 0))), "YAC per catch", "", "yac") + stat(pct(list.filter((x) => !x.inc).length, list.length), "catch rate", "", "catch") + stat(share((x) => x.air >= 20, pts), "targets 20+ yds out", "", "deep")
           : stat(f1(avg(pts)), "aDOT (air yards per throw)", "big", "adot") + stat(f1(avg(caught)), "air yards per catch", "", "aypc") + halvesOf(pts) + stat(share((x) => x.air >= 20, pts), "throws 20+ yds out", "", "deep") + stat(share((x) => x.air < 0, pts), "thrown behind the line");
-      const rkNote = R ? `<p class="note ay-rknote">Ranks: among NFL players with ${R._min}+ ${M.noun} through Week ${R._wk} (nflverse play-by-play).${mode === "rush" ? " Stuffed: #1 = fewest." : ""}</p>` : "";
-      const keys = rush ? `<span class="ay-key"></span> run · <span class="ay-key td"></span> touchdown${pts.some((x) => x.int) ? ' · <span class="ay-key int"></span> fumble lost' : ""}. Gaps are from the offense's view (college play-by-play only says left, middle or right).`
-        : `<span class="ay-key"></span> caught · <span class="ay-key td"></span> touchdown${pts.some((x) => x.inc && !x.int) ? ' · <span class="ay-key inc"></span> incomplete (where it was thrown)' : ""}${pts.some((x) => x.int) ? ' · <span class="ay-key int"></span> intercepted' : ""}. Left, middle and right are from the QB's view; the play-by-play only gives the third of the field, so dots are spread out within it.${mode === "target" ? " ESPN doesn't log routes run, only the throws that came his way." : ""}
-          ${nInc ? `${nInc} incomplete pass${nInc === 1 ? "" : "es"} not shown (ESPN doesn't mark where ${nInc === 1 ? "it was" : "they were"} thrown).` : ""}`;
-      $("#pc-body").innerHTML = `<div class="ay-stats">${stats}</div>${rkNote}
-        <div class="pc-ctl">${sel === "all" ? "" : `<button class="gcv-live" id="pc-play">▶ Play</button>`}<span class="muted" id="pc-now">${pts.length} ${mode === "rush" ? "runs" : mode === "target" ? "catches" : "throws"} plotted${sel === "all" ? ` in ${games.length} game${games.length === 1 ? "" : "s"} · pick a week to play them back` : ""}</span></div>
-        <div class="pc-stage"><svg class="gcv-field ay-field pc-field" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(a.displayName)} ${esc(M.title.toLowerCase())}"><defs><filter id="gcv-glow" filterUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>${g.join("")}</svg></div>
-        <p class="note">${keys} Tap a dot for the play.</p>`;
+      const nInc = list.filter((x) => x.inc && x.air == null).length;
+      const chip = (cls, label) => `<span class="pc-chip"><span class="ay-key ${cls}"></span>${label}</span>`;
+      const legend = rush ? chip("", "Run") + chip("td", "Touchdown") + (pts.some((x) => x.int) ? chip("int", "Fumble lost") : "")
+        : chip("", "Caught") + chip("td", "Touchdown") + (pts.some((x) => x.inc && !x.int) ? chip("inc", "Incomplete") : "") + (pts.some((x) => x.int) ? chip("int", "Intercepted") : "") + (mode === "target" && pts.some((x) => x.yac && !x.inc) ? chip("yac", "After the catch") : "");
+      const fine = [rush ? "Gaps are from the offense's view (college play-by-play only says left, middle or right)." : "Left, middle and right are from the QB's view. The play-by-play only gives the third of the field, so dots are spread out within it.",
+        mode === "target" ? "Routes run aren't in any free data, so this shows the throws that came his way." : "",
+        nInc ? `${nInc} incomplete pass${nInc === 1 ? "" : "es"} not shown (ESPN doesn't mark where ${nInc === 1 ? "it was" : "they were"} thrown).` : "",
+        R ? `Ranks: NFL players with ${R._min}+ ${M.noun} through Week ${R._wk}${mode === "rush" ? " (stuffed: #1 = fewest)" : ""}.` : "", "Tap a dot for the play."].filter(Boolean).join(" ");
+      $("#pc-body").innerHTML = `<div class="ay-stats">${stats}</div>
+        <div class="pc-ctl">${sel === "all" ? "" : `<button class="gcv-live" id="pc-play">▶ Play</button>`}<span class="muted" id="pc-now">${pts.length} ${mode === "rush" ? "runs" : mode === "target" ? "targets" : "throws"}${sel === "all" ? ` · ${games.length} game${games.length === 1 ? "" : "s"} · pick a week to play them back` : ""}</span><span class="pc-legend">${legend}</span></div>
+        <div class="pc-stage"><svg class="pc-field" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(a.displayName)} ${esc(M.title.toLowerCase())}"><defs><filter id="gcv-glow" filterUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>${g.join("")}</svg></div>
+        <p class="note">${fine}</p>`;
       // Play (one week only): hide everything, then run the plays in order. A throw leaves the QB and arcs over its shadow;
       // a catch then runs on down its YAC line. A run stays on the ground. "All weeks" never animates.
       let timer = null, k = 0;
@@ -2023,30 +2052,36 @@ const Live = (() => {
       const arc = $("#pc-arc"), ball = $("#pc-ball"), shadow = $("#pc-shadow");
       const show = (i, on) => els[i]?.forEach((e) => e.classList.toggle("pc-hide", !on));
       const stop = (done) => { clearTimeout(timer); timer = null; btn.textContent = done ? "↺ Replay" : "▶ Play"; ball.setAttribute("opacity", 0); shadow.setAttribute("opacity", 0); arc.setAttribute("d", ""); };
-      const put = (x, y, h, ang) => { ball.setAttribute("transform", `translate(${x.toFixed(1)},${(y - h).toFixed(1)}) rotate(${ang.toFixed(0)})`); shadow.setAttribute("cx", x); shadow.setAttribute("cy", y); };
+      // the ball at a spot on the field, h yards up in the air (the football and its shadow shrink with distance)
+      const put = (f, v, h, ang) => {
+        const [x, y] = P(f, v), s = S(v) * 1.5;
+        ball.setAttribute("transform", `translate(${x.toFixed(1)},${(y - h * 7 * S(v)).toFixed(1)}) rotate(${ang.toFixed(0)}) scale(${s.toFixed(2)})`);
+        shadow.setAttribute("cx", x.toFixed(1)); shadow.setAttribute("cy", y.toFixed(1)); shadow.setAttribute("rx", (8 * s).toFixed(1)); shadow.setAttribute("ry", (3 * s).toFixed(1));
+      };
       const step = () => {
         if (!btn.isConnected) { timer = null; return; } // left the page
         if (k) show(k - 1, true); // in case the browser skipped animation frames
         if (k >= pts.length) { now.textContent = `${pts.length} ${M.noun}`; return stop(true); }
-        const x = pts[k], i = k, d = els[k].find((e) => e.classList.contains("ay-dot")), tx = +d.getAttribute("cx"), ty = +d.getAttribute("cy");
-        const peak = rush ? 3 : 16 + Math.max(0, x.air) * 1.1, ang = (Math.atan2(ty - QY, tx - W / 2) * 180) / Math.PI;
-        const yacTo = mode === "target" && !x.inc && x.yac ? Y(x.air + x.yac) : null;
-        arc.setAttribute("d", `M${W / 2},${QY} Q${(W / 2 + tx) / 2},${(QY + ty) / 2 - 2 * peak} ${tx},${ty}`);
+        const x = pts[k], i = k, to = pos[k], peak = rush ? 0.3 : 2.2 + Math.max(0, x.air) * 0.16;
+        const [x0, y0] = P(QB.f, QB.v), [x1, y1] = P(to.f, to.v), ang = (Math.atan2(y1 - y0, x1 - x0) * 180) / Math.PI;
+        const yacTo = mode === "target" && !x.inc && x.yac ? x.air + x.yac : null;
+        const at = (u) => { const f = QB.f + (to.f - QB.f) * u, v = QB.v + (to.v - QB.v) * u, [px, py] = P(f, v); return `${px.toFixed(1)},${(py - 4 * peak * u * (1 - u) * 7 * S(v)).toFixed(1)}`; };
+        arc.setAttribute("d", `M${Array.from({ length: 21 }, (_, n) => at(n / 20)).join(" L")}`);
         arc.classList.remove("go"); void arc.getBBox(); arc.classList.add("go");
         ball.setAttribute("opacity", 1); shadow.setAttribute("opacity", 1);
-        const t0 = performance.now(), dur = rush ? 340 : 420, dur2 = yacTo == null ? 0 : 260;
+        const t0 = performance.now(), dur = rush ? 380 : 460, dur2 = yacTo == null ? 0 : 320;
         const fly = (t) => {
           if (!timer && k < pts.length) return;
           const e = t - t0, u = Math.min(1, e / dur);
-          if (e < dur) put(W / 2 + (tx - W / 2) * u, QY + (ty - QY) * u, 4 * peak * u * (1 - u), ang + (rush ? 0 : (u - 0.5) * 30));
-          else if (e < dur + dur2) { const v = (e - dur) / dur2; show(i, true); put(tx, ty + (yacTo - ty) * v, 0, yacTo < ty ? -90 : 90); }
-          else { put(tx, yacTo ?? ty, 0, ang); show(i, true); return; }
+          if (e < dur) put(QB.f + (to.f - QB.f) * u, QB.v + (to.v - QB.v) * u, 4 * peak * u * (1 - u), ang + (rush ? 0 : (u - 0.5) * 24));
+          else if (e < dur + dur2) { show(i, true); put(to.f, to.v + (yacTo - to.v) * ((e - dur) / dur2), 0, yacTo < to.v ? 90 : -90); }
+          else { put(to.f, yacTo ?? to.v, 0, ang); show(i, true); return; }
           requestAnimationFrame(fly);
         };
         requestAnimationFrame(fly);
         now.textContent = `${k + 1}/${pts.length} · Q${x.p.period?.number || ""} ${x.p.clock?.displayValue || ""} · ${x.air} yds${yacTo != null ? ` + ${x.yac} after the catch` : ""}${what(x) ? " · " + what(x) : ""}`;
         k++;
-        timer = setTimeout(step, Math.max(550, Math.min(1000, 22000 / pts.length)));
+        timer = setTimeout(step, Math.max(600, Math.min(1000, 22000 / pts.length)));
       };
       halt = () => { if (timer) stop(false); };
       if (btn) btn.onclick = () => {
