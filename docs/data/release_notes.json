@@ -1,5 +1,14 @@
 [
   {
+    "version": "1.70.3",
+    "build": 315,
+    "date": "2026-10-17",
+    "items": [
+      "Player charts no longer guess where a throw landed across the field. The field is split into left, middle and right lanes (what the play-by-play actually records), and each throw sits in its lane at its real depth. Dots only sit side by side so they don't cover each other.",
+      "Runs sit in their real gap the same way, and the LOS and aDOT labels stay readable on top of the dots."
+    ]
+  },
+  {
     "version": "1.70.2",
     "build": 314,
     "date": "2026-10-17",

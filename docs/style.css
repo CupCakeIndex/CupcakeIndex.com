@@ -2587,3 +2587,5 @@ table.roster th.sortable.on a { color: var(--accent); }
 .ay-rk.top { color: var(--accent); }
 .ay-rknote { margin: 6px 0 0; }
 .pc-losl { stroke-width: 2; opacity: .9; }
+.pc-lanediv { stroke: var(--ink); stroke-width: 1; stroke-dasharray: 4 5; opacity: .3; }
+.pc-los, .pc-avg { paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; }

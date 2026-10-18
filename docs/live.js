@@ -1979,19 +1979,19 @@ const Live = (() => {
       const P = (fx, v) => [W / 2 + (fx - 0.5) * NW * S(v), NEAR - ((NEAR - FAR) * (1 - S(v))) / (1 - 1 / (1 + K))];
       const pt = (fx, v) => P(fx, v).map((n) => n.toFixed(1)).join(",");
       const band = (v0, v1, f0 = 0, f1 = 1) => `${pt(f0, v0)} ${pt(f1, v0)} ${pt(f1, v1)} ${pt(f0, v1)}`;
-      // spread each dot across its third of the field with a well-mixed hash of the play id (so the same play always lands
-      // in the same spot, but neighbors like "4-pass-12" and "4-pass-13" don't stack in a column)
-      const jit = (x, w) => {
-        let h = 2166136261;
-        for (const c of String(x.p.id || "")) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
-        h = Math.imul(h ^ (h >>> 15), 0x5bd1e995); h ^= h >>> 13;
-        return (((h >>> 0) % 1000) / 1000 - 0.5) * w;
+      // Across the field the play-by-play only says left, middle or right (runs: the gap), so each play goes in its lane at its
+      // real depth. Inside a lane nothing is guessed: dots start at the lane's center and only step aside so they don't cover each other.
+      const rad = (v) => 4 * S(v) + 1.8;
+      const lane = (x) => {
+        if (!rush) return { left: [0, 1 / 3], middle: [1 / 3, 2 / 3], right: [2 / 3, 1] }[x.dir] || [1 / 3, 2 / 3];
+        const c = GAPS[x.gap] ?? 0.5, half = /end|tackle|guard|up the/.test(x.gap) ? 0.055 : 0.11;
+        return [c - half, c + half];
       };
-      const FX = (x) => (rush ? GAPS[x.gap] + jit(x, /end|tackle|guard|up the/.test(x.gap) ? 0.09 : 0.24) : { left: 0.21, middle: 0.5, right: 0.79 }[x.dir] + jit(x, 0.26));
       const g = [`<linearGradient id="pc-turf" x1="0" y1="1" x2="0" y2="0"><stop offset="0" class="pc-turf-near"/><stop offset="1" class="pc-turf-far"/></linearGradient>`,
         `<polygon class="pc-turf" points="${band(bot, top)}"/>`];
       for (let v = Math.ceil(bot / 10) * 10; v < top; v += 10) if (Math.round(v / 10) % 2 === 0) g.push(`<polygon class="pc-stripe" points="${band(Math.max(v, bot), Math.min(v + 10, top))}"/>`);
       g.push(`<polygon class="pc-back" points="${band(bot, 0)}"/>`);
+      if (!rush) for (const f of [1 / 3, 2 / 3]) g.push(`<line class="pc-lanediv" x1="${P(f, bot)[0].toFixed(1)}" y1="${P(f, bot)[1].toFixed(1)}" x2="${P(f, top)[0].toFixed(1)}" y2="${P(f, top)[1].toFixed(1)}"/>`);
       for (let v = bot + 1; v < top; v++) if (v % 5) for (const hf of [0.4, 0.6]) g.push(`<line class="pc-hash" x1="${P(hf - 0.012, v)[0].toFixed(1)}" x2="${P(hf + 0.012, v)[0].toFixed(1)}" y1="${P(hf, v)[1].toFixed(1)}" y2="${P(hf, v)[1].toFixed(1)}"/>`);
       for (let v = Math.ceil(bot / 5) * 5; v <= top; v += 5) {
         if (!v) continue;
@@ -2001,15 +2001,28 @@ const Live = (() => {
       }
       g.push(`<polygon class="pc-side" points="${band(bot, top)}"/>`);
       const [lx0, ly] = P(0, 0), [lx1] = P(1, 0);
-      g.push(`<line class="ay-los pc-losl" x1="${lx0}" x2="${lx1}" y1="${ly}" y2="${ly}"/><text class="pc-los" x="${lx0 + 4}" y="${ly + 13}">LOS</text><text class="pc-los r" x="${lx1 - 4}" y="${ly + 13}">LOS</text>`);
+      g.push(`<line class="ay-los pc-losl" x1="${lx0}" x2="${lx1}" y1="${ly}" y2="${ly}"/>`);
+      const labels = [`<text class="pc-los" x="${lx0 + 4}" y="${ly + 13}">LOS</text><text class="pc-los r" x="${lx1 - 4}" y="${ly + 13}">LOS</text>`]; // drawn over the dots
       const mid = rush ? avg(caught) : avg(pts); // the dashed line: yards per carry, or aDOT
-      if (mid != null) { const [mx0, my] = P(0, mid), [mx1] = P(1, mid); g.push(`<line class="ay-avg" x1="${mx0}" x2="${mx1}" y1="${my}" y2="${my}"/><text class="pc-avg" x="${mx1 - 8}" y="${my + 12}">${rush ? "AVG" : "aDOT"} ${f1(mid)}</text>`); }
+      if (mid != null) { const [mx0, my] = P(0, mid), [mx1] = P(1, mid); g.push(`<line class="ay-avg" x1="${mx0}" x2="${mx1}" y1="${my}" y2="${my}"/>`); labels.push(`<text class="pc-avg" x="${mx1 - 8}" y="${my + 12}">${rush ? "AVG" : "aDOT"} ${f1(mid)}</text>`); }
       // where each lane is, under the field
       const lanes = rush ? [["left end", "END"], ["left tackle", "TKL"], ["left guard", "GRD"], ["up the middle", "MID"], ["right guard", "GRD"], ["right tackle", "TKL"], ["right end", "END"]].map(([k2, l]) => [GAPS[k2], l])
-        : [[0.21, "LEFT"], [0.5, "MIDDLE"], [0.79, "RIGHT"]];
+        : [[1 / 6, "LEFT"], [0.5, "MIDDLE"], [5 / 6, "RIGHT"]];
       for (const [f, l] of lanes) g.push(`<text class="pc-lane" x="${P(f, bot)[0].toFixed(1)}" y="${H - 10}">${l}</text>`);
       // targets: a dotted line from where he caught it to where the play ended (yards after the catch)
-      const pos = pts.map((x) => ({ f: Math.min(0.97, Math.max(0.03, FX(x))), v: x.air }));
+      const pos = new Array(pts.length), placed = [];
+      pts.map((x, i) => i).sort((i, j) => pts[i].air - pts[j].air || i - j).forEach((i) => {
+        const v = pts[i].air, [lo, hi] = lane(pts[i]), r = rad(v), [cx, cy] = P((lo + hi) / 2, v);
+        const xmin = P(lo, v)[0] + r + 1, xmax = P(hi, v)[0] - r - 1;
+        let best = cx;
+        for (let n = 1; n < 60; n++) { // 0, +1, -1, +2, -2 ... steps from the center until there's room
+          const tx = cx + Math.ceil((n - 1) / 2) * r * 0.9 * (n % 2 ? 1 : -1);
+          if (tx < xmin || tx > xmax) continue;
+          if (placed.every((q) => (q.x - tx) ** 2 + (q.y - cy) ** 2 >= (q.r + r + 0.5) ** 2)) { best = tx; break; }
+        }
+        placed.push({ x: best, y: cy, r });
+        pos[i] = { f: 0.5 + (best - W / 2) / (NW * S(v)), v };
+      });
       pts.forEach((x, i) => {
         if (mode !== "target" || x.inc || !x.yac) return;
         const [ax, ay] = P(pos[i].f, x.air), [bx, by] = P(pos[i].f, x.air + x.yac);
@@ -2023,8 +2036,9 @@ const Live = (() => {
         const x = pts[i], [cx, cy] = P(pos[i].f, x.air);
         let tip = `${games.find((q) => q.gi === x.g)?.label || ""} · Q${x.p.period?.number || ""} ${x.p.clock?.displayValue || ""}: ${x.air} ${M.y}${what(x) ? ", " + what(x) : ""}. ${(x.p.text || "").replace(/^(\([^)]*\)\s*)+/, "")}`;
         if (mode === "target" && x.yac && !x.inc) tip = tip.replace(`${x.air} ${M.y}`, `caught ${x.air} yds out, ${x.yac} after the catch`);
-        g.push(`<circle class="ay-dot${x.inc ? " inc" : ""}${x.int ? " int" : ""}${x.td ? " td" : ""}" data-i="${i}" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${(4 * S(x.air) + 1.8).toFixed(1)}"><title>${esc(tip)}</title></circle>`);
+        g.push(`<circle class="ay-dot${x.inc ? " inc" : ""}${x.int ? " int" : ""}${x.td ? " td" : ""}" data-i="${i}" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${rad(x.air).toFixed(1)}"><title>${esc(tip)}</title></circle>`);
       });
+      g.push(...labels);
       const QB = { f: 0.5, v: bot + 3 }, [qx, qy] = P(QB.f, QB.v), tag = mode === "rush" ? (a.position?.abbreviation || "RB").slice(0, 2) : "QB";
       g.push(`<circle class="pc-qb" cx="${qx}" cy="${qy}" r="10"/><text class="pc-qbt" x="${qx}" y="${qy + 3.5}">${esc(tag)}</text>`,
         `<ellipse class="pc-shadow" id="pc-shadow" rx="8" ry="3" opacity="0"/><g id="pc-ball" opacity="0">${FOOTBALL.replace("<svg ", '<svg x="-13" y="-8" width="26" height="16" ')}</g>`);
@@ -2045,7 +2059,7 @@ const Live = (() => {
       const chip = (cls, label) => `<span class="pc-chip"><span class="ay-key ${cls}"></span>${label}</span>`;
       const legend = rush ? chip("", "Run") + chip("td", "Touchdown") + (pts.some((x) => x.int) ? chip("int", "Fumble lost") : "")
         : chip("", "Caught") + chip("td", "Touchdown") + (pts.some((x) => x.inc && !x.int) ? chip("inc", "Incomplete") : "") + (pts.some((x) => x.int) ? chip("int", "Intercepted") : "") + (mode === "target" && pts.some((x) => x.yac && !x.inc) ? chip("yac", "After the catch") : "");
-      const fine = [rush ? "Gaps are from the offense's view (college play-by-play only says left, middle or right)." : "Left, middle and right are from the QB's view. The play-by-play only gives the third of the field, so dots are spread out within it.",
+      const fine = [rush ? "Each run sits in its gap (college play-by-play only says left, middle or right), at the yards it gained. Side by side in a gap only means they'd overlap." : "The play-by-play says how far each throw went and whether it went left, middle or right (from the QB's view), so each one sits in its lane at its real depth. Dots side by side in a lane only means they'd overlap, not where on the field they were.",
         mode === "target" ? "Routes run aren't in any free data, so this shows the throws that came his way." : "",
         nInc ? `${nInc} incomplete pass${nInc === 1 ? "" : "es"} not shown (ESPN doesn't mark where ${nInc === 1 ? "it was" : "they were"} thrown).` : "",
         R ? `Ranks: NFL players with ${R._min}+ ${M.noun} through Week ${R._wk}${mode === "rush" ? " (stuffed: #1 = fewest)" : ""}.` : "", "Tap a dot for the play."].filter(Boolean).join(" ");
