@@ -1949,14 +1949,14 @@ const Live = (() => {
     });
     modes = modes.filter((m) => plays[m].some((x) => x.air != null));
     if (!modes.length) return slot.remove();
-    let mode = modes[0], sel = "all", halt = () => {};
+    let mode = modes[0], sel = null, halt = () => {}; // sel: a game, or "all" (opens on the most recent game)
     const gamesOf = (md) => evs.map((e, gi) => ({ gi, label: `Wk ${e.week ?? ""} ${e.atVs || ""} ${e.opponent?.abbreviation || ""}`.trim(), n: plays[md].filter((x) => x.g === gi && x.air != null).length })).filter((g) => g.n);
     const shell = () => {
       const games = gamesOf(mode);
-      if (sel !== "all" && !games.some((g) => String(g.gi) === sel)) sel = "all";
+      if (sel === null || (sel !== "all" && !games.some((g) => String(g.gi) === sel))) sel = games.length ? String(games.at(-1).gi) : "all";
       slot.innerHTML = `<div class="card pc"><div class="sc-bar"><h3>${PC_MODES[mode].title}</h3>
           ${modes.length > 1 ? `<div class="seg pc-mode">${modes.map((m) => `<button data-pm="${m}" class="${m === mode ? "active" : ""}">${PC_MODES[m].tab}</button>`).join("")}</div>` : ""}
-          <select id="pc-game"><option value="all">All weeks (combined)</option>${games.map((g) => `<option value="${g.gi}"${String(g.gi) === sel ? " selected" : ""}>${esc(g.label)}</option>`).join("")}</select></div>
+          <select id="pc-game"><option value="all"${sel === "all" ? " selected" : ""}>All weeks (combined)</option>${games.map((g) => `<option value="${g.gi}"${String(g.gi) === sel ? " selected" : ""}>${esc(g.label)}</option>`).join("")}</select></div>
         <div id="pc-body"></div></div>`;
       slot.querySelector(".pc-mode")?.addEventListener("click", (e) => { const m = e.target.closest("[data-pm]")?.dataset.pm; if (m && m !== mode) { halt(); mode = m; shell(); } });
       $("#pc-game").onchange = (e) => { sel = e.target.value; draw(); };
