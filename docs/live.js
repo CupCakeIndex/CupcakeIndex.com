@@ -1958,7 +1958,7 @@ const Live = (() => {
       if (sel === null || (sel !== "all" && !games.some((g) => String(g.gi) === sel))) sel = games.length ? String(games.at(-1).gi) : "all";
       slot.innerHTML = `<div class="card pc"><div class="sc-bar"><h3>${PC_MODES[mode].title}</h3>
           ${modes.length > 1 ? `<div class="seg pc-mode">${modes.map((m) => `<button data-pm="${m}" class="${m === mode ? "active" : ""}">${PC_MODES[m].tab}</button>`).join("")}</div>` : ""}
-          <select id="pc-game"><option value="all"${sel === "all" ? " selected" : ""}>All weeks (combined)</option>${games.map((g) => `<option value="${g.gi}"${String(g.gi) === sel ? " selected" : ""}>${esc(g.label)}</option>`).join("")}</select>${Share.menuHtml()}</div>
+          <select id="pc-game"><option value="all"${sel === "all" ? " selected" : ""}>All weeks (combined)</option>${games.map((g) => `<option value="${g.gi}"${String(g.gi) === sel ? " selected" : ""}>${esc(g.label)}</option>`).join("")}</select><span class="br-tools pc-share">${Share.menuHtml()}</span></div>
         <div id="pc-body"></div></div>`;
       Share.wire(slot.querySelector(".pc"), { image });
       slot.querySelector(".pc-mode")?.addEventListener("click", (e) => { const m = e.target.closest("[data-pm]")?.dataset.pm; if (m && m !== mode) { halt(); mode = m; shell(); } });

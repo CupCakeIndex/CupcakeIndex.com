@@ -2601,4 +2601,4 @@ table.roster th.sortable.on a { color: var(--accent); }
 .pc-run { fill: none; stroke: var(--accent); stroke-width: 1.3; stroke-dasharray: 2 3; stroke-linecap: round; opacity: .5; }
 .pc-run.td { stroke: var(--ink); opacity: .7; }
 .pc-run.pc-hide { opacity: 0; }
-.pc .sc-bar .share { margin-left: auto; }
+.pc-share { margin: 0 0 0 auto; } /* same look as the Pick'em Share button (.br-tools) */
