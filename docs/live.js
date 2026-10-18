@@ -1918,15 +1918,6 @@ const Live = (() => {
   // Player page: a chart of every throw (QBs), target (WRs, TEs, RBs) or run (RBs) this season, seen from behind the line.
   // Left/middle/right across, yards downfield up. Pick a week to play it back one snap at a time; "All weeks" is the combined, still chart.
   // Built from each game's play-by-play (airPasses / rushPlays above), so it only loads when you scroll to it.
-  // the ball for chart playback: brown leather, white stripes and laces (the gamecast's outlined ball read as an eye at this size)
-  const PC_BALL = `<svg x="-13" y="-7.4" width="26" height="14.8" viewBox="0 0 60 34" aria-hidden="true" overflow="visible"><defs><radialGradient id="pcb-g" cx="38%" cy="30%" r="80%"><stop offset="0" stop-color="#a65a2a"/><stop offset=".55" stop-color="#7a3d17"/><stop offset="1" stop-color="#4a220b"/></radialGradient>
-    <clipPath id="pcb-c"><path d="M2 17 C14 0.5 46 0.5 58 17 C46 33.5 14 33.5 2 17Z"/></clipPath></defs>
-    <path d="M2 17 C14 0.5 46 0.5 58 17 C46 33.5 14 33.5 2 17Z" fill="url(#pcb-g)"/>
-    <g clip-path="url(#pcb-c)"><path d="M13 0 Q9 17 13 34" fill="none" stroke="#f3ede2" stroke-width="2.4"/><path d="M47 0 Q51 17 47 34" fill="none" stroke="#f3ede2" stroke-width="2.4"/>
-    <ellipse cx="24" cy="9" rx="14" ry="3.2" fill="#fff" opacity=".16"/></g>
-    <path d="M20 15.2 H40" stroke="#f3ede2" stroke-width="1.6" stroke-linecap="round"/>
-    <g stroke="#f3ede2" stroke-width="1.3" stroke-linecap="round"><path d="M22.5 12.8 V17.6"/><path d="M26.3 12.8 V17.6"/><path d="M30 12.8 V17.6"/><path d="M33.7 12.8 V17.6"/><path d="M37.5 12.8 V17.6"/></g>
-    <path d="M2 17 C14 0.5 46 0.5 58 17 C46 33.5 14 33.5 2 17Z" fill="none" stroke="#2a1306" stroke-width="1.2"/></svg>`;
   const PC_MODES = {
     pass: { tab: "Throws", title: "Pass chart", per: "air yards per catch", noun: "throws", y: "air yards" },
     target: { tab: "Targets", title: "Target chart", per: "air yards per catch", noun: "targets", y: "air yards" },
@@ -2037,7 +2028,7 @@ const Live = (() => {
         const [ax, ay] = P(pos[i].f, x.air), [bx, by] = P(pos[i].f, x.air + x.yac);
         g.push(`<line class="pc-yac" data-i="${i}" x1="${ax.toFixed(1)}" x2="${bx.toFixed(1)}" y1="${ay.toFixed(1)}" y2="${by.toFixed(1)}"/><circle class="pc-yacend" data-i="${i}" cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="${(2.6 * S(x.air + x.yac) + 0.8).toFixed(1)}"/>`);
       });
-      g.push(`<path class="pc-arc" id="pc-arc" d=""/>`);
+      g.push(`<path class="pc-arc" id="pc-arc" d="" pathLength="1"/>`);
       const what = (x) => (x.td ? "touchdown" : x.int ? (rush ? "fumble lost" : "intercepted") : x.inc ? "incomplete" : "");
       // misses first, then catches, then picks on top so they never hide
       const layer = (x) => (x.int ? 2 : x.inc ? 0 : 1);
@@ -2050,7 +2041,7 @@ const Live = (() => {
       g.push(...labels);
       const QB = { f: 0.5, v: bot + 3 }, [qx, qy] = P(QB.f, QB.v), tag = mode === "rush" ? (a.position?.abbreviation || "RB").slice(0, 2) : "QB";
       g.push(`<circle class="pc-qb" cx="${qx}" cy="${qy}" r="10"/><text class="pc-qbt" x="${qx}" y="${qy + 3.5}">${esc(tag)}</text>`,
-        `<ellipse class="pc-shadow" id="pc-shadow" rx="8" ry="3" opacity="0"/><g id="pc-ball" opacity="0">${PC_BALL}</g>`);
+        `<circle class="pc-flash" id="pc-flash" r="6"/>`);
       // league ranks (NFL, from src/pass_charts.py) go under each stat on "All weeks"
       const R = sel === "all" ? file?.ranks?.[mode] : null;
       const rk = (key) => (R?.[key] ? `<em class="ay-rk${R[key][0] <= 5 ? " top" : ""}">#${R[key][0]} of ${R[key][1]}</em>` : "");
@@ -2076,11 +2067,11 @@ const Live = (() => {
         <div class="pc-ctl">${sel === "all" ? "" : `<button class="gcv-live" id="pc-play">▶ Play</button>`}<span class="muted" id="pc-now">${pts.length} ${mode === "rush" ? "runs" : mode === "target" ? "targets" : "throws"}${sel === "all" ? ` · ${games.length} game${games.length === 1 ? "" : "s"} · pick a week to play them back` : ""}</span><span class="pc-legend">${legend}</span></div>
         <div class="pc-stage"><svg class="pc-field" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(a.displayName)} ${esc(M.title.toLowerCase())}"><defs><filter id="gcv-glow" filterUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>${g.join("")}</svg></div>
         <p class="note">${fine}</p>`;
-      // Play (one week only): hide everything, then run the plays in order. A throw leaves the QB and arcs over its shadow;
-      // a catch then runs on down its YAC line. A run stays on the ground. "All weeks" never animates.
-      let timer = null, k = 0;
+      // Play (one week only): hide everything, then run the plays in order. A thin line draws from the QB to the spot, the dot lands,
+      // and a completion (or a run) flashes a ring out from it (white for a touchdown). "All weeks" never animates.
+      let timer = null, landT = null, k = 0;
       const btn = $("#pc-play"), now = $("#pc-now"), els = pts.map((_, i) => [...slot.querySelectorAll(`.pc-field [data-i="${i}"]`)]);
-      const arc = $("#pc-arc"), ball = $("#pc-ball"), shadow = $("#pc-shadow");
+      const arc = $("#pc-arc"), flash = $("#pc-flash");
       const show = (i, on) => els[i]?.forEach((e) => e.classList.toggle("pc-hide", !on));
       // the completions tile counts up as each throw lands (1/1, 1/2, 2/3 ...), and goes back to the full game when playback ends
       const tile = slot.querySelector('.ay-stat[data-k="cmp"], .ay-stat[data-k="catch"]'), tileB = tile?.querySelector("b"), tileS = tile?.querySelector("small");
@@ -2094,40 +2085,29 @@ const Live = (() => {
       };
       const land = (i) => { show(i, true); if (i + 1 > landed) { landed = i + 1; tally(landed); } };
       const stop = (done) => {
-        clearTimeout(timer); timer = null; btn.textContent = done ? "↺ Replay" : "▶ Play"; ball.setAttribute("opacity", 0); shadow.setAttribute("opacity", 0); arc.setAttribute("d", "");
+        clearTimeout(timer); clearTimeout(landT); timer = null; btn.textContent = done ? "↺ Replay" : "▶ Play"; arc.setAttribute("d", ""); flash.classList.remove("go");
         if (done && tile) { tileB.innerHTML = full[0]; tileS.innerHTML = full[1]; tile.classList.remove("pc-live", "pc-tick"); }
-      };
-      // the ball at a spot on the field, h yards up in the air, pointed at angle ang (the football and its shadow shrink with distance)
-      const put = (f, v, h, ang, spin = 1) => {
-        const [x, y] = P(f, v), sc = S(v) * 1.35;
-        ball.setAttribute("transform", `translate(${x.toFixed(1)},${(y - h * 7 * S(v)).toFixed(1)}) rotate(${ang.toFixed(0)}) scale(${sc.toFixed(2)},${(sc * spin).toFixed(2)})`);
-        shadow.setAttribute("cx", x.toFixed(1)); shadow.setAttribute("cy", y.toFixed(1)); shadow.setAttribute("rx", (7 * sc).toFixed(1)); shadow.setAttribute("ry", (2.4 * sc).toFixed(1));
       };
       const step = () => {
         if (!btn.isConnected) { timer = null; return; } // left the page
-        if (k) land(k - 1); // in case the browser skipped animation frames
+        if (k) land(k - 1); // in case the timer to land it was skipped
         if (k >= pts.length) { now.textContent = `${pts.length} ${M.noun}`; return stop(true); }
-        const x = pts[k], i = k, to = pos[k], peak = rush ? 0.3 : 2.2 + Math.max(0, x.air) * 0.16;
-        const [x0, y0] = P(QB.f, QB.v), [x1, y1] = P(to.f, to.v), ang = (Math.atan2(y1 - y0, x1 - x0) * 180) / Math.PI;
-        const yacTo = mode === "target" && !x.inc && x.yac ? x.air + x.yac : null;
+        const x = pts[k], i = k, to = pos[k], peak = rush ? 0 : 2.2 + Math.max(0, x.air) * 0.16;
         const air = (u) => { const f = QB.f + (to.f - QB.f) * u, v = QB.v + (to.v - QB.v) * u, [px, py] = P(f, v); return [px, py - 4 * peak * u * (1 - u) * 7 * S(v)]; };
+        const dur = rush ? 300 : 380;
         arc.setAttribute("d", `M${Array.from({ length: 21 }, (_, n) => air(n / 20).map((q) => q.toFixed(1)).join(",")).join(" L")}`);
+        arc.style.setProperty("--d", `${dur}ms`);
         arc.classList.remove("go"); void arc.getBBox(); arc.classList.add("go");
-        ball.setAttribute("opacity", 1); shadow.setAttribute("opacity", 1);
-        const t0 = performance.now(), dur = rush ? 380 : 460, dur2 = yacTo == null ? 0 : 320;
-        const fly = (t) => {
-          if (!timer && k < pts.length) return;
-          const e = t - t0, u = Math.min(1, e / dur);
-          if (e < dur) { // nose along the path as it looks on screen; a pass spirals (a slight squash and stretch)
-            const [bx, by] = air(Math.min(1, u + 0.02)), [cx2, cy2] = air(Math.max(0, u - 0.02));
-            put(QB.f + (to.f - QB.f) * u, QB.v + (to.v - QB.v) * u, 4 * peak * u * (1 - u), (Math.atan2(by - cy2, bx - cx2) * 180) / Math.PI, rush ? 1 : 0.8 + 0.2 * Math.cos(u * 26));
-          }
-          else if (e < dur + dur2) { land(i); put(to.f, to.v + (yacTo - to.v) * ((e - dur) / dur2), 0, yacTo < to.v ? 90 : -90); }
-          else { put(to.f, yacTo ?? to.v, 0, ang); land(i); return; }
-          requestAnimationFrame(fly);
-        };
-        requestAnimationFrame(fly);
-        now.textContent = `${k + 1}/${pts.length} · Q${x.p.period?.number || ""} ${x.p.clock?.displayValue || ""} · ${x.air} yds${yacTo != null ? ` + ${x.yac} after the catch` : ""}${what(x) ? " · " + what(x) : ""}`;
+        landT = setTimeout(() => {
+          land(i);
+          if (x.inc) return;
+          const [fx, fy] = P(to.f, to.v);
+          flash.setAttribute("cx", fx.toFixed(1)); flash.setAttribute("cy", fy.toFixed(1));
+          flash.classList.toggle("td", !!x.td);
+          flash.classList.remove("go"); void flash.getBBox(); flash.classList.add("go");
+        }, dur);
+        const yacTxt = mode === "target" && !x.inc && x.yac ? ` + ${x.yac} after the catch` : "";
+        now.textContent = `${k + 1}/${pts.length} · Q${x.p.period?.number || ""} ${x.p.clock?.displayValue || ""} · ${x.air} yds${yacTxt}${what(x) ? " · " + what(x) : ""}`;
         k++;
         timer = setTimeout(step, Math.max(600, Math.min(1000, 22000 / pts.length)));
       };

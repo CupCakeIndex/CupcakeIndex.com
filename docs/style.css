@@ -2570,8 +2570,6 @@ table.roster th.sortable.on a { color: var(--accent); }
 .pc-los { fill: var(--accent); font: 700 10px var(--font-head); letter-spacing: .1em; }
 .pc-avg { fill: var(--accent); font: 700 10px var(--font-head); letter-spacing: .05em; text-anchor: end; }
 .pc-lane { fill: var(--muted); font: 700 10px var(--font-head); text-anchor: middle; letter-spacing: .1em; }
-.pc-shadow { fill: #000; fill-opacity: .5; }
-#pc-ball svg { overflow: visible; }
 .pc-yac { stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 2 3; opacity: .6; }
 .pc-yacend { fill: var(--ink); opacity: .6; }
 .pc-yac.pc-hide, .pc-yacend.pc-hide { opacity: 0; }
@@ -2593,3 +2591,10 @@ table.roster th.sortable.on a { color: var(--accent); }
 .ay-stat.pc-tick b { animation: pc-tick .35s ease-out; }
 @keyframes pc-tick { 0% { color: var(--accent); transform: scale(1.12); } 100% { transform: scale(1); } }
 .ay-stat b { display: inline-block; transform-origin: left center; }
+/* playback: the throw's line draws in and fades, and a completion flashes a ring out from the dot */
+.pc-arc.go { stroke-dasharray: 1; stroke-dashoffset: 1; animation: pc-draw calc(var(--d, 380ms) * 2.2) ease-out forwards; }
+@keyframes pc-draw { 0% { stroke-dashoffset: 1; opacity: .7; } 45% { stroke-dashoffset: 0; opacity: .7; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+.pc-flash { fill: none; stroke: var(--accent); stroke-width: 2.5; opacity: 0; transform-box: fill-box; transform-origin: center; pointer-events: none; }
+.pc-flash.td { stroke: #fff; }
+.pc-flash.go { animation: pc-flash .6s ease-out; }
+@keyframes pc-flash { 0% { opacity: .95; transform: scale(.6); } 100% { opacity: 0; transform: scale(3.4); } }
