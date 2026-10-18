@@ -1923,7 +1923,7 @@ const Live = (() => {
     target: { tab: "Targets", title: "Target chart", per: "air yards per catch", noun: "targets", y: "air yards" },
     rush: { tab: "Runs", title: "Rush chart", per: "yards per carry", noun: "runs", y: "yards" },
   };
-  async function passChartInto(lg, a, gl, slot, modes, season) {
+  async function passChartInto(lg, a, gl, slot, modes, season, params = null) {
     const ids = Object.keys(gl?.events || {});
     if (!ids.length) return slot.remove();
     const evs = ids.map((id) => ({ id, ...gl.events[id] })).sort((x, y) => new Date(x.gameDate) - new Date(y.gameDate));
@@ -1949,21 +1949,83 @@ const Live = (() => {
     });
     modes = modes.filter((m) => plays[m].some((x) => x.air != null));
     if (!modes.length) return slot.remove();
-    let mode = modes[0], sel = null, halt = () => {}; // sel: a game, or "all" (opens on the most recent game)
+    // a shared link (?chart=rush&cw=<game id>) opens that tab and week; otherwise the first tab on the most recent game
+    let mode = modes.includes(params?.get("chart")) ? params.get("chart") : modes[0], halt = () => {};
+    let sel = params?.get("cw") === "all" ? "all" : (() => { const gi = evs.findIndex((e) => String(e.id) === params?.get("cw")); return gi >= 0 ? String(gi) : null; })();
     const gamesOf = (md) => evs.map((e, gi) => ({ gi, label: `Wk ${e.week ?? ""} ${e.atVs || ""} ${e.opponent?.abbreviation || ""}`.trim(), n: plays[md].filter((x) => x.g === gi && x.air != null).length })).filter((g) => g.n);
     const shell = () => {
       const games = gamesOf(mode);
       if (sel === null || (sel !== "all" && !games.some((g) => String(g.gi) === sel))) sel = games.length ? String(games.at(-1).gi) : "all";
       slot.innerHTML = `<div class="card pc"><div class="sc-bar"><h3>${PC_MODES[mode].title}</h3>
           ${modes.length > 1 ? `<div class="seg pc-mode">${modes.map((m) => `<button data-pm="${m}" class="${m === mode ? "active" : ""}">${PC_MODES[m].tab}</button>`).join("")}</div>` : ""}
-          <select id="pc-game"><option value="all"${sel === "all" ? " selected" : ""}>All weeks (combined)</option>${games.map((g) => `<option value="${g.gi}"${String(g.gi) === sel ? " selected" : ""}>${esc(g.label)}</option>`).join("")}</select></div>
+          <select id="pc-game"><option value="all"${sel === "all" ? " selected" : ""}>All weeks (combined)</option>${games.map((g) => `<option value="${g.gi}"${String(g.gi) === sel ? " selected" : ""}>${esc(g.label)}</option>`).join("")}</select>${Share.menuHtml()}</div>
         <div id="pc-body"></div></div>`;
+      Share.wire(slot.querySelector(".pc"), { image });
       slot.querySelector(".pc-mode")?.addEventListener("click", (e) => { const m = e.target.closest("[data-pm]")?.dataset.pm; if (m && m !== mode) { halt(); mode = m; shell(); } });
       $("#pc-game").onchange = (e) => { sel = e.target.value; draw(); };
       draw();
     };
+    // Share: the page's link remembers the tab and week (?chart=pass&cw=<ESPN game id> or all), so Copy Link opens right here.
+    const setUrl = () => {
+      const [path, q] = location.hash.split("?"), u = new URLSearchParams(q || "");
+      u.set("chart", mode); u.set("cw", sel === "all" ? "all" : String(evs[+sel]?.id || "all"));
+      history.replaceState(null, "", `${path}?${u}`);
+    };
+    // Save Image: the chart's SVG (with its CSS colors copied onto each shape, since a picture can't see the page's styles),
+    // drawn on the site's 1600x900 share card with the stat tiles down the side
+    const PROPS = ["fill", "fill-opacity", "stroke", "stroke-width", "stroke-dasharray", "stroke-linecap", "stroke-linejoin", "opacity", "font-size", "font-family", "font-weight", "text-anchor", "letter-spacing", "paint-order", "stop-color", "display"];
+    const svgPicture = (svg) => {
+      const copy = svg.cloneNode(true), from = [svg, ...svg.querySelectorAll("*")], to = [copy, ...copy.querySelectorAll("*")];
+      from.forEach((el, n) => { const cs = getComputedStyle(el); to[n].setAttribute("style", PROPS.map((p) => `${p}:${cs.getPropertyValue(p)}`).join(";")); to[n].removeAttribute("class"); });
+      to.filter((el) => el.tagName === "title").forEach((el) => el.remove());
+      const vb = svg.viewBox.baseVal;
+      copy.setAttribute("xmlns", "http://www.w3.org/2000/svg"); copy.setAttribute("width", vb.width * 2); copy.setAttribute("height", vb.height * 2);
+      return { url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(copy))}`, w: vb.width, h: vb.height };
+    };
+    const image = async () => {
+      const svg = slot.querySelector(".pc-field");
+      if (!svg) throw new Error("Nothing to draw");
+      const pic = svgPicture(svg), field = await new Promise((ok) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = pic.url; });
+      if (!field) throw new Error("Couldn't draw it");
+      const M = PC_MODES[mode], game = gamesOf(mode).find((x) => String(x.gi) === sel);
+      const tiles = [...slot.querySelectorAll(".ay-stat")].map((e) => [e.querySelector("b")?.textContent.trim() || "", e.querySelector("small")?.textContent.trim() || "", e.querySelector("em")?.textContent.trim() || ""]);
+      const legend = [...slot.querySelectorAll(".pc-chip")].map((e) => { // [kind, label, color] in the page's own colors
+        const key = e.querySelector(".ay-key"), cs = key ? getComputedStyle(key) : null, bg = cs?.backgroundColor || "";
+        return [key?.className.replace("ay-key", "").trim() || "", e.textContent.trim(), bg && !/rgba\(0, 0, 0, 0\)|transparent/.test(bg) ? bg : cs?.borderTopColor || "#fff"];
+      });
+      const blob = await Share.png({
+        title: `${a.displayName} · ${M.title}`.toUpperCase(),
+        sub: `${sel === "all" ? `${season || ""} season, all weeks`.trim() : game?.label || ""}${a.team?.displayName ? ` · ${a.team.displayName}` : ""}`,
+        logoUrls: new Map(a.headshot?.href ? [["face", a.headshot.href]] : []),
+        paint: ({ x, text, F, C, logos }) => {
+          // the field, as big as it fits on the left
+          const bw = 1000, bh = 690, s = Math.min(bw / pic.w, bh / pic.h), dw = pic.w * s, dh = pic.h * s;
+          x.drawImage(field, 48 + (bw - dw) / 2, 150 + (bh - dh) / 2, dw, dh);
+          // legend under the field
+          let lx = 48;
+          for (const [k, label, col] of legend) {
+            x.beginPath(); x.arc(lx + 7, 862, 6, 0, Math.PI * 2);
+            if (k === "inc" || k === "yac") { x.strokeStyle = col; x.lineWidth = 2; if (k === "yac") x.setLineDash([2, 3]); x.stroke(); x.setLineDash([]); } else { x.fillStyle = col; x.fill(); }
+            text(label, lx + 20, 868, F(400, 17), C.muted); x.font = F(400, 17); lx += 40 + x.measureText(label).width;
+          }
+          // headshot and stat tiles down the right side
+          let ty = 168;
+          const face = logos.get("face");
+          if (face) { const fh = 96, fw = (face.width / face.height) * fh; x.drawImage(face, 1100, ty, fw, fh); ty += 120; }
+          tiles.forEach(([v, label, rank], n) => {
+            text(v.replace(/\s+/g, " "), 1100, ty + 34, F(700, n ? 34 : 44), n ? C.ink : C.accent, "left", 450);
+            text(label, 1100, ty + 60, F(400, 18), C.muted, "left", 450);
+            if (rank) text(rank, 1552, ty + 34, F(700, 18), C.accent, "right");
+            ty += n ? 86 : 96;
+          });
+        },
+      });
+      const slug = (a.displayName || "player").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      return { blob, name: `cupcake-index-${slug}-${mode}-${sel === "all" ? "season" : (game?.label || "week").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png` };
+    };
     const draw = () => {
       halt();
+      setUrl();
       const M = PC_MODES[mode], rush = mode === "rush", games = gamesOf(mode);
       const list = plays[mode].filter((x) => sel === "all" || x.g === +sel), pts = list.filter((x) => x.air != null);
       const caught = pts.filter((x) => !x.inc), avg = (xs) => (xs.length ? xs.reduce((n, x) => n + x.air, 0) / xs.length : null);
@@ -3377,9 +3439,10 @@ const Live = (() => {
     fillFaces(view("player"));
     if (my === token) outlookInto(lg, id, $("#career-slot"), season ? null : gl).catch(() => {});
     const pcSlot = $("#pc-slot");
-    if (pcSlot) { // load every game's play-by-play only once you scroll near it
-      const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); if (my === token) passChartInto(logLg, a, logGl, pcSlot, pcModes, logLg === "nfl" ? shown : null).catch(() => pcSlot.remove()); } }, { rootMargin: "300px" });
-      io.observe(pcSlot);
+    if (pcSlot) { // load every game's play-by-play only once you scroll near it (or right away, and scroll to it, from a shared chart link)
+      const load = () => { if (my === token) passChartInto(logLg, a, logGl, pcSlot, pcModes, logLg === "nfl" ? shown : null, params).then(() => { if (params.get("chart") && my === token) pcSlot.scrollIntoView({ block: "start" }); }).catch(() => pcSlot.remove()); };
+      if (params.get("chart")) load();
+      else { const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); load(); } }, { rootMargin: "300px" }); io.observe(pcSlot); }
     }
     const toInj = params.get("inj") && $("#pl-inj");
     if (toInj) pulse(toInj);
