@@ -79,17 +79,25 @@ def build(season):
         "rush": {"ypc": lambda r: mean([x[3] for x in r]), "big": lambda r: share(lambda x: x[3] >= 10, r), "stuff": lambda r: share(lambda x: x[3] <= 0, r)},
     }
     last_wk = max((int(w) for v in by.values() for w in v["dates"] if int(w) <= 18), default=0)
-    for mode, fns in stats.items():
-        most = max((len(v[mode]) for v in by.values()), default=0)
+    # QB runs are ranked against other QBs (a QB = 20+ throws), everyone else's runs against non-QBs
+    def is_qb(v):
+        return len(v["pass"]) >= 20
+
+    everyone = lambda v: True  # noqa: E731
+    groups = [("pass", stats["pass"], everyone), ("target", stats["target"], everyone),
+              ("rush", stats["rush"], is_qb), ("rush", stats["rush"], lambda v: not is_qb(v))]
+    for mode, fns, member in groups:
+        mine = {pid: v for pid, v in by.items() if member(v)}
+        most = max((len(v[mode]) for v in mine.values()), default=0)
         need = max(1, round(most * 0.35))
-        pool = [pid for pid, v in by.items() if len(v[mode]) >= need]
+        pool = [pid for pid, v in mine.items() if len(v[mode]) >= need]
         for key, fn in fns.items():
             vals = {pid: fn(by[pid][mode]) for pid in pool}
             vals = {k: x for k, x in vals.items() if x is not None}
             order = sorted(vals, key=lambda k: vals[k], reverse=key != "stuff")
             for i, pid in enumerate(order):
                 rank = 1 + sum(1 for k in order[:i] if vals[k] != vals[pid])  # ties share a rank
-                by[pid].setdefault("ranks", {}).setdefault(mode, {"_min": need, "_wk": last_wk})[key] = [rank, len(order)]
+                by[pid].setdefault("ranks", {}).setdefault(mode, {"_min": need, "_wk": last_wk, "_qb": mode == "rush" and is_qb(by[pid])})[key] = [rank, len(order)]
 
     d = OUT / str(season) / "charts"
     d.mkdir(parents=True, exist_ok=True)

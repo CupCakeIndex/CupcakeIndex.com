@@ -2062,7 +2062,7 @@ const Live = (() => {
       const fine = [rush ? "Each run sits in its gap (college play-by-play only says left, middle or right), at the yards it gained. Side by side in a gap only means they'd overlap." : "The play-by-play says how far each throw went and whether it went left, middle or right (from the QB's view), so each one sits in its lane at its real depth. Dots side by side in a lane only means they'd overlap, not where on the field they were.",
         mode === "target" ? "Routes run aren't in any free data, so this shows the throws that came his way." : "",
         nInc ? `${nInc} incomplete pass${nInc === 1 ? "" : "es"} not shown (ESPN doesn't mark where ${nInc === 1 ? "it was" : "they were"} thrown).` : "",
-        R ? `Ranks: NFL players with ${R._min}+ ${M.noun} through Week ${R._wk}${mode === "rush" ? " (stuffed: #1 = fewest)" : ""}.` : "", "Tap a dot for the play."].filter(Boolean).join(" ");
+        R ? `Ranks: NFL ${R._qb ? "QBs" : "players"} with ${R._min}+ ${M.noun} through Week ${R._wk}${mode === "rush" ? " (stuffed: #1 = fewest)" : ""}.` : "", "Tap a dot for the play."].filter(Boolean).join(" ");
       $("#pc-body").innerHTML = `<div class="ay-stats">${stats}</div>
         <div class="pc-ctl">${sel === "all" ? "" : `<button class="gcv-live" id="pc-play">▶ Play</button>`}<span class="muted" id="pc-now">${pts.length} ${mode === "rush" ? "runs" : mode === "target" ? "targets" : "throws"}${sel === "all" ? ` · ${games.length} game${games.length === 1 ? "" : "s"} · pick a week to play them back` : ""}</span><span class="pc-legend">${legend}</span></div>
         <div class="pc-stage"><svg class="pc-field" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(a.displayName)} ${esc(M.title.toLowerCase())}"><defs><filter id="gcv-glow" filterUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>${g.join("")}</svg></div>
@@ -3357,7 +3357,7 @@ const Live = (() => {
       fillFaces(view("player"));
       return;
     }
-    const pcModes = { QB: ["pass"], WR: ["target"], TE: ["target"], RB: ["rush", "target"], FB: ["rush", "target"] }[a.position?.abbreviation] || [];
+    const pcModes = { QB: ["pass", "rush"], WR: ["target"], TE: ["target"], RB: ["rush", "target"], FB: ["rush", "target"] }[a.position?.abbreviation] || [];
     view("player").innerHTML = head + `
       ${summary ? `<div class="stats wide">${summary}</div>${caughtUp ? `<p class="note muted">Added up from his game-by-game stats, so it includes his latest game. Ranks come back once the overnight totals update.</p>` : ""}` : ""}
       <div id="career-slot"><div class="card muted">Loading stats by year…</div></div>
