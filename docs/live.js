@@ -2096,7 +2096,7 @@ const Live = (() => {
         return `M${sx.toFixed(1)},${sy.toFixed(1)} Q${cx.toFixed(1)},${cy.toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)}`;
       };
       if (rush) pts.forEach((x, i) => g.push(`<path class="pc-run${x.td ? " td" : ""}" data-i="${i}" d="${runD(i)}"/>`));
-      g.push(`<path class="pc-arc" id="pc-arc" d="" pathLength="1"/>`);
+      g.push(`<path class="pc-arc" id="pc-arc" d=""/>`);
       const what = (x) => (x.td ? "touchdown" : x.int ? (rush ? "fumble lost" : "intercepted") : x.inc ? "incomplete" : "");
       // misses first, then catches, then picks on top so they never hide
       const layer = (x) => (x.int ? 2 : x.inc ? 0 : 1);
@@ -2153,7 +2153,7 @@ const Live = (() => {
       };
       const land = (i) => { show(i, true); if (i + 1 > landed) { landed = i + 1; tally(landed); } };
       const stop = (done) => {
-        clearTimeout(timer); clearTimeout(landT); timer = null; btn.textContent = done ? "↺ Replay" : "▶ Play"; arc.setAttribute("d", ""); flash.classList.remove("go");
+        clearTimeout(timer); clearTimeout(landT); timer = null; btn.textContent = done ? "↺ Replay" : "▶ Play"; arc.setAttribute("d", ""); arc.dataset.i = ""; flash.classList.remove("go");
         if (done && tile) { tileB.innerHTML = full[0]; tileS.innerHTML = full[1]; tile.classList.remove("pc-live", "pc-tick"); }
       };
       const step = () => {
@@ -2163,9 +2163,19 @@ const Live = (() => {
         const x = pts[k], i = k, to = pos[k], peak = rush ? 0 : 2.2 + Math.max(0, x.air) * 0.16;
         const air = (u) => { const f = QB.f + (to.f - QB.f) * u, v = QB.v + (to.v - QB.v) * u, [px, py] = P(f, v); return [px, py - 4 * peak * u * (1 - u) * 7 * S(v)]; };
         const dur = rush ? 560 : 650; // how long the line takes to draw in
-        arc.setAttribute("d", rush ? runD(i) : `M${Array.from({ length: 21 }, (_, n) => air(n / 20).map((q) => q.toFixed(1)).join(",")).join(" L")}`);
-        arc.style.setProperty("--d", `${dur}ms`);
-        arc.classList.remove("go"); void arc.getBBox(); arc.classList.add("go");
+        // one smooth curve (a throw: through the top of its arc), drawn in frame by frame with an ease-out, then faded
+        const [sx, sy] = air(0), [mx, my] = air(0.5), [ex, ey] = air(1), cx = 2 * mx - (sx + ex) / 2, cy = 2 * my - (sy + ey) / 2;
+        arc.setAttribute("d", rush ? runD(i) : `M${sx.toFixed(1)},${sy.toFixed(1)} Q${cx.toFixed(1)},${cy.toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)}`);
+        const L = arc.getTotalLength() || 1, t0 = performance.now(), fade = 500, run = String(i);
+        arc.dataset.i = run; arc.style.strokeDasharray = `${L} ${L}`; arc.style.strokeDashoffset = L; arc.style.opacity = 0.75;
+        const tick = (t) => {
+          if (arc.dataset.i !== run) return; // a newer play took over the line
+          const e = t - t0, u = Math.min(1, e / dur);
+          arc.style.strokeDashoffset = (L * (1 - u) ** 3).toFixed(1);
+          if (e > dur) arc.style.opacity = Math.max(0, 0.75 * (1 - (e - dur) / fade)).toFixed(2);
+          if (e < dur + fade) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
         landT = setTimeout(() => {
           land(i);
           if (x.inc) return;

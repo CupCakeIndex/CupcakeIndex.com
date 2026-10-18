@@ -2535,9 +2535,7 @@ table.roster th.sortable.on a { color: var(--accent); }
 .ay-dot.pc-hide { opacity: 0; }
 .pc-qb { fill: var(--card); stroke: var(--accent); stroke-width: 2; }
 .pc-qbt { fill: var(--accent); font: 700 8px var(--font-head); text-anchor: middle; }
-.pc-arc { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 3 4; opacity: .55; }
-.pc-arc.go { animation: pc-fade 1s ease-out forwards; }
-@keyframes pc-fade { 0%, 40% { opacity: .55; } 100% { opacity: 0; } }
+.pc-arc { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; opacity: 0; } /* drawn in by live.js, frame by frame */
 .pc-ctl { display: flex; align-items: center; gap: 10px; margin: 8px 0 2px; min-height: 26px; font-size: 12px; flex-wrap: wrap; }
 .ay-stats { display: flex; flex-wrap: wrap; gap: 8px; }
 .ay-stat { display: flex; flex-direction: column; padding: 6px 10px; border: 1px solid var(--line); background: var(--bg); min-width: 70px; }
@@ -2592,8 +2590,6 @@ table.roster th.sortable.on a { color: var(--accent); }
 @keyframes pc-tick { 0% { color: var(--accent); transform: scale(1.12); } 100% { transform: scale(1); } }
 .ay-stat b { display: inline-block; transform-origin: left center; }
 /* playback: the throw's line draws in and fades, and a completion flashes a ring out from the dot */
-.pc-arc.go { stroke-dasharray: 1; stroke-dashoffset: 1; animation: pc-draw calc(var(--d, 650ms) * 1.9) ease-in-out forwards; }
-@keyframes pc-draw { 0% { stroke-dashoffset: 1; opacity: .7; } 45% { stroke-dashoffset: 0; opacity: .7; } 100% { stroke-dashoffset: 0; opacity: 0; } }
 .pc-flash { fill: none; stroke: var(--accent); stroke-width: 2.5; opacity: 0; transform-box: fill-box; transform-origin: center; pointer-events: none; }
 .pc-flash.td { stroke: #fff; }
 .pc-flash.go { animation: pc-flash .9s ease-out; }
