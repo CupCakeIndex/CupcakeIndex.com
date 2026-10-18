@@ -73,7 +73,7 @@ def build(season):
         return sum(1 for x in xs if f(x)) / len(xs) if xs else None
 
     stats = {
-        "pass": {"adot": lambda r: mean([x[3] for x in r]), "aypc": lambda r: mean([x[3] for x in r if x[5] in "ct"]), "deep": lambda r: share(lambda x: x[3] >= 20, r)},
+        "pass": {"adot": lambda r: mean([x[3] for x in r]), "cmp": lambda r: share(lambda x: x[5] in "ct", r), "aypc": lambda r: mean([x[3] for x in r if x[5] in "ct"]), "deep": lambda r: share(lambda x: x[3] >= 20, r)},
         "target": {"adot": lambda r: mean([x[3] for x in r]), "yac": lambda r: mean([x[6] for x in r if x[5] in "ct"]),
                    "catch": lambda r: share(lambda x: x[5] in "ct", r), "deep": lambda r: share(lambda x: x[3] >= 20, r)},
         "rush": {"ypc": lambda r: mean([x[3] for x in r]), "big": lambda r: share(lambda x: x[3] >= 10, r), "stuff": lambda r: share(lambda x: x[3] <= 0, r)},

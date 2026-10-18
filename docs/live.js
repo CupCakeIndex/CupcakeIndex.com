@@ -1918,6 +1918,15 @@ const Live = (() => {
   // Player page: a chart of every throw (QBs), target (WRs, TEs, RBs) or run (RBs) this season, seen from behind the line.
   // Left/middle/right across, yards downfield up. Pick a week to play it back one snap at a time; "All weeks" is the combined, still chart.
   // Built from each game's play-by-play (airPasses / rushPlays above), so it only loads when you scroll to it.
+  // the ball for chart playback: brown leather, white stripes and laces (the gamecast's outlined ball read as an eye at this size)
+  const PC_BALL = `<svg x="-13" y="-7.4" width="26" height="14.8" viewBox="0 0 60 34" aria-hidden="true" overflow="visible"><defs><radialGradient id="pcb-g" cx="38%" cy="30%" r="80%"><stop offset="0" stop-color="#a65a2a"/><stop offset=".55" stop-color="#7a3d17"/><stop offset="1" stop-color="#4a220b"/></radialGradient>
+    <clipPath id="pcb-c"><path d="M2 17 C14 0.5 46 0.5 58 17 C46 33.5 14 33.5 2 17Z"/></clipPath></defs>
+    <path d="M2 17 C14 0.5 46 0.5 58 17 C46 33.5 14 33.5 2 17Z" fill="url(#pcb-g)"/>
+    <g clip-path="url(#pcb-c)"><path d="M13 0 Q9 17 13 34" fill="none" stroke="#f3ede2" stroke-width="2.4"/><path d="M47 0 Q51 17 47 34" fill="none" stroke="#f3ede2" stroke-width="2.4"/>
+    <ellipse cx="24" cy="9" rx="14" ry="3.2" fill="#fff" opacity=".16"/></g>
+    <path d="M20 15.2 H40" stroke="#f3ede2" stroke-width="1.6" stroke-linecap="round"/>
+    <g stroke="#f3ede2" stroke-width="1.3" stroke-linecap="round"><path d="M22.5 12.8 V17.6"/><path d="M26.3 12.8 V17.6"/><path d="M30 12.8 V17.6"/><path d="M33.7 12.8 V17.6"/><path d="M37.5 12.8 V17.6"/></g>
+    <path d="M2 17 C14 0.5 46 0.5 58 17 C46 33.5 14 33.5 2 17Z" fill="none" stroke="#2a1306" stroke-width="1.2"/></svg>`;
   const PC_MODES = {
     pass: { tab: "Throws", title: "Pass chart", per: "air yards per catch", noun: "throws", y: "air yards" },
     target: { tab: "Targets", title: "Target chart", per: "air yards per catch", noun: "targets", y: "air yards" },
@@ -2041,7 +2050,7 @@ const Live = (() => {
       g.push(...labels);
       const QB = { f: 0.5, v: bot + 3 }, [qx, qy] = P(QB.f, QB.v), tag = mode === "rush" ? (a.position?.abbreviation || "RB").slice(0, 2) : "QB";
       g.push(`<circle class="pc-qb" cx="${qx}" cy="${qy}" r="10"/><text class="pc-qbt" x="${qx}" y="${qy + 3.5}">${esc(tag)}</text>`,
-        `<ellipse class="pc-shadow" id="pc-shadow" rx="8" ry="3" opacity="0"/><g id="pc-ball" opacity="0">${FOOTBALL.replace("<svg ", '<svg x="-13" y="-8" width="26" height="16" ')}</g>`);
+        `<ellipse class="pc-shadow" id="pc-shadow" rx="8" ry="3" opacity="0"/><g id="pc-ball" opacity="0">${PC_BALL}</g>`);
       // league ranks (NFL, from src/pass_charts.py) go under each stat on "All weeks"
       const R = sel === "all" ? file?.ranks?.[mode] : null;
       const rk = (key) => (R?.[key] ? `<em class="ay-rk${R[key][0] <= 5 ? " top" : ""}">#${R[key][0]} of ${R[key][1]}</em>` : "");
@@ -2053,8 +2062,8 @@ const Live = (() => {
       const stats = rush
         ? stat(f1(avg(caught)), "yards per carry", "big", "ypc") + halvesOf(caught) + stat(share((x) => x.air >= 10, caught), "runs of 10+ yds", "", "big") + stat(share((x) => x.air <= 0, caught), "stuffed (0 or less)", "", "stuff")
         : mode === "target"
-          ? stat(f1(avg(pts)), "aDOT (avg depth of target)", "big", "adot") + stat(f1(mean(caught.map((x) => x.yac || 0))), "YAC per catch", "", "yac") + stat(pct(list.filter((x) => !x.inc).length, list.length), "catch rate", "", "catch") + stat(share((x) => x.air >= 20, pts), "targets 20+ yds out", "", "deep")
-          : stat(f1(avg(pts)), "aDOT (air yards per throw)", "big", "adot") + stat(f1(avg(caught)), "air yards per catch", "", "aypc") + halvesOf(pts) + stat(share((x) => x.air >= 20, pts), "throws 20+ yds out", "", "deep") + stat(share((x) => x.air < 0, pts), "thrown behind the line");
+          ? stat(f1(avg(pts)), "aDOT (avg depth of target)", "big", "adot") + stat(f1(mean(caught.map((x) => x.yac || 0))), "YAC per catch", "", "yac") + stat(`${list.filter((x) => !x.inc).length}/${list.length}`, `caught (${pct(list.filter((x) => !x.inc).length, list.length)})`, "", "catch") + stat(share((x) => x.air >= 20, pts), "targets 20+ yds out", "", "deep")
+          : stat(f1(avg(pts)), "aDOT (air yards per throw)", "big", "adot") + stat(`${list.filter((x) => !x.inc).length}/${list.length}`, `completed (${pct(list.filter((x) => !x.inc).length, list.length)})`, "", "cmp") + stat(f1(avg(caught)), "air yards per catch", "", "aypc") + halvesOf(pts) + stat(share((x) => x.air >= 20, pts), "throws 20+ yds out", "", "deep") + stat(share((x) => x.air < 0, pts), "thrown behind the line");
       const nInc = list.filter((x) => x.inc && x.air == null).length;
       const chip = (cls, label) => `<span class="pc-chip"><span class="ay-key ${cls}"></span>${label}</span>`;
       const legend = rush ? chip("", "Run") + chip("td", "Touchdown") + (pts.some((x) => x.int) ? chip("int", "Fumble lost") : "")
@@ -2074,11 +2083,11 @@ const Live = (() => {
       const arc = $("#pc-arc"), ball = $("#pc-ball"), shadow = $("#pc-shadow");
       const show = (i, on) => els[i]?.forEach((e) => e.classList.toggle("pc-hide", !on));
       const stop = (done) => { clearTimeout(timer); timer = null; btn.textContent = done ? "↺ Replay" : "▶ Play"; ball.setAttribute("opacity", 0); shadow.setAttribute("opacity", 0); arc.setAttribute("d", ""); };
-      // the ball at a spot on the field, h yards up in the air (the football and its shadow shrink with distance)
-      const put = (f, v, h, ang) => {
-        const [x, y] = P(f, v), s = S(v) * 1.5;
-        ball.setAttribute("transform", `translate(${x.toFixed(1)},${(y - h * 7 * S(v)).toFixed(1)}) rotate(${ang.toFixed(0)}) scale(${s.toFixed(2)})`);
-        shadow.setAttribute("cx", x.toFixed(1)); shadow.setAttribute("cy", y.toFixed(1)); shadow.setAttribute("rx", (8 * s).toFixed(1)); shadow.setAttribute("ry", (3 * s).toFixed(1));
+      // the ball at a spot on the field, h yards up in the air, pointed at angle ang (the football and its shadow shrink with distance)
+      const put = (f, v, h, ang, spin = 1) => {
+        const [x, y] = P(f, v), sc = S(v) * 1.35;
+        ball.setAttribute("transform", `translate(${x.toFixed(1)},${(y - h * 7 * S(v)).toFixed(1)}) rotate(${ang.toFixed(0)}) scale(${sc.toFixed(2)},${(sc * spin).toFixed(2)})`);
+        shadow.setAttribute("cx", x.toFixed(1)); shadow.setAttribute("cy", y.toFixed(1)); shadow.setAttribute("rx", (7 * sc).toFixed(1)); shadow.setAttribute("ry", (2.4 * sc).toFixed(1));
       };
       const step = () => {
         if (!btn.isConnected) { timer = null; return; } // left the page
@@ -2087,15 +2096,18 @@ const Live = (() => {
         const x = pts[k], i = k, to = pos[k], peak = rush ? 0.3 : 2.2 + Math.max(0, x.air) * 0.16;
         const [x0, y0] = P(QB.f, QB.v), [x1, y1] = P(to.f, to.v), ang = (Math.atan2(y1 - y0, x1 - x0) * 180) / Math.PI;
         const yacTo = mode === "target" && !x.inc && x.yac ? x.air + x.yac : null;
-        const at = (u) => { const f = QB.f + (to.f - QB.f) * u, v = QB.v + (to.v - QB.v) * u, [px, py] = P(f, v); return `${px.toFixed(1)},${(py - 4 * peak * u * (1 - u) * 7 * S(v)).toFixed(1)}`; };
-        arc.setAttribute("d", `M${Array.from({ length: 21 }, (_, n) => at(n / 20)).join(" L")}`);
+        const air = (u) => { const f = QB.f + (to.f - QB.f) * u, v = QB.v + (to.v - QB.v) * u, [px, py] = P(f, v); return [px, py - 4 * peak * u * (1 - u) * 7 * S(v)]; };
+        arc.setAttribute("d", `M${Array.from({ length: 21 }, (_, n) => air(n / 20).map((q) => q.toFixed(1)).join(",")).join(" L")}`);
         arc.classList.remove("go"); void arc.getBBox(); arc.classList.add("go");
         ball.setAttribute("opacity", 1); shadow.setAttribute("opacity", 1);
         const t0 = performance.now(), dur = rush ? 380 : 460, dur2 = yacTo == null ? 0 : 320;
         const fly = (t) => {
           if (!timer && k < pts.length) return;
           const e = t - t0, u = Math.min(1, e / dur);
-          if (e < dur) put(QB.f + (to.f - QB.f) * u, QB.v + (to.v - QB.v) * u, 4 * peak * u * (1 - u), ang + (rush ? 0 : (u - 0.5) * 24));
+          if (e < dur) { // nose along the path as it looks on screen; a pass spirals (a slight squash and stretch)
+            const [bx, by] = air(Math.min(1, u + 0.02)), [cx2, cy2] = air(Math.max(0, u - 0.02));
+            put(QB.f + (to.f - QB.f) * u, QB.v + (to.v - QB.v) * u, 4 * peak * u * (1 - u), (Math.atan2(by - cy2, bx - cx2) * 180) / Math.PI, rush ? 1 : 0.8 + 0.2 * Math.cos(u * 26));
+          }
           else if (e < dur + dur2) { show(i, true); put(to.f, to.v + (yacTo - to.v) * ((e - dur) / dur2), 0, yacTo < to.v ? 90 : -90); }
           else { put(to.f, yacTo ?? to.v, 0, ang); show(i, true); return; }
           requestAnimationFrame(fly);
