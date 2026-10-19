@@ -1915,6 +1915,66 @@ const Live = (() => {
     }
     return out;
   }
+  // Pinch to zoom and drag to pan a player-page chart on a phone: two fingers zoom around them (up to 4x), one finger pans once
+  // zoomed, a double-tap goes back. Unzoomed, a one-finger swipe still scrolls the page. The zoom applies to the SVGs in the box.
+  function pinchPan(box) {
+    if (!box || box.dataset.pz) return;
+    box.dataset.pz = "1";
+    let z = { s: 1, x: 0, y: 0 }, g = null, lastTap = 0;
+    const rel = (t) => { const r = box.getBoundingClientRect(); return [t.clientX - r.left, t.clientY - r.top]; };
+    const apply = () => {
+      const w = box.clientWidth, h = box.clientHeight;
+      z.x = Math.min(0, Math.max(w - w * z.s, z.x)); z.y = Math.min(0, Math.max(h - h * z.s, z.y)); // keep the chart covering the box
+      box.querySelectorAll("svg").forEach((el) => { el.style.transformOrigin = "0 0"; el.style.transform = z.s > 1 ? `translate(${z.x}px, ${z.y}px) scale(${z.s})` : ""; });
+      box.classList.toggle("pz-on", z.s > 1);
+    };
+    box.addEventListener("touchstart", (e) => {
+      if (e.touches.length === 2) {
+        const [a, b] = [rel(e.touches[0]), rel(e.touches[1])];
+        g = { pinch: true, d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, mx: (a[0] + b[0]) / 2, my: (a[1] + b[1]) / 2, z0: { ...z } };
+      } else if (e.touches.length === 1) {
+        const now = Date.now();
+        if (now - lastTap < 300 && z.s > 1) { z = { s: 1, x: 0, y: 0 }; apply(); g = null; lastTap = 0; return; } // double-tap: back to the whole chart
+        lastTap = now;
+        if (z.s > 1) { const [x, y] = rel(e.touches[0]); g = { pinch: false, px: x, py: y, z0: { ...z } }; }
+      }
+    }, { passive: true });
+    box.addEventListener("touchmove", (e) => {
+      if (!g) return;
+      if (g.pinch && e.touches.length === 2) {
+        e.preventDefault();
+        const [a, b] = [rel(e.touches[0]), rel(e.touches[1])], s2 = Math.min(4, Math.max(1, g.z0.s * Math.hypot(a[0] - b[0], a[1] - b[1]) / g.d));
+        const cx = (g.mx - g.z0.x) / g.z0.s, cy = (g.my - g.z0.y) / g.z0.s, mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2; // the chart point under the fingers stays under them
+        z = { s: s2, x: mx - cx * s2, y: my - cy * s2 };
+        apply();
+      } else if (!g.pinch && e.touches.length === 1 && z.s > 1) {
+        e.preventDefault();
+        const [x, y] = rel(e.touches[0]);
+        z = { s: z.s, x: g.z0.x + x - g.px, y: g.z0.y + y - g.py };
+        apply();
+      }
+    }, { passive: false });
+    box.addEventListener("touchend", (e) => {
+      if (e.touches.length === 1 && z.s > 1) { const [x, y] = rel(e.touches[0]); g = { pinch: false, px: x, py: y, z0: { ...z } }; } // one finger left: keep panning
+      else if (!e.touches.length) g = null;
+    });
+  }
+
+  // Drag to read a chart (like the win-odds chart): a mouse just hovers; on a phone, press and hold a moment, then drag (a quick
+  // swipe still scrolls the page). show(p) gets the pointer in the SVG's own coordinates; hide() when you let go or leave.
+  function scrubber(svg, show, hide) {
+    const at = (e) => { const m = svg.getScreenCTM(); return m ? new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse()) : null; };
+    let held = false, timer = 0;
+    svg.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse") { const p = at(e); if (p) show(p); } });
+    svg.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") hide(); });
+    svg.addEventListener("touchstart", (e) => { const t = e.touches[0]; clearTimeout(timer); timer = setTimeout(() => { held = true; const p = at(t); if (p) show(p); }, 220); }, { passive: true });
+    svg.addEventListener("touchmove", (e) => { if (held) { e.preventDefault(); const p = at(e.touches[0]); if (p) show(p); } else clearTimeout(timer); }, { passive: false });
+    svg.addEventListener("touchend", () => { clearTimeout(timer); if (held) { held = false; hide(); } });
+  }
+  // the scrub line's label: a small rounded tag (same look as the kicking chart's value tags)
+  const scanTag = (x, y, txt, anchor = "middle") => { const w = 14 + 7 * txt.length, x0 = anchor === "end" ? x - w : anchor === "start" ? x : x - w / 2;
+    return `<g class="ky-pill"><rect x="${x0.toFixed(1)}" y="${(y - 10).toFixed(1)}" width="${w.toFixed(1)}" height="19" rx="9.5"/><text x="${(x0 + w / 2).toFixed(1)}" y="${(y + 3.5).toFixed(1)}">${esc(txt)}</text></g>`; };
+
   // Player page (NFL kickers): every field goal this season, seen from the side about 45 degrees off, the posts on the right.
   // Each dot is the spot he kicked from (a field goal's distance is measured from that spot to the posts, so it's exact).
   // All weeks: one arc, his longest make. Pick a game and its kicks play back one at a time: the ball's flight through the
@@ -1945,7 +2005,7 @@ const Live = (() => {
       // picture, so a kick wide left sails behind the far upright and wide right in front of the near one. That makes the
       // hash unimportant, so every kick starts on the middle line (no free data says which hash it was on).
       const narrow = slot.clientWidth < 560;
-      const W = narrow ? 400 : 640, H = narrow ? 250 : 320, top = Math.max(45, Math.ceil((Math.max(...kicks.map((k) => k.d)) + 3) / 5) * 5);
+      const W = narrow ? 400 : 640, H = narrow ? 250 : 320, top = Math.max(70, Math.ceil((Math.max(...kicks.map((k) => k.d)) + 3) / 5) * 5); // always out past midfield
       // the whole strip fits: its near-left corner (pushed left by the slant) and far-right corner (pushed right) stay on the picture
       const LAT = 12, C45 = Math.SQRT1_2, M = 10, PX = (W - 2 * M) / (top + 2 * LAT * 0.45 * C45); // pixels per yard along the field
       const OB = 0.45 * PX, LEFT = M + LAT * OB * C45, BASE = H - LAT * OB * C45 - 14; // across the field is foreshortened, 45 degrees back
@@ -1961,6 +2021,10 @@ const Live = (() => {
         const [x0, y0] = P(d, -LAT), [x1, y1] = P(d, LAT), line = d - 10;
         g.push(`<line class="pc-yl${line % 10 ? " five" : ""}${line === 0 ? " kc-goal" : ""}" x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}"/>`);
       }
+      // our logo painted at midfield (the 50 is 60 yards from the posts), lying flat on the field: the picture's width runs along
+      // the field and its height runs back toward the far sideline, foreshortened and slanted like everything else (docs/img/cupcake-mark.svg, 217 x 304)
+      { const ka = 15 / 217, kb = 20 / 304, a = PX * ka, c = -OB * C45 * kb, d2 = OB * C45 * kb, [mx, my] = P(60, 0); // 15 yards along, 20 across
+        g.push(`<image class="kc-logo" href="img/cupcake-mark.svg" width="217" height="304" transform="matrix(${a.toFixed(4)} 0 ${c.toFixed(4)} ${d2.toFixed(4)} ${(mx - a * 108.5 - c * 152).toFixed(1)} ${(my - d2 * 152).toFixed(1)})"/>`); }
       // the scale is kick distance (yards from the posts), marked on the line the kicks sit on, so a 60-yard try sits on "60"
       for (let d = 20; d <= top; d += 10) {
         const [tx, ty] = P(d, 0), [ux, uy] = P(d, -2.2);
@@ -2026,6 +2090,16 @@ const Live = (() => {
         <p class="kc-play muted" id="kc-play">${all ? `The arc is his longest make. Tap a kick for the play.` : "Tap a kick for the play."}</p>
         <p class="note">Every field goal try (nflverse play-by-play, through Week ${file.ranks?.kick?._wk ?? "–"}). Seen from the side: each dot is the spot he kicked from (the distance is exact), and the line is the ball's flight. A miss wide left goes behind the far upright, wide right in front of the near one; which way a miss went comes from the play-by-play text. Ranks: NFL kickers with ${file.ranks?.kick?._min ?? "–"}+ tries.</p>`;
       const svg = slot.querySelector(".kc-field"), ball = svg.querySelector("#kc-ball");
+      // drag across the field: a line at that distance, with how far it is from the posts and which yard line it is
+      svg.insertAdjacentHTML("beforeend", `<g class="sc-scan hidden"></g>`);
+      const scan = svg.querySelector(".sc-scan");
+      scrubber(svg, (p) => {
+        const d = Math.round(Math.min(top, Math.max(0, top - (p.x - LEFT) / PX)));
+        const [x0, y0] = P(d, -LAT), [x1, y1] = P(d, LAT), line = d - 10;
+        scan.innerHTML = `<line class="sc-line" x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}"/>${scanTag(x1, y1 - 14, d <= 10 ? `${d} yds · end zone` : `${d} yds · the ${line > 50 ? 100 - line : line}`)}`;
+        scan.classList.remove("hidden");
+      }, () => scan.classList.add("hidden"));
+      pinchPan(slot.querySelector(".kc .pc-stage"));
       const pick = (k) => {
         svg.querySelectorAll(".on").forEach((x) => x.classList.remove("on"));
         svg.querySelectorAll(`[data-i="${k.i}"]`).forEach((x) => x.classList.add("on"));
@@ -2291,6 +2365,18 @@ const Live = (() => {
       // and a completion (or a run) flashes a ring out from it (white for a touchdown). "All weeks" never animates.
       let timer = null, landT = null, k = 0;
       const btn = $("#pc-play"), now = $("#pc-now"), els = pts.map((_, i) => [...slot.querySelectorAll(`.pc-field [data-i="${i}"]`)]);
+      // drag up and down the field: a line at that depth, with how many yards past (or behind) the line of scrimmage it is
+      const fieldSvg = slot.querySelector(".pc-field");
+      fieldSvg.insertAdjacentHTML("beforeend", `<g class="sc-scan hidden"></g>`);
+      const scan = fieldSvg.querySelector(".sc-scan");
+      pinchPan(slot.querySelector(".pc-stage"));
+      scrubber(fieldSvg, (p) => {
+        const sv = 1 - ((NEAR - Math.min(NEAR, Math.max(FAR, p.y))) * (1 - 1 / (1 + K))) / (NEAR - FAR); // invert P: screen height -> depth
+        const v = Math.round(bot + ((1 / sv - 1) / K) * (top - bot));
+        const [x0, y] = P(0, v), [x1] = P(1, v);
+        scan.innerHTML = `<line class="sc-line" x1="${x0.toFixed(1)}" y1="${y.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y.toFixed(1)}"/>${scanTag(x1 - 4, y - 12, v === 0 ? "at the line" : `${v > 0 ? "+" : "−"}${Math.abs(v)} yds`, "end")}`;
+        scan.classList.remove("hidden");
+      }, () => scan.classList.add("hidden"));
       const arc = $("#pc-arc"), flash = $("#pc-flash");
       const show = (i, on) => els[i]?.forEach((e) => e.classList.toggle("pc-hide", !on));
       // the completions tile counts up as each throw lands (1/1, 1/2, 2/3 ...), and goes back to the full game when playback ends
@@ -3225,7 +3311,10 @@ const Live = (() => {
     const lvlOk = (r) => lvl === "both" || r.level === (lvl === "nfl" ? "NFL" : "NCAA");
     const catNames = Object.keys(main.cats).filter((k) => main.cats[k].rows.some(lvlOk));
     if (!catNames.length) return null;
-    const cat = catNames.includes(st.cat) ? st.cat : catNames.includes(PRIMARY(main.pos)) ? PRIMARY(main.pos) : catNames[0];
+    // his position's category, or else the one with the most seasons (ESPN lists Justin Tucker as a wide receiver: Kicking, not
+    // his one trick-play pass)
+    const most = catNames.slice().sort((a, b) => main.cats[b].rows.filter(lvlOk).length - main.cats[a].rows.filter(lvlOk).length || (a === "scoring") - (b === "scoring"))[0]; // Scoring always ties (every kicker scores): it loses ties
+    const cat = catNames.includes(st.cat) ? st.cat : catNames.includes(PRIMARY(main.pos)) ? PRIMARY(main.pos) : most;
     const C = main.cats[cat];
     // only stats that have a number in the seasons shown (college and NFL feeds name some stats differently: a college
     // kicker's "FGM" has no NFL seasons, and the chart would be empty)
@@ -3286,7 +3375,7 @@ const Live = (() => {
     const max = /pct/i.test(metric) ? 100 // percentages run 0-100
       : Math.max(1, ...series.flatMap((s) => s.rows.filter((r) => inView.has(r.x)).map((r) => r.v)), ...xs.map(benchAt).filter((v) => v != null));
     // line chart (SVG): one line per player, a dot on each season; the line breaks over seasons with no stats
-    const W = 720, H = 230, padL = 46, padR = 14, top = 18, base = H - 22;
+    const W = 720, H = 250, padL = 46, padR = 14, top = 38, base = H - 22; // headroom over the tallest bar for its value tag
     const gw = (W - padL - padR) / Math.max(1, xs.length), px = (gi) => padL + gi * gw + gw / 2, py = (v) => base - (Math.max(0, v) / max) * (base - top);
     const step = Math.ceil(xs.length / 12); // thin out year labels on long careers
     const fmt = (v) => (v >= 1000 ? Math.round(v).toLocaleString() : +v.toFixed(v < 10 ? 1 : 0));
@@ -3317,16 +3406,25 @@ const Live = (() => {
       }).join("");
       return `<path d="${d}" stroke="${sr.color}" class="cc-line" pathLength="1" style="animation-delay:${si * 0.15}s"/>${dots}`;
     }).join("");
-    // bar version: grouped bars that grow up from the axis, one group per season (top-10 average drawn over them)
-    const bnodes = [], bw = Math.min(34, (gw - 10) / series.length);
-    const bars = xs.map((x, gi) => series.map((sr, si) => {
+    // bar version (the kicking chart's look): rounded bars with a gradient in the player's color that grow up from the axis.
+    // One player: wide bars on a faint track, a value tag on each (up to 14 seasons) and a dashed top-10 marker per season.
+    // Comparing players: grouped, narrower bars.
+    const one = series.length === 1, bnodes = [], bw = one ? Math.min(64, gw * 0.56) : Math.min(34, (gw - 10) / series.length);
+    const tags = one && xs.length <= 8, small = one && !tags && gw >= 34; // many seasons: a small plain number over each bar instead of a tag
+    const gdefs = `<defs>${series.map((sr, si) => `<linearGradient id="cc-g${si}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:color-mix(in srgb, ${sr.color} 78%, #fff)"/><stop offset="1" style="stop-color:color-mix(in srgb, ${sr.color} 70%, #000)"/></linearGradient>`).join("")}</defs>`;
+    const tag = (cx, y, txt) => { const w = 14 + 7.4 * String(txt).length; return `<g class="ky-pill cc-tag"><rect x="${(cx - w / 2).toFixed(1)}" y="${(y - 27).toFixed(1)}" width="${w.toFixed(1)}" height="19" rx="9.5"/><text x="${cx.toFixed(1)}" y="${(y - 13.5).toFixed(1)}">${esc(txt)}</text></g>`; };
+    const bars = gdefs + xs.map((x, gi) => series.map((sr, si) => {
       const r = sr.rows.find((q) => q.x === x);
       if (!r) return "";
-      const bx = padL + gi * gw + (gw - bw * series.length) / 2 + si * bw, by = py(r.v);
-      bnodes.push({ x: bx + (bw - 2) / 2, y: by, x0: bx, x1: bx + bw - 2, si, label: align === "career" ? `Career yr ${x} · ${r.year}` : String(r.year), team: r.team.abbr, val: r.vals[metric] });
-      return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${(bw - 2).toFixed(1)}" height="${(base - by).toFixed(1)}" class="cc-bar" data-n="${bnodes.length - 1}" style="fill:${shade(sr, r)};animation-delay:${(0.05 + (gi / Math.max(1, xs.length - 1)) * 0.6).toFixed(2)}s"/>`;
+      const bx = padL + gi * gw + (gw - bw * series.length) / 2 + si * bw, by = py(r.v), w = bw - 2, cx = bx + w / 2, b = one ? benchAt(x) : null;
+      bnodes.push({ x: cx, y: by, x0: bx, x1: bx + w, si, label: align === "career" ? `Career yr ${x} · ${r.year}` : String(r.year), team: r.team.abbr, val: r.vals[metric] });
+      const fill = mixLv && r.level === "NCAA" ? shade(sr, r) : `url(#cc-g${si})`;
+      return `${one ? `<rect class="ky-track" x="${bx.toFixed(1)}" y="${top}" width="${w.toFixed(1)}" height="${(base - top).toFixed(1)}" rx="7"/>` : ""}<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${w.toFixed(1)}" height="${(base - by).toFixed(1)}" rx="${one ? 7 : 3}" class="cc-bar" data-n="${bnodes.length - 1}" style="fill:${fill};animation-delay:${(0.05 + (gi / Math.max(1, xs.length - 1)) * 0.6).toFixed(2)}s"/>`
+        + (b != null ? `<line class="ky-bench" x1="${(bx - 5).toFixed(1)}" x2="${(bx + w + 5).toFixed(1)}" y1="${py(b).toFixed(1)}" y2="${py(b).toFixed(1)}"/>` : "")
+        + (tags ? tag(cx, by, r.vals[metric]) : small ? `<text class="ky-val" x="${cx.toFixed(1)}" y="${(by - 6).toFixed(1)}">${esc(r.vals[metric])}</text>` : "");
     }).join("")).join("");
-    const benchOver = benchLine ? benchLine.replace(/data-n="(\d+)"/g, (_, n) => { bnodes.push({ ...nodes[+n] }); return `data-n="${bnodes.length - 1}"`; }) : "";
+    // comparing players: the top-10 average stays a line over the bars (one player gets a marker on each bar instead)
+    const benchOver = benchLine && !one ? benchLine.replace(/data-n="(\d+)"/g, (_, n) => { bnodes.push({ ...nodes[+n] }); return `data-n="${bnodes.length - 1}"`; }) : "";
     // kicking, one player, FG %: one bar chart that splits a season by distance when tapped (kickYears)
     const kickOne = cat === "kicking" && players.length === 1 && metric === "fieldGoalPct";
     if (!kickOne) kyData = null;
@@ -3392,7 +3490,8 @@ const Live = (() => {
       parts: KICK_SPLITS.map(([k, label]) => ({ k, label, x: k === "xp" ? (num(r.vals.extraPointsMade) != null && num(r.vals.extraPointAttempts) != null ? [num(r.vals.extraPointsMade), num(r.vals.extraPointAttempts)] : null) : ma(r.vals[k]) })) }))
       .filter((r) => r.pct != null);
     if (!yrs.length) return "";
-    const W = 720, H = 290, padL = 40, padR = 12, top = 36, base = H - 50, gw = (W - padL - padR) / yrs.length, bw = Math.min(84, gw * 0.56);
+    const W = 720, H = 290, padL = 48, padR = 12, top = 36, base = H - 50, gw = (W - padL - padR) / yrs.length, bw = Math.min(84, gw * 0.56);
+    const compact = yrs.length > 7, tiny = gw < 44; // many seasons: plain small numbers instead of tags, short labels
     const py = (p) => base - (p / 100) * (base - top);
     const grid = [0, 25, 50, 75, 100].map((f) => `<line x1="${padL}" y1="${py(f).toFixed(1)}" x2="${W - padR}" y2="${py(f).toFixed(1)}" class="${f ? "cc-grid" : "cc-axis"}"/><text x="${padL - 6}" y="${(py(f) + 3.5).toFixed(1)}" class="cc-y">${f}%</text>`).join("");
     // a value pill over a bar: the number on a small rounded tag
@@ -3405,8 +3504,8 @@ const Live = (() => {
         <rect class="ky-track" x="${x.toFixed(1)}" y="${top}" width="${bw.toFixed(1)}" height="${base - top}" rx="7"/>
         <rect class="ky-bar" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${(base - y).toFixed(1)}" rx="7"/>
         ${b != null ? `<line class="ky-bench" x1="${(x - 6).toFixed(1)}" x2="${(x + bw + 6).toFixed(1)}" y1="${py(b).toFixed(1)}" y2="${py(b).toFixed(1)}"><title>Top-10 kickers' average: ${b.toFixed(1)}%</title></line>` : ""}
-        ${pill(cx, y, `${r.pct.toFixed(1)}%`)}
-        <text class="ky-x" x="${cx.toFixed(1)}" y="${base + 19}">${r.year}</text><text class="ky-sub" x="${cx.toFixed(1)}" y="${base + 35}">${r.fg ? `${r.fg[0]} of ${r.fg[1]}` : ""}</text></g>`;
+        ${compact ? `<text class="ky-val" x="${cx.toFixed(1)}" y="${(y - 6).toFixed(1)}">${Math.round(r.pct)}</text>` : pill(cx, y, `${r.pct.toFixed(1)}%`)}
+        <text class="ky-x${compact ? " sm" : ""}" x="${cx.toFixed(1)}" y="${base + 19}">${tiny ? "’" + String(r.year).slice(2) : r.year}</text><text class="ky-sub${compact ? " sm" : ""}" x="${cx.toFixed(1)}" y="${base + 35}">${r.fg ? (compact ? `${r.fg[0]}/${r.fg[1]}` : `${r.fg[0]} of ${r.fg[1]}`) : ""}</text></g>`;
     }).join("");
     kyData = { yrs, W, padL, padR, top, base, gw, bw, py, pill, open: null };
     const hasBench = yrs.some((r) => bench?.get(r.year) != null);
@@ -3594,6 +3693,7 @@ const Live = (() => {
     $("#cc-metric").onchange = (e) => go({ metric: e.target.value });
     $("#cc-align").onchange = (e) => go({ align: e.target.value, from: null, to: null });
     wireKickYears();
+    pinchPan($("#cc-box")); pinchPan(document.querySelector(".ky-box")); // pinch to zoom on phones
     if ($("#cc-lvl")) $("#cc-lvl").onclick = (e) => { const v = e.target.dataset.lvl; if (v) go({ lvl: v, from: null, to: null }); };
     if ($("#cc-box")) $("#cc-box").ccZoom = (from, to) => go({ from, to });
     if ($("#cc-unzoom")) $("#cc-unzoom").onclick = () => go({ from: null, to: null });
@@ -3711,12 +3811,12 @@ const Live = (() => {
       return;
     }
     const pcModes = { QB: ["pass", "rush"], WR: ["target"], TE: ["target"], RB: ["rush", "target"], FB: ["rush", "target"] }[a.position?.abbreviation] || [];
-    const kicker = logLg === "nfl" && ["PK", "K"].includes(a.position?.abbreviation); // NFL kickers get a kick chart (kickChartInto)
+    const kicker = logLg === "nfl" && !pcModes.includes("pass"); // a kick chart if he tried a field goal this season (kickChartInto drops it otherwise; ESPN's position can be wrong)
     view("player").innerHTML = head + `
       ${summary ? `<div class="stats wide">${summary}</div>${caughtUp ? `<p class="note muted">Added up from his game-by-game stats, so it includes his latest game. Ranks come back once the overnight totals update.</p>` : ""}` : ""}
       <div id="career-slot"><div class="card muted">Loading stats by year…</div></div>
       ${pcModes.length && logGl?.events && Object.keys(logGl.events).length ? `<div id="pc-slot"><div class="card muted">Loading pass chart…</div></div>` : ""}
-      ${kicker ? `<div id="kc-slot"><div class="card muted">Loading kick chart…</div></div>` : ""}
+      ${kicker ? `<div id="kc-slot"></div>` : ""}
       <div class="card"><div class="sc-bar"><h3>Game log</h3>
         <select id="pl-season"${noLogs ? ` class="hidden"` : ""}>${years.filter((y) => !cYears.includes(y)).map((y) => `<option${!cseason && y === shown ? " selected" : ""}>${y}</option>`).join("")}${cYears.map((y) => `<option value="c${y}"${String(y) === cseason ? " selected" : ""}>${y} (college)</option>`).join("")}</select></div>
         ${log || (noLogs ? `<p class="muted">ESPN doesn't have game-by-game logs for this player's career. Season totals, where ESPN has them, are in Stats by year above.</p>` : shown < 2000 ? `<p class="muted">ESPN doesn't have game-by-game logs for ${shown} (older seasons are spotty before the late 1990s). Season totals are in Stats by year above.</p>`
