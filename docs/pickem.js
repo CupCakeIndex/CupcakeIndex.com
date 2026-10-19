@@ -274,10 +274,11 @@ const Pickem = (() => {
       ${cur.mine ? seasonPanel() : `<div class="pk-season muted">These are a friend's picks from a shared link. Make your own picks to start your record.</div>`}
       <p class="pk-status">${status}</p>
       <div class="br-tools pk-tools">${toggle}<button data-act="clear"${picks.size && !weekLocked ? "" : " disabled"}>Clear picks</button>
-        ${cur.mine && !weekLocked ? `<button data-act="lock" class="pk-lockbtn"${picks.size ? "" : " disabled"}>🔒 Lock in my picks</button>` : ""}${Share.menuHtml()}
+        ${cur.mine && !weekLocked ? `<button data-act="lock" class="pk-lockbtn"${picks.size ? "" : " disabled"}>🔒 Lock in my picks</button>` : ""}${cur.mine && lockedAt && due && Date.now() <= due
+          ? `<button data-act="unlock" title="Change your picks until the deadline (games that have kicked off stay locked); lock in again for Perfect Pick'em">🔓 Unlock</button>` : ""}${Share.menuHtml()}
         ${list.some((e) => cur.preds.has(String(e.id))) ? `<button data-act="modelimg" title="Download a picture of every winner our model picks this week">Share our picks</button>` : ""}</div>
       ${list.length ? `<div class="pk-grid">${list.map(game).join("")}</div>` : `<p class="muted">No games this week.</p>`}
-      <p class="note">Tap a team to pick it; tap again to undo. Each game locks at kickoff, and the whole week locks Saturday at 11:59 PM Eastern (or as soon as you tap Lock in). Next week's games show up Sunday for college and Monday at 11:59 PM Eastern for the NFL.
+      <p class="note">Tap a team to pick it; tap again to undo. Each game locks at kickoff, and the whole week locks Saturday at 11:59 PM Eastern (or as soon as you tap Lock in; Unlock reopens it until the deadline). Next week's games show up Sunday for college and Monday at 11:59 PM Eastern for the NFL.
         Your picks get a ✓ or ✗ when the game is final and add to your season record (a tie is void and doesn't count), which stays in this browser unless you clear its data.
         Pick every game, lock in before the deadline and get them all right for the permanent 🏅 Perfect Pick'em badge.
         Picks are saved in this browser and in the page link, so Share › Copy Link sends your slate to a friend. "model" = our ratings' win chance for the team they favor. Just for fun.</p></div>`;
@@ -307,6 +308,12 @@ const Pickem = (() => {
       if (box && !e.target.closest("a")) { location.hash = link("game", box.dataset.id); return; } // the rest of a game's box opens the game
       const show = e.target.closest("[data-show]");
       if (show) { cur.all = show.dataset.show === "1"; save(); return draw(); }
+      if (e.target.closest('[data-act="unlock"]')) { // before the deadline only; 0 (not removed) so the unlock syncs to your account
+        if (!cur.due || Date.now() > cur.due) return;
+        store.set(`${cur.key}-lock`, "0");
+        cur.lockedAt = null; cur.weekLocked = false;
+        return draw();
+      }
       if (e.target.closest('[data-act="lock"]')) {
         if (!confirm("Lock in your picks for this week? You won't be able to change them.")) return;
         store.set(`${cur.key}-lock`, String(Date.now()));
