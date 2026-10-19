@@ -169,19 +169,22 @@ const Coaches = (() => {
     const group = (list, i) => { const m = new Map(); list.forEach((e) => { if (!m.has(e[i])) m.set(e[i], []); m.get(e[i]).push(e); }); return [...m]; };
     const first = ([, es]) => Math.min(...es.map((e) => e[4]));
     const how = (es) => es.slice().sort((a, b) => a[4] - b[4]).map((e) => `${e[6] || "Assistant"}, ${teamName(e[2], e[3])} ${yrs(e[4], e[5])}`).join(" · ");
+    // kids: his branch ({n, html}) or null. Branches past the first column start closed; +N opens one (like Ancestry)
     const node = (k, es, kids) => {
       const p = P[k] || { n: k }, f = findCoach(k)[0], now = f && f[1].on ? `<small class="tr-now">${esc(teamName(f[0], f[1].tm))}</small>` : "";
-      return `<li><a class="tr-node" href="${link("coach", k)}" title="${esc(p.n)}: ${esc(how(es))}">${pic(p, p.n)}<span><b>${esc(p.n)}</b>${now}<small>${esc(how(es))}</small></span></a>${kids}</li>`;
+      const tog = kids ? `<button class="tr-tog" type="button" aria-expanded="false" data-n="${kids.n}" title="Show or hide the ${kids.n} coach${kids.n > 1 ? "es" : ""} behind ${esc(p.n)}">+${kids.n}</button>` : "";
+      return `<li><a class="tr-node" href="${link("coach", k)}" title="${esc(p.n)}: ${esc(how(es))}">${pic(p, p.n)}<span><b>${esc(p.n)}</b>${now}<small>${esc(how(es))}</small></span></a>${tog}${kids ? kids.html : ""}</li>`;
     };
     const branch = (k, depth, max, seen, from, to) => { // from/to: 1 -> 0 walks up to mentors, 0 -> 1 walks down to assistants
-      if (depth > max) return "";
+      if (depth > max) return null;
       const g = group(E.filter((e) => e[from] === k && !seen.has(e[to])), to).sort((a, b) => first(a) - first(b));
-      return g.length ? `<ul>${g.map(([x, es]) => node(x, es, branch(x, depth + 1, max, new Set([...seen, x]), from, to))).join("")}</ul>` : "";
+      return g.length ? { n: g.length, html: `<ul${depth > 1 ? ` class="shut"` : ""}>${g.map(([x, es]) => node(x, es, branch(x, depth + 1, max, new Set([...seen, x]), from, to))).join("")}</ul>` } : null;
     };
-    const upHtml = branch(s, 1, 3, new Set([s]), 1, 0), downHtml = branch(s, 1, 2, new Set([s]), 0, 1);
+    const upHtml = branch(s, 1, 5, new Set([s]), 1, 0)?.html, downHtml = branch(s, 1, 3, new Set([s]), 0, 1)?.html;
     const nDown = new Set(E.filter((e) => e[0] === s).map((e) => e[1])).size;
     // drawn left to right like an ancestry chart: him, then the next generation in the column to his right, and so on
-    const chart = (kids) => `<div class="htree"><ul><li><span class="tr-node me">${pic(me, name)}<span><b>${esc(name)}</b></span></span>${kids}</li></ul></div>`;
+    const chart = (kids) => `${/class="tr-tog"/.test(kids) ? `<div class="presets tr-all"><button type="button" data-tr="1">Expand all</button><button type="button" data-tr="">Collapse all</button></div>` : ""}
+      <div class="htree"><ul><li><span class="tr-node me">${pic(me, name)}<span><b>${esc(name)}</b></span></span>${kids}</li></ul></div>`;
     const tree = `<div class="co-tree">
         <div><h4>Came from</h4>${upHtml ? `<p class="note">Head coaches he worked under (next column), and who they worked under.</p>${chart(upHtml)}` : `<p class="muted">No head coaches in our data that he worked under.</p>`}</div>
         <div><h4>His tree${nDown ? ` <small class="muted">${nDown} head coach${nDown > 1 ? "es" : ""}</small>` : ""}</h4>${downHtml ? `<p class="note">His assistants who became head coaches (next column), and theirs.</p>${chart(downHtml)}` : `<p class="muted">None of his assistants have become head coaches yet.</p>`}</div>
@@ -200,6 +203,14 @@ const Coaches = (() => {
       <p class="note"><a href="${link("coaches")}">← All coaches</a></p>`;
     const sc = $("#co-pscope");
     if (sc) sc.onclick = (e) => { const b = e.target.closest("[data-v]"); if (b) location.hash = link("coach", s, { scope: b.dataset.v }); };
+    // open / close a branch, or a whole tree
+    const flip = (b, open) => { b.setAttribute("aria-expanded", open); b.textContent = open ? "–" : `+${b.dataset.n}`; b.nextElementSibling?.classList.toggle("shut", !open); };
+    el.querySelector(".co-tree").onclick = (e) => {
+      const b = e.target.closest(".tr-tog");
+      if (b) return flip(b, b.getAttribute("aria-expanded") !== "true");
+      const all = e.target.closest("[data-tr]");
+      if (all) all.parentElement.nextElementSibling.querySelectorAll(".tr-tog").forEach((t) => flip(t, !!all.dataset.tr));
+    };
   }
 
   // the head coach on a team page (top right): photo, name, hot seat; links to his page

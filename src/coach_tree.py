@@ -172,7 +172,7 @@ def parse_jobs(wt, maps, now):
             roles = re.findall(r"\(([^()]*)\)", plain(team))
             roles = [r for r in roles if r.strip() not in STATES]  # "Hart County HS (KY)": a state, not a role
             role = roles[-1].strip() if roles else ""
-            head = not role or bool(re.search(r"\b(HC|head coach)\b", role, re.I)) and not re.search(r"assistant|AHC|interim", role, re.I)  # interim: a game or two, not a mentor
+            head = not role or bool(re.search(r"\b(HC|head coach)\b", role, re.I)) and not re.search(r"assistant|associate|AHC|interim", role, re.I)  # interim: a game or two, not a mentor
             if tm and y:
                 jobs.append([tm[0], tm[1], y[0], y[1], "Head coach" if head else role_text(plain(role)), head])
         return jobs
@@ -191,13 +191,13 @@ def parse_jobs(wt, maps, now):
             role = plain(parts[1]) if len(parts) > 1 else ""
             cur = (tm, y)
             if tm and y and role:
-                head = bool(re.search(r"\bhead coach\b", role, re.I)) and not re.search(r"assistant|interim", role, re.I)
+                head = bool(re.search(r"\bhead coach\b", role, re.I)) and not re.search(r"assistant|associate|interim", role, re.I)
                 jobs.append([tm[0], tm[1], y[0], y[1], role, head])
         elif cur and cur[0]:
             y = years_of(body, now) or cur[1]
             role = plain(re.sub(r"\([^)]*\d{4}[^)]*\)|\{\{[^}]*\}\}", "", body))
             if y and role:
-                head = bool(re.search(r"\bhead coach\b", role, re.I)) and not re.search(r"assistant|interim", role, re.I)
+                head = bool(re.search(r"\bhead coach\b", role, re.I)) and not re.search(r"assistant|associate|interim", role, re.I)
                 jobs.append([cur[0][0], cur[0][1], y[0], y[1], role, head])
     return jobs
 
@@ -276,19 +276,28 @@ def resolve(names, known, maps, now, cache):
 
 # ------------------------------------------------------------------ head coaches by team and season
 
+INTERIM = 0.4  # coached under 40% of a team's games that season = an interim stint, not that season's head coach
+
+
 def head_coaches(C):
-    hc = defaultdict(set)  # (lg, team, season) -> head coaches
+    """{(lg, team, season): head coaches}. Interim stints (Darrell Bevell's 5 games for Detroit in 2020) don't count:
+    a coach fired midseason and the one who finished the year both do, if each had 40%+ of the games."""
+    games = defaultdict(dict)  # (lg, team, season) -> {coach: games}
     for lg in ("nfl", "cfb"):
         for c in (C.get(lg) or {}).get("coaches", []):
             for s in c.get("sea", []):
-                hc[(lg, s[1], s[0])].add(c["n"])
+                games[(lg, s[1], s[0])][c["n"]] = sum(s[2:7])
     staff = ROOT / "data" / "history" / "cfb_coaches.json"
     for f in (staff, OLD_CFB):
         if f.exists():
             for team, years in json.loads(f.read_text(encoding="utf-8")).items():
                 for y, people in years.items():
-                    for name, _ in people:
-                        hc[("cfb", team, int(y))].add(name)
+                    for name, n in people:
+                        games[("cfb", team, int(y))].setdefault(name, n)
+    hc = defaultdict(set)
+    for k, by in games.items():
+        total = sum(by.values())
+        hc[k] = {n for n, g in by.items() if total == 0 or g >= INTERIM * total}
     return hc
 
 
@@ -383,7 +392,7 @@ def main():
     for (lg, team, y), ns in hc.items():
         for n in ns:
             head_years[n].add(y)
-    E = {k: e for k, e in E.items() if sum(y < min(e["y"]) for y in head_years.get(k[1], ())) < 3}
+    E = {k: e for k, e in E.items() if k[1] in head_years and sum(y < min(e["y"]) for y in head_years[k[1]]) < 3}  # and he was a real head coach somewhere
     CACHE.write_text(json.dumps(cache, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
     espn = espn_nfl()
     people = {}
