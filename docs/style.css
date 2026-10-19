@@ -2584,6 +2584,14 @@ table.roster th.sortable.on a { color: var(--accent); }
   border: 1px solid var(--line); background: var(--card); color: var(--accent); font: 700 11px var(--font-head, inherit); cursor: pointer; }
 .tr-tog:hover, .tr-tog[aria-expanded="true"] { border-color: var(--accent); }
 .tr-all { margin: 0 0 6px; }
+/* Find a coach in the tree: a fluorescent line from the root out to him, and his box pulses */
+.tr-find { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; }
+.tr-find input { flex: 1 1 220px; max-width: 320px; }
+.htree { position: relative; }
+.tr-glow { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; z-index: 2; }
+.tr-glow path { fill: none; stroke: #39ff14; stroke-width: 2.5; stroke-linejoin: round; filter: drop-shadow(0 0 3px #39ff14) drop-shadow(0 0 6px rgba(57,255,20,.6)); }
+a.tr-node.tr-hit { border-color: #39ff14; animation: tr-pulse 1.3s ease-in-out infinite; }
+@keyframes tr-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(57,255,20,.75), 0 0 8px rgba(57,255,20,.5); } 50% { box-shadow: 0 0 0 7px rgba(57,255,20,0), 0 0 16px rgba(57,255,20,.8); } }
 .tr-all button { font-size: 11px; padding: 3px 8px; }
 a.tr-node:hover { border-color: var(--accent); text-decoration: none; }
 .tr-node span { min-width: 0; }

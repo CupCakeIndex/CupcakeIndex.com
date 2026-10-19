@@ -188,7 +188,8 @@ const Coaches = (() => {
     // drawn left to right like an ancestry chart: him, then the next generation in the column to his right, and so on
     const chart = (kids) => `${/class="tr-tog"/.test(kids) ? `<div class="presets tr-all"><button type="button" data-tr="1">Expand all</button><button type="button" data-tr="">Collapse all</button></div>` : ""}
       <div class="htree"><ul><li><span class="tr-node me">${pic(me, name)}<span><b>${esc(name)}</b></span></span>${kids}</li></ul></div>`;
-    const tree = `<div class="co-tree">
+    const tree = `${upHtml || downHtml ? `<div class="tr-find"><input id="tr-q" type="search" list="tr-names" autocomplete="off" placeholder="Find a coach in this tree…" aria-label="Find a coach in this tree">
+        <datalist id="tr-names"></datalist><small id="tr-msg" class="muted"></small></div>` : ""}<div class="co-tree">
         <div><h4>Came from</h4>${upHtml ? `<p class="note">Head coaches he worked under (next column), and who they worked under.</p>${chart(upHtml)}` : `<p class="muted">No head coaches in our data that he worked under.</p>`}</div>
         <div><h4>His tree${nDown ? ` <small class="muted">${nDown} head coach${nDown > 1 ? "es" : ""}</small>` : ""}</h4>${downHtml ? `<p class="note">His assistants who became head coaches (next column), and theirs.</p>${chart(downHtml)}` : `<p class="muted">None of his assistants have become head coaches yet.</p>`}</div>
       </div>
@@ -208,12 +209,63 @@ const Coaches = (() => {
     if (sc) sc.onclick = (e) => { const b = e.target.closest("[data-v]"); if (b) location.hash = link("coach", s, { scope: b.dataset.v }); };
     // open / close a branch, or a whole tree
     const flip = (b, open) => { b.setAttribute("aria-expanded", open); b.textContent = open ? "–" : `+${b.dataset.n}`; b.nextElementSibling?.classList.toggle("shut", !open); };
-    el.querySelector(".co-tree").onclick = (e) => {
+    const box = el.querySelector(".co-tree");
+    box.onclick = (e) => {
       const b = e.target.closest(".tr-tog");
-      if (b) return flip(b, b.getAttribute("aria-expanded") !== "true");
+      if (b) { flip(b, b.getAttribute("aria-expanded") !== "true"); return glow(); }
       const all = e.target.closest("[data-tr]");
-      if (all) all.parentElement.nextElementSibling.querySelectorAll(".tr-tog").forEach((t) => flip(t, !!all.dataset.tr));
+      if (all) { all.parentElement.nextElementSibling.querySelectorAll(".tr-tog").forEach((t) => flip(t, !!all.dataset.tr)); glow(); }
     };
+    // ---- find a coach in the tree: open the branches down to him, a glowing line from the root out to him, his box pulses
+    const q = $("#tr-q");
+    if (!q) return;
+    const nameOf = (a) => a.querySelector("b")?.textContent || "";
+    const nodes = () => [...box.querySelectorAll("a.tr-node")];
+    $("#tr-names").innerHTML = [...new Set(nodes().map(nameOf))].sort().map((n) => `<option value="${esc(n)}">`).join("");
+    let hits = [];
+    function glow() { // draw the path to each hit as an overlay on its chart (redrawn when branches open or close)
+      box.querySelectorAll(".tr-glow").forEach((g) => g.remove());
+      const charts = new Map();
+      hits.filter((a) => a.offsetParent).forEach((a) => { const h = a.closest(".htree"); if (!charts.has(h)) charts.set(h, []); charts.get(h).push(a); });
+      for (const [h, list] of charts) {
+        const R = h.getBoundingClientRect(), X = (x) => x - R.left + h.scrollLeft, Y = (y) => y - R.top + h.scrollTop;
+        const d = list.map((a) => {
+          let li = a.closest("li"), out = "";
+          while (li) {
+            const up = li.parentElement.closest("li");
+            if (!up || !h.contains(up)) break;
+            const from = (up.querySelector(":scope > .tr-tog") || up.firstElementChild).getBoundingClientRect(), me = li.firstElementChild.getBoundingClientRect();
+            const bar = X(li.getBoundingClientRect().left), pn = up.firstElementChild.getBoundingClientRect();
+            const y0 = up.parentElement.parentElement === h ? Y(up.getBoundingClientRect().top + 24) : Y(pn.top + pn.height / 2), y1 = Y(me.top + me.height / 2);
+            out += `M${X(from.right)} ${y0}H${bar}V${y1}H${X(me.left)}`;
+            li = up;
+          }
+          return out;
+        }).join("");
+        h.insertAdjacentHTML("beforeend", `<svg class="tr-glow" width="${h.scrollWidth}" height="${h.scrollHeight}" aria-hidden="true"><path d="${d}"/></svg>`);
+      }
+    }
+    function find(v) {
+      box.querySelectorAll(".tr-hit").forEach((a) => a.classList.remove("tr-hit"));
+      hits = [];
+      const t = v.trim().toLowerCase();
+      if (t) {
+        const all = nodes();
+        hits = all.filter((a) => nameOf(a).toLowerCase() === t);
+        if (!hits.length) hits = all.filter((a) => nameOf(a).toLowerCase().includes(t));
+        hits.forEach((a) => {
+          a.classList.add("tr-hit");
+          for (let ul = a.closest("ul"); ul && box.contains(ul); ul = ul.parentElement.closest("ul")) // open every branch on the way
+            if (ul.classList.contains("shut")) flip(ul.previousElementSibling, true);
+        });
+      }
+      $("#tr-msg").textContent = t && !hits.length ? "Not in this tree." : hits.length > 1 ? `${hits.length} spots in the tree` : "";
+      glow();
+      hits[0]?.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+    }
+    q.onchange = () => find(q.value);
+    q.onkeydown = (e) => { if (e.key === "Enter") find(q.value); };
+    q.oninput = () => { if (!q.value) find(""); else if (nodes().some((a) => nameOf(a) === q.value)) find(q.value); }; // picked from the list
   }
 
   // the head coach on a team page (top right): photo, name, hot seat; links to his page
