@@ -7,11 +7,12 @@ when a key is set). So a tree shows head coaches only: the ones a coach worked u
 on to be head coaches. Jobs before those years, or at schools outside FBS, have no head coach to link to.
 
 Pages are cached in data/history/wiki_coaches.json (parsed jobs only) and re-read once a month.
-Photos: ESPN's headshot for current NFL coaches, otherwise the Wikipedia page's photo (credited on the page), otherwise
-the team's own staff photo (NFL team sites for anyone on an NFL staff, the school's site for current college head coaches).
+Photos: current head coaches get the team's own staff photo (NFL team site, or the school's site); everyone else gets
+ESPN's headshot, otherwise the Wikipedia page's photo, otherwise a staff photo if he's on an NFL staff now. Credited on the page.
 
     python src/coach_tree.py
 """
+import base64
 import json
 import os
 import re
@@ -419,7 +420,7 @@ def school_sites(teams):
 
 def college_sites(coaches):
     """{coach name: (photo url, site)} for current college head coaches, from their bio on the school's site (SIDEARM sites:
-    /sports/football/coaches links each bio, and the bio's share image is the staff headshot)."""
+    /sports/football/coaches links each bio, and the bio's share image is the staff headshot; WMT sites link it from the roster)."""
     hosts = school_sites({tm for _, tm in coaches})
 
     def one(c):
@@ -429,12 +430,23 @@ def college_sites(coaches):
             return None
         h = page(f"https://{host}/sports/football/coaches")
         bio = next((m.group(1) for m in re.finditer(r'''href=["'](/sports/football/roster/coaches/[^"']+)["'][^>]*>\s*(?:<[^>]+>\s*)*([^<]+)<''', h)
-                    if norm(unescape(m.group(2))) == norm(n)), None)
+                    if norm(unescape(m.group(2))) == norm(n) or f"/coaches/{slug(n)}/" in m.group(1)), None)
+        if not bio:  # the other big platform (WMT: Nebraska, Texas A&M...): the roster page links /roster/season/2026/staff/<name>
+            h = page(f"https://{host}/sports/football/roster/")
+            m = re.search(r'''href=["']((?:https://[^/"']+)?/sports/football/roster/(?:season/\d+/staff|coach)/%s/?)["']''' % re.escape(slug(n)), h)
+            bio = m and urllib.parse.urlparse(m.group(1)).path
         b = page(f"https://{host}{bio}") if bio else ""
         img = re.search(r'''og:image["']\s+content=["']([^"']+)["']''', b)
         if not img or "/logos/" in img.group(1):
             return None
         u = unescape(img.group(1))
+        if "/imgproxy/" in u:  # WMT: the original photo's address is the last part of the link, base64-encoded
+            try:
+                enc = u.rsplit("/", 1)[1].split(".")[0]
+                src = base64.urlsafe_b64decode(enc + "=" * (-len(enc) % 4)).decode()
+            except Exception:
+                return None
+            return (n, (src, host)) if src.startswith("https://") else None
         src = urllib.parse.parse_qs(urllib.parse.urlparse(u).query).get("url", [u])[0]  # images.sidearmdev.com/resize?url=...
         src = urllib.parse.urljoin(f"https://{host}/", src.split("?")[0])
         return n, ("https://images.sidearmdev.com/crop?" + urllib.parse.urlencode({"url": src, "width": 240, "height": 240, "type": "jpeg", "gravity": "smart"}), host)
@@ -498,21 +510,23 @@ def main():
     CACHE.write_text(json.dumps(cache, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
     espn = espn_nfl()
     everyone = sorted(set(names) | {m for (m, _, _, _) in E} | {p for (_, p, _, _) in E})
-    nopic = [n for n in everyone if not espn.get(n) and not (cache.get(n) or {}).get("img")]
-    nfl = nfl_sites() if nopic else {}
+    # the team's staff photo comes first for current head coaches (Terry's pick: newest, and the same look for everyone);
+    # for anyone else only when ESPN and Wikipedia have none (a retired coach may share a name with someone on a staff now)
+    nopic = {n for n in everyone if not espn.get(n) and not (cache.get(n) or {}).get("img")}
     now_job = {c["n"]: (lg, c["tm"]) for lg in ("nfl", "cfb") for c in (C.get(lg) or {}).get("coaches", []) if c.get("on")}
-    site = {n: nfl[norm(n)] for n in nopic if norm(n) in nfl}
-    site.update(college_sites([(n, now_job[n][1]) for n in nopic if n not in site and now_job.get(n, ("",))[0] == "cfb"]))
+    nfl = nfl_sites()
+    site = {n: nfl[norm(n)] for n in everyone if norm(n) in nfl and (now_job.get(n, ("",))[0] == "nfl" or n in nopic)}
+    site.update(college_sites([(n, tm) for n, (lg, tm) in now_job.items() if lg == "cfb" and n not in site]))
     people = {}
     for n in everyone:
         w = cache.get(n) or {}
         p = {"n": n}
-        if espn.get(n) or w.get("img"):
+        if n in site:
+            p["img"], p["cr"] = site[n]  # the team's own staff photo: credit the site
+        elif espn.get(n) or w.get("img"):
             p["img"] = espn.get(n) or w["img"]
             if not espn.get(n):
                 p["cr"] = 1  # photo from Wikipedia: credit it
-        elif n in site:
-            p["img"], p["cr"] = site[n]  # the team's own staff photo: credit the site
         if n in now_job:
             p["job"] = list(now_job[n])  # head coach right now: [league, team] (for site search)
         if w.get("title"):
