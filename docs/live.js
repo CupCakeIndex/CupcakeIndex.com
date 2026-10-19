@@ -1991,7 +1991,7 @@ const Live = (() => {
     return `<g class="ky-pill"><rect x="${x0.toFixed(1)}" y="${(y - 10).toFixed(1)}" width="${w.toFixed(1)}" height="19" rx="9.5"/><text x="${(x0 + w / 2).toFixed(1)}" y="${(y + 3.5).toFixed(1)}">${esc(txt)}</text></g>`; };
 
   // Player page (NFL kickers): every field goal this season, seen from the side about 45 degrees off, the posts on the right.
-  // Each dot is the spot he kicked from (a field goal's distance is measured from that spot to the posts, so it's exact).
+  // Each dot is the kick's line of scrimmage, the way kicks are called (field goal distance = yard line + 17).
   // All weeks: one arc, his longest make. Pick a game and its kicks play back one at a time: the ball's flight through the
   // uprights, or off to the side it missed (from the play text: "No Good, Wide Right"), dropping short, or blocked.
   async function kickChartInto(a, season, slot) {
@@ -2030,6 +2030,7 @@ const Live = (() => {
       const pt = (d, lat) => P(d, lat).map((n) => n.toFixed(1)).join(",");
       const strip = (d0, d1, l0 = -LAT, l1 = LAT) => `${pt(d0, l0)} ${pt(d1, l0)} ${pt(d1, l1)} ${pt(d0, l1)}`;
       const half = 3.08; // the uprights are 18.5 feet apart: 3.08 yards either side of the middle
+      const SNAP = 7; // the holder is 7 yards behind the line: a kick's distance to the posts is its line of scrimmage + 7 (+ 10 for the end zone)
       const g = [`<linearGradient id="pc-turf" x1="0" y1="1" x2="0" y2="0"><stop offset="0" class="pc-turf-near"/><stop offset="1" class="pc-turf-far"/></linearGradient>`,
         `<polygon class="pc-turf" points="${strip(top, 0)}"/>`]; // the field ends at the end line, where the posts stand
       for (let d = top; d > 10; d -= 10) if (Math.round((top - d) / 10) % 2 === 0) g.push(`<polygon class="pc-stripe" points="${strip(d, Math.max(10, d - 10))}"/>`);
@@ -2044,12 +2045,13 @@ const Live = (() => {
         g.push(`<line class="kc-fifty" x1="${m0x.toFixed(1)}" y1="${m0y.toFixed(1)}" x2="${m1x.toFixed(1)}" y2="${m1y.toFixed(1)}"/><text class="kc-axis" x="${(m1x + 4).toFixed(1)}" y="${(m1y - 4).toFixed(1)}">50 YD LINE</text>`); }
       { const ka = 9 / 217, kb = 12 / 304, a = PX * ka, c = -OB * C45 * kb, d2 = OB * C45 * kb, [mx, my] = P(60, 0); // 9 yards along, 12 across, centered on the 50
         g.push(`<image class="kc-logo" href="img/cupcake-mark.svg" width="217" height="304" transform="matrix(${a.toFixed(4)} 0 ${c.toFixed(4)} ${d2.toFixed(4)} ${(mx - a * 108.5 - c * 152).toFixed(1)} ${(my - d2 * 152).toFixed(1)})"/>`); }
-      // the scale is kick distance (yards from the posts), marked on the line the kicks sit on, so a 60-yard try sits on "60"
-      for (let d = 20; d <= top; d += 10) {
-        const [tx, ty] = P(d, 0), [ux, uy] = P(d, -2.2);
-        g.push(`<line class="kc-tick" x1="${tx.toFixed(1)}" y1="${ty.toFixed(1)}" x2="${ux.toFixed(1)}" y2="${uy.toFixed(1)}"/><text class="kc-num" x="${ux.toFixed(1)}" y="${(uy + 12).toFixed(1)}">${d}</text>`);
+      // kicks sit at their line of scrimmage, the way they're called: field goal distance = yard line + 17 (10 for the end zone,
+      // 7 for the snap back to the holder), so a 60-yarder sits on the 43. The scale marks field goal distance at that spot.
+      for (let fg = 20; fg - SNAP <= top; fg += 10) {
+        const [tx, ty] = P(fg - SNAP, 0), [ux, uy] = P(fg - SNAP, -2.2);
+        g.push(`<line class="kc-tick" x1="${tx.toFixed(1)}" y1="${ty.toFixed(1)}" x2="${ux.toFixed(1)}" y2="${uy.toFixed(1)}"/><text class="kc-num" x="${ux.toFixed(1)}" y="${(uy + 12).toFixed(1)}">${fg}</text>`);
       }
-      { const [lx2, ly2] = P(top, -LAT); g.push(`<text class="kc-axis" x="${(lx2 + 4).toFixed(1)}" y="${(ly2 + 13).toFixed(1)}">YARDS FROM THE POSTS</text>`); }
+      { const [lx2, ly2] = P(top, -LAT); g.push(`<text class="kc-axis" x="${(lx2 + 4).toFixed(1)}" y="${(ly2 + 13).toFixed(1)}">FIELD GOAL DISTANCE (YARD LINE + 17)</text>`); }
       for (const lat of [-half, half]) for (let d = 11; d < top; d++) if (d % 5) { const [x0, y0] = P(d, lat - 0.5), [x1, y1] = P(d, lat + 0.5); g.push(`<line class="pc-hash" x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}"/>`); }
       g.push(`<polygon class="pc-side" points="${strip(top, 0)}"/>`);
       // the goalposts on the end line, to scale: crossbar 10 feet up, uprights 35 feet above it. The far upright is drawn
@@ -2063,10 +2065,10 @@ const Live = (() => {
       pts.slice().sort((p, q) => q.d - p.d || p.i - q.i).forEach((k) => {
         let lat = 0;
         for (let n = 1; n < 60; n++) {
-          const tl = Math.ceil((n - 1) / 2) * 2.2 * (n % 2 ? 1 : -1), [tx, ty] = P(k.d, tl);
+          const tl = Math.ceil((n - 1) / 2) * 2.2 * (n % 2 ? 1 : -1), [tx, ty] = P(k.d - SNAP, tl);
           if (placed.every((q) => (q.x - tx) ** 2 + (q.y - ty) ** 2 >= (2 * rad + 0.5) ** 2)) { lat = tl; break; }
         }
-        const [x, y] = P(k.d, lat);
+        const [x, y] = P(k.d - SNAP, lat);
         placed.push({ x, y });
         spot.set(k.i, [x, y, lat]);
       });
@@ -2074,12 +2076,12 @@ const Live = (() => {
       // around 15 yards on a 50-yarder and crossing the posts about 6 yards up (over the crossbar); sideways it drifts out to
       // the side it missed, most of it late, the way a kick hooks. Short kicks land before the posts; blocked ones die off the spot.
       const flight = (k) => {
-        const lat0 = spot.get(k.i)[2], d1 = k.res === "b" ? Math.max(0, k.d - 5) : k.res === "s" ? 3 : 0;
+        const lat0 = spot.get(k.i)[2], d0 = k.d - SNAP, d1 = k.res === "b" ? Math.max(0, d0 - 5) : k.res === "s" ? 3 : 0;
         const aim = k.side === "l" ? half + 2 : k.side === "r" ? -half - 2 : 0;
         const apex = k.res === "b" ? 1.5 : 5 + k.d * 0.2, end = k.res === "g" || k.res === "m" ? 6 : 0;
         const out = [];
         for (let n = 0; n <= 36; n++) {
-          const t = n / 36, d = k.d + (d1 - k.d) * t, lat = lat0 + (aim - lat0) * t * t, h = apex * 4 * t * (1 - t) + end * t * t;
+          const t = n / 36, d = d0 + (d1 - d0) * t, lat = lat0 + (aim - lat0) * t * t, h = apex * 4 * t * (1 - t) + end * t * t;
           const [x, y] = P(d, lat, h);
           out.push(`${n ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`);
         }
@@ -2107,7 +2109,7 @@ const Live = (() => {
         <div class="pc-ctl">${all ? "" : `<button class="gcv-live" id="kc-go">▶ Play</button>`}<span class="muted">${pts.length} kick${pts.length === 1 ? "" : "s"}${all ? " · pick a week to play them back" : ""}</span><span class="pc-legend">${chip("kc-k-make", "Good")}${pts.some((k) => k.res === "m") ? chip("kc-k-miss", "Missed") : ""}${pts.some((k) => k.res === "s") ? chip("kc-k-short", "Short") : ""}${pts.some((k) => k.res === "b") ? chip("kc-k-block", "Blocked") : ""}</span></div>
         <div class="pc-stage"><svg class="pc-field kc-field" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(a.displayName)} kick chart">${g.join("")}</svg></div>
         <p class="kc-play muted" id="kc-play">${all ? `The arc is his longest make. Tap a kick for the play.` : "Tap a kick for the play."}</p>
-        <p class="note">Every field goal try (nflverse play-by-play, through Week ${file.ranks?.kick?._wk ?? "–"}). Seen from the side: each dot is the spot he kicked from (the distance is exact), and the line is the ball's flight. A miss wide left goes behind the far upright, wide right in front of the near one; which way a miss went comes from the play-by-play text. Ranks: NFL kickers with ${file.ranks?.kick?._min ?? "–"}+ tries.</p>`;
+        <p class="note">Every field goal try (nflverse play-by-play, through Week ${file.ranks?.kick?._wk ?? "–"}). Seen from the side: each dot is the kick's line of scrimmage (field goal distance = yard line + 17), and the line is the ball's flight. A miss wide left goes behind the far upright, wide right in front of the near one; which way a miss went comes from the play-by-play text. Ranks: NFL kickers with ${file.ranks?.kick?._min ?? "–"}+ tries.</p>`;
       const svg = slot.querySelector(".kc-field"), ball = svg.querySelector("#kc-ball");
       // drag across the field: a line at that distance, with how far it is from the posts and which yard line it is
       svg.insertAdjacentHTML("beforeend", `<g class="sc-scan hidden"></g>`);
@@ -2115,7 +2117,7 @@ const Live = (() => {
       scrubber(svg, (p) => {
         const d = Math.round(Math.min(top, Math.max(0, top - (p.x - LEFT) / PX)));
         const [x0, y0] = P(d, -LAT), [x1, y1] = P(d, LAT), line = d - 10;
-        scan.innerHTML = `<line class="sc-line" x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}"/>${scanTag(x1, y1 - 14, d <= 10 ? `${d} yds · end zone` : `${d} yds · the ${line > 50 ? 100 - line : line}`)}`;
+        scan.innerHTML = `<line class="sc-line" x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}"/>${scanTag(x1, y1 - 14, d <= 10 ? "end zone" : `${d + SNAP}-yd FG · from the ${line > 50 ? 100 - line : line}`)}`;
         scan.classList.remove("hidden");
       }, () => scan.classList.add("hidden"));
       pinchPan(slot.querySelector(".kc .pc-stage"));
