@@ -2767,6 +2767,12 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .kc-arc.on { opacity: 1; stroke-width: 2.6; }
 .kc-dot.on { stroke: var(--ink); stroke-width: 2; }
 .kc-play { min-height: 1.4em; margin: 8px 0 0; font-size: 13px; }
+.kc-arc.long { opacity: .9; stroke-width: 2.2; }
+.kc-long { fill: var(--good); font: 700 10px var(--font-head); letter-spacing: .08em; text-anchor: middle; }
+.kc-num { font-size: 11px; text-anchor: middle; }
+.kc-ball { fill: #8a5a2b; stroke: #fff; stroke-width: 1.2; opacity: 0; }
+.kc-ball.on { opacity: 1; }
+.kc-field .kc-wait { opacity: 0; }
 .ay-key.kc-k-make { background: var(--good); }
 .ay-key.kc-k-miss { background: #ff2e63; }
 .ay-key.kc-k-short { background: none; border: 2px solid #ff2e63; box-sizing: border-box; }

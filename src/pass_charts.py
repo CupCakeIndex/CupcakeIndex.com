@@ -7,14 +7,15 @@ docs/data/nfl/<season>/charts/<espn id>.json
   {"pass":   [[week, quarter, clock, air yards, "left|middle|right", result, yards after catch, play text], ...],
    "target": [same, for the receiver],
    "rush":   [[week, quarter, clock, yards, "left end|left tackle|...|up the middle|...", result, 0, play text], ...],
-   "kick":   [[week, quarter, clock, field goal distance, "l|c|r" (wide left / between the uprights / wide right), result, 0, play text], ...],
+   "kick":   [[week, quarter, clock, field goal distance, "l|c|r" (wide left / between the uprights / wide right), result,
+              "l|c|r" (left hash / middle / right hash, ESTIMATED), play text], ...],
    "xp":     [extra points made, tried],
    "dates":  {week: "YYYY-MM-DD"}, so the page can match weeks to ESPN's games (playoff weeks are 19+),
    "ranks":  {"pass": {"adot": [rank, out of], ..., "_min": qualifying count, "_wk": through week}, ...}}
 
 result: c = caught, t = touchdown, i = incomplete, x = intercepted; runs: r = run, t = touchdown, f = fumble lost;
 kicks: g = good, m = missed (wide or off an upright), s = short, b = blocked. Which way a kick missed comes from the play text
-("No Good, Wide Right"); nflverse has no other location for kicks.
+("No Good, Wide Right"). No free data says which hash a kick came from, so it's estimated from the plays before it (hash_before).
 Weeks nflverse hasn't posted yet are filled in on the page from ESPN. Runs in viz.yml (python src/pass_charts.py).
 """
 import json
@@ -37,10 +38,34 @@ def num(x):
         return None
 
 
+def hash_step(r, spot):
+    """The ball's hash after this play (l / c / r), from where the play went. Plays that don't move the ball (an incomplete
+    pass, a spike, a penalty) leave it where it was; a kneel or sack is taken as the middle. A rough estimate: a short run to
+    the left can still end between the hashes."""
+    side = lambda x: {"left": "l", "right": "r"}.get(x or "", "c")  # noqa: E731
+    if r.get("play_type") == "no_play" or r.get("qb_spike") == "1":
+        return spot
+    if r.get("qb_kneel") == "1" or r.get("sack") == "1":
+        return "c"
+    if r.get("pass_attempt") == "1":
+        return side(r.get("pass_location")) if r.get("complete_pass") == "1" else spot
+    if r.get("rush_attempt") == "1":
+        return side(r.get("run_location"))
+    return spot
+
+
 def build(season):
     espn = {r["gsis_id"]: r["espn_id"] for r in nflverse_csv(f"{NFLV}/players/players.csv", "players.csv") if r.get("espn_id") and r.get("gsis_id")}
     by = defaultdict(lambda: {"pass": [], "target": [], "rush": [], "kick": [], "dates": {}})
+    spot = {}  # game -> (team with the ball, estimated hash l / c / r) for the kick charts
     for r in pbp(season):
+        gid, team = r.get("game_id"), r.get("posteam")
+        had, where = spot.get(gid, ("", "c"))
+        before = where if team and had == team else "c"  # a new possession starts in the middle
+        if r.get("play_type") in ("kickoff", "punt", "extra_point", "field_goal"):
+            spot[gid] = ("", "c")  # the next possession starts in the middle
+        elif team:
+            spot[gid] = (team, hash_step(r, before))
         if r.get("season_type") != "REG" and r.get("season_type") != "POST":
             continue
         if r.get("two_point_attempt") == "1" or r.get("qb_spike") == "1" or r.get("qb_kneel") == "1" or r.get("play_type") == "no_play":
@@ -52,7 +77,7 @@ def build(season):
             d = (r.get("desc") or "").lower()
             res = {"made": "g", "blocked": "b"}.get(r.get("field_goal_result"), "s" if "short" in d else "m")
             side = "c" if res in "gsb" else "l" if re.search(r"wide left|left upright", d) else "r" if re.search(r"wide right|right upright", d) else "c"
-            by[kicker]["kick"].append([wk, q, clock, int(num(r["kick_distance"])), side, res, 0, desc])
+            by[kicker]["kick"].append([wk, q, clock, int(num(r["kick_distance"])), side, res, before, desc])
             by[kicker]["dates"][wk] = when
             continue
         if r.get("play_type") == "extra_point" and kicker and r.get("extra_point_result") in ("good", "failed", "blocked"):
