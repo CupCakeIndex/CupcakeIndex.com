@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-19T06:55:53Z",
+ "updated": "2026-10-19T07:55:37Z",
  "teams": {
   "nfl:22": {
    "name": "Arizona Cardinals",
@@ -120,13 +120,6 @@
    "id": "14",
    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lar.png"
   },
-  "nfl:15": {
-   "name": "Miami Dolphins",
-   "short": "Dolphins",
-   "lg": "nfl",
-   "id": "15",
-   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/mia.png"
-  },
   "nfl:17": {
    "name": "New England Patriots",
    "short": "Patriots",
@@ -217,13 +210,6 @@
    "lg": "cfb",
    "id": "252",
    "logo": "https://cdn.collegefootballdata.com/logos/500/252.png"
-  },
-  "cfb:2132": {
-   "name": "Cincinnati",
-   "short": "Cincinnati",
-   "lg": "cfb",
-   "id": "2132",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/2132.png"
   },
   "cfb:38": {
    "name": "Colorado",
@@ -379,13 +365,6 @@
    "id": "194",
    "logo": "https://cdn.collegefootballdata.com/logos/500/194.png"
   },
-  "cfb:201": {
-   "name": "Oklahoma",
-   "short": "Oklahoma",
-   "lg": "cfb",
-   "id": "201",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/201.png"
-  },
   "cfb:197": {
    "name": "Oklahoma State",
    "short": "Oklahoma State",
@@ -519,12 +498,12 @@
    "id": "254",
    "logo": "https://cdn.collegefootballdata.com/logos/500/254.png"
   },
-  "cfb:238": {
-   "name": "Vanderbilt",
-   "short": "Vanderbilt",
+  "cfb:154": {
+   "name": "Wake Forest",
+   "short": "Wake Forest",
    "lg": "cfb",
-   "id": "238",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/238.png"
+   "id": "154",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/154.png"
   },
   "cfb:265": {
    "name": "Washington State",
@@ -532,16 +511,32 @@
    "lg": "cfb",
    "id": "265",
    "logo": "https://cdn.collegefootballdata.com/logos/500/265.png"
-  },
-  "cfb:277": {
-   "name": "West Virginia",
-   "short": "West Virginia",
-   "lg": "cfb",
-   "id": "277",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/277.png"
   }
  },
  "items": [
+  {
+   "title": "Weigman, Houston deliver 35-32 statement win over Oklahoma State",
+   "url": "https://sports.yahoo.com/articles/weigman-houston-deliver-35-32-073152861.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-19T07:31:52Z",
+   "summary": "Conner Weigman delivers a career performance as Houston outpaces the Oklahoma State offense.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/7500436319594187b0c05a3c7e71a952.jpg",
+   "teams": [
+    "cfb:197",
+    "cfb:248"
+   ]
+  },
+  {
+   "title": "Tucker Kraft dodges knee injury to finish with five receptions",
+   "url": "https://sports.yahoo.com/articles/tucker-kraft-dodges-knee-injury-072007111.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-19T07:20:07Z",
+   "summary": "Tucker Kraft was checked out for a knee injury but returned and finished with 37 yards on five receptions in Week 6.",
+   "image": "",
+   "teams": []
+  },
   {
    "title": "Christian Watson lets touchdown slip through his fingers",
    "url": "https://sports.yahoo.com/articles/christian-watson-lets-touchdown-slip-063835298.html",
@@ -908,6 +903,31 @@
    ]
   },
   {
+   "title": "Jets defense takes a major step back versus Patriots after historic performance: ‘Tough to explain’",
+   "url": "https://sports.yahoo.com/articles/jets-defense-takes-major-step-033102708.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-19T03:31:02Z",
+   "summary": "A week after the Jets sacked Cleveland’s Deshaun Watson eight times, they were unable to come up with any on Sunday.",
+   "image": "https://media.zenfs.com/en/ny_post_sports_articles_389/d5bcaf2fce276fdf70c50111cec207e0.jpg",
+   "teams": [
+    "nfl:17",
+    "nfl:20"
+   ]
+  },
+  {
+   "title": "Four-Star Tight End Edwards Flips His Commitment from Cal to an SEC School",
+   "url": "https://sports.yahoo.com/articles/four-star-tight-end-edwards-032422625.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-19T03:24:22Z",
+   "summary": "Rahzario Edwards is now committed to Mississippi for 2027 a day after Cal's poor showing against Wake Forest",
+   "image": "https://media.zenfs.com/en/california_golden_bears_on_si_videos_307/cea82ccb3c38493f84fda22474c011a8.jpg",
+   "teams": [
+    "cfb:154"
+   ]
+  },
+  {
    "title": "Georgia’s Kirby Smart Makes Statement on QB Gunner Stockton After Auburn Loss",
    "url": "https://sports.yahoo.com/articles/georgia-kirby-smart-makes-statement-031708847.html",
    "source": "Yahoo Sports",
@@ -943,6 +963,18 @@
    "image": "https://media.zenfs.com/en/sb_nation_articles_115/60d56702ac81f4922884bc78d8fae2b9.jpg",
    "teams": [
     "cfb:349"
+   ]
+  },
+  {
+   "title": "3 things Owen Eshelman showed Washington State in his first career start",
+   "url": "https://sports.yahoo.com/articles/3-things-owen-eshelman-showed-030057924.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-19T03:00:57Z",
+   "summary": "Nobody - coach, player or fan - likes it when his or her football team sits with a 1-6 record and is going nowhere fast. The Washington State Cougars are in tha",
+   "image": "https://media.zenfs.com/en/washington_state_cougars_on_si_129/b0d6d20ad8448cb534445481815cb1a1.jpg",
+   "teams": [
+    "cfb:265"
    ]
   },
   {
@@ -997,19 +1029,6 @@
    ]
   },
   {
-   "title": "New York Jets vs. Miami Dolphins odds: Opening lines for Week 7 matchup",
-   "url": "https://sports.yahoo.com/articles/york-jets-vs-miami-dolphins-025211141.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-19T02:52:11Z",
-   "summary": "The Jets try to chalk up a win against the last place Dolphins",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/e237494b421f040dc61458482427c760.jpg",
-   "teams": [
-    "nfl:15",
-    "nfl:20"
-   ]
-  },
-  {
    "title": "Texas Football Can Right The Ship Starting This Weekend",
    "url": "https://sports.yahoo.com/articles/texas-football-ship-starting-weekend-025113831.html",
    "source": "Yahoo Sports",
@@ -1043,18 +1062,6 @@
    "image": "https://media.zenfs.com/en/the_sporting_news_articles_584/7c8e279e2085452ce09f58f54ec84266",
    "teams": [
     "cfb:252"
-   ]
-  },
-  {
-   "title": "Kenneth Walker continues to lead Chiefs’ offense with masterful running",
-   "url": "https://sports.yahoo.com/articles/kenneth-walker-continues-lead-chiefs-024500357.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-19T02:45:00Z",
-   "summary": "Kansas City’s prize free-agent signing is on an all-time heater to start the season.",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/98244d63b810aa93d60818dc9123c968.jpg",
-   "teams": [
-    "nfl:12"
    ]
   },
   {
@@ -1109,46 +1116,6 @@
    ]
   },
   {
-   "title": "CJ Baxter missed Kentucky win vs. Oklahoma due to injury: Will he play vs. Vanderbilt?",
-   "url": "https://sports.yahoo.com/articles/cj-baxter-missed-kentucky-win-022105444.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-19T02:21:05Z",
-   "summary": "Jason Patterson stepped up with CJ Baxter out. Why did Baxter sit out, and will he play when the Cats face the Commodores?",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/fb16049f3e3f63d81e07d3e6c35783ba.jpg",
-   "teams": [
-    "cfb:238",
-    "cfb:96",
-    "cfb:201"
-   ]
-  },
-  {
-   "title": "Seminoles Still Have a Chance to Become Bowl Eligible",
-   "url": "https://sports.yahoo.com/articles/seminoles-still-chance-become-bowl-020727736.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-19T02:07:27Z",
-   "summary": "With five games left on their schedule, Florida State can win four of those five games to finish 7-5. Even though they lost to Miami 43-35 in 2OT, keeping the game close has to be a confidence…",
-   "image": "",
-   "teams": [
-    "cfb:52",
-    "cfb:2390"
-   ]
-  },
-  {
-   "title": "Grades, overreactions from UC Bearcats late loss at West Virginia",
-   "url": "https://sports.yahoo.com/articles/grades-overreactions-uc-bearcats-loss-020522593.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-19T02:05:22Z",
-   "summary": "Here are overreactions, grades from Cincinnati Bearcats last-second loss vs. West Virginia",
-   "image": "https://media.zenfs.com/en/the_enquirer_natl_articles_358/04afe98cf28dfd8cd23494dea05740eb.jpg",
-   "teams": [
-    "cfb:2132",
-    "cfb:277"
-   ]
-  },
-  {
    "title": "College Football Bowl Projections Week 8: Full list of matchups, playoff predictions",
    "url": "https://on3.com/news/college-football-bowl-projections-week-8-full-list-of-matchups-playoff-predictions-2/",
    "source": "On3",
@@ -1194,6 +1161,18 @@
    "teams": [
     "cfb:245",
     "cfb:2390"
+   ]
+  },
+  {
+   "title": "Shane Steichen on Daniel Jones' job: He's our starting quarterback",
+   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/shane-steichen-on-daniel-jones-job-hes-our-starting-quarterback",
+   "source": "Pro Football Talk",
+   "league": "nfl",
+   "published": "2026-10-19T01:10:38Z",
+   "summary": "The Colts signed Daniel Jones to a two-year, $88 million extension in the offseason, even though he was returning from a torn right Achilles.",
+   "image": "https://nbcsports.brightspotcdn.com/dims4/default/0f567af/2147483647/strip/false/crop/3551x1997+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2Ffb%2F82%2F896c55f4461c9ffc4102aecb159b%2F2300860143.jpg",
+   "teams": [
+    "nfl:11"
    ]
   },
   {
@@ -2031,19 +2010,6 @@
     "cfb:38",
     "cfb:248",
     "cfb:254"
-   ]
-  },
-  {
-   "title": "Foster Moreau and Bhayshul Tuten have two TD catches each as Texans lead Jaguars",
-   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/foster-moreau-and-bhayshul-tuten-have-two-td-catches-each-as-texans-lead-jaguars",
-   "source": "Pro Football Talk",
-   "league": "nfl",
-   "published": "2026-10-18T15:05:52Z",
-   "summary": "Tuten also had a rushing touchdown overturned on a bad holding call.",
-   "image": "https://nbcsports.brightspotcdn.com/dims4/default/03bf996/2147483647/strip/false/crop/3474x1954+0+89/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F93%2Fe9%2F0e68d5dc41ef9e0ec4a9a6c57d4d%2F2300812262.jpg",
-   "teams": [
-    "nfl:30",
-    "nfl:34"
    ]
   },
   {
