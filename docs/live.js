@@ -1960,6 +1960,10 @@ const Live = (() => {
     });
   }
 
+  // ESPN's position is sometimes just wrong (it lists Justin Tucker, a kicker, as a wide receiver): espn id -> [abbreviation, name]
+  const POS_FIX = { 15683: ["PK", "Place Kicker"] };
+  const fixPos = (a) => (a && POS_FIX[a.id] ? { ...a, position: { ...(a.position || {}), abbreviation: POS_FIX[a.id][0], displayName: POS_FIX[a.id][1], name: POS_FIX[a.id][1] } } : a);
+
   // Drag to read a chart (like the win-odds chart): a mouse just hovers; on a phone, press and hold a moment, then drag (a quick
   // swipe still scrolls the page). show(p) gets the pointer in the SVG's own coordinates; hide() when you let go or leave.
   function scrubber(svg, show, hide) {
@@ -1980,7 +1984,9 @@ const Live = (() => {
   // All weeks: one arc, his longest make. Pick a game and its kicks play back one at a time: the ball's flight through the
   // uprights, or off to the side it missed (from the play text: "No Good, Wide Right"), dropping short, or blocked.
   async function kickChartInto(a, season, slot) {
-    const file = await getJSON(`data/nfl/${season}/charts/${encodeURIComponent(a.id)}.json`).catch(() => null);
+    // this season's chart file (src/pass_charts.py), or for past seasons the kick-only file (pass_charts.py <season> --kicks)
+    let file = await getJSON(`data/nfl/${season}/charts/${encodeURIComponent(a.id)}.json`).catch(() => null);
+    if (!file?.kick?.length) file = await getJSON(`data/nfl/${season}/kicks/${encodeURIComponent(a.id)}.json`).catch(() => null);
     const secs = (c) => { const [m, s2] = String(c).split(":").map(Number); return (m || 0) * 60 + (s2 || 0); };
     const kicks = (file?.kick || []).map((r, i) => ({ i, wk: r[0], q: r[1], clock: String(r[2]).replace(/^0(?=\d)/, ""), d: r[3], side: r[4], res: r[5],
       text: r[7] }));
@@ -2023,7 +2029,9 @@ const Live = (() => {
       }
       // our logo painted at midfield (the 50 is 60 yards from the posts), lying flat on the field: the picture's width runs along
       // the field and its height runs back toward the far sideline, foreshortened and slanted like everything else (docs/img/cupcake-mark.svg, 217 x 304)
-      { const ka = 15 / 217, kb = 20 / 304, a = PX * ka, c = -OB * C45 * kb, d2 = OB * C45 * kb, [mx, my] = P(60, 0); // 15 yards along, 20 across
+      { const [m0x, m0y] = P(60, -LAT), [m1x, m1y] = P(60, LAT); // the 50-yard line itself, brighter, and named at the far sideline
+        g.push(`<line class="kc-fifty" x1="${m0x.toFixed(1)}" y1="${m0y.toFixed(1)}" x2="${m1x.toFixed(1)}" y2="${m1y.toFixed(1)}"/><text class="kc-axis" x="${(m1x + 4).toFixed(1)}" y="${(m1y - 4).toFixed(1)}">50 YD LINE</text>`); }
+      { const ka = 9 / 217, kb = 12 / 304, a = PX * ka, c = -OB * C45 * kb, d2 = OB * C45 * kb, [mx, my] = P(60, 0); // 9 yards along, 12 across, centered on the 50
         g.push(`<image class="kc-logo" href="img/cupcake-mark.svg" width="217" height="304" transform="matrix(${a.toFixed(4)} 0 ${c.toFixed(4)} ${d2.toFixed(4)} ${(mx - a * 108.5 - c * 152).toFixed(1)} ${(my - d2 * 152).toFixed(1)})"/>`); }
       // the scale is kick distance (yards from the posts), marked on the line the kicks sit on, so a 60-yard try sits on "60"
       for (let d = 20; d <= top; d += 10) {
@@ -3298,7 +3306,7 @@ const Live = (() => {
     const lvl = lg === "nfl" ? "NFL" : "NCAA";
     const seasons = [...new Set(Object.values(cats).flatMap((C) => C.rows.filter((r) => r.level === lvl).map((r) => r.year)))].sort((a, b) => a - b);
     const debut = Math.min(...[bio.debutYear, seasons[0]].filter(Boolean)) || null;
-    return { id, lg, name: bio.displayName, short: bio.shortName || bio.displayName, pos: bio.position?.abbreviation, headshot: bio.headshot?.href,
+    return { id, lg, name: bio.displayName, short: bio.shortName || bio.displayName, pos: fixPos(bio).position?.abbreviation, headshot: bio.headshot?.href,
       born: birthYear(bio), active: bio.active !== false, lvl, debut, seasons, cats };
   }
 
@@ -3730,7 +3738,7 @@ const Live = (() => {
       ]);
     } catch (e) { return fail("player", e); }
     if (my !== token) return;
-    const a = bio.athlete;
+    const a = fixPos(bio.athlete);
     // college seasons for the game log (NFL players): ESPN keeps those games under his college athlete id
     const cseason = lg === "nfl" ? params.get("cseason") : null, cid = lg === "nfl" ? a.collegeAthlete?.id : null;
     const cgl = cid ? await api(`${WEB("cfb")}/athletes/${encodeURIComponent(cid)}/gamelog${cseason ? `?season=${encodeURIComponent(cseason)}` : ""}`, 3600000).catch(() => null) : null;

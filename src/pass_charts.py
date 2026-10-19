@@ -54,7 +54,7 @@ def hash_step(r, spot):
     return spot
 
 
-def build(season):
+def build(season, kicks_only=False):
     espn = {r["gsis_id"]: r["espn_id"] for r in nflverse_csv(f"{NFLV}/players/players.csv", "players.csv") if r.get("espn_id") and r.get("gsis_id")}
     by = defaultdict(lambda: {"pass": [], "target": [], "rush": [], "kick": [], "dates": {}})
     spot = {}  # game -> (team with the ball, estimated hash l / c / r) for the kick charts
@@ -143,6 +143,15 @@ def build(season):
                 rank = 1 + sum(1 for k in order[:i] if vals[k] != vals[pid])  # ties share a rank
                 by[pid].setdefault("ranks", {}).setdefault(mode, {"_min": need, "_wk": last_wk, "_qb": mode == "rush" and is_qb(by[pid])})[key] = [rank, len(order)]
 
+    if kicks_only:  # past seasons: just the kick charts (a few KB a kicker), in their own folder so pass charts still use ESPN's games
+        d = OUT / str(season) / "kicks"
+        d.mkdir(parents=True, exist_ok=True)
+        kickers = {pid: v for pid, v in by.items() if v["kick"]}
+        for pid, v in kickers.items():
+            out = {"kick": v["kick"], "xp": v.get("xp"), "dates": v["dates"], "ranks": {"kick": v.get("ranks", {}).get("kick")}}
+            (d / f"{pid}.json").write_text(json.dumps({k: x for k, x in out.items() if x}, separators=(",", ":")), encoding="utf-8")
+        print(f"kick charts {season}: {len(kickers)} kickers")
+        return
     d = OUT / str(season) / "charts"
     d.mkdir(parents=True, exist_ok=True)
     for pid, v in by.items():
@@ -151,4 +160,6 @@ def build(season):
 
 
 if __name__ == "__main__":
-    build(int(sys.argv[1]) if len(sys.argv) > 1 else season_now())
+    # python src/pass_charts.py [season] [--kicks]   (--kicks: kick charts only, for past seasons)
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    build(int(args[0]) if args else season_now(), kicks_only="--kicks" in sys.argv)

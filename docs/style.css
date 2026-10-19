@@ -2771,7 +2771,8 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .kc-long { fill: var(--good); font: 700 10px var(--font-head); letter-spacing: .08em; text-anchor: end; paint-order: stroke; stroke: var(--card); stroke-width: 3px; }
 .kc-num { fill: var(--ink); font: 700 12px var(--font-head); text-anchor: middle; opacity: .75; paint-order: stroke; stroke: var(--card); stroke-width: 3px; }
 .kc-tick { stroke: var(--accent); stroke-width: 2; opacity: .8; }
-.kc-logo { opacity: .2; pointer-events: none; }
+.kc-logo { opacity: .22; pointer-events: none; }
+.kc-fifty { stroke: var(--ink); stroke-width: 2; opacity: .45; }
 /* drag to read the kick / pass / rush charts (live.js scrubber) */
 .sc-scan { pointer-events: none; }
 /* pinch-zoomed player charts (live.js pinchPan): the box clips, and one finger pans instead of scrolling */
