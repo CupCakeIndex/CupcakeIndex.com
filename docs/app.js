@@ -229,7 +229,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "340"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "341"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -1587,5 +1587,36 @@ const scorePred = (g) => {
   const home = g.home_win_prob != null ? g.home_win_prob >= 0.5 : g.home_pts >= g.away_pts;
   return home ? `${g.home_pts}-${g.away_pts}` : `${g.away_pts}-${g.home_pts}`;
 };
+
+// ------------------------------------------------------------------ fold long explanations (less clutter)
+// Any long fine-print explanation on any page (p.note / p.fr-how, 160+ characters, or a .fold-how box) starts folded
+// behind "See how this works". Short notes stay out, and so do forms and Settings (instructions you need while filling
+// them in). Pages redraw themselves (live scores, Injuries), so one you opened stays open, remembered by its first words.
+const FOLD_OPEN = new Set();
+function foldNotes() {
+  document.querySelectorAll("p.note:not([data-fold]), p.fr-how:not([data-fold]), .fold-how:not([data-fold])").forEach((el) => {
+    const text = el.textContent.trim();
+    if (el.closest("form, #view-settings, #view-privacy, #view-updates, .nofold") || (!el.classList.contains("fold-how") && text.length < 160)) return;
+    el.dataset.fold = "1";
+    const key = text.slice(0, 60), b = document.createElement("button");
+    const set = (open) => {
+      el.classList.toggle("folded", !open);
+      b.setAttribute("aria-expanded", open);
+      b.textContent = open ? "Hide ▾" : `${el.dataset.foldLabel || "See how this works"} ▸`;
+      open ? FOLD_OPEN.add(key) : FOLD_OPEN.delete(key);
+    };
+    b.type = "button";
+    b.className = "fold-tog";
+    b.onclick = () => set(b.getAttribute("aria-expanded") !== "true");
+    el.before(b);
+    set(FOLD_OPEN.has(key));
+  });
+}
+let foldQueued = false;
+new MutationObserver(() => {
+  if (foldQueued) return;
+  foldQueued = true;
+  requestAnimationFrame(() => { foldQueued = false; foldNotes(); });
+}).observe(document.documentElement, { childList: true, subtree: true });
 
 document.addEventListener("DOMContentLoaded", init);

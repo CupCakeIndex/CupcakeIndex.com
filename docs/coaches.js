@@ -79,7 +79,7 @@ const Coaches = (() => {
         <tbody>${rows.map((c, i) => `<tr data-name="${esc((c.n + " " + c.st.map((s) => s[0]).join(" ")).toLowerCase())}"><td class="num muted">${i + 1}</td><td>${who(c)}</td>
           ${cols.map(([k, , , , cell]) => `<td class="num${k === sort ? " on" : ""}">${cell(c[scope], c)}</td>`).join("")}</tr>`).join("")
           || `<tr><td colspan="${cols.length + 2}" class="muted">No coaches.</td></tr>`}</tbody></table></div>
-      <div class="card prose co-how">
+      <div class="card prose co-how"><div class="fold-how" data-fold-label="How the Coach score works">
         <h3>How the Coach score works</h3>
         <p>It's 0 to 100, and 50 is an average head coach. ${{ t: "Only his games with his current team", c: "His whole career", r: "Last 3 seasons only" }[scope]}, and a coach needs ${min} games to get one.</p>
         <ul>
@@ -91,7 +91,7 @@ const Coaches = (() => {
         </ul>
         ${lg === "nfl" ? `<p><b>Rating boost</b> is what the coach adds to his team's power rating in our NFL model, in points. It comes from his teams' record against expectations in past seasons, shrunk for coaches with few games. In our tests on 2013–2025 it made the win chances a little sharper.</p>` : ""}
         <p class="muted">Data: ${lg === "nfl" ? `every NFL game since ${L.from} (nflverse)` : `every FBS game since ${L.from} (CollegeFootballData)`}, including the playoffs. Click a column to sort by it.</p>
-      </div>`;
+      </div></div>`;
     $("#co-all").onclick = (e) => { const b = e.target.closest("[data-v]"); if (b) go({ all: b.dataset.v }); };
     $("#co-scope").onclick = (e) => { const b = e.target.closest("[data-v]"); if (b) go({ scope: b.dataset.v === "t" ? null : b.dataset.v }); };
     el.querySelector("#co-table thead").onclick = (e) => {
