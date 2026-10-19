@@ -3372,7 +3372,8 @@ const Live = (() => {
 
   // Kicking: make % by distance (1-19 ... 50+) for one season or the career, picked with the buttons over it
   const KICK_SPLITS = [["fieldGoalsMade1_19-fieldGoalAttempts1_19", "1–19"], ["fieldGoalsMade20_29-fieldGoalAttempts20_29", "20–29"],
-    ["fieldGoalsMade30_39-fieldGoalAttempts30_39", "30–39"], ["fieldGoalsMade40_49-fieldGoalAttempts40_49", "40–49"], ["fieldGoalsMade50-fieldGoalAttempts50", "50+"]];
+    ["fieldGoalsMade30_39-fieldGoalAttempts30_39", "30–39"], ["fieldGoalsMade40_49-fieldGoalAttempts40_49", "40–49"], ["fieldGoalsMade50-fieldGoalAttempts50", "50+"],
+    ["xp", "XP"]]; // extra points: ESPN has made and tried as two stats
   function kickSplits(C, rows, career, pick) {
     const have = (v) => v && KICK_SPLITS.some(([k]) => v[k] != null);
     const seasons = rows.filter((r) => have(r.vals)).map((r) => [String(r.year), r.vals]);
@@ -3380,15 +3381,16 @@ const Live = (() => {
     const opts = [...seasons, ...(have(career) ? [["career", career]] : [])];
     const [sel, vals] = opts.find(([y]) => y === pick) || seasons.at(-1);
     const ma = (v) => { const m = /^(\d+)-(\d+)$/.exec(String(v ?? "")); return m ? [+m[1], +m[2]] : null; };
-    const W = 520, H = 190, base = 150, top = 22, cw = W / KICK_SPLITS.length;
+    const xp = (v) => (num(v.extraPointsMade) != null && num(v.extraPointAttempts) != null ? [num(v.extraPointsMade), num(v.extraPointAttempts)] : null);
+    const W = 600, H = 190, base = 150, top = 22, cw = W / KICK_SPLITS.length;
     const bars = KICK_SPLITS.map(([k, label], i) => {
-      const x = ma(vals[k]), cx = cw * i + cw / 2, pct = x && x[1] ? x[0] / x[1] : null, h = pct == null ? 0 : pct * (base - top);
-      return `${pct == null ? "" : `<rect class="cc-bar ks-bar${pct === 1 ? " full" : ""}" x="${(cx - 26).toFixed(1)}" y="${(base - h).toFixed(1)}" width="52" height="${h.toFixed(1)}"/>`}
+      const x = k === "xp" ? xp(vals) : ma(vals[k]), cx = cw * i + cw / 2, pct = x && x[1] ? x[0] / x[1] : null, h = pct == null ? 0 : pct * (base - top);
+      return `${pct == null ? "" : `<rect class="cc-bar ks-bar${k === "xp" ? " xp" : pct === 1 ? " full" : ""}" x="${(cx - 26).toFixed(1)}" y="${(base - h).toFixed(1)}" width="52" height="${h.toFixed(1)}"/>`}
         <text class="ks-pct" x="${cx.toFixed(1)}" y="${(base - h - 6).toFixed(1)}">${pct == null ? "–" : Math.round(pct * 100) + "%"}</text>
-        <text class="ks-yd" x="${cx.toFixed(1)}" y="${base + 17}">${label}</text><text class="ks-ma" x="${cx.toFixed(1)}" y="${base + 32}">${x ? `${x[0]}/${x[1]}` : ""}</text>`;
+        ${k === "xp" ? `<line class="ks-sep" x1="${(cw * i).toFixed(1)}" x2="${(cw * i).toFixed(1)}" y1="${top}" y2="${base + 34}"/>` : ""}<text class="ks-yd" x="${cx.toFixed(1)}" y="${base + 17}">${label}</text><text class="ks-ma" x="${cx.toFixed(1)}" y="${base + 32}">${x ? `${x[0]}/${x[1]}` : ""}</text>`;
     }).join("");
-    return `<div class="ks"><div class="ks-head"><h4>Make % by distance</h4>
-        <div class="seg" id="cc-ks">${opts.map(([y]) => `<button data-ks="${y}" class="${y === sel ? "active" : ""}">${y === "career" ? "Career" : y}</button>`).join("")}</div></div>
+    return `<div class="ks"><div class="ks-head"><h4>Make % by distance + extra points</h4>
+        <div class="seg" id="cc-ks" title="Field goals by distance, and extra points">${opts.map(([y]) => `<button data-ks="${y}" class="${y === sel ? "active" : ""}">${y === "career" ? "Career" : y}</button>`).join("")}</div></div>
       <svg viewBox="0 0 ${W} ${H}" class="ks-chart" role="img" aria-label="Field goal make percentage by distance, ${sel === "career" ? "career" : sel}">
         <line x1="0" x2="${W}" y1="${base}" y2="${base}" class="cc-axis"/>${bars}</svg></div>`;
   }

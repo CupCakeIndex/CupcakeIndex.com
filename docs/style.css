@@ -2777,9 +2777,12 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .ks-chart { display: block; width: 100%; max-width: 560px; height: auto; }
 .ks-bar { fill: var(--accent); }
 .ks-bar.full { fill: var(--good); }
+.ks-bar.xp { fill: #4f9dff; }  /* extra points: their own color, apart from the field goal bars */
 .ks-pct { fill: var(--ink); font: 700 15px var(--font-head); text-anchor: middle; }
 .ks-yd { fill: var(--ink); font: 600 12px var(--font-head); text-anchor: middle; }
 .ks-ma { fill: var(--muted); font: 400 11px var(--font-head); text-anchor: middle; }
+.ks-sep { stroke: var(--line); stroke-dasharray: 3 3; }
+.ks-chart { max-width: 640px; }
 .kc-ball { fill: #8a5a2b; stroke: #fff; stroke-width: 1.2; opacity: 0; }
 .kc-ball.on { opacity: 1; }
 .kc-field .kc-wait { opacity: 0; }
