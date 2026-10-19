@@ -56,6 +56,23 @@ ROLE = {"GA": "Graduate assistant", "DC": "Defensive coordinator", "OC": "Offens
         "co-OC": "Co-offensive coordinator", "ILB": "Inside linebackers", "OLB": "Outside linebackers", "DE": "Defensive ends", "DT": "Defensive tackles"}
 
 
+# Titles won as a head coach before our game data starts (NFL 1999, college 2006): Super Bowls I-XXXIII and
+# national titles through 2005 (both teams in a split year; before 1980 only for coaches who show up in the trees). Later titles come from our own data (coaches.json "tiy").
+TITLES_BEFORE = {
+    "nfl": {"Vince Lombardi": [1966, 1967], "Weeb Ewbank": [1968], "Hank Stram": [1969], "Don McCafferty": [1970],
+            "Tom Landry": [1971, 1977], "Don Shula": [1972, 1973], "Chuck Noll": [1974, 1975, 1978, 1979], "John Madden": [1976],
+            "Tom Flores": [1980, 1983], "Bill Walsh": [1981, 1984, 1988], "Joe Gibbs": [1982, 1987, 1991], "Mike Ditka": [1985],
+            "Bill Parcells": [1986, 1990], "George Seifert": [1989, 1994], "Jimmy Johnson": [1992, 1993], "Barry Switzer": [1995],
+            "Mike Holmgren": [1996], "Mike Shanahan": [1997, 1998]},
+    "cfb": {"Bear Bryant": [1961, 1964, 1965, 1973, 1978, 1979], "Johnny Majors": [1976], "Vince Dooley": [1980], "Danny Ford": [1981], "Joe Paterno": [1982, 1986], "Howard Schnellenberger": [1983],
+            "LaVell Edwards": [1984], "Barry Switzer": [1974, 1975, 1985], "Jimmy Johnson": [1987], "Lou Holtz": [1988],
+            "Dennis Erickson": [1989, 1991], "Bill McCartney": [1990], "Bobby Ross": [1990], "Don James": [1991],
+            "Gene Stallings": [1992], "Bobby Bowden": [1993, 1999], "Tom Osborne": [1994, 1995, 1997], "Steve Spurrier": [1996],
+            "Lloyd Carr": [1997], "Phillip Fulmer": [1998], "Bob Stoops": [2000], "Larry Coker": [2001], "Jim Tressel": [2002],
+            "Nick Saban": [2003], "Pete Carroll": [2003, 2004], "Mack Brown": [2005]},
+}
+
+
 # a "(KY)" after a school is its state, not a role (GA and DE are left out: graduate assistant, defensive ends)
 STATES = set("AL AK AZ AR CA CO CT FL HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OR PA RI SC SD "
              "TN TX UT VT VA WA WV WI WY".split())
@@ -514,6 +531,7 @@ def main():
     # for anyone else only when ESPN and Wikipedia have none (a retired coach may share a name with someone on a staff now)
     nopic = {n for n in everyone if not espn.get(n) and not (cache.get(n) or {}).get("img")}
     now_job = {c["n"]: (lg, c["tm"]) for lg in ("nfl", "cfb") for c in (C.get(lg) or {}).get("coaches", []) if c.get("on")}
+    won = {(lg, c["n"]): c["c"].get("tiy", []) for lg in ("nfl", "cfb") for c in (C.get(lg) or {}).get("coaches", []) if c.get("c")}
     nfl = nfl_sites()
     site = {n: nfl[norm(n)] for n in everyone if norm(n) in nfl and (now_job.get(n, ("",))[0] == "nfl" or n in nopic)}
     site.update(college_sites([(n, tm) for n, (lg, tm) in now_job.items() if lg == "cfb" and n not in site]))
@@ -529,6 +547,9 @@ def main():
                 p["cr"] = 1  # photo from Wikipedia: credit it
         if n in now_job:
             p["job"] = list(now_job[n])  # head coach right now: [league, team] (for site search)
+        tr = {lg: sorted(set(TITLES_BEFORE[lg].get(n, [])) | set(won.get((lg, n), []))) for lg in ("nfl", "cfb")}
+        if tr["nfl"] or tr["cfb"]:
+            p["tr"] = {lg: ys for lg, ys in tr.items() if ys}  # titles as a head coach: {"cfb": [2003, 2009, ...]}
         if w.get("title"):
             p["w"] = w["title"]
         people[slug(n)] = p

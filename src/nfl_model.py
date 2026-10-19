@@ -54,6 +54,18 @@ def _num(v):
         return None
 
 
+# nflverse's games.csv coach mistakes: {(season, team): coach}. Its 2026 Bills games all say Sean McDermott, but
+# Joe Brady took over in the offseason (ESPN and buffalobills.com agree). Add a line here when a coach change is missed.
+COACH_FIX = {(2026, "BUF"): "Joe Brady"}
+COACH_NAME_FIX = {"Klint Kubliak": "Klint Kubiak"}
+
+
+def game_coach(r, side):
+    """The 'home' or 'away' head coach in a games.csv row, with nflverse's known mistakes fixed."""
+    c = COACH_FIX.get((int(r["season"]), r[f"{side}_team"]), r.get(f"{side}_coach") or "")
+    return COACH_NAME_FIX.get(c, c) or None
+
+
 def load_games(path=RAW / "games.csv"):
     """Regular-season games: {season: [game]} with scores (None if not played yet) and starting QBs."""
     out = defaultdict(list)
@@ -73,7 +85,7 @@ def load_games(path=RAW / "games.csv"):
                 "roof": r.get("roof") or None, "temp": _num(r.get("temp")), "wind": _num(r.get("wind")),
                 "gameday": r.get("gameday") or None, "gametime": r.get("gametime") or None,
                 "espn": r.get("espn") or None,
-                "hcoach": r.get("home_coach") or None, "acoach": r.get("away_coach") or None,
+                "hcoach": game_coach(r, "home"), "acoach": game_coach(r, "away"),
             })
     return out
 
@@ -128,7 +140,7 @@ def coach_record(path=RAW / "games.csv", cap=17):
             if hs is None or as_ is None or line is None:
                 continue
             d = max(-cap, min(cap, hs - as_ - line))
-            for c, sign in ((r.get("home_coach"), 1), (r.get("away_coach"), -1)):
+            for c, sign in ((game_coach(r, "home"), 1), (game_coach(r, "away"), -1)):
                 if c:
                     out[c][int(r["season"])][0] += sign * d
                     out[c][int(r["season"])][1] += 1

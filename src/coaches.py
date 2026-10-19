@@ -63,20 +63,21 @@ def nfl_games():
             p = phi(line / 13.0) if line is not None else None  # books: + = home favored
             post, title = r["game_type"] != "REG", r["game_type"] == "SB"
             h, a = MOVED.get(r["home_team"], r["home_team"]), MOVED.get(r["away_team"], r["away_team"])
-            rows.append((int(r["season"]), r["home_coach"], h, a, hs, as_, post, title, p))
-            rows.append((int(r["season"]), r["away_coach"], a, h, as_, hs, post, title, None if p is None else 1 - p))
+            rows.append((int(r["season"]), nfl_model.game_coach(r, "home"), h, a, hs, as_, post, title, p))
+            rows.append((int(r["season"]), nfl_model.game_coach(r, "away"), a, h, as_, hs, post, title, None if p is None else 1 - p))
     return rows
 
 
 def nfl_current():
     """{team: coach} for this season: the coach listed for each team's latest game (played or next)."""
+    import nfl_model
     cur, out = str(season_now()), {}
     with open(ROOT / "data" / "raw" / "nfl" / "games.csv", encoding="utf-8") as f:
         games = [r for r in csv.DictReader(f) if r["season"] == cur]
     played = [r for r in games if r["home_score"]]
     for r in played or games:  # in order, so the latest game wins
-        out[MOVED.get(r["home_team"], r["home_team"])] = r["home_coach"]
-        out[MOVED.get(r["away_team"], r["away_team"])] = r["away_coach"]
+        out[MOVED.get(r["home_team"], r["home_team"])] = nfl_model.game_coach(r, "home")
+        out[MOVED.get(r["away_team"], r["away_team"])] = nfl_model.game_coach(r, "away")
     return out
 
 
@@ -186,7 +187,7 @@ def stats(games, rec, fbs, coach_of):
         lift_n += len(mine)
     return {"g": g, "w": w, "l": g - w - t, "t": t, "pct": round((w + 0.5 * t) / g, 3) if g else None,
             "pw": sum(x[4] > x[5] for x in post), "pl": sum(x[4] < x[5] for x in post),
-            "ti": sum(x[7] and x[4] > x[5] for x in games), "gw": gw, "gl": sum(x[4] < x[5] for x in vs),
+            "ti": sum(x[7] and x[4] > x[5] for x in games), "tiy": sorted({x[0] for x in games if x[7] and x[4] > x[5]}), "gw": gw, "gl": sum(x[4] < x[5] for x in vs),
             "cw": cw, "cup": round(100 * cw / w) if w else None, "ow": sum(x[4] > x[5] for x in one), "ol": sum(x[4] < x[5] for x in one),
             "woe": round(woe, 1), "woe_s": round(woe / len({x[0] for x in exp}), 2) if exp else None,
             "lift": round(100 * lift_s / lift_n, 1) if lift_n else None, "yrs": len(yrs), "y1": yrs[0], "y2": yrs[-1]}

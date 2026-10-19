@@ -2672,6 +2672,15 @@ a.tr-node.tr-hit::after { content: ""; position: absolute; inset: -5px; border: 
 a.tr-node:hover { border-color: var(--accent); text-decoration: none; }
 .tr-node span { min-width: 0; }
 .tr-node b { font-size: 12.5px; display: block; }
+/* titles as a head coach: one trophy each (coaches.js trophies), gold cups for college, silver Lombardis for the NFL */
+.tro-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; margin: 1px 0 2px; }
+.tro { display: inline-flex; align-items: center; gap: 1px; line-height: 0; }
+.tro svg { width: 12px; height: 12px; fill: currentColor; flex: none; }
+.tro-cfb { color: #d9a514; }
+.tro-nfl { color: #aab3bd; }
+.tro-row.big { margin: 6px 0 4px; }
+.tro-row.big svg { width: 17px; height: 17px; }
+.tro small { margin-left: 5px; font-size: 11px; line-height: 1.2; color: var(--muted); }
 .tr-node small { font-size: 10.5px; color: var(--muted); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .tr-node small.tr-now { color: var(--accent); -webkit-line-clamp: 1; }
 /* the head coach on a team page header */

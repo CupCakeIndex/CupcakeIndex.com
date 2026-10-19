@@ -120,6 +120,14 @@ const Coaches = (() => {
   const SILHOUETTE = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9.2" r="4.3"/><path d="M2.8 24c.6-5.3 4.4-8.6 9.2-8.6s8.6 3.3 9.2 8.6z"/></svg>`;
   const pic = (p, n, cls = "") => (safeUrl(p?.img) ? `<img class="co-face ${cls}" src="${esc(p.img)}" alt="" loading="lazy" decoding="async">`
     : `<span class="co-face ph ${cls}" role="img" aria-label="${esc(n)}">${SILHOUETTE}</span>`); // no photo: a blank head and shoulders
+  // titles as a head coach (coach_tree.json "tr"): one trophy per title, a gold cup for college, a silver Lombardi for the NFL
+  const CUP = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1h8v4.5a4 4 0 0 1-8 0zM1.5 2H4v1.4H2.9v.6a1.6 1.6 0 0 0 1.3 1.6l-.3 1.3A3 3 0 0 1 1.5 4zM14.5 2H12v1.4h1.1v.6a1.6 1.6 0 0 1-1.3 1.6l.3 1.3A3 3 0 0 0 14.5 4zM7 9.4h2V12H7zM4.5 12.5h7V15h-7z"/></svg>`;
+  const LOMBARDI = `<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="4.6" rx="3.3" ry="4.4" transform="rotate(-40 8 4.6)"/><path d="M6.4 8.8h3.2l1.2 4H5.2zM3.8 12.8h8.4V15.4H3.8z"/></svg>`;
+  const TITLE = { cfb: ["national title", CUP], nfl: ["Super Bowl", LOMBARDI] };
+  const trophies = (p, label = false) => !p?.tr ? "" : ["cfb", "nfl"].filter((lg) => p.tr[lg]?.length).map((lg) => {
+    const ys = p.tr[lg], [what, icon] = TITLE[lg], txt = `${ys.length} ${what}${ys.length > 1 ? "s" : ""}`;
+    return `<span class="tro tro-${lg}" title="${esc(txt)}: ${ys.join(", ")}" role="img" aria-label="${esc(txt)}">${icon.repeat(ys.length)}${label ? `<small>${esc(txt)}</small>` : ""}</span>`;
+  }).join("");
   const teamName = (lg, key) => team(lg, key).name || key;
   const teamLink = (lg, key) => { const t = team(lg, key); return t.id ? `<a href="#/team/${esc(t.id)}?league=${lg}">${logo(t)} ${esc(teamName(lg, key))}</a>` : esc(key); };
   function findCoach(s) { // [[league, coach]] for every league he was a head coach in, his current job first
@@ -179,7 +187,7 @@ const Coaches = (() => {
     const node = (k, es, kids, up) => {
       const p = P[k] || { n: k }, f = findCoach(k)[0], now = f && f[1].on ? `<small class="tr-now">${esc(teamName(f[0], f[1].tm))}</small>` : "";
       const tog = kids ? `<button class="tr-tog" type="button" aria-expanded="false" data-n="${kids.n}" title="Show or hide the ${kids.n} coach${kids.n > 1 ? "es" : ""} behind ${esc(p.n)}">+${kids.n}</button>` : "";
-      return `<li><a class="tr-node" href="${link("coach", k)}" title="${esc(p.n)}: ${esc(how(es, up))}">${pic(p, p.n)}<span><b>${esc(p.n)}</b>${now}<small>${esc(how(es, up))}</small></span></a>${tog}${kids ? kids.html : ""}</li>`;
+      return `<li><a class="tr-node" href="${link("coach", k)}" title="${esc(p.n)}: ${esc(how(es, up))}">${pic(p, p.n)}<span><b>${esc(p.n)}</b>${trophies(p) ? `<span class="tro-row">${trophies(p)}</span>` : ""}${now}<small>${esc(how(es, up))}</small></span></a>${tog}${kids ? kids.html : ""}</li>`;
     };
     const branch = (k, depth, max, seen, from, to) => { // from/to: 1 -> 0 walks up to mentors, 0 -> 1 walks down to assistants
       if (depth > max) return null;
@@ -190,7 +198,7 @@ const Coaches = (() => {
     const nDown = new Set(E.filter((e) => e[0] === s).map((e) => e[1])).size;
     // drawn left to right like an ancestry chart: him, then the next generation in the column to his right, and so on
     const chart = (kids) => `${/class="tr-tog"/.test(kids) ? `<div class="presets tr-all"><button type="button" data-tr="1">Expand all</button><button type="button" data-tr="">Collapse all</button></div>` : ""}
-      <div class="htree"><ul><li><span class="tr-node me">${pic(me, name)}<span><b>${esc(name)}</b></span></span>${kids}</li></ul></div>`;
+      <div class="htree"><ul><li><span class="tr-node me">${pic(me, name)}<span><b>${esc(name)}</b>${trophies(me) ? `<span class="tro-row">${trophies(me)}</span>` : ""}</span></span>${kids}</li></ul></div>`;
     const tree = `${upHtml || downHtml ? `<div class="tr-find"><div class="tr-search"><input id="tr-q" type="search" autocomplete="off" placeholder="Find a coach in this tree…" aria-label="Find a coach in this tree">
         <div id="tr-res" class="gs-results hidden" role="listbox"></div></div><small id="tr-msg" class="muted"></small></div>` : ""}<div class="co-tree">
         <div><h4>Came from</h4>${upHtml ? `<p class="note">Head coaches he worked under (next column), and who they worked under.</p>${chart(upHtml)}` : `<p class="muted">No head coaches in our data that he worked under.</p>`}</div>
@@ -223,16 +231,17 @@ const Coaches = (() => {
     const profile = bgHtml || scHtml ? `<div class="card co-prof"><h3>Profile</h3>${bgHtml}${scHtml}</div>` : "";
     // quick facts under his name: this season, career, coach score, playoffs, offense/defense
     const now = c && c.sea?.find((r) => r[1] === c.tm && r[0] === Math.max(...c.sea.map((x) => x[0])));
+    const tiAll = (me?.tr?.[lg] || []).length || c?.c.ti || 0; // every title, also ones before our data (Saban's 2003 LSU title)
     const fact = (k, v) => `<span class="co-fact"><small>${esc(k)}</small><b>${v}</b></span>`;
     const facts = !c ? "" : `<div class="co-facts">
         ${c.on && now ? fact(`${now[0]} season`, `${now[2]}-${now[3]}${now[4] ? "-" + now[4] : ""}`) : ""}
         ${fact("Career", `${c.c.w}-${c.c.l}${c.c.t ? "-" + c.c.t : ""}`)}
         ${c.c.score != null ? fact("Coach score", `${c.c.score}<em>#${c.c.rk}</em>`) : ""}
-        ${c.c.pw + c.c.pl ? fact("Postseason", `${c.c.pw}-${c.c.pl}${c.c.ti ? `<em>${c.c.ti} title${c.c.ti > 1 ? "s" : ""}</em>` : ""}`) : ""}
+        ${c.c.pw + c.c.pl ? fact("Postseason", `${c.c.pw}-${c.c.pl}${tiAll ? `<em>${tiAll} title${tiAll > 1 ? "s" : ""}</em>` : ""}`) : ""}
         ${bg ? fact("Background", esc({ off: "Offense", def: "Defense", st: "Special teams", both: "Both sides" }[bg.lab])) : ""}</div>`;
     el.innerHTML = `<div class="card co-hero">
         ${pic(me, name, "big")}
-        <div class="co-id"><h2>${esc(name)}</h2><p>${job}</p>
+        <div class="co-id"><h2>${esc(name)}</h2><p>${job}</p>${trophies(me) ? `<p class="tro-row big">${trophies(me, true)}</p>` : ""}
           ${me?.w ? `<p class="co-links"><a href="https://en.wikipedia.org/wiki/${encodeURIComponent(me.w.replace(/ /g, "_"))}" target="_blank" rel="noopener">Wikipedia</a>${me.cr === 1 ? ` <small class="muted">· photo from Wikipedia</small>` : ""}</p>` : ""}${typeof me?.cr === "string" ? `<p class="co-links"><small class="muted">Photo: ${esc(me.cr)}</small></p>` : ""}${facts}</div>
         ${seat}
       </div>
