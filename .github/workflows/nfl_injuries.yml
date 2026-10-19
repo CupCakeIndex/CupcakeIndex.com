@@ -1,0 +1,38 @@
+name: NFL injury report
+
+# Copies the NFL's official injury report (nfl.com/injuries, the same game statuses each team's site shows) into
+# docs/data/nfl_injuries.json for the Injuries views (src/nfl_injuries.py). Its own job so it can run often:
+# GitHub skips some scheduled runs when it's busy, so every 10 minutes keeps it fresh. Commits only when the report changed.
+
+on:
+  schedule:
+    - cron: "3,13,23,33,43,53 * * * *"
+  workflow_dispatch:          # "Run workflow" button on GitHub
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nfl-injuries
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fetch the report
+        run: python src/nfl_injuries.py
+      - name: Publish
+        run: |
+          git config user.name "rankings-bot"
+          git config user.email "rankings-bot@users.noreply.github.com"
+          git add docs/data/nfl_injuries.json
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "NFL injury report $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase
+          git push

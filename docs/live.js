@@ -2490,7 +2490,7 @@ const Live = (() => {
     }));
     return { live: games.some((e) => e.status.type.state === "in"), byTeam };
   }
-  // The NFL's official report (nfl.com, the same one each team's site shows; src/nfl_injuries.py, hourly): its game
+  // The NFL's official report (nfl.com, the same one each team's site shows; src/nfl_injuries.py, every 10 minutes): its game
   // status wins over ESPN's until the team's game ends, since ESPN lags (Trey Amos stayed IR on ESPN when Washington
   // listed him Questionable). On the report with no game status = expected to play.
   const injNorm = (n) => (n || "").toLowerCase().replace(/\s+(jr|sr|ii|iii|iv|v)\.?$/, "").replace(/[^a-z ]/g, "");

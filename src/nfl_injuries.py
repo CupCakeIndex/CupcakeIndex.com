@@ -2,7 +2,7 @@
 
 ESPN's injury feed lags the official game statuses (Trey Amos stayed "Injured Reserve" on ESPN after Washington
 listed him Questionable), so the site's Injuries views use this report's game status when a team's game hasn't
-been played yet. Run hourly by .github/workflows/news.yml. Browsers can't read nfl.com directly (CORS).
+been played yet. Run every 10 minutes by .github/workflows/nfl_injuries.yml. Browsers can't read nfl.com directly (CORS).
 If the page changes or can't be read, the old file is left alone and the site falls back to ESPN.
 """
 import html
