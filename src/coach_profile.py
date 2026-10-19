@@ -292,6 +292,16 @@ def main():
         b = background(w.get("jobs", []), now)
         if b:
             prof[slug(name)] = {"bg": b}
+    # seasons as a head coach: his Wikipedia jobs (reaching back before our game data) plus every season in our data
+    head = {}
+    for name, w in wiki.items():
+        head.setdefault(slug(name), set()).update(y for lg, team, y1, y2, role, h in w.get("jobs", []) if h for y in range(y1, min(y2, now) + 1))
+    for lg in ("nfl", "cfb"):
+        for c in (C.get(lg) or {}).get("coaches", []):
+            head.setdefault(slug(c["n"]), set()).update(r[0] for r in c.get("sea", []))
+    for k, ys in head.items():
+        if ys:
+            prof.setdefault(k, {})["hc"] = len(ys)
     scheme = {}
     try:
         scheme.update(nfl_profiles(C, now))
