@@ -335,6 +335,18 @@ def cupcake_card(today):
 
 
 # ------------------------------------------------------------------ Bully of the Week (NFL Thu, CFB Sun)
+def weekend_events(today):
+    """This weekend's college games (Thursday-Saturday) from ESPN's scoreboard."""
+    sat = today - dt.timedelta(days=(today.weekday() - 5) % 7)  # Saturday night (today) or Sunday (yesterday)
+    events = []
+    for back in (0, 1, 2):  # Saturday, Friday, Thursday
+        day = (sat - dt.timedelta(days=back)).strftime("%Y%m%d")
+        url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={day}&groups=80&limit=400"
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=30) as r:
+            events += json.load(r).get("events", [])
+    return events
+
+
 def cfb_bully_now(today):
     """College Bully of the Week from this week's final scores (Thu-Sat), the morning after: the weekly rankings
     don't run until Monday. Same rules as model.cupcake_of_week, using the latest ratings (through last week):
@@ -351,13 +363,7 @@ def cfb_bully_now(today):
             return min(1.0, max(0.05, gap / full))
         return 0.0 if orr >= cfg.get("cupcake_max_opp", 0.0) else min(1.0, max(0.0, (gap - cfg["cupcake_gap"]) / cfg["cupcake_span"]))
     best = None
-    sat = today - dt.timedelta(days=(today.weekday() - 5) % 7)  # Saturday night (today) or Sunday (yesterday)
-    for back in (0, 1, 2):  # Saturday, Friday, Thursday
-        day = (sat - dt.timedelta(days=back)).strftime("%Y%m%d")
-        url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={day}&groups=80&limit=400"
-        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=30) as r:
-            events = json.load(r).get("events", [])
-        for e in events:
+    for e in weekend_events(today):
             c = e["competitions"][0]
             if not c["status"]["type"].get("completed") or len(c["competitors"]) != 2:
                 continue
@@ -382,11 +388,12 @@ def cfb_bully_now(today):
 def cfb_bully_slot(today):
     """Saturday-night college Bully (bully.yml). Also writes docs/data/cfb/bully_now.json so the site's banner
     shows it right away, before the rankings run makes it official. If the rankings already ran for this
-    weekend's games, their pick is used as is."""
+    weekend's games, their pick is used as is. That's decided by the games, not the file's date: on Saturday night
+    the rankings job re-saves last week's file (new date, last week's Bully) until 90% of this week's games are final."""
     cur, _, _ = latest("cfb")
     sat = today - dt.timedelta(days=(today.weekday() - 5) % 7)
-    gen = dt.datetime.fromisoformat(cur["generated"]).date() if cur.get("generated") else None
-    if gen and gen > sat:
+    ids = {str(e.get("id")) for e in weekend_events(today)}
+    if ids and not any(str(p.get("espn_id")) in ids for p in cur.get("predictions", [])):  # this weekend is ranked already
         return bully_card(today, ("cfb",))
     b = cfb_bully_now(today)
     with open(os.path.join(DATA, "cfb", "bully_now.json"), "w", encoding="utf-8") as f:
@@ -505,6 +512,20 @@ def matchup_rows(img, d, games):
         d.rectangle((col, by, col + int((W - PAD - col) * pr), by + 6), fill=MUTED if toss else ACCENT)
 
 
+def not_started(league, espn_id):
+    """True unless ESPN says the game has kicked off or finished (if ESPN can't be reached, assume not started)."""
+    if not espn_id:
+        return True
+    sport = "nfl" if league == "nfl" else "college-football"
+    url = f"https://site.api.espn.com/apis/site/v2/sports/football/{sport}/summary?event={espn_id}"
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=20) as r:
+            st = json.load(r)["header"]["competitions"][0]["status"]["type"]["state"]
+        return st == "pre"
+    except Exception:
+        return True
+
+
 def gameday_card(league, today):
     cur, _, _ = latest(league)
     rank = {t["team"]: t for t in cur["teams"]}
@@ -513,7 +534,12 @@ def gameday_card(league, today):
     # "biggest" game = best combined rank (both teams matter, the worse one most)
     preds.sort(key=lambda p: max(rank[p["home"]]["power_rank"], rank[p["away"]]["power_rank"]) * 2
                + min(rank[p["home"]]["power_rank"], rank[p["away"]]["power_rank"]))
-    games = preds[:6]
+    games = []  # the top 6 not played yet (Thursday's game is old news by Sunday)
+    for p in preds:
+        if len(games) == 6:
+            break
+        if "actual" not in p and not_started(league, p.get("espn_id")):
+            games.append(p)
     lname = "College football" if league == "cfb" else "NFL"
     img, d = canvas(league, f"Week {wk}", f"Game day: {'the big ones' if league == 'cfb' else 'the slate'}",
                     "The week's best matchups and who our model favors.")

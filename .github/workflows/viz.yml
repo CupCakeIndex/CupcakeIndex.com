@@ -1,15 +1,13 @@
 name: Visualize data
 
 # Game-by-game team and player stats for Stats > Visualize (src/viz_data.py -> docs/data/viz/).
-# Sunday after the college games, Monday after Sunday's NFL games, Tuesday after Monday Night Football, Friday after Thursday night. Run it any time: Actions tab > "Visualize data" > Run workflow.
+# Every morning in season (8:40 AM Eastern), so the stats and the Cupcake Analyst never lag more than a day: Sunday has
+# Saturday's college games, Monday Sunday's NFL games, Tuesday Monday night, Friday Thursday night. Run it any time: Actions tab > "Visualize data" > Run workflow.
 # The log ends with a check of season totals against ESPN's ("0 gap(s) over 2%" = the numbers match).
 
 on:
   schedule:
-    - cron: "40 12 * 8-12,1 0"   # Sunday 8:40 AM Eastern
-    - cron: "40 12 * 8-12,1 1"   # Monday 8:40 AM Eastern (Sunday's NFL games)
-    - cron: "40 12 * 8-12,1 2"   # Tuesday 8:40 AM Eastern
-    - cron: "40 12 * 8-12,1 5"   # Friday 8:40 AM Eastern (Thursday night's game)
+    - cron: "40 12 * 8-12,1 *"   # every day, 8:40 AM Eastern
   workflow_dispatch:
     inputs:
       league:
@@ -50,7 +48,7 @@ jobs:
         run: python src/pass_charts.py
       - name: Cupcake Analyst data
         # analyst/data/rankings.json for Terry's private claude.ai fact-check page. The "Refresh Cupcake Analyst"
-        # cloud routine publishes it ~2 hours later (that sandbox can't download nflverse injuries/depth charts).
+        # cloud routine publishes it ~2 hours later, every day (that sandbox can't download nflverse injuries/depth charts).
         continue-on-error: true
         run: python src/analyst_data.py
       - name: Publish
