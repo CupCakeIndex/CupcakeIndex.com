@@ -1852,6 +1852,9 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
   .th-ranks { margin-left: 0; width: 100%; }
   .th-rk { flex: 1; min-width: 0; padding: 6px 4px; }
   .th-rk b { font-size: 18px; }
+  .th-ranks { flex-wrap: wrap; }
+  a.th-coach { flex: 1 0 100%; justify-content: flex-start; padding: 6px 10px; }
+  a.th-coach span { flex-direction: row; align-items: center; gap: 8px; }
   .th-strip { grid-template-columns: 1fr 1fr; }
   .th-strip > div { border-bottom: 1px solid var(--line); padding: 8px 12px; }
   .th-grid { grid-template-columns: 1fr; }
@@ -2521,6 +2524,59 @@ table.roster th.sortable.on a { color: var(--accent); }
 #co-table td small { margin-left: 2px; }
 .co-how { margin-top: 14px; }
 .co-how h3 { margin: 0 0 8px; font-size: 14px; }
+/* Hot seat chips: Safe / Teetering / Hot seat */
+.seat { display: inline-block; padding: 1px 7px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap;
+  border: 1px solid currentColor; }
+.seat.sm { font-size: 9.5px; padding: 0 5px; }
+.seat-hot { color: var(--bad); } .seat-teeter { color: #e0a100; } .seat-safe { color: var(--good); }
+.seat small { font-weight: 400; opacity: .85; }
+/* One coach's page (#/coach/<slug>) */
+.co-face { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; object-position: top; flex: none; background: var(--line); }
+.co-face.big { width: 96px; height: 96px; }
+.co-face.ph { display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--muted); }
+.co-face.big.ph { font-size: 28px; }
+.card.co-hero { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.co-id { flex: 1; min-width: 200px; }
+.co-id h2 { margin: 0 0 4px; }
+.co-id p { margin: 4px 0 0; }
+.co-id p img { vertical-align: middle; width: 20px; height: 20px; }
+.co-seat { border: 1px solid currentColor; padding: 10px 14px; min-width: 220px; max-width: 360px; }
+.co-seat > div { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.co-seat > div b { font-size: 22px; }
+.co-seat > div small { color: var(--muted); }
+.co-seat ul { margin: 8px 0 0; padding-left: 18px; color: var(--ink); font-size: 13px; }
+.co-seat-how { margin-top: -4px; }
+.co-scope { margin-bottom: 10px; }
+.co-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.co-tile { border: 1px solid var(--line); padding: 8px 10px; }
+.co-tile small { display: block; font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.co-tile b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.co-tile em { display: block; font-style: normal; font-size: 11px; color: var(--muted); }
+.co-seas td img { width: 18px; height: 18px; vertical-align: middle; }
+/* Coaching tree: nested lists drawn like a family tree */
+.co-tree { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+.co-tree h4 { margin: 0 0 4px; }
+.co-tree .note { margin-top: 0; }
+.tree ul { list-style: none; margin: 0; padding-left: 20px; }
+.tree > ul { padding-left: 14px; }
+.tree li { position: relative; padding: 4px 0; }
+.tree li::before { content: ""; position: absolute; left: -12px; top: 0; bottom: 0; border-left: 1px solid var(--line); }
+.tree li:last-child::before { bottom: auto; height: 23px; }
+.tree li::after { content: ""; position: absolute; left: -12px; top: 23px; width: 10px; border-top: 1px solid var(--line); }
+.tr-node { display: inline-flex; align-items: center; gap: 10px; max-width: 100%; padding: 5px 10px 5px 6px; border: 1px solid var(--line);
+  background: var(--card); color: var(--ink); text-decoration: none; }
+a.tr-node:hover { border-color: var(--accent); text-decoration: none; }
+.tr-node span { min-width: 0; }
+.tr-node b { font-size: 13px; }
+.tr-node small { display: block; font-size: 11px; color: var(--muted); line-height: 1.35; }
+.tr-node small.tr-now { display: inline; color: var(--accent); margin-left: 4px; }
+/* the head coach on a team page header */
+a.th-coach { flex-direction: row; gap: 8px; text-align: left; }
+a.th-coach .co-face { width: 40px; height: 40px; }
+a.th-coach span { display: flex; flex-direction: column; align-items: flex-start; }
+a.th-coach b { font-size: 16px; }
+a.th-coach .seat { margin-top: 2px; }
+a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 
 /* Pass chart (player page, QBs): the Clean gamecast field turned to look downfield from behind the QB */
 .ay-behind { fill: var(--bad); opacity: .1; }

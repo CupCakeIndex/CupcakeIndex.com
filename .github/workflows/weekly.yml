@@ -80,7 +80,8 @@ jobs:
           python src/team_meta.py || echo "Team list skipped this time"   # favorite-team picker + Team theme colors
           python src/nfl_starts.py || echo "NFL starts skipped this time"  # who started each game (Injuries: key players on IR)
           python src/starters.py || echo "Conversation starters skipped this time"  # top-25 Takes tabs (after facts.json)
-          python src/coaches.py || echo "Coach rankings skipped this time"  # Coaches page (after cupcake_history.py)
+          python src/coaches.py || echo "Coach rankings skipped this time"  # Coaches page + hot seat (after cupcake_history.py)
+          python src/coach_tree.py || echo "Coaching trees skipped this time"  # coach pages: trees + photos (Wikipedia, cached a month)
       - name: Publish
         run: |
           git config user.name "rankings-bot"

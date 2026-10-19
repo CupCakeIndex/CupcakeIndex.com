@@ -22,9 +22,9 @@ const BASE_PRESETS = {
 const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", recent: "FORM", cupcake: "CUP", luck: "UNLK" };
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
 const RANK_VIEWS = new Set(["rankings", "schedules", "resume"]);
-const VIEWS = new Set(["rankings", "picks", "schedules", "resume", "shame", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily", "fantasy", "news", "takes", "coaches", "admin", "breakdown", "games", "settings", "privacy"]);
+const VIEWS = new Set(["rankings", "picks", "schedules", "resume", "shame", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily", "fantasy", "news", "takes", "coaches", "coach", "admin", "breakdown", "games", "settings", "privacy"]);
 // Sub-pages that light up a parent tab in the nav (the Daily player game lives under Games)
-const NAV_PARENT = { daily: "games", breakdown: "rankings" };
+const NAV_PARENT = { daily: "games", breakdown: "rankings", coach: "coaches" };
 
 // ------------------------------------------------------------------ forgiving name search
 // Lowercase, strip accents/punctuation ("D.J." -> "dj", "Smith-Njigba" -> "smith njigba"), drop jr/sr/ii/iii.
@@ -170,6 +170,8 @@ async function route() {
     Takes.render(r.params);
   } else if (r.view === "coaches") {
     Coaches.render(r.params);
+  } else if (r.view === "coach") {
+    Coaches.page(r.arg, r.params);
   } else if (r.view === "admin") {
     Admin.render();
   } else if (r.view === "breakdown") {
@@ -227,7 +229,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "331"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "332"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });

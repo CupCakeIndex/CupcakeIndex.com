@@ -4495,6 +4495,7 @@ const Live = (() => {
             <div class="th-rk"><small>RECORD</small><b>${esc(T.recordSummary || ours?.record || "–")}</b></div>
             ${ours ? `<a class="th-rk ours" href="${link("rankings", null, { team: ours.team })}" title="Cupcake Index rank. Click for why."><small>OUR RANK</small><b>#${ours.rank}</b></a>` : ""}
             ${ours?.ap_rank ? `<div class="th-rk"><small>AP</small><b>#${esc(ours.ap_rank)}</b></div>` : ""}
+            <span id="th-coach"></span>
           </div>
         </div>
         <div class="th-strip">
@@ -4590,6 +4591,8 @@ const Live = (() => {
             : `<p class="muted">No recent transactions.</p>`)
         : games ? `<div class="mb-list cols">${games}</div>${ourGames.size ? `<p class="note">Tap a game for the box score or preview. Diff (difficulty) is the chance a typical ${nfl ? "top-8 NFL" : "top-25"} team would lose that game; win chances are from the Cupcake Index model.</p>` : ""}`
         : `<p class="muted">No games scheduled.</p>`}</div>`;
+    // the head coach, top right (coaches.js): photo, name and hot seat, linking to his page
+    Coaches.forTeam(lg, T.id).then((h) => { const el = my === token && $("#th-coach"); if (el && h) el.outerHTML = h; }).catch(() => {});
     // latest headlines mentioning this team (news.js), under the schedule
     if (tab === "schedule") News.forTeam(lg, T.id).then((h) => { if (h && my === token) view("team").insertAdjacentHTML("beforeend", h); });
     // arrived from an injury tag: pulse that player's row and show their latest update under it

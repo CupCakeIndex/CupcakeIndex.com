@@ -219,6 +219,8 @@ def score(coaches, scope, min_g):
 
 
 def build(lg, rows, current, fbs=None, edge=None):
+    import hot_seat
+    hs_x, hs_model = hot_seat.run(rows, lg)  # this season's hot seat numbers for each coach (src/hot_seat.py)
     by_coach = defaultdict(list)
     coach_of = defaultdict(set)
     for x in rows:
@@ -244,6 +246,19 @@ def build(lg, rows, current, fbs=None, edge=None):
              "t": stats(here, rec, fbs, coach_of) if here else None}
         if edge and name in active:
             c["edge"] = round(edge(name), 2)
+        # season by season: [season, team, wins, losses, ties, postseason wins, postseason losses]
+        sea = {}
+        for x in games:
+            r = sea.setdefault((x[0], x[2]), [x[0], x[2], 0, 0, 0, 0, 0])
+            i = (5 if x[4] > x[5] else 6) if x[6] else (2 if x[4] > x[5] else 3 if x[4] < x[5] else 4)
+            if not (x[6] and x[4] == x[5]):
+                r[i] += 1
+        c["sea"] = list(sea.values())
+        if name in active and (name, tm) in hs_x:
+            x = hs_x[(name, tm)]
+            p = hot_seat.prob(hs_model, x)
+            this = next((r for r in c["sea"] if r[0] == now and r[1] == tm), [0, 0, 0, 0, 0])
+            c["hs"] = {"p": round(p, 3), "lab": hot_seat.band(p), "why": hot_seat.why(x, p, this[2:5])}
         out.append(c)
     for sc in ("c", "r", "t"):
         score(out, sc, MIN_GAMES[lg][sc])
