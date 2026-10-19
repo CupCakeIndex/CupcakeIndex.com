@@ -1964,16 +1964,27 @@ const Live = (() => {
   const POS_FIX = { 15683: ["PK", "Place Kicker"] };
   const fixPos = (a) => (a && POS_FIX[a.id] ? { ...a, position: { ...(a.position || {}), abbreviation: POS_FIX[a.id][0], displayName: POS_FIX[a.id][1], name: POS_FIX[a.id][1] } } : a);
 
-  // Drag to read a chart (like the win-odds chart): a mouse just hovers; on a phone, press and hold a moment, then drag (a quick
-  // swipe still scrolls the page). show(p) gets the pointer in the SVG's own coordinates; hide() when you let go or leave.
-  function scrubber(svg, show, hide) {
+  // Drag to read a chart (like the win-odds chart): a mouse just hovers. On a phone the line shows the moment you touch.
+  // axis "x" (read sideways, like the kick chart): it follows your finger left and right right away, while up/down still scrolls
+  // the page. axis "y" (read up and down, like the pass chart): touch shows it at that spot; hold a moment and it slides with
+  // your finger without scrolling. show(p) gets the pointer in the SVG's own coordinates; hide() when you let go or leave.
+  function scrubber(svg, show, hide, axis = "x") {
     const at = (e) => { const m = svg.getScreenCTM(); return m ? new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse()) : null; };
     let held = false, timer = 0;
     svg.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse") { const p = at(e); if (p) show(p); } });
     svg.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") hide(); });
-    svg.addEventListener("touchstart", (e) => { const t = e.touches[0]; clearTimeout(timer); timer = setTimeout(() => { held = true; const p = at(t); if (p) show(p); }, 220); }, { passive: true });
-    svg.addEventListener("touchmove", (e) => { if (held) { e.preventDefault(); const p = at(e.touches[0]); if (p) show(p); } else clearTimeout(timer); }, { passive: false });
-    svg.addEventListener("touchend", () => { clearTimeout(timer); if (held) { held = false; hide(); } });
+    svg.addEventListener("touchstart", (e) => {
+      if (e.touches.length > 1) { clearTimeout(timer); held = false; return hide(); } // two fingers: that's a pinch
+      const t = e.touches[0], p = at(t);
+      if (p) show(p); // right away
+      clearTimeout(timer);
+      if (axis === "y") timer = setTimeout(() => { held = true; }, 220);
+    }, { passive: true });
+    svg.addEventListener("touchmove", (e) => {
+      if (e.touches.length > 1) return;
+      if (axis === "x" || held) { if (held) e.preventDefault(); const p = at(e.touches[0]); if (p) show(p); } else clearTimeout(timer);
+    }, { passive: false });
+    svg.addEventListener("touchend", (e) => { if (e.touches.length) return; clearTimeout(timer); held = false; hide(); });
   }
   // the scrub line's label: a small rounded tag (same look as the kicking chart's value tags)
   const scanTag = (x, y, txt, anchor = "middle") => { const w = 14 + 7 * txt.length, x0 = anchor === "end" ? x - w : anchor === "start" ? x : x - w / 2;
@@ -2384,7 +2395,7 @@ const Live = (() => {
         const [x0, y] = P(0, v), [x1] = P(1, v);
         scan.innerHTML = `<line class="sc-line" x1="${x0.toFixed(1)}" y1="${y.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y.toFixed(1)}"/>${scanTag(x1 - 4, y - 12, v === 0 ? "at the line" : `${v > 0 ? "+" : "−"}${Math.abs(v)} yds`, "end")}`;
         scan.classList.remove("hidden");
-      }, () => scan.classList.add("hidden"));
+      }, () => scan.classList.add("hidden"), "y"); // read up and down
       const arc = $("#pc-arc"), flash = $("#pc-flash");
       const show = (i, on) => els[i]?.forEach((e) => e.classList.toggle("pc-hide", !on));
       // the completions tile counts up as each throw lands (1/1, 1/2, 2/3 ...), and goes back to the full game when playback ends
