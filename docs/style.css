@@ -2681,7 +2681,7 @@ a.tr-node:hover { border-color: var(--accent); text-decoration: none; }
 .tro { display: inline-flex; align-items: center; gap: 1px; line-height: 0; }
 .tro img { height: 21px; width: auto; flex: none; }  /* trophy photos (docs/img) */
 .tro-row.big { margin: 6px 0 4px; }
-.tro-row.big .tro img { height: 30px; }
+.tro-row.big .tro img { height: 30px; width: auto; vertical-align: baseline; }  /* beats ".co-id p img" (the 20px team logos) */
 .tro small { margin-left: 5px; font-size: 11px; line-height: 1.2; color: var(--muted); }
 .tr-node small { font-size: 10.5px; color: var(--muted); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .tr-node small.tr-now { color: var(--accent); -webkit-line-clamp: 1; }
