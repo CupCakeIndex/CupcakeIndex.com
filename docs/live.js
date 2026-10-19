@@ -3623,6 +3623,8 @@ const Live = (() => {
   let playerIndexP = null; // all-time NFL player list, loaded the first time someone searches
   const playerIndex = () => (playerIndexP ||= fetch("data/players_nfl.json").then((r) => r.json()).catch(() => { playerIndexP = null; return []; }));
 
+  // search result headshot: initials underneath, ESPN's photo on top (removed if ESPN has none, so the initials show)
+  const searchFace = (lg, id, name) => `<span class="gs-face">${esc(initials(name))}<img src="${esc(thumb(`https://a.espncdn.com/i/headshots/${lg === "nfl" ? "nfl" : "college-football"}/players/full/${encodeURIComponent(id)}.png`, 22, 22, true))}" alt="" loading="lazy" decoding="async" onerror="this.remove()"></span>`;
   // Players: all-time NFL index (includes retired legends) + ESPN's live search (active college and NFL players)
   async function searchPlayers(text, limit = 10) {
     const [index, d] = await Promise.all([
@@ -3633,10 +3635,10 @@ const Live = (() => {
     const scored = [];
     for (const p of index) { const sc = fuzzyScore(text, p[0]); if (sc != null) scored.push([sc, p]); }
     const local = scored.sort((a, b) => a[0] - b[0] || ((b[1][4] || 0) - (b[1][3] || 0)) - ((a[1][4] || 0) - (a[1][3] || 0)) || (b[1][4] || 0) - (a[1][4] || 0))
-      .slice(0, 8).map(([, p]) => ({ key: `nfl:${p[1]}`, name: p[0], tag: `NFL · ${p[2]}${p[3] ? ` · ${p[3]}–${p[4] || ""}` : ""}` }));
+      .slice(0, 8).map(([, p]) => ({ key: `nfl:${p[1]}`, name: p[0], pic: searchFace("nfl", p[1], p[0]), tag: `NFL · ${p[2]}${p[3] ? ` · ${p[3]}–${p[4] || ""}` : ""}` }));
     const seen = new Set(local.map((x) => x.key));
     const live = (d?.items || []).filter((it) => it.league === "nfl" || it.league === "college-football")
-      .map((it) => ({ key: `${it.league === "nfl" ? "nfl" : "cfb"}:${it.id}`, name: it.displayName, tag: it.league === "nfl" ? "NFL" : "College" }))
+      .map((it) => ({ key: `${it.league === "nfl" ? "nfl" : "cfb"}:${it.id}`, name: it.displayName, pic: searchFace(it.league === "nfl" ? "nfl" : "cfb", it.id, it.displayName), tag: it.league === "nfl" ? "NFL" : "College" }))
       .filter((x) => !seen.has(x.key));
     return [...local, ...live].slice(0, limit);
   }

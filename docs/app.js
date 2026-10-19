@@ -229,7 +229,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "373"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "374"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -1508,7 +1508,8 @@ async function allTeams() {
 function initSearch() {
   const q = $("#gs"), box = $("#gs-results"), wrap = $("#gsearch");
   let timer, results = [];
-  const close = () => { box.classList.add("hidden"); wrap.classList.remove("open"); };
+  // hide the results; the bar itself stays open while you're typing in it (phones: typing 1 letter used to hide what you typed)
+  const close = () => { box.classList.add("hidden"); if (document.activeElement !== q) wrap.classList.remove("open"); };
   const go = async (r) => {
     close(); q.value = ""; q.blur();
     if (r.type === "player") { const [lg, id] = r.key.split(":"); location.hash = `#/player/${encodeURIComponent(id)}?league=${lg}`; return; }
@@ -1533,7 +1534,7 @@ function initSearch() {
       box.innerHTML = results.length ? `
         ${teams.length ? `<div class="gs-h">Teams</div>` + teams.map((r, i) => `<button data-i="${i}">${logo(r.t)} <span>${esc(r.t.team)}</span><small>${r.lg === "nfl" ? "NFL" : "College"} · ${esc(r.t.conference || "")}</small></button>`).join("") : ""}
         ${co.length ? `<div class="gs-h">Coaches</div>` + co.map((r, i) => `<button data-i="${teams.length + i}">${r.pic} <span>${esc(r.name)}</span><small>${esc(r.tag)}</small></button>`).join("") : ""}
-        ${pl.length ? `<div class="gs-h">Players</div>` + pl.map((r, i) => `<button data-i="${teams.length + co.length + i}"><span>${esc(r.name)}</span><small>${esc(r.tag)}</small></button>`).join("") : ""}`
+        ${pl.length ? `<div class="gs-h">Players</div>` + pl.map((r, i) => `<button data-i="${teams.length + co.length + i}">${r.pic || ""} <span>${esc(r.name)}</span><small>${esc(r.tag)}</small></button>`).join("") : ""}`
         : `<p class="muted gs-empty">No teams, coaches or players found.</p>`;
       box.classList.remove("hidden");
       wrap.classList.add("open");

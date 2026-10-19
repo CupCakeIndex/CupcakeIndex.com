@@ -149,6 +149,15 @@ const Coaches = (() => {
     const since = c && c.st.filter((x) => x[0] === c.tm).at(-1)?.[1];
     // not a head coach anywhere now: his NFL staff job if he has one (from the team sites), otherwise Unemployed
     const working = mine.some(([, x]) => x.on), asst = !working && me?.asst;
+    // no head coaching job for more than 2 seasons: Retired instead of Unemployed (Saban, last coached 2023)
+    const lastYr = Math.max(...mine.map(([, x]) => x.st.at(-1)[2])), nowYr = Math.max(D.nfl?.to || 0, D.cfb?.to || 0);
+    const idle = working || asst ? "" : mine.length && nowYr - lastYr > 2 ? "Retired" : "Unemployed";
+    // known for: the team he won the most with, when it isn't the job on top (Belichick: the Patriots, not North Carolina)
+    const stints = mine.flatMap(([l2, c2]) => [...new Set(c2.st.map((x) => x[0]))]
+      .map((tm) => [l2, c2, tm, tm === c2.tm ? c2.t : TEAMS[l2]?.[c2.n]?.[tm]])).filter((x) => x[3]);
+    const best = stints.slice().sort((a, b) => b[3].ti - a[3].ti || b[3].w - a[3].w)[0], top = stints.find((x) => x[1] === c && x[2] === c.tm);
+    const known = best && top && best !== top && (best[3].ti > top[3].ti || best[3].w > top[3].w + 40)
+      ? `<p class="co-known">Known for: ${teamLink(best[0], best[2])} <small class="muted">${best[1].st.filter((x) => x[0] === best[2]).map((x) => yrs(x[1], x[2])).join(", ")}${best[3].ti ? ` · ${best[3].ti} ${TITLE[best[0]][0]}${best[3].ti > 1 ? "s" : ""}` : ""}</small></p>` : "";
     const job = asst ? `Now: ${esc(asst[2])}, ${teamLink(asst[0], asst[1])}`
       : !c ? `<span class="muted">Not a head coach in our data</span>`
       : c.on ? `Head coach, ${teamLink(lg, c.tm)} <small class="muted">since ${since}</small>`
@@ -270,7 +279,7 @@ const Coaches = (() => {
         ${bg ? fact("Background", esc({ off: "Offense", def: "Defense", st: "Special teams", both: "Both sides" }[bg.lab])) : ""}</div>`;
     el.innerHTML = `<div class="card co-hero">
         ${pic(me, name, "big")}
-        <div class="co-id"><h2>${esc(name)}${!working && !asst ? ` <span class="retired-tag">Unemployed</span>` : ""}</h2><p>${job}</p>${trophies(me) ? `<p class="tro-row big">${trophies(me, true)}</p>` : ""}
+        <div class="co-id"><h2>${esc(name)}${idle ? ` <span class="retired-tag">${idle}</span>` : ""}</h2><p>${job}</p>${known}${trophies(me) ? `<p class="tro-row big">${trophies(me, true)}</p>` : ""}
           ${me?.w ? `<p class="co-links"><a href="https://en.wikipedia.org/wiki/${encodeURIComponent(me.w.replace(/ /g, "_"))}" target="_blank" rel="noopener">Wikipedia</a>${me.cr === 1 ? ` <small class="muted">· photo from Wikipedia</small>` : ""}</p>` : ""}${typeof me?.cr === "string" ? `<p class="co-links"><small class="muted">Photo: ${esc(me.cr)}</small></p>` : ""}${facts}</div>
         ${seat}
       </div>
