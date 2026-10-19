@@ -1915,6 +1915,70 @@ const Live = (() => {
     }
     return out;
   }
+  // Player page (NFL kickers): every field goal this season, seen from behind the kicker. Rows are the usual distance
+  // splits (20-29 ... 60+), the longest nearest the posts. Makes sit between the uprights; misses sit on the side they
+  // missed (from the play text: "No Good, Wide Right"); short and blocked kicks are in the middle, marked. Within a row the
+  // kicks line up in the order he tried them: nothing is placed where the data doesn't say (src/pass_charts.py "kick").
+  async function kickChartInto(a, season, slot) {
+    const file = await getJSON(`data/nfl/${season}/charts/${encodeURIComponent(a.id)}.json`).catch(() => null);
+    const kicks = (file?.kick || []).map((r, i) => ({ i, wk: r[0], q: r[1], clock: String(r[2]).replace(/^0(?=\d)/, ""), d: r[3], side: r[4], res: r[5], text: r[7] }));
+    if (!slot.isConnected) return;
+    if (!kicks.length) return slot.remove();
+    const BANDS = [[60, 99, "60+"], [50, 59, "50–59"], [40, 49, "40–49"], [30, 39, "30–39"], [0, 29, "20–29"]];
+    const W = 600, LANE = { l: [52, 214], c: [242, 358], r: [386, 548] }, STEP = 19, TOP = 70;
+    const lanes = BANDS.map(([lo, hi]) => ({ l: [], c: [], r: [], all: kicks.filter((k) => k.d >= lo && k.d <= hi) }));
+    lanes.forEach((b) => b.all.forEach((k) => b[k.side === "l" || k.side === "r" ? k.side : "c"].push(k)));
+    const per = (s) => Math.max(1, Math.floor((LANE[s][1] - LANE[s][0]) / STEP));
+    const rowsOf = (b) => Math.max(1, ...["l", "c", "r"].map((s) => Math.ceil(b[s].length / per(s))));
+    let y = TOP + 26;
+    const g = [], tip = (k) => `Week ${k.wk}, Q${k.q} ${k.clock}: ${k.d}-yard try. ${k.text}`;
+    // goalposts: uprights, crossbar and the post, with the upright lines carried down through every row
+    const cy = TOP, bandY = [];
+    lanes.forEach((b, n) => {
+      const h = rowsOf(b) * STEP + 16;
+      bandY.push([y, h]);
+      if (n % 2 === 0) g.push(`<rect class="kc-band" x="20" y="${y}" width="${W - 40}" height="${h}"/>`);
+      const made = b.all.filter((k) => k.res === "g").length;
+      g.push(`<text class="kc-lbl" x="26" y="${y + 17}">${BANDS[n][2]}</text>`,
+        `<text class="kc-lbl r" x="${W - 26}" y="${y + 17}">${b.all.length ? `${made}/${b.all.length}` : "–"}</text>`);
+      ["l", "c", "r"].forEach((s) => b[s].forEach((k, j) => {
+        const col = j % per(s), row = Math.floor(j / per(s));
+        // the middle fills from the center out; wide-left fills toward the post from the left... both read left to right in order
+        const x = s === "c" ? (LANE.c[0] + LANE.c[1]) / 2 + (col - (Math.min(per("c"), b.c.length) - 1) / 2) * STEP
+          : s === "l" ? LANE.l[1] - 9 - col * STEP : LANE.r[0] + 9 + col * STEP;
+        const yy = y + 17 + row * STEP;
+        const cls = k.res === "g" ? "kc-make" : k.res === "s" ? "kc-short" : k.res === "b" ? "kc-block" : "kc-miss";
+        g.push(k.res === "b"
+          ? `<g class="kc-dot ${cls}" data-i="${k.i}"><title>${esc(tip(k))}</title><path d="M${x - 6} ${yy - 6}l12 12m0 -12l-12 12"/><circle cx="${x}" cy="${yy}" r="9" class="kc-hit"/></g>`
+          : `<circle class="kc-dot ${cls}" data-i="${k.i}" cx="${x}" cy="${yy}" r="7"><title>${esc(tip(k))}</title></circle>`);
+      }));
+      y += h;
+    });
+    const H = y + 16;
+    g.unshift(`<line class="kc-up" x1="229" y1="${TOP + 26}" x2="229" y2="${y}"/><line class="kc-up" x1="371" y1="${TOP + 26}" x2="371" y2="${y}"/>`,
+      `<path class="kc-post" d="M229 ${cy - 58}V${cy}H371V${cy - 58}M300 ${cy}V${cy + 22}"/>`,
+      `<text class="kc-side" x="${(LANE.l[0] + LANE.l[1]) / 2}" y="${TOP + 18}">WIDE LEFT</text><text class="kc-side" x="${(LANE.r[0] + LANE.r[1]) / 2}" y="${TOP + 18}">WIDE RIGHT</text>`);
+    // the numbers over the chart, ranked against the league's kickers (src/pass_charts.py)
+    const R = file.ranks?.kick, rk = (key) => (R?.[key] ? `<em class="ay-rk${R[key][0] <= 5 ? " top" : ""}">#${R[key][0]} of ${R[key][1]}</em>` : "");
+    const stat = (v, label, cls = "", key = "") => `<span class="ay-stat ${cls}"><b>${v}</b><small>${label}</small>${rk(key)}</span>`;
+    const made = kicks.filter((k) => k.res === "g"), long = made.length ? Math.max(...made.map((k) => k.d)) : null;
+    const far = kicks.filter((k) => k.d >= 50), xp = file.xp;
+    const chip = (cls, label) => `<span class="pc-chip"><span class="ay-key ${cls}"></span>${label}</span>`;
+    slot.innerHTML = `<div class="card pc kc"><div class="sc-bar"><h3>Kick chart</h3><span class="muted">${season} field goals</span></div>
+      <div class="ay-stats">${stat(`${made.length}/${kicks.length}`, "Field goals", "big")}${stat(`${Math.round((100 * made.length) / kicks.length)}%`, "Made", "", "pct")}
+        ${stat(long ?? "–", "Longest", "", "long")}${stat(`${far.filter((k) => k.res === "g").length}/${far.length}`, "From 50+", "", "fg50")}${xp ? stat(`${xp[0]}/${xp[1]}`, "Extra points") : ""}</div>
+      <div class="pc-ctl"><span class="pc-legend">${chip("kc-k-make", "Good")}${chip("kc-k-miss", "Missed")}${kicks.some((k) => k.res === "s") ? chip("kc-k-short", "Short") : ""}${kicks.some((k) => k.res === "b") ? chip("kc-k-block", "Blocked") : ""}</span></div>
+      <div class="pc-stage"><svg class="pc-field kc-field" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(a.displayName)} kick chart">${g.join("")}</svg></div>
+      <p class="kc-play muted" id="kc-play">Tap a kick for the play.</p>
+      <p class="note">Every field goal try this season (nflverse play-by-play, through Week ${R?._wk ?? "–"}). Rows are distance; within a row, kicks are in the order he tried them. Which way a kick missed comes from the play-by-play text. Ranks: NFL kickers with ${R?._min ?? "–"}+ tries.</p></div>`;
+    slot.querySelector(".kc-field").addEventListener("click", (e) => {
+      const el = e.target.closest("[data-i]"), k = el && kicks[+el.dataset.i];
+      if (!k) return;
+      slot.querySelectorAll(".kc-dot.on").forEach((x) => x.classList.remove("on"));
+      el.classList.add("on");
+      $("#kc-play").textContent = tip(k);
+    });
+  }
   // Player page: a chart of every throw (QBs), target (WRs, TEs, RBs) or run (RBs) this season, seen from behind the line.
   // Left/middle/right across, yards downfield up. Pick a week to play it back one snap at a time; "All weeks" is the combined, still chart.
   // Built from each game's play-by-play (airPasses / rushPlays above), so it only loads when you scroll to it.
@@ -3455,10 +3519,12 @@ const Live = (() => {
       return;
     }
     const pcModes = { QB: ["pass", "rush"], WR: ["target"], TE: ["target"], RB: ["rush", "target"], FB: ["rush", "target"] }[a.position?.abbreviation] || [];
+    const kicker = logLg === "nfl" && ["PK", "K"].includes(a.position?.abbreviation); // NFL kickers get a kick chart (kickChartInto)
     view("player").innerHTML = head + `
       ${summary ? `<div class="stats wide">${summary}</div>${caughtUp ? `<p class="note muted">Added up from his game-by-game stats, so it includes his latest game. Ranks come back once the overnight totals update.</p>` : ""}` : ""}
       <div id="career-slot"><div class="card muted">Loading stats by year…</div></div>
       ${pcModes.length && logGl?.events && Object.keys(logGl.events).length ? `<div id="pc-slot"><div class="card muted">Loading pass chart…</div></div>` : ""}
+      ${kicker ? `<div id="kc-slot"><div class="card muted">Loading kick chart…</div></div>` : ""}
       <div class="card"><div class="sc-bar"><h3>Game log</h3>
         <select id="pl-season"${noLogs ? ` class="hidden"` : ""}>${years.filter((y) => !cYears.includes(y)).map((y) => `<option${!cseason && y === shown ? " selected" : ""}>${y}</option>`).join("")}${cYears.map((y) => `<option value="c${y}"${String(y) === cseason ? " selected" : ""}>${y} (college)</option>`).join("")}</select></div>
         ${log || (noLogs ? `<p class="muted">ESPN doesn't have game-by-game logs for this player's career. Season totals, where ESPN has them, are in Stats by year above.</p>` : shown < 2000 ? `<p class="muted">ESPN doesn't have game-by-game logs for ${shown} (older seasons are spotty before the late 1990s). Season totals are in Stats by year above.</p>`
@@ -3473,6 +3539,8 @@ const Live = (() => {
       if (params.get("chart")) load();
       else { const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); load(); } }, { rootMargin: "300px" }); io.observe(pcSlot); }
     }
+    const kcSlot = $("#kc-slot");
+    if (kcSlot) kickChartInto(a, shown, kcSlot).catch(() => kcSlot.remove());
     const toInj = params.get("inj") && $("#pl-inj");
     if (toInj) pulse(toInj);
     $("#pl-season").onchange = (e) => { const v = e.target.value; location.hash = link("player", id, v[0] === "c" ? { cseason: v.slice(1) } : { season: v }); };

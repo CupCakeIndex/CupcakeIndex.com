@@ -7,13 +7,18 @@ docs/data/nfl/<season>/charts/<espn id>.json
   {"pass":   [[week, quarter, clock, air yards, "left|middle|right", result, yards after catch, play text], ...],
    "target": [same, for the receiver],
    "rush":   [[week, quarter, clock, yards, "left end|left tackle|...|up the middle|...", result, 0, play text], ...],
+   "kick":   [[week, quarter, clock, field goal distance, "l|c|r" (wide left / between the uprights / wide right), result, 0, play text], ...],
+   "xp":     [extra points made, tried],
    "dates":  {week: "YYYY-MM-DD"}, so the page can match weeks to ESPN's games (playoff weeks are 19+),
    "ranks":  {"pass": {"adot": [rank, out of], ..., "_min": qualifying count, "_wk": through week}, ...}}
 
-result: c = caught, t = touchdown, i = incomplete, x = intercepted; runs: r = run, t = touchdown, f = fumble lost.
+result: c = caught, t = touchdown, i = incomplete, x = intercepted; runs: r = run, t = touchdown, f = fumble lost;
+kicks: g = good, m = missed (wide or off an upright), s = short, b = blocked. Which way a kick missed comes from the play text
+("No Good, Wide Right"); nflverse has no other location for kicks.
 Weeks nflverse hasn't posted yet are filled in on the page from ESPN. Runs in viz.yml (python src/pass_charts.py).
 """
 import json
+import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -34,7 +39,7 @@ def num(x):
 
 def build(season):
     espn = {r["gsis_id"]: r["espn_id"] for r in nflverse_csv(f"{NFLV}/players/players.csv", "players.csv") if r.get("espn_id") and r.get("gsis_id")}
-    by = defaultdict(lambda: {"pass": [], "target": [], "rush": [], "dates": {}})
+    by = defaultdict(lambda: {"pass": [], "target": [], "rush": [], "kick": [], "dates": {}})
     for r in pbp(season):
         if r.get("season_type") != "REG" and r.get("season_type") != "POST":
             continue
@@ -42,6 +47,18 @@ def build(season):
             continue
         when = r.get("game_date") or ""
         wk, q, clock, desc = int(r["week"]), int(r["qtr"] or 0), (r.get("time") or "")[:5], (r.get("desc") or "")[:160]
+        kicker = espn.get(r.get("kicker_player_id"))
+        if r.get("play_type") == "field_goal" and kicker and num(r.get("kick_distance")) is not None:
+            d = (r.get("desc") or "").lower()
+            res = {"made": "g", "blocked": "b"}.get(r.get("field_goal_result"), "s" if "short" in d else "m")
+            side = "c" if res in "gsb" else "l" if re.search(r"wide left|left upright", d) else "r" if re.search(r"wide right|right upright", d) else "c"
+            by[kicker]["kick"].append([wk, q, clock, int(num(r["kick_distance"])), side, res, 0, desc])
+            by[kicker]["dates"][wk] = when
+            continue
+        if r.get("play_type") == "extra_point" and kicker and r.get("extra_point_result") in ("good", "failed", "blocked"):
+            xp = by[kicker].setdefault("xp", [0, 0])
+            xp[0] += r["extra_point_result"] == "good"; xp[1] += 1
+            continue
         if r.get("pass_attempt") == "1" and r.get("sack") != "1":
             air = num(r.get("air_yards"))
             if air is None:  # throwaways and batted balls have no depth
@@ -77,6 +94,8 @@ def build(season):
         "target": {"adot": lambda r: mean([x[3] for x in r]), "yac": lambda r: mean([x[6] for x in r if x[5] in "ct"]),
                    "catch": lambda r: share(lambda x: x[5] in "ct", r), "deep": lambda r: share(lambda x: x[3] >= 20, r)},
         "rush": {"ypc": lambda r: mean([x[3] for x in r]), "big": lambda r: share(lambda x: x[3] >= 10, r), "stuff": lambda r: share(lambda x: x[3] <= 0, r)},
+        "kick": {"pct": lambda r: share(lambda x: x[5] == "g", r), "long": lambda r: max([x[3] for x in r if x[5] == "g"], default=None),
+                 "fg50": lambda r: sum(1 for x in r if x[5] == "g" and x[3] >= 50)},
     }
     last_wk = max((int(w) for v in by.values() for w in v["dates"] if int(w) <= 18), default=0)
     # QB runs are ranked against other QBs (a QB = 20+ throws), everyone else's runs against non-QBs
@@ -85,7 +104,7 @@ def build(season):
 
     everyone = lambda v: True  # noqa: E731
     groups = [("pass", stats["pass"], everyone), ("target", stats["target"], everyone),
-              ("rush", stats["rush"], is_qb), ("rush", stats["rush"], lambda v: not is_qb(v))]
+              ("rush", stats["rush"], is_qb), ("rush", stats["rush"], lambda v: not is_qb(v)), ("kick", stats["kick"], everyone)]
     for mode, fns, member in groups:
         mine = {pid: v for pid, v in by.items() if member(v)}
         most = max((len(v[mode]) for v in mine.values()), default=0)
