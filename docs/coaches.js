@@ -126,7 +126,7 @@ const Coaches = (() => {
   // the CFP trophy turned a little (3/4 view: gold blades around a silver football, black base) and the Lombardi
   // (a silver ball at a kicking angle on a tapered stand), drawn small in their own colors
   const CUP = `<svg viewBox="0 0 20 46" aria-hidden="true"><path fill="#a87a22" d="M11 1c4.6 2.9 6.9 8.2 5.6 13.5-1 3.8-3.9 7.3-5.3 20.5H10z"/><path fill="#e2b545" d="M11 1C5 3.6 1.5 9.2 2.9 14.7c1 3.7 4.5 7.1 6.3 20.3H11z"/><path fill="#f6e09a" d="M4 9.4c-.7 2.3-.6 4.2 0 5.9 1 3 3.6 6.4 5 15.8C8 23.2 5.4 19.8 4.7 15.7c-.4-2-.6-4-.7-6.3z"/><path fill="#eef0f3" d="M10.8 3.4c3.2 2.4 4 7.2 0 13.8-4-6.6-3.2-11.4 0-13.8z"/><path fill="#bfc3ca" d="M10.8 3.4c3.2 2.4 4 7.2 0 13.8 2-4.6 2.1-9.2 0-13.8z"/><path stroke="#6f757d" stroke-width=".85" stroke-linecap="round" d="M10.5 8h2.1M10.3 9.8h2.5M10.5 11.6h2.1"/><path fill="#17171b" d="M4.5 35h11v9.6a1.2 1.2 0 0 1-1.2 1.2H5.7a1.2 1.2 0 0 1-1.2-1.2z"/><path fill="#2c2c33" d="M5.6 35.6h1.5v9.6H5.6z"/><ellipse cx="10" cy="35" rx="5.5" ry="1.2" fill="#2b2b31" stroke="#c99a35" stroke-width=".7"/><path fill="#c99a35" d="M10.6 38.4c1 .7 1.2 1.7 0 3.1-1.2-1.4-1-2.4 0-3.1z"/></svg>`;
-  const LOMBARDI = `<svg viewBox="0 0 20 46" aria-hidden="true"><path fill="#d9dde2" d="M9 17.5h2l2.9 19.5H6.1z"/><path fill="#a4abb4" d="M10 17.5h1l2.9 19.5H10z"/><path fill="#c4c9cf" d="M5.4 37h9.2v2.4H5.4z"/><path fill="#8e959e" d="M4.2 39.4h11.6v5.2a1 1 0 0 1-1 1H5.2a1 1 0 0 1-1-1z"/><g transform="translate(-4.1 .9) rotate(-30 10 9.5)"><path fill="#eef0f3" d="M10 1.2c4.3 2.8 5.3 8.2 0 16.6-5.3-8.4-4.3-13.8 0-16.6z"/><path fill="#b3b9c1" d="M10 1.2c4.3 2.8 5.3 8.2 0 16.6z"/><path stroke="#6f757d" stroke-width=".8" stroke-linecap="round" d="M10 6v7M8.8 7.3h2.4M8.8 9.5h2.4M8.8 11.7h2.4"/></g></svg>`;
+  const LOMBARDI = `<svg viewBox="0 0 20 46" aria-hidden="true"><path fill="#d6dadf" d="M8.6 20.8h2.8l3.6 16.2H5z"/><path fill="#9aa1aa" d="M10 20.8h1.4l3.6 16.2H10z"/><path fill="#c9ced4" d="M3.6 37h12.8v2.6H3.6z"/><path fill="#7f868f" d="M2.6 39.6h14.8v5.4a.9.9 0 0 1-.9.9H3.5a.9.9 0 0 1-.9-.9z"/><g transform="translate(10 21.2) scale(.84) translate(-10 -21.2) translate(-4.3 .7) rotate(-25 10 11.6)"><path fill="#f1f3f5" d="M10 1.4c5.6 3.4 6.8 10.6 0 20.4-6.8-9.8-5.6-17 0-20.4z"/><path fill="#b9bfc7" d="M10 1.4c5.6 3.4 6.8 10.6 0 20.4 2.6-6.6 2.7-13.6 0-20.4z"/><path stroke="#5b616a" stroke-width="1" stroke-linecap="round" d="M10 7.4v8.4M8.5 9h3M8.5 11.6h3M8.5 14.2h3"/></g></svg>`;
   const TITLE = { cfb: ["national title", CUP], nfl: ["Super Bowl", LOMBARDI] };
   const trophies = (p, label = false) => !p?.tr ? "" : ["cfb", "nfl"].filter((lg) => p.tr[lg]?.length).map((lg) => {
     const ys = p.tr[lg], [what, icon] = TITLE[lg], txt = `${ys.length} ${what}${ys.length > 1 ? "s" : ""}`;
@@ -177,10 +177,19 @@ const Coaches = (() => {
     const want = OLD[params.get("scope")] || params.get("scope");
     const chosen = opts.find((o) => o[0] === want) || opts.find((o) => o[0] === `${lg}:${c?.tm}`) || opts[0];
     const S = chosen?.[2], sLg = chosen?.[3];
+    // a coach score rank and what it's out of: every coach in our data with enough games in that scope
+    // (t = each coach's current team, or his last one if he's not coaching: retired coaches are in that list too)
+    const RANK_IN = { c: ["all time", "career"], r: ["over the last 3 seasons", "last 3 seasons"], t: ["by latest team", "with each coach's current or last team"] };
+    const rankOf = (l2, sc, rk) => {
+      const n = (D[l2]?.coaches || []).filter((x) => x[sc]?.rk).length, [short, long] = RANK_IN[sc];
+      const who = `${l2 === "nfl" ? "NFL" : "college"} head coaches since ${D[l2]?.from}`;
+      return `<span title="#${rk} of ${n} ${who} with enough games for a score (${long})">#${rk} of ${n} ${short}</span>`;
+    };
+    const scopeOf = (k) => (k.startsWith("c:") ? "c" : k === "r" ? "r" : "t");
     const tile = (k, v, sub = "") => `<div class="co-tile"><small>${esc(k)}</small><b>${v}</b>${sub ? `<em>${sub}</em>` : ""}</div>`;
     const stats = !S ? "" : `<div class="presets co-scope co-teams" id="co-pscope">${opts.map(([k, l]) => `<button data-v="${esc(k)}" class="${k === chosen[0] ? "on" : ""}">${l}</button>`).join("")}</div>
       <div class="co-tiles">
-        ${tile("Coach score", S.score ?? "—", S.rk ? `#${S.rk} in the ${sLg === "nfl" ? "NFL" : "FBS"}` : S.score != null ? "with this team" : "not enough games")}
+        ${tile("Coach score", S.score ?? "—", S.rk ? rankOf(sLg, scopeOf(chosen[0]), S.rk) : S.score != null ? "with this team" : "not enough games")}
         ${tile("Record", `${S.w}-${S.l}${S.t ? "-" + S.t : ""}`, S.pct == null ? "" : S.pct.toFixed(3).replace(/^0/, "") + " win %")}
         ${tile("Postseason", `${S.pw}-${S.pl}`, S.ti ? `${S.ti} title${S.ti > 1 ? "s" : ""}` : "")}
         ${tile("Vs winning teams", `${S.gw}-${S.gl}`)}
@@ -257,7 +266,7 @@ const Coaches = (() => {
     const facts = !c ? "" : `<div class="co-facts">
         ${c.on && now ? fact(`${now[0]} season`, `${now[2]}-${now[3]}${now[4] ? "-" + now[4] : ""}`) : ""}
         ${fact("Career", `${c.c.w}-${c.c.l}${c.c.t ? "-" + c.c.t : ""}`)}
-        ${c.c.score != null ? fact("Coach score", `${c.c.score}<em>#${c.c.rk}</em>`) : ""}
+        ${c.c.score != null ? fact("Coach score", `${c.c.score}<em>${rankOf(lg, "c", c.c.rk).replace(/ of \d+ all time</, " all time<")}</em>`) : ""}
         ${c.c.pw + c.c.pl ? fact("Postseason", `${c.c.pw}-${c.c.pl}${tiAll ? `<em>${tiAll} title${tiAll > 1 ? "s" : ""}</em>` : ""}`) : ""}
         ${bg ? fact("Background", esc({ off: "Offense", def: "Defense", st: "Special teams", both: "Both sides" }[bg.lab])) : ""}</div>`;
     el.innerHTML = `<div class="card co-hero">
