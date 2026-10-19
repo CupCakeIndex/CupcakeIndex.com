@@ -2760,6 +2760,7 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .kc-arc.short, .kc-arc.block { stroke-dasharray: 3 3; }
 .kc-dot { cursor: pointer; stroke: var(--card); stroke-width: 1; }
 .kc-dot.make { fill: var(--good); }
+.kc-dot.many { stroke-width: .6; opacity: .85; }  /* a whole career on one field: small dots */
 .kc-dot.miss { fill: #ff2e63; }
 .kc-dot.short { fill: var(--card); stroke: #ff2e63; stroke-width: 2; }
 .kc-dot.block { fill: var(--card); stroke: #ff2e63; stroke-width: 2; stroke-dasharray: 2 1.5; }

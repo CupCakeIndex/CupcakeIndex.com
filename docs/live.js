@@ -1995,23 +1995,40 @@ const Live = (() => {
   // All weeks: one arc, his longest make. Pick a game and its kicks play back one at a time: the ball's flight through the
   // uprights, or off to the side it missed (from the play text: "No Good, Wide Right"), dropping short, or blocked.
   async function kickChartInto(a, season, slot) {
-    // this season's chart file (src/pass_charts.py), or for past seasons the kick-only file (pass_charts.py <season> --kicks)
-    let file = await getJSON(`data/nfl/${season}/charts/${encodeURIComponent(a.id)}.json`).catch(() => null);
-    if (!file?.kick?.length) file = await getJSON(`data/nfl/${season}/kicks/${encodeURIComponent(a.id)}.json`).catch(() => null);
+    const id = encodeURIComponent(a.id);
+    // one season's kicks: this season's chart file (src/pass_charts.py) or, for past seasons, the kick-only file (--kicks)
+    const fetchSeason = async (y) => {
+      let f = await getJSON(`data/nfl/${y}/charts/${id}.json`).catch(() => null);
+      if (!f?.kick?.length) f = await getJSON(`data/nfl/${y}/kicks/${id}.json`).catch(() => null);
+      return f?.kick?.length ? f : null;
+    };
+    // which seasons he has a chart for (pass_charts.py kick_index), for the season picker; "all" = his whole career on one field
+    const idx = await getJSON("data/nfl/kicks_index.json").catch(() => ({}));
+    const years = (idx[a.id] || [+season]).map(Number);
+    let yr = String(years.includes(+season) ? +season : years.at(-1)), file = {}, kicks = [], weeks = [], sel = "all", halt = () => {};
+    const got = new Map();
+    const load = async () => {
+      const list = yr === "all" ? years : [+yr];
+      const files = (await Promise.all(list.map(async (y) => { if (!got.has(y)) got.set(y, await fetchSeason(y)); return [y, got.get(y)]; }))).filter(([, f]) => f);
+      kicks = files.flatMap(([y, f]) => f.kick.map((r) => ({ yr: y, wk: r[0], q: r[1], clock: String(r[2]).replace(/^0(?=\d)/, ""), d: r[3], side: r[4], res: r[5], text: r[7] })))
+        .map((k, i) => ({ ...k, i }));
+      file = yr === "all" ? { xp: files.reduce((t, [, f]) => (f.xp ? [t[0] + f.xp[0], t[1] + f.xp[1]] : t), [0, 0]), ranks: {} } : files[0]?.[1] || {};
+      weeks = [...new Set(kicks.map((k) => k.wk))].sort((x, y) => x - y);
+      sel = "all";
+    };
+    await load();
     const secs = (c) => { const [m, s2] = String(c).split(":").map(Number); return (m || 0) * 60 + (s2 || 0); };
-    const kicks = (file?.kick || []).map((r, i) => ({ i, wk: r[0], q: r[1], clock: String(r[2]).replace(/^0(?=\d)/, ""), d: r[3], side: r[4], res: r[5],
-      text: r[7] }));
     if (!slot.isConnected) return;
     if (!kicks.length) return slot.remove();
-    const weeks = [...new Set(kicks.map((k) => k.wk))].sort((x, y) => x - y);
-    let sel = "all", halt = () => {};
     const WHAT = { g: "good", m: "no good", s: "short", b: "blocked" };
-    const tip = (k) => `Week ${k.wk}, Q${k.q} ${k.clock}: ${k.d}-yard try, ${WHAT[k.res]}. ${(k.text || "").replace(/^(\([^)]*\)\s*)+/, "")}`;
+    const tip = (k) => `${yr === "all" ? `${k.yr}, ` : ""}Week ${k.wk}, Q${k.q} ${k.clock}: ${k.d}-yard try, ${WHAT[k.res]}. ${(k.text || "").replace(/^(\([^)]*\)\s*)+/, "")}`;
     const shell = () => {
       slot.innerHTML = `<div class="card pc kc"><div class="sc-bar"><h3>Kick chart</h3>
-          <select id="kc-wk"><option value="all">All weeks (${season})</option>${weeks.map((w) => `<option value="${w}">Week ${w}</option>`).join("")}</select></div>
+          <select id="kc-yr" aria-label="Season">${[...years].reverse().map((y) => `<option value="${y}"${String(y) === yr ? " selected" : ""}>${y}</option>`).join("")}${years.length > 1 ? `<option value="all"${yr === "all" ? " selected" : ""}>All years (${years[0]}–${String(years.at(-1)).slice(2)})</option>` : ""}</select>
+          ${yr === "all" ? "" : `<select id="kc-wk" aria-label="Week"><option value="all">All weeks</option>${weeks.map((w) => `<option value="${w}">Week ${w}</option>`).join("")}</select>`}</div>
         <div id="kc-body"></div></div>`;
-      $("#kc-wk").onchange = (e) => { sel = e.target.value; draw(); };
+      $("#kc-yr").onchange = async (e) => { halt(); yr = e.target.value; await load(); shell(); };
+      if ($("#kc-wk")) $("#kc-wk").onchange = (e) => { sel = e.target.value; draw(); };
       draw();
     };
     const draw = () => {
@@ -2061,12 +2078,16 @@ const Live = (() => {
       g.push(`<path class="kc-post" d="${post(half, BAR, TIP)}M${bx0.toFixed(1)},${by0.toFixed(1)}L${bx1.toFixed(1)},${by1.toFixed(1)}${post(0, 0, BAR)}"/>`);
       const nearPost = `<path class="kc-post" d="${post(-half, BAR, TIP)}"/>`;
       // kick spots: on the middle line at the real distance, stepping back (into the picture) only so dots don't cover each other
-      const rad = 4.2, placed = [], spot = new Map();
+      // many kicks (a career): smaller dots. Every dot stays on the field: when a spot is full it shares the least crowded one
+      const rad = pts.length > 80 ? 2.6 : 4.2, step = pts.length > 80 ? 1.35 : 2.2, placed = [], spot = new Map();
       pts.slice().sort((p, q) => q.d - p.d || p.i - q.i).forEach((k) => {
-        let lat = 0;
-        for (let n = 1; n < 60; n++) {
-          const tl = Math.ceil((n - 1) / 2) * 2.2 * (n % 2 ? 1 : -1), [tx, ty] = P(k.d - SNAP, tl);
-          if (placed.every((q) => (q.x - tx) ** 2 + (q.y - ty) ** 2 >= (2 * rad + 0.5) ** 2)) { lat = tl; break; }
+        let lat = 0, fewest = Infinity;
+        for (let n = 1; n < 80; n++) {
+          const tl = Math.ceil((n - 1) / 2) * step * (n % 2 ? 1 : -1);
+          if (Math.abs(tl) > LAT - 1) break; // the sidelines
+          const [tx, ty] = P(k.d - SNAP, tl), hits = placed.filter((q) => (q.x - tx) ** 2 + (q.y - ty) ** 2 < (2 * rad + 0.5) ** 2).length;
+          if (!hits) { lat = tl; break; }
+          if (hits < fewest) { fewest = hits; lat = tl; }
         }
         const [x, y] = P(k.d - SNAP, lat);
         placed.push({ x, y });
@@ -2094,7 +2115,7 @@ const Live = (() => {
       g.push(nearPost);
       pts.slice().sort((p, q) => (q.res === "g") - (p.res === "g")).forEach((k) => { // makes first, misses drawn on top
         const [x, y] = spot.get(k.i);
-        g.push(`<circle class="kc-dot ${cls(k)}" data-i="${k.i}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rad}"><title>${esc(tip(k))}</title></circle>`);
+        g.push(`<circle class="kc-dot ${cls(k)}${pts.length > 80 ? " many" : ""}" data-i="${k.i}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rad}"><title>${esc(tip(k))}</title></circle>`);
         if (!all) g.push(`<text class="kc-dist" data-i="${k.i}" x="${x.toFixed(1)}" y="${(y + 15).toFixed(1)}">${k.d}</text>`); // a game: each kick's distance under its spot
       });
       if (all && long) { const [x, y] = spot.get(long.i); g.push(`<text class="kc-long" x="${(x - 8).toFixed(1)}" y="${(y - 9).toFixed(1)}">LONG ${long.d}</text>`); } // above-left of the dot, clear of the yard numbers
@@ -2106,7 +2127,7 @@ const Live = (() => {
       const chip = (c2, label) => `<span class="pc-chip"><span class="ay-key ${c2}"></span>${label}</span>`;
       $("#kc-body").innerHTML = `<div class="ay-stats">${stat(`${made.length}/${pts.length}`, "Field goals", "big")}${stat(pts.length ? `${Math.round((100 * made.length) / pts.length)}%` : "–", "Made", "", "pct")}
           ${stat(long ? long.d : "–", "Longest", "", "long")}${stat(`${far.filter((k) => k.res === "g").length}/${far.length}`, "From 50+", "", "fg50")}${xp ? stat(`${xp[0]}/${xp[1]}`, "Extra points") : ""}</div>
-        <div class="pc-ctl">${all ? "" : `<button class="gcv-live" id="kc-go">▶ Play</button>`}<span class="muted">${pts.length} kick${pts.length === 1 ? "" : "s"}${all ? " · pick a week to play them back" : ""}</span><span class="pc-legend">${chip("kc-k-make", "Good")}${pts.some((k) => k.res === "m") ? chip("kc-k-miss", "Missed") : ""}${pts.some((k) => k.res === "s") ? chip("kc-k-short", "Short") : ""}${pts.some((k) => k.res === "b") ? chip("kc-k-block", "Blocked") : ""}</span></div>
+        <div class="pc-ctl">${all ? "" : `<button class="gcv-live" id="kc-go">▶ Play</button>`}<span class="muted">${pts.length} kick${pts.length === 1 ? "" : "s"}${all ? (yr === "all" ? " · pick a season to play its games back" : " · pick a week to play them back") : ""}</span><span class="pc-legend">${chip("kc-k-make", "Good")}${pts.some((k) => k.res === "m") ? chip("kc-k-miss", "Missed") : ""}${pts.some((k) => k.res === "s") ? chip("kc-k-short", "Short") : ""}${pts.some((k) => k.res === "b") ? chip("kc-k-block", "Blocked") : ""}</span></div>
         <div class="pc-stage"><svg class="pc-field kc-field" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(a.displayName)} kick chart">${g.join("")}</svg></div>
         <p class="kc-play muted" id="kc-play">${all ? `The arc is his longest make. Tap a kick for the play.` : "Tap a kick for the play."}</p>
         <p class="note">Every field goal try (nflverse play-by-play, through Week ${file.ranks?.kick?._wk ?? "–"}). Seen from the side: each dot is the kick's line of scrimmage (field goal distance = yard line + 17), and the line is the ball's flight. A miss wide left goes behind the far upright, wide right in front of the near one; which way a miss went comes from the play-by-play text. Ranks: NFL kickers with ${file.ranks?.kick?._min ?? "–"}+ tries.</p>`;

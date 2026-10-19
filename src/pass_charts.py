@@ -159,7 +159,23 @@ def build(season, kicks_only=False):
     print(f"pass charts {season}: {len(by)} players")
 
 
+def kick_index():
+    """docs/data/nfl/kicks_index.json: {espn id: [seasons he has a kick chart for]}, so the page's season picker knows what exists
+    (this season's chart files plus the kick-only files for past seasons)."""
+    idx = defaultdict(set)
+    for season_dir in OUT.iterdir():
+        if not season_dir.name.isdigit():
+            continue
+        for sub in ("charts", "kicks"):
+            for f in (season_dir / sub).glob("*.json") if (season_dir / sub).exists() else []:
+                if sub == "kicks" or '"kick":' in f.read_text(encoding="utf-8"):
+                    idx[f.stem].add(int(season_dir.name))
+    (OUT / "kicks_index.json").write_text(json.dumps({k: sorted(v) for k, v in sorted(idx.items())}, separators=(",", ":")), encoding="utf-8")
+    print(f"kick index: {len(idx)} kickers")
+
+
 if __name__ == "__main__":
     # python src/pass_charts.py [season] [--kicks]   (--kicks: kick charts only, for past seasons)
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     build(int(args[0]) if args else season_now(), kicks_only="--kicks" in sys.argv)
+    kick_index()
