@@ -2539,8 +2539,11 @@ table.roster th.sortable.on a { color: var(--accent); }
 /* One coach's page (#/coach/<slug>) */
 .co-face { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; object-position: top; flex: none; background: var(--line); }
 .co-face.big { width: 96px; height: 96px; }
-.co-face.ph { display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--muted); }
-.co-face.big.ph { font-size: 28px; }
+/* no photo: a blank grey head and shoulders, like an account that hasn't added a picture */
+.co-face.ph { display: inline-flex; align-items: flex-end; justify-content: center; overflow: hidden; flex: none;
+  background: color-mix(in srgb, var(--muted) 28%, var(--card)); color: color-mix(in srgb, var(--muted) 70%, var(--card)); }
+.co-face.ph svg { width: 82%; height: 82%; fill: currentColor; }
+.gs-results button .co-face { flex: none; }  /* the dropdown stretches its labels; not the picture */
 /* photo | name, job and quick facts | hot seat; everything stays at the top when the hot seat explanation opens */
 .card.co-hero { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(260px, 380px); align-items: start; gap: 18px 22px; }
 .co-facts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }

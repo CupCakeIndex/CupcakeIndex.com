@@ -117,9 +117,9 @@ const Coaches = (() => {
 
   // ---------------------------------------------------------------- one coach's page
   const yrs = (a, b) => (a === b ? `${a}` : `${a}–${String(b).slice(2)}`);
-  const initials = (n) => (n || "").split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  const SILHOUETTE = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9.2" r="4.3"/><path d="M2.8 24c.6-5.3 4.4-8.6 9.2-8.6s8.6 3.3 9.2 8.6z"/></svg>`;
   const pic = (p, n, cls = "") => (safeUrl(p?.img) ? `<img class="co-face ${cls}" src="${esc(p.img)}" alt="" loading="lazy" decoding="async">`
-    : `<span class="co-face ph ${cls}">${esc(initials(n))}</span>`);
+    : `<span class="co-face ph ${cls}" role="img" aria-label="${esc(n)}">${SILHOUETTE}</span>`); // no photo: a blank head and shoulders
   const teamName = (lg, key) => team(lg, key).name || key;
   const teamLink = (lg, key) => { const t = team(lg, key); return t.id ? `<a href="#/team/${esc(t.id)}?league=${lg}">${logo(t)} ${esc(teamName(lg, key))}</a>` : esc(key); };
   function findCoach(s) { // [[league, coach]] for every league he was a head coach in, his current job first
