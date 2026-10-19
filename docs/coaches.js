@@ -188,8 +188,8 @@ const Coaches = (() => {
     // drawn left to right like an ancestry chart: him, then the next generation in the column to his right, and so on
     const chart = (kids) => `${/class="tr-tog"/.test(kids) ? `<div class="presets tr-all"><button type="button" data-tr="1">Expand all</button><button type="button" data-tr="">Collapse all</button></div>` : ""}
       <div class="htree"><ul><li><span class="tr-node me">${pic(me, name)}<span><b>${esc(name)}</b></span></span>${kids}</li></ul></div>`;
-    const tree = `${upHtml || downHtml ? `<div class="tr-find"><input id="tr-q" type="search" list="tr-names" autocomplete="off" placeholder="Find a coach in this tree…" aria-label="Find a coach in this tree">
-        <datalist id="tr-names"></datalist><small id="tr-msg" class="muted"></small></div>` : ""}<div class="co-tree">
+    const tree = `${upHtml || downHtml ? `<div class="tr-find"><div class="tr-search"><input id="tr-q" type="search" autocomplete="off" placeholder="Find a coach in this tree…" aria-label="Find a coach in this tree">
+        <div id="tr-res" class="gs-results hidden" role="listbox"></div></div><small id="tr-msg" class="muted"></small></div>` : ""}<div class="co-tree">
         <div><h4>Came from</h4>${upHtml ? `<p class="note">Head coaches he worked under (next column), and who they worked under.</p>${chart(upHtml)}` : `<p class="muted">No head coaches in our data that he worked under.</p>`}</div>
         <div><h4>His tree${nDown ? ` <small class="muted">${nDown} head coach${nDown > 1 ? "es" : ""}</small>` : ""}</h4>${downHtml ? `<p class="note">His assistants who became head coaches (next column), and theirs.</p>${chart(downHtml)}` : `<p class="muted">None of his assistants have become head coaches yet.</p>`}</div>
       </div>
@@ -221,7 +221,13 @@ const Coaches = (() => {
     if (!q) return;
     const nameOf = (a) => a.querySelector("b")?.textContent || "";
     const nodes = () => [...box.querySelectorAll("a.tr-node")];
-    $("#tr-names").innerHTML = [...new Set(nodes().map(nameOf))].sort().map((n) => `<option value="${esc(n)}">`).join("");
+    // everyone in the trees, once each: [name, slug, which tree(s)]
+    const people = new Map();
+    box.querySelectorAll(".co-tree > div").forEach((part) => part.querySelectorAll("a.tr-node").forEach((a) => {
+      const n = nameOf(a), k = decodeURIComponent((a.getAttribute("href").match(/#\/coach\/([^?]+)/) || [])[1] || ""), w = part.querySelector("h4").firstChild.textContent.trim();
+      const was = people.get(n);
+      people.set(n, [n, k, was && !was[2].includes(w) ? `${was[2]} · ${w}` : w]);
+    }));
     let hits = [];
     function glow() { // draw the path to each hit as an overlay on its chart (redrawn when branches open or close)
       box.querySelectorAll(".tr-glow").forEach((g) => g.remove());
@@ -263,9 +269,26 @@ const Coaches = (() => {
       glow();
       hits[0]?.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
     }
-    q.onchange = () => find(q.value);
-    q.onkeydown = (e) => { if (e.key === "Enter") find(q.value); };
-    q.oninput = () => { if (!q.value) find(""); else if (nodes().some((a) => nameOf(a) === q.value)) find(q.value); }; // picked from the list
+    // suggestions: the same dropdown and name matching as the search bar up top (app.js initSearch / fuzzyScore)
+    const res = $("#tr-res");
+    let list = [];
+    const close = () => res.classList.add("hidden");
+    const pick = (r) => { q.value = r[0]; close(); find(r[0]); };
+    q.oninput = () => {
+      const t = q.value.trim();
+      if (!t) { close(); find(""); return; }
+      list = [...people.values()].map((r) => [r, fuzzyScore(t, r[0])]).filter(([, sc]) => sc != null)
+        .sort((a, b) => a[1] - b[1] || a[0][0].localeCompare(b[0][0])).slice(0, 8).map(([r]) => r);
+      res.innerHTML = list.length ? `<div class="gs-h">Coaches in this tree</div>` + list.map((r, i) => `<button type="button" data-i="${i}">${pic(P[r[1]], r[0])}<span>${esc(r[0])}</span><small>${esc(r[2])}</small></button>`).join("")
+        : `<p class="muted gs-empty">Not in this tree.</p>`;
+      res.classList.remove("hidden");
+    };
+    res.onclick = (e) => { const b = e.target.closest("[data-i]"); if (b) pick(list[+b.dataset.i]); };
+    q.onkeydown = (e) => {
+      if (e.key === "Enter") { e.preventDefault(); if (list.length && !res.classList.contains("hidden")) pick(list[0]); else find(q.value); }
+      if (e.key === "Escape") close();
+    };
+    el.onpointerdown = (e) => { if (!e.target.closest(".tr-search")) close(); };
   }
 
   // the head coach on a team page (top right): photo, name, hot seat; links to his page
