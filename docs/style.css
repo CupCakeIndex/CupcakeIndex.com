@@ -2750,27 +2750,27 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .pc-yac.pc-hide, .pc-yacend.pc-hide { opacity: 0; }
 .pc-legend { margin-left: auto; display: flex; flex-wrap: wrap; gap: 4px 12px; }
 .pc-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
-/* Kick chart (NFL kickers, live.js kickChartInto): goalposts at the top, distance rows, makes between the uprights */
-.kc .ay-stats { margin-bottom: 8px; }
-.kc-band { fill: var(--ink); opacity: .035; }
-.kc-up { stroke: #f2c230; stroke-width: 1.5; stroke-dasharray: 3 4; opacity: .55; }
-.kc-post { fill: none; stroke: #f2c230; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
-.kc-lbl { fill: var(--muted); font: 700 15px var(--font-head); letter-spacing: .05em; }
-.kc-lbl.r { text-anchor: end; }
-.kc-side { fill: var(--muted); font: 700 13px var(--font-head); letter-spacing: .12em; text-anchor: middle; opacity: .8; }
-.kc-dot { cursor: pointer; }
-.kc-make { fill: var(--good); }
-.kc-miss { fill: #ff2e63; }
-.kc-short { fill: none; stroke: #ff2e63; stroke-width: 2; }
-.kc-block path { stroke: #ff2e63; stroke-width: 2.5; stroke-linecap: round; }
-.kc-hit { fill: transparent; }
-.kc-dot.on { stroke: var(--ink); stroke-width: 2.5; }
-.kc-block.on path { stroke: var(--ink); }
+/* Kick chart (NFL kickers, live.js kickChartInto): the pass chart's field, looking at the goalposts; dot = kick spot, line = flight */
+.kc-ez { fill: var(--accent); opacity: .07; }
+.pc-yl.kc-goal { opacity: .6; }
+.kc-post { fill: none; stroke: #f2c230; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.kc-arc { fill: none; stroke-width: 1.6; stroke-linecap: round; opacity: .55; }
+.kc-arc.make { stroke: var(--good); }
+.kc-arc.miss, .kc-arc.short, .kc-arc.block { stroke: #ff2e63; opacity: .8; }
+.kc-arc.short, .kc-arc.block { stroke-dasharray: 3 3; }
+.kc-dot { cursor: pointer; stroke: var(--card); stroke-width: 1; }
+.kc-dot.make { fill: var(--good); }
+.kc-dot.miss { fill: #ff2e63; }
+.kc-dot.short { fill: var(--card); stroke: #ff2e63; stroke-width: 2; }
+.kc-dot.block { fill: var(--card); stroke: #ff2e63; stroke-width: 2; stroke-dasharray: 2 1.5; }
+.kc-field.picked .kc-arc:not(.on), .kc-field.picked .kc-dot:not(.on) { opacity: .18; }
+.kc-arc.on { opacity: 1; stroke-width: 2.6; }
+.kc-dot.on { stroke: var(--ink); stroke-width: 2; }
 .kc-play { min-height: 1.4em; margin: 8px 0 0; font-size: 13px; }
 .ay-key.kc-k-make { background: var(--good); }
 .ay-key.kc-k-miss { background: #ff2e63; }
 .ay-key.kc-k-short { background: none; border: 2px solid #ff2e63; box-sizing: border-box; }
-.ay-key.kc-k-block { background: none; border-radius: 0; width: 10px; height: 10px; background-image: linear-gradient(45deg, transparent 42%, #ff2e63 42% 58%, transparent 58%), linear-gradient(-45deg, transparent 42%, #ff2e63 42% 58%, transparent 58%); }
+.ay-key.kc-k-block { background: none; border: 2px dashed #ff2e63; box-sizing: border-box; }
 .ay-key.yac { width: 14px; height: 0; border-radius: 0; background: none; border-top: 2px dotted var(--ink); }
 .pc .ay-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
 .pc .ay-stat { min-width: 0; }

@@ -1915,69 +1915,112 @@ const Live = (() => {
     }
     return out;
   }
-  // Player page (NFL kickers): every field goal this season, seen from behind the kicker. Rows are the usual distance
-  // splits (20-29 ... 60+), the longest nearest the posts. Makes sit between the uprights; misses sit on the side they
-  // missed (from the play text: "No Good, Wide Right"); short and blocked kicks are in the middle, marked. Within a row the
-  // kicks line up in the order he tried them: nothing is placed where the data doesn't say (src/pass_charts.py "kick").
+  // Player page (NFL kickers): every field goal this season on the same TV-style field as the pass chart, seen from behind
+  // the kicker toward the goalposts. Each dot is the spot he kicked from (a field goal's distance is measured from that spot
+  // to the posts, so it's exact); the arc is the ball's flight: through the uprights, curling off to the side it missed
+  // (from the play text: "No Good, Wide Right"), dropping short, or blocked right off the spot. The play-by-play has no hash
+  // mark, so spots start in the middle and only step aside so they don't cover each other (src/pass_charts.py "kick").
   async function kickChartInto(a, season, slot) {
     const file = await getJSON(`data/nfl/${season}/charts/${encodeURIComponent(a.id)}.json`).catch(() => null);
     const kicks = (file?.kick || []).map((r, i) => ({ i, wk: r[0], q: r[1], clock: String(r[2]).replace(/^0(?=\d)/, ""), d: r[3], side: r[4], res: r[5], text: r[7] }));
     if (!slot.isConnected) return;
     if (!kicks.length) return slot.remove();
-    const BANDS = [[60, 99, "60+"], [50, 59, "50–59"], [40, 49, "40–49"], [30, 39, "30–39"], [0, 29, "20–29"]];
-    const W = 600, LANE = { l: [52, 214], c: [242, 358], r: [386, 548] }, STEP = 19, TOP = 70;
-    const lanes = BANDS.map(([lo, hi]) => ({ l: [], c: [], r: [], all: kicks.filter((k) => k.d >= lo && k.d <= hi) }));
-    lanes.forEach((b) => b.all.forEach((k) => b[k.side === "l" || k.side === "r" ? k.side : "c"].push(k)));
-    const per = (s) => Math.max(1, Math.floor((LANE[s][1] - LANE[s][0]) / STEP));
-    const rowsOf = (b) => Math.max(1, ...["l", "c", "r"].map((s) => Math.ceil(b[s].length / per(s))));
-    let y = TOP + 26;
-    const g = [], tip = (k) => `Week ${k.wk}, Q${k.q} ${k.clock}: ${k.d}-yard try. ${k.text}`;
-    // goalposts: uprights, crossbar and the post, with the upright lines carried down through every row
-    const cy = TOP, bandY = [];
-    lanes.forEach((b, n) => {
-      const h = rowsOf(b) * STEP + 16;
-      bandY.push([y, h]);
-      if (n % 2 === 0) g.push(`<rect class="kc-band" x="20" y="${y}" width="${W - 40}" height="${h}"/>`);
-      const made = b.all.filter((k) => k.res === "g").length;
-      g.push(`<text class="kc-lbl" x="26" y="${y + 17}">${BANDS[n][2]}</text>`,
-        `<text class="kc-lbl r" x="${W - 26}" y="${y + 17}">${b.all.length ? `${made}/${b.all.length}` : "–"}</text>`);
-      ["l", "c", "r"].forEach((s) => b[s].forEach((k, j) => {
-        const col = j % per(s), row = Math.floor(j / per(s));
-        // the middle fills from the center out; wide-left fills toward the post from the left... both read left to right in order
-        const x = s === "c" ? (LANE.c[0] + LANE.c[1]) / 2 + (col - (Math.min(per("c"), b.c.length) - 1) / 2) * STEP
-          : s === "l" ? LANE.l[1] - 9 - col * STEP : LANE.r[0] + 9 + col * STEP;
-        const yy = y + 17 + row * STEP;
-        const cls = k.res === "g" ? "kc-make" : k.res === "s" ? "kc-short" : k.res === "b" ? "kc-block" : "kc-miss";
-        g.push(k.res === "b"
-          ? `<g class="kc-dot ${cls}" data-i="${k.i}"><title>${esc(tip(k))}</title><path d="M${x - 6} ${yy - 6}l12 12m0 -12l-12 12"/><circle cx="${x}" cy="${yy}" r="9" class="kc-hit"/></g>`
-          : `<circle class="kc-dot ${cls}" data-i="${k.i}" cx="${x}" cy="${yy}" r="7"><title>${esc(tip(k))}</title></circle>`);
-      }));
-      y += h;
-    });
-    const H = y + 16;
-    g.unshift(`<line class="kc-up" x1="229" y1="${TOP + 26}" x2="229" y2="${y}"/><line class="kc-up" x1="371" y1="${TOP + 26}" x2="371" y2="${y}"/>`,
-      `<path class="kc-post" d="M229 ${cy - 58}V${cy}H371V${cy - 58}M300 ${cy}V${cy + 22}"/>`,
-      `<text class="kc-side" x="${(LANE.l[0] + LANE.l[1]) / 2}" y="${TOP + 18}">WIDE LEFT</text><text class="kc-side" x="${(LANE.r[0] + LANE.r[1]) / 2}" y="${TOP + 18}">WIDE RIGHT</text>`);
-    // the numbers over the chart, ranked against the league's kickers (src/pass_charts.py)
-    const R = file.ranks?.kick, rk = (key) => (R?.[key] ? `<em class="ay-rk${R[key][0] <= 5 ? " top" : ""}">#${R[key][0]} of ${R[key][1]}</em>` : "");
-    const stat = (v, label, cls = "", key = "") => `<span class="ay-stat ${cls}"><b>${v}</b><small>${label}</small>${rk(key)}</span>`;
-    const made = kicks.filter((k) => k.res === "g"), long = made.length ? Math.max(...made.map((k) => k.d)) : null;
-    const far = kicks.filter((k) => k.d >= 50), xp = file.xp;
-    const chip = (cls, label) => `<span class="pc-chip"><span class="ay-key ${cls}"></span>${label}</span>`;
-    slot.innerHTML = `<div class="card pc kc"><div class="sc-bar"><h3>Kick chart</h3><span class="muted">${season} field goals</span></div>
-      <div class="ay-stats">${stat(`${made.length}/${kicks.length}`, "Field goals", "big")}${stat(`${Math.round((100 * made.length) / kicks.length)}%`, "Made", "", "pct")}
-        ${stat(long ?? "–", "Longest", "", "long")}${stat(`${far.filter((k) => k.res === "g").length}/${far.length}`, "From 50+", "", "fg50")}${xp ? stat(`${xp[0]}/${xp[1]}`, "Extra points") : ""}</div>
-      <div class="pc-ctl"><span class="pc-legend">${chip("kc-k-make", "Good")}${chip("kc-k-miss", "Missed")}${kicks.some((k) => k.res === "s") ? chip("kc-k-short", "Short") : ""}${kicks.some((k) => k.res === "b") ? chip("kc-k-block", "Blocked") : ""}</span></div>
-      <div class="pc-stage"><svg class="pc-field kc-field" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(a.displayName)} kick chart">${g.join("")}</svg></div>
-      <p class="kc-play muted" id="kc-play">Tap a kick for the play.</p>
-      <p class="note">Every field goal try this season (nflverse play-by-play, through Week ${R?._wk ?? "–"}). Rows are distance; within a row, kicks are in the order he tried them. Which way a kick missed comes from the play-by-play text. Ranks: NFL kickers with ${R?._min ?? "–"}+ tries.</p></div>`;
-    slot.querySelector(".kc-field").addEventListener("click", (e) => {
-      const el = e.target.closest("[data-i]"), k = el && kicks[+el.dataset.i];
-      if (!k) return;
-      slot.querySelectorAll(".kc-dot.on").forEach((x) => x.classList.remove("on"));
-      el.classList.add("on");
-      $("#kc-play").textContent = tip(k);
-    });
+    const weeks = [...new Set(kicks.map((k) => k.wk))].sort((x, y) => x - y);
+    let sel = "all";
+    const WHAT = { g: "good", m: "no good", s: "short", b: "blocked" };
+    const tip = (k) => `Week ${k.wk}, Q${k.q} ${k.clock}: ${k.d}-yard try, ${WHAT[k.res]}. ${(k.text || "").replace(/^(\([^)]*\)\s*)+/, "")}`;
+    const shell = () => {
+      slot.innerHTML = `<div class="card pc kc"><div class="sc-bar"><h3>Kick chart</h3>
+          <select id="kc-wk"><option value="all">All weeks (${season})</option>${weeks.map((w) => `<option value="${w}">Week ${w}</option>`).join("")}</select></div>
+        <div id="kc-body"></div></div>`;
+      $("#kc-wk").onchange = (e) => { sel = e.target.value; draw(); };
+      draw();
+    };
+    const draw = () => {
+      const pts = kicks.filter((k) => sel === "all" || k.wk === +sel);
+      // the field: v = yards from the near edge toward the posts; the posts sit on the end line, 10 yards behind the goal line
+      const narrow = slot.clientWidth < 560;
+      const W = narrow ? 400 : 640, H = narrow ? 460 : 400, NEAR = H - 30, FAR = narrow ? 110 : 100, NW = W - 24, FW = W * (narrow ? 0.62 : 0.6), K = NW / FW - 1;
+      const top = Math.max(45, Math.ceil((Math.max(...kicks.map((k) => k.d)) + 4) / 5) * 5), bot = 0; // same depth for every week
+      const vOf = (dist) => top - dist; // a kick from d yards out starts d yards in front of the posts
+      const z = (v) => 1 + K * ((v - bot) / (top - bot)), S = (v) => 1 / z(v);
+      const P = (fx, v) => [W / 2 + (fx - 0.5) * NW * S(v), NEAR - ((NEAR - FAR) * (1 - S(v))) / (1 - 1 / (1 + K))];
+      const pt = (fx, v) => P(fx, v).map((n) => n.toFixed(1)).join(",");
+      const band = (v0, v1, f0 = 0, f1 = 1) => `${pt(f0, v0)} ${pt(f1, v0)} ${pt(f1, v1)} ${pt(f0, v1)}`;
+      const yd = (v) => (NW * S(v)) / 53.3; // pixels per yard at that depth (for heights: the posts, the ball's flight)
+      const g = [`<linearGradient id="pc-turf" x1="0" y1="1" x2="0" y2="0"><stop offset="0" class="pc-turf-near"/><stop offset="1" class="pc-turf-far"/></linearGradient>`,
+        `<polygon class="pc-turf" points="${band(bot, top)}"/>`];
+      for (let v = top - 10; v > bot; v -= 10) if (Math.round((top - v) / 10) % 2 === 0) g.push(`<polygon class="pc-stripe" points="${band(Math.max(v - 10, bot), v)}"/>`);
+      g.push(`<polygon class="kc-ez" points="${band(top - 10, top)}"/>`); // the end zone
+      for (let v = bot + 1; v < top - 10; v++) if ((top - v) % 5) for (const hf of [0.4, 0.6]) g.push(`<line class="pc-hash" x1="${P(hf - 0.012, v)[0].toFixed(1)}" x2="${P(hf + 0.012, v)[0].toFixed(1)}" y1="${P(hf, v)[1].toFixed(1)}" y2="${P(hf, v)[1].toFixed(1)}"/>`);
+      for (let dist = 10; dist <= top; dist += 5) { // yard lines, numbered like the field (the goal line is 10 yards in front of the posts)
+        const v = vOf(dist), [x0, y] = P(0, v), [x1] = P(1, v), line = dist - 10, fs = (8 * S(v) + 4).toFixed(1);
+        g.push(`<line class="pc-yl${line % 10 ? " five" : ""}${line === 0 ? " kc-goal" : ""}" x1="${x0.toFixed(1)}" x2="${x1.toFixed(1)}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"/>`);
+        if (line && !(line % 10) && line <= 50) g.push(`<text class="pc-num" x="${P(0.035, v)[0].toFixed(1)}" y="${(y - 3).toFixed(1)}" style="font-size:${fs}px">${line}</text><text class="pc-num r" x="${P(0.965, v)[0].toFixed(1)}" y="${(y - 3).toFixed(1)}" style="font-size:${fs}px">${line}</text>`);
+      }
+      g.push(`<polygon class="pc-side" points="${band(bot, top)}"/>`);
+      // the goalposts, to scale: uprights 18.5 feet apart, the crossbar 10 feet up, the uprights 35 feet above it
+      const pv = top, py = P(0.5, pv)[1], u = yd(pv), half = 3.08 / 53.3, bar = py - 3.33 * u, tipY = bar - 11.7 * u;
+      const [lx] = P(0.5 - half, pv), [rx] = P(0.5 + half, pv), cx = W / 2;
+      g.push(`<path class="kc-post" d="M${cx.toFixed(1)},${py.toFixed(1)}V${bar.toFixed(1)}M${lx.toFixed(1)},${tipY.toFixed(1)}V${bar.toFixed(1)}H${rx.toFixed(1)}V${tipY.toFixed(1)}"/>`);
+      // kick spots: the middle of the field (no hash in the data), stepping aside only so dots don't cover each other
+      const rad = (v) => 4.5 * S(v) + 2, placed = [], spot = new Map();
+      pts.slice().sort((p, q) => q.d - p.d || p.i - q.i).forEach((k) => {
+        const v = vOf(k.d), r = rad(v), [c0, cy] = P(0.5, v);
+        let best = c0;
+        for (let n = 1; n < 80; n++) {
+          const tx = c0 + Math.ceil((n - 1) / 2) * r * 2.1 * (n % 2 ? 1 : -1);
+          if (placed.every((q) => (q.x - tx) ** 2 + (q.y - cy) ** 2 >= (q.r + r + 0.5) ** 2)) { best = tx; break; }
+        }
+        placed.push({ x: best, y: cy, r });
+        spot.set(k.i, [best, cy, v]);
+      });
+      // the flight, in 3D and then put on the field: t runs 0 -> 1 from the spot to the goal line plane (or where it fell).
+      // Height climbs and levels off, crossing the posts' plane above the crossbar (like the TV view from behind the kicker,
+      // where a kick climbs steadily into the posts); sideways
+      // the ball drifts out to the side it missed, most of it late, the way a kick hooks. Short kicks come down before the
+      // posts; blocked ones die a few yards past the spot.
+      const flight = (k) => {
+        const [sx, sy, v] = spot.get(k.i), f0 = 0.5 + (sx - W / 2) / (NW * S(v));
+        const ev = k.res === "b" ? Math.min(top, v + 4) : k.res === "s" ? top - 2 : top;
+        const aim = k.side === "l" ? 0.5 - half * 2.4 : k.side === "r" ? 0.5 + half * 2.4 : 0.5;
+        const apex = k.res === "b" ? 1 : 3.5, end = k.res === "g" || k.res === "m" ? 5 : 0;
+        const out = [];
+        for (let n = 0; n <= 28; n++) {
+          const t = n / 28, vv = v + (ev - v) * t, fx = f0 + (aim - f0) * t * t;
+          const h = end ? end * (1 - (1 - t) ** 2) : apex * 4 * t * (1 - t); // over the bar: climbs and levels off; short / blocked: up and down
+          const [x, y] = P(fx, vv);
+          out.push(`${n ? "L" : "M"}${x.toFixed(1)},${(y - h * yd(vv)).toFixed(1)}`);
+        }
+        return out.join("");
+      };
+      const cls = (k) => (k.res === "g" ? "make" : k.res === "s" ? "short" : k.res === "b" ? "block" : "miss");
+      pts.forEach((k) => g.push(`<path class="kc-arc ${cls(k)}" data-i="${k.i}" d="${flight(k)}"/>`));
+      pts.slice().sort((p, q) => (q.res === "g") - (p.res === "g")).forEach((k) => { // makes first, misses drawn on top
+        const [x, y, v] = spot.get(k.i);
+        g.push(`<circle class="kc-dot ${cls(k)}" data-i="${k.i}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rad(v).toFixed(1)}"><title>${esc(tip(k))}</title></circle>`);
+      });
+      // the numbers over the chart, ranked against the league's kickers on "All weeks" (src/pass_charts.py)
+      const R = sel === "all" ? file.ranks?.kick : null, rk = (key) => (R?.[key] ? `<em class="ay-rk${R[key][0] <= 5 ? " top" : ""}">#${R[key][0]} of ${R[key][1]}</em>` : "");
+      const stat = (v, label, c2 = "", key = "") => `<span class="ay-stat ${c2}"><b>${v}</b><small>${label}</small>${rk(key)}</span>`;
+      const made = pts.filter((k) => k.res === "g"), far = pts.filter((k) => k.d >= 50), xp = sel === "all" ? file.xp : null;
+      const chip = (c2, label) => `<span class="pc-chip"><span class="ay-key ${c2}"></span>${label}</span>`;
+      $("#kc-body").innerHTML = `<div class="ay-stats">${stat(`${made.length}/${pts.length}`, "Field goals", "big")}${stat(pts.length ? `${Math.round((100 * made.length) / pts.length)}%` : "–", "Made", "", "pct")}
+          ${stat(made.length ? Math.max(...made.map((k) => k.d)) : "–", "Longest", "", "long")}${stat(`${far.filter((k) => k.res === "g").length}/${far.length}`, "From 50+", "", "fg50")}${xp ? stat(`${xp[0]}/${xp[1]}`, "Extra points") : ""}</div>
+        <div class="pc-ctl"><span class="muted">${pts.length} kick${pts.length === 1 ? "" : "s"}</span><span class="pc-legend">${chip("kc-k-make", "Good")}${pts.some((k) => k.res === "m") ? chip("kc-k-miss", "Missed") : ""}${pts.some((k) => k.res === "s") ? chip("kc-k-short", "Short") : ""}${pts.some((k) => k.res === "b") ? chip("kc-k-block", "Blocked") : ""}</span></div>
+        <div class="pc-stage"><svg class="pc-field kc-field" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(a.displayName)} kick chart">${g.join("")}</svg></div>
+        <p class="kc-play muted" id="kc-play">Tap a kick for the play.</p>
+        <p class="note">Every field goal try (nflverse play-by-play, through Week ${file.ranks?.kick?._wk ?? "–"}). Each dot is the spot he kicked from; the line is the ball's flight. Which way a miss went comes from the play-by-play text, and it has no hash mark, so kicks start from the middle of the field. Ranks: NFL kickers with ${file.ranks?.kick?._min ?? "–"}+ tries.</p>`;
+      slot.querySelector(".kc-field").addEventListener("click", (e) => {
+        const el = e.target.closest("[data-i]"), k = el && kicks[+el.dataset.i];
+        if (!k) return;
+        slot.querySelectorAll(".kc-field .on").forEach((x) => x.classList.remove("on"));
+        slot.querySelectorAll(`.kc-field [data-i="${k.i}"]`).forEach((x) => x.classList.add("on"));
+        slot.querySelector(".kc-field").classList.add("picked");
+        $("#kc-play").textContent = tip(k);
+      });
+    };
+    shell();
   }
   // Player page: a chart of every throw (QBs), target (WRs, TEs, RBs) or run (RBs) this season, seen from behind the line.
   // Left/middle/right across, yards downfield up. Pick a week to play it back one snap at a time; "All weeks" is the combined, still chart.
