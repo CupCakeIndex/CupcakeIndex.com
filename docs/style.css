@@ -2615,8 +2615,8 @@ table.roster th.sortable.on a { color: var(--accent); }
   text-transform: uppercase; background: color-mix(in srgb, var(--ink) 6%, var(--card)); }
 .co-tree .note { margin-top: 0; }
 /* the tree sits on a dotted canvas (the dots move with it); on a computer it's a window you drag around with the mouse */
-.htree { overflow-x: auto; padding: 12px; border: 1px solid var(--line);
-  background-color: var(--card); background-image: radial-gradient(color-mix(in srgb, var(--muted) 45%, transparent) 1px, transparent 1.4px);
+.htree { overflow-x: auto; padding: 0; border: 1px solid var(--line);
+  background-color: var(--card); background-image: radial-gradient(color-mix(in srgb, var(--muted) 20%, transparent) 1px, transparent 1.4px);
   background-size: 18px 18px; background-attachment: local; }
 @media (hover: hover) and (pointer: fine) {
   .htree { max-height: 72vh; overflow: auto; cursor: grab; }
@@ -2624,7 +2624,7 @@ table.roster th.sortable.on a { color: var(--accent); }
   .htree.panning a { cursor: grabbing; }
 }
 .htree ul { list-style: none; margin: 0; padding: 0 0 0 14px; position: relative; display: flex; flex-direction: column; justify-content: center; }
-.htree > ul { padding-left: 0; }
+.htree > ul { padding: 20px 240px 160px 20px; width: max-content; }  /* open canvas around the tree, so you can pan past its edges */
 .htree li { position: relative; display: flex; align-items: center; padding: 4px 0 4px 16px; }
 .htree > ul > li { padding-left: 0; }
 .htree ul ul::before { content: ""; position: absolute; left: 0; top: 50%; width: 14px; border-top: 1px solid var(--muted); }

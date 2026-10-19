@@ -186,7 +186,7 @@ const Coaches = (() => {
       const g = group(E.filter((e) => e[from] === k && !seen.has(e[to])), to).sort((a, b) => first(a) - first(b));
       return g.length ? { n: g.length, html: `<ul${depth > 1 ? ` class="shut"` : ""}>${g.map(([x, es]) => node(x, es, branch(x, depth + 1, max, new Set([...seen, x]), from, to), from === 1)).join("")}</ul>` } : null;
     };
-    const upHtml = branch(s, 1, 5, new Set([s]), 1, 0)?.html, downHtml = branch(s, 1, 3, new Set([s]), 0, 1)?.html;
+    const upHtml = branch(s, 1, 7, new Set([s]), 1, 0)?.html, downHtml = branch(s, 1, 3, new Set([s]), 0, 1)?.html;
     const nDown = new Set(E.filter((e) => e[0] === s).map((e) => e[1])).size;
     // drawn left to right like an ancestry chart: him, then the next generation in the column to his right, and so on
     const chart = (kids) => `${/class="tr-tog"/.test(kids) ? `<div class="presets tr-all"><button type="button" data-tr="1">Expand all</button><button type="button" data-tr="">Collapse all</button></div>` : ""}
