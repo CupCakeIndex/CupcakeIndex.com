@@ -7,7 +7,8 @@ when a key is set). So a tree shows head coaches only: the ones a coach worked u
 on to be head coaches. Jobs before those years, or at schools outside FBS, have no head coach to link to.
 
 Pages are cached in data/history/wiki_coaches.json (parsed jobs only) and re-read once a month.
-Photos: ESPN's headshot for current NFL coaches, otherwise the Wikipedia page's photo (credited on the page).
+Photos: ESPN's headshot for current NFL coaches, otherwise the Wikipedia page's photo (credited on the page), otherwise
+the team's own staff photo (NFL team sites for anyone on an NFL staff, the school's site for current college head coaches).
 
     python src/coach_tree.py
 """
@@ -18,6 +19,7 @@ import sys
 import time
 import unicodedata
 import urllib.parse
+from html import unescape
 import urllib.request
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
@@ -340,6 +342,106 @@ def espn_nfl():
         return {n: h for n, h in filter(None, ex.map(team, list(range(1, 31)) + [33, 34])) if h}
 
 
+# ------------------------------------------------------------------ backup photos: the teams' own sites
+# When ESPN and Wikipedia have no photo (Liam Coen has neither), the team's official staff headshot.
+
+NFL_SITES = ("azcardinals atlantafalcons baltimoreravens buffalobills panthers chicagobears bengals clevelandbrowns dallascowboys "
+             "denverbroncos detroitlions packers houstontexans colts jaguars chiefs raiders chargers therams miamidolphins vikings "
+             "patriots neworleanssaints giants newyorkjets philadelphiaeagles steelers 49ers seahawks buccaneers tennesseetitans "
+             "commanders").split()
+
+
+def page(url):
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=25) as r:
+            return r.read().decode("utf-8", "replace")
+    except Exception:
+        return ""
+
+
+def nfl_sites():
+    """{norm(name): (photo url, site)} for every coach card on the 32 team sites, head coaches and assistants alike."""
+    def one(d):
+        h = page(f"https://www.{d}.com/team/coaches-roster/") or page(f"https://www.{d}.com/team/coaches/")
+        out = {}
+        for card in h.split("d3-o-person-card")[1:]:
+            img = re.search(r'https://static\.clubs\.nfl\.com/image/(?:upload|private)/[^"\s]*?/([a-z0-9_-]+)/([a-z0-9]+)\.(?:jpg|png)', card)
+            t = re.search(r'__title">\s*(?:<a[^>]*>)?\s*([^<]+?)\s*<', card)
+            if img and t:  # square crop around the face from the same image server
+                out[norm(unescape(t.group(1)))] = (f"https://static.clubs.nfl.com/image/upload/c_thumb,g_face,w_240,h_240/f_auto/{img.group(1)}/{img.group(2)}", f"{d}.com")
+        return out
+    with ThreadPoolExecutor(8) as ex:
+        return {k: v for r in ex.map(one, NFL_SITES) for k, v in r.items()}
+
+
+def school_sites(teams):
+    """{school: athletics site host} from Wikidata's official website for '<School> <Mascot> football' (or the athletics page)."""
+    T = {t["name"]: t for t in json.loads((ROOT / "docs" / "data" / "teams.json").read_text(encoding="utf-8"))["cfb"]}
+    ask = {}
+    for s in teams:
+        if s in T:
+            ask[f"{s} {T[s].get('mascot') or ''} football".replace("  ", " ")] = s
+            ask[f"{s} {T[s].get('mascot') or ''}".strip()] = s
+    qid = {}
+    titles = list(ask)
+    for i in range(0, len(titles), 50):
+        d = api(action="query", prop="pageprops", ppprop="wikibase_item", redirects=1, titles="|".join(titles[i:i + 50]))
+        q = d.get("query", {})
+        back = {r["to"]: r["from"] for r in q.get("normalized", []) + q.get("redirects", [])}
+        for p in q.get("pages", []):
+            asked = p["title"]
+            while asked in back:
+                asked = back[asked]
+            if (p.get("pageprops") or {}).get("wikibase_item") and asked in ask:
+                qid[asked] = p["pageprops"]["wikibase_item"]
+    sites = {}
+    ids = list(set(qid.values()))
+    for i in range(0, len(ids), 50):
+        url = "https://www.wikidata.org/w/api.php?" + urllib.parse.urlencode({"action": "wbgetentities", "ids": "|".join(ids[i:i + 50]), "props": "claims", "format": "json"})
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=40) as r:
+                ents = json.load(r).get("entities", {})
+        except Exception:
+            continue
+        for e, v in ents.items():
+            for c in v.get("claims", {}).get("P856", []):
+                u = ((c.get("mainsnak") or {}).get("datavalue") or {}).get("value", "")
+                if u:
+                    sites[e] = urllib.parse.urlparse(u).netloc.lower().removeprefix("www.")
+                    if u.startswith("https"):
+                        break
+    out = {}
+    for title in sorted(qid, key=lambda t: not t.endswith(" football")):  # the football page first
+        if qid[title] in sites:
+            out.setdefault(ask[title], sites[qid[title]])
+    return out
+
+
+def college_sites(coaches):
+    """{coach name: (photo url, site)} for current college head coaches, from their bio on the school's site (SIDEARM sites:
+    /sports/football/coaches links each bio, and the bio's share image is the staff headshot)."""
+    hosts = school_sites({tm for _, tm in coaches})
+
+    def one(c):
+        n, tm = c
+        host = hosts.get(tm)
+        if not host:
+            return None
+        h = page(f"https://{host}/sports/football/coaches")
+        bio = next((m.group(1) for m in re.finditer(r'''href=["'](/sports/football/roster/coaches/[^"']+)["'][^>]*>\s*(?:<[^>]+>\s*)*([^<]+)<''', h)
+                    if norm(unescape(m.group(2))) == norm(n)), None)
+        b = page(f"https://{host}{bio}") if bio else ""
+        img = re.search(r'''og:image["']\s+content=["']([^"']+)["']''', b)
+        if not img or "/logos/" in img.group(1):
+            return None
+        u = unescape(img.group(1))
+        src = urllib.parse.parse_qs(urllib.parse.urlparse(u).query).get("url", [u])[0]  # images.sidearmdev.com/resize?url=...
+        src = urllib.parse.urljoin(f"https://{host}/", src.split("?")[0])
+        return n, ("https://images.sidearmdev.com/crop?" + urllib.parse.urlencode({"url": src, "width": 240, "height": 240, "type": "jpeg", "gravity": "smart"}), host)
+    with ThreadPoolExecutor(8) as ex:
+        return dict(filter(None, ex.map(one, coaches)))
+
+
 def main():
     C = json.loads((ROOT / "docs" / "data" / "coaches.json").read_text(encoding="utf-8"))
     now = datetime.now().year
@@ -395,14 +497,24 @@ def main():
     E = {k: e for k, e in E.items() if k[1] in head_years and sum(y < min(e["y"]) for y in head_years[k[1]]) < 3}  # and he was a real head coach somewhere
     CACHE.write_text(json.dumps(cache, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
     espn = espn_nfl()
+    everyone = sorted(set(names) | {m for (m, _, _, _) in E} | {p for (_, p, _, _) in E})
+    nopic = [n for n in everyone if not espn.get(n) and not (cache.get(n) or {}).get("img")]
+    nfl = nfl_sites() if nopic else {}
+    now_job = {c["n"]: (lg, c["tm"]) for lg in ("nfl", "cfb") for c in (C.get(lg) or {}).get("coaches", []) if c.get("on")}
+    site = {n: nfl[norm(n)] for n in nopic if norm(n) in nfl}
+    site.update(college_sites([(n, now_job[n][1]) for n in nopic if n not in site and now_job.get(n, ("",))[0] == "cfb"]))
     people = {}
-    for n in sorted(set(names) | {m for (m, _, _, _) in E} | {p for (_, p, _, _) in E}):
+    for n in everyone:
         w = cache.get(n) or {}
         p = {"n": n}
         if espn.get(n) or w.get("img"):
             p["img"] = espn.get(n) or w["img"]
             if not espn.get(n):
                 p["cr"] = 1  # photo from Wikipedia: credit it
+        elif n in site:
+            p["img"], p["cr"] = site[n]  # the team's own staff photo: credit the site
+        if n in now_job:
+            p["job"] = list(now_job[n])  # head coach right now: [league, team] (for site search)
         if w.get("title"):
             p["w"] = w["title"]
         people[slug(n)] = p

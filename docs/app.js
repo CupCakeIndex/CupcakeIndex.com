@@ -229,7 +229,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "349"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "350"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -1494,7 +1494,7 @@ async function renderCompare() {
   draw();
 }
 
-// ------------------------------------------------------------------ header search (teams + players, both leagues)
+// ------------------------------------------------------------------ header search (teams, coaches and players, both leagues)
 async function allTeams() {
   const out = [];
   for (const lg of Object.keys(INDEX.leagues)) {
@@ -1512,6 +1512,7 @@ function initSearch() {
   const go = async (r) => {
     close(); q.value = ""; q.blur();
     if (r.type === "player") { const [lg, id] = r.key.split(":"); location.hash = `#/player/${encodeURIComponent(id)}?league=${lg}`; return; }
+    if (r.type === "coach") { location.hash = link("coach", r.slug); return; }
     const id = r.t.id || (await Live.teamId(r.lg, r.t));
     location.hash = id ? `#/team/${encodeURIComponent(id)}?league=${r.lg}` : `#/rankings?league=${r.lg}&team=${encodeURIComponent(r.t.team)}`;
   };
@@ -1525,13 +1526,15 @@ function initSearch() {
         .filter((x) => x.sc != null)
         .sort((a, b) => a.sc - b.sc || a.t.team.localeCompare(b.t.team))
         .slice(0, 8).map((x) => ({ type: "team", ...x }));
-      const players = (await Live.searchPlayers(text, 8)).map((p) => ({ type: "player", ...p }));
+      const [players, coaches] = await Promise.all([Live.searchPlayers(text, 8), Coaches.search(text, 6).catch(() => [])]);
       if (q.value.trim() !== text) return; // user kept typing
-      results = [...teams, ...players];
+      const pl = players.map((p) => ({ type: "player", ...p })), co = coaches.map((c) => ({ type: "coach", ...c }));
+      results = [...teams, ...co, ...pl];
       box.innerHTML = results.length ? `
         ${teams.length ? `<div class="gs-h">Teams</div>` + teams.map((r, i) => `<button data-i="${i}">${logo(r.t)} <span>${esc(r.t.team)}</span><small>${r.lg === "nfl" ? "NFL" : "College"} · ${esc(r.t.conference || "")}</small></button>`).join("") : ""}
-        ${players.length ? `<div class="gs-h">Players</div>` + players.map((r, i) => `<button data-i="${teams.length + i}"><span>${esc(r.name)}</span><small>${esc(r.tag)}</small></button>`).join("") : ""}`
-        : `<p class="muted gs-empty">No teams or players found.</p>`;
+        ${co.length ? `<div class="gs-h">Coaches</div>` + co.map((r, i) => `<button data-i="${teams.length + i}">${r.pic} <span>${esc(r.name)}</span><small>${esc(r.tag)}</small></button>`).join("") : ""}
+        ${pl.length ? `<div class="gs-h">Players</div>` + pl.map((r, i) => `<button data-i="${teams.length + co.length + i}"><span>${esc(r.name)}</span><small>${esc(r.tag)}</small></button>`).join("") : ""}`
+        : `<p class="muted gs-empty">No teams, coaches or players found.</p>`;
       box.classList.remove("hidden");
       wrap.classList.add("open");
     }, 180);

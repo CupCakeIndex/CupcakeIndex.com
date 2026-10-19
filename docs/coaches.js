@@ -233,7 +233,7 @@ const Coaches = (() => {
     el.innerHTML = `<div class="card co-hero">
         ${pic(me, name, "big")}
         <div class="co-id"><h2>${esc(name)}</h2><p>${job}</p>
-          ${me?.w ? `<p class="co-links"><a href="https://en.wikipedia.org/wiki/${encodeURIComponent(me.w.replace(/ /g, "_"))}" target="_blank" rel="noopener">Wikipedia</a>${me.cr ? ` <small class="muted">· photo from Wikipedia</small>` : ""}</p>` : ""}${facts}</div>
+          ${me?.w ? `<p class="co-links"><a href="https://en.wikipedia.org/wiki/${encodeURIComponent(me.w.replace(/ /g, "_"))}" target="_blank" rel="noopener">Wikipedia</a>${me.cr === 1 ? ` <small class="muted">· photo from Wikipedia</small>` : ""}</p>` : ""}${typeof me?.cr === "string" ? `<p class="co-links"><small class="muted">Photo: ${esc(me.cr)}</small></p>` : ""}${facts}</div>
         ${seat}
       </div>
       ${profile}
@@ -273,6 +273,26 @@ const Coaches = (() => {
         drag = null;
         h.classList.remove("panning");
       };
+      // ---- pinch with two fingers to zoom the tree (not the page), around the spot between your fingers
+      const ul = h.firstElementChild;
+      let z = 1, pinch = null;
+      const spot = (t) => { const R = h.getBoundingClientRect(); return { x: (t[0].clientX + t[1].clientX) / 2 - R.left, y: (t[0].clientY + t[1].clientY) / 2 - R.top, d: Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY) }; };
+      h.addEventListener("touchstart", (e) => {
+        if (e.touches.length !== 2) return;
+        const p = spot(e.touches);
+        pinch = { z, d: p.d || 1, cx: (h.scrollLeft + p.x) / z, cy: (h.scrollTop + p.y) / z }; // the tree point under your fingers
+      }, { passive: true });
+      h.addEventListener("touchmove", (e) => {
+        if (!pinch || e.touches.length !== 2) return;
+        e.preventDefault();
+        const p = spot(e.touches);
+        z = Math.min(2, Math.max(0.35, pinch.z * p.d / pinch.d));
+        ul.style.zoom = z;
+        h.scrollLeft = pinch.cx * z - p.x; // keep that point under your fingers
+        h.scrollTop = pinch.cy * z - p.y;
+      }, { passive: false });
+      h.addEventListener("touchend", (e) => { if (pinch && e.touches.length < 2) { pinch = null; if ($("#tr-q")) glow(); } }); // redraw the found-coach line
+      h.addEventListener("gesturestart", (e) => e.preventDefault()); // iPhone: don't zoom the whole page instead
     });
     // ---- find a coach in the tree: open the branches down to him, a glowing line from the root out to him, his box pulses
     const q = $("#tr-q");
@@ -361,5 +381,16 @@ const Coaches = (() => {
       <span><small>HEAD COACH</small><b>${esc(c.n.split(" ").slice(-1)[0])}</b>${seatChip(c.hs, true)}</span></a>`;
   }
 
-  return { render, forSeason, page, forTeam, slug };
+  // header search: every coach with a page (head coaches in our data and the coaches in their trees), current head coaches first
+  async function search(text, n = 6) {
+    await loadTree();
+    return Object.entries(TREE.people || {})
+      .map(([k, p]) => ({ k, p, sc: fuzzyScore(text, p.n) }))
+      .filter((x) => x.sc != null)
+      .sort((a, b) => a.sc - b.sc || !!b.p.job - !!a.p.job || a.p.n.localeCompare(b.p.n))
+      .slice(0, n)
+      .map(({ k, p }) => ({ slug: k, name: p.n, pic: pic(p, p.n), tag: p.job ? `Head coach · ${p.job[1]}` : "Coach" }));
+  }
+
+  return { render, forSeason, page, forTeam, slug, search };
 })();

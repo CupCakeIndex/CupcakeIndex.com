@@ -2658,8 +2658,8 @@ table.roster th.sortable.on a { color: var(--accent); }
 .tr-search { position: relative; flex: 1 1 220px; max-width: 360px; }
 .tr-search input { width: 100%; }
 .tr-find .gs-results { position: absolute; left: 0; right: auto; top: calc(100% + 6px); width: min(360px, 100%); }  /* the header's dropdown, kept under this box on phones too */
-.tr-find .gs-results .co-face { width: 22px; height: 22px; font-size: 9px; }
-.htree { position: relative; }
+.gs-results .co-face { width: 22px; height: 22px; font-size: 9px; }  /* coach photos in the header search and the tree finder */
+.htree { position: relative; touch-action: pan-x pan-y; }  /* two-finger pinch zooms the tree (coaches.js), not the page */
 .tr-glow { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; z-index: 2; }
 /* no blur filters or animated shadows here: on a big opened tree those repaint the whole canvas every frame */
 .tr-glow path { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; }
