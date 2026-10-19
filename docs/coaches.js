@@ -244,7 +244,7 @@ const Coaches = (() => {
     const sc = $("#co-pscope");
     if (sc) sc.onclick = (e) => { const b = e.target.closest("[data-v]"); if (b) location.hash = link("coach", s, { scope: b.dataset.v }); };
     // open / close a branch, or a whole tree
-    const flip = (b, open) => { b.setAttribute("aria-expanded", open); b.textContent = open ? "–" : `+${b.dataset.n}`; b.nextElementSibling?.classList.toggle("shut", !open); };
+    const flip = (b, open) => { b.setAttribute("aria-expanded", open); b.textContent = open ? "−" : `+${b.dataset.n}`; b.nextElementSibling?.classList.toggle("shut", !open); };
     const box = el.querySelector(".co-tree");
     box.onclick = (e) => {
       const b = e.target.closest(".tr-tog");
