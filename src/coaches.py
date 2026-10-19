@@ -90,7 +90,7 @@ def cfb_staff(refresh):
     if old and (fresh or not refresh or not os.environ.get("CFBD_API_KEY")):
         return old
     import fetch_data
-    raw = fetch_data._get("/coaches", minYear=2005, maxYear=season_now())
+    raw = fetch_data._get("/coaches", minYear=1980, maxYear=season_now())
     g = lambda o, *ks: next((o[k] for k in ks if o.get(k) is not None), None)
     out = defaultdict(lambda: defaultdict(list))
     for c in sorted(raw, key=lambda c: g(c, "hireDate", "hire_date") or ""):
@@ -101,6 +101,17 @@ def cfb_staff(refresh):
     f.write_text(json.dumps(out, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
     print(f"  coaches: {sum(len(v) for v in out.values())} school-seasons from CFBD")
     return out
+
+
+def with_old(staff):
+    """Fill in 1980-2004 from data/history/cfb_coaches_old.json (coach_tree.py) for years the coach list doesn't have
+    yet (a list saved before it reached back to 1980, or no key on this computer)."""
+    f = HIST / "cfb_coaches_old.json"
+    if f.exists():
+        for school, years in json.loads(f.read_text(encoding="utf-8")).items():
+            for y, cs in years.items():
+                staff.setdefault(school, {}).setdefault(y, cs)
+    return staff
 
 
 def cfb_games(staff):
@@ -277,7 +288,7 @@ def main():
     d["nfl"] = build("nfl", nfl_games(), nfl_current(),
                      edge=lambda c: nfl_model.PARAMS["coach"] * nfl_model.coach_value(rec, c, season_now()))  # what the model adds right now
     try:
-        rows, cur, fbs = cfb_games(cfb_staff(refresh=True))
+        rows, cur, fbs = cfb_games(with_old(cfb_staff(refresh=True)))
         if rows:
             d["cfb"] = build("cfb", rows, cur, fbs)
     except SystemExit as e:  # no CFBD key and no saved coach list yet

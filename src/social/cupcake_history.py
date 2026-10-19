@@ -11,7 +11,8 @@ Past seasons are downloaded once (about 3 CollegeFootballData calls each) and ke
 season is refreshed every run. Needs CFBD_API_KEY (a GitHub secret) for anything not already downloaded.
 
     python src/social/cupcake_history.py                 # fill in missing seasons + refresh this one
-    python src/social/cupcake_history.py --from 2005     # how far back (default 2005)
+    python src/social/cupcake_history.py --from 1979     # how far back (default 1979: the year before 1980, the
+                                                         # first season with our college coach lists, rates its opponents)
 """
 import argparse
 import datetime as dt
@@ -29,7 +30,7 @@ import model  # noqa: E402
 
 ROOT = HERE.parent.parent
 OUT = ROOT / "data" / "history" / "cfb"
-FIRST = 2005
+FIRST = 1979
 MISSING = set()  # seasons built without every piece (no key): rebuilt next time
 
 
@@ -74,6 +75,16 @@ def build(year, refresh=False):
     raw = reg + post
     div = model.divisions(raw)
     fbs = {n for n, c in div.items() if c == "fbs"}
+    if len(fbs) < 80:  # older seasons may not label each team's division in the games feed: CFBD's FBS list for that year
+        try:
+            listed = {model.g(t, "school") for t in fetch_data.cached(year, "teams_fbs", "/teams/fbs", False, year=year)}
+        except SystemExit:
+            listed = set()
+        fbs |= {n for n in listed if n}
+        div.update({n: "fbs" for n in fbs})
+    if len(fbs) < 80:
+        print(f"  {year}: only {len(fbs)} FBS teams found, skipped")
+        return None
     c = cfg()
     rg = model.rating_games(raw, fbs)
     low = {n for x in rg for n in (x["hnode"], x["anode"]) if n not in fbs}

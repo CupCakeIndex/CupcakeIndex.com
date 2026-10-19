@@ -2,8 +2,8 @@
 
 Who worked under whom comes from each head coach's Wikipedia page (its infobox lists every job: team, years, role).
 An assistant job at a team in a season links him to that team's head coach that season, from our own head coach
-lists (docs/data/coaches.json: NFL since 1999, college since 2005; plus college back to 1980 from CollegeFootballData
-when a key is set). So a tree shows head coaches only: the ones a coach worked under, and his assistants who went
+lists (docs/data/coaches.json: NFL since 1999, college since 1980; plus data/history/cfb_coaches_old.json, the
+college coaches 1980-2004 from CollegeFootballData). So a tree shows head coaches only: the ones a coach worked under, and his assistants who went
 on to be head coaches. Jobs before those years, or at schools outside FBS, have no head coach to link to.
 
 Pages are cached in data/history/wiki_coaches.json (parsed jobs only) and re-read once a month.

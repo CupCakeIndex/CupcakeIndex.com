@@ -1,5 +1,5 @@
 """Hot seat: each current head coach's chance of being out after this season (fired, or pushed out), from the
-game rows src/coaches.py builds (NFL since 1999, college since 2006).
+game rows src/coaches.py builds (NFL since 1999, college since 1980).
 
 Trained on every past coach-season: "out" = he didn't finish the season as the team's coach or wasn't its coach
 the next season, AND he wasn't a head coach anywhere in our data the next season (so leaving for a better job

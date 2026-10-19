@@ -151,7 +151,7 @@ const Coaches = (() => {
     const seat = hs ? `<div class="co-seat seat-${hs.lab}"><div><span class="seat seat-${hs.lab}">${esc(SEAT[hs.lab])}</span>
         <b>${Math.round(100 * hs.p)}%</b> <small>chance he's out after this season</small></div>
         ${hs.why?.length ? `<ul>${hs.why.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}
-        <p class="note co-seat-how">Hot seat is our estimate, from a model trained on every head coach season since 1999 (NFL) and 2006 (college): this season's record against what we expected, last season, years in the job and the program's usual standard. Tested on seasons it never saw, its Safe coaches were out about 7% of the time, Teetering about 22% and Hot seat about half. Just for fun.</p></div>` : "";
+        <p class="note co-seat-how">Hot seat is our estimate, from a model trained on every head coach season since ${D.nfl?.from || 1999} (NFL) and ${D.cfb?.from || 1980} (college): this season's record against what we expected, last season, years in the job and the program's usual standard. Tested on seasons it never saw, its Safe coaches were out about 7% of the time, Teetering about 22% and Hot seat about half. Just for fun.</p></div>` : "";
     // ---- stats: current team / career / last 3, like the Coaches table
     const scope = ["t", "c", "r"].includes(params.get("scope")) && c?.[params.get("scope")] ? params.get("scope") : c?.t ? "t" : "c";
     const S = c?.[scope];

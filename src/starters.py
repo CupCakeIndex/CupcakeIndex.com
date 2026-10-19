@@ -3,7 +3,7 @@ on its team page (docs/data/starters.json; takes.js shows them above our X posts
 
 Each one is {big, label, text}: a big number, what it is, and a sentence that ends in something to argue about.
 Most compare the team to the rest of the top 25 ("best in the top 25 at...", "last in the top 25 at..."), from our
-rankings file (model, schedule, win chances) plus ESPN's season team stats and our since-2005 facts.
+rankings file (model, schedule, win chances) plus ESPN's season team stats and our since-1980 facts.
 Win chances only, never our own lines (Terry's rule), and never 100% before a game is played (99.9% cap).
 
     python src/starters.py          # weekly.yml, after the rankings update
@@ -198,7 +198,7 @@ def starters(t, ctx):
             out.append((8 - (ctx["n"] - rank), {"big": fmt.format(val), "label": f"{label}: {'last' if rank == ctx['n'] else '2nd to last'} in the top 25",
                         "text": f"{name} is {'last' if rank == ctx['n'] else 'second to last'} in the top 25 in {label} ({fmt.format(val)}). {QUESTIONS[key][1]}"}))
 
-    # 8. one fact from history (Just the facts, since 2005)
+    # 8. one fact from history (Just the facts, since 1980)
     fact = next((f for f in ctx["facts"].get(str(t["id"]), []) if any(w_ in f.get("label", "") for w_ in ("ranked", "top-10", "road"))), None)
     if fact:
         out.append((4, {"big": fact["big"], "label": fact["label"], "text": f"{name}: {fact['detail'] or fact['big'] + ' ' + fact['label']}. Does history matter this year?"}))

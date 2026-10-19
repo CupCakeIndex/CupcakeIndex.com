@@ -1364,7 +1364,7 @@ function renderResume() {
 
 // ------------------------------------------------------------------ hall of shame
 // This season's cupcake collectors (both leagues, from the latest rankings), plus two all-time college boards from
-// data/cfb/shame.json (src/social/team_facts.py): who schedules the most cupcakes since 2005, and who LOST to one.
+// data/cfb/shame.json (src/social/team_facts.py): who schedules the most cupcakes since 1980, and who LOST to one.
 async function renderShame() {
   const nfl = league === "nfl", lt = LG.latest, el = (id) => $("#" + id);
   let cur, sh = null;
