@@ -300,7 +300,8 @@ const Coaches = (() => {
             const me = li.firstElementChild.getBoundingClientRect(), bar = X(li.getBoundingClientRect().left);
             seg.unshift(`M${X(from.right)} ${Y(pn.top + pn.height / 2)}H${bar}V${Y(me.top + me.height / 2)}H${X(me.left)}`);
           }
-          return `<path d="${seg.join("")}"/>`;
+          const d = seg.join("");
+          return `<path class="halo" d="${d}"/><path d="${d}"/>`; // a wide faint line under the bright one: a glow without a blur filter (blurs made big trees lag)
         }).join("");
         h.insertAdjacentHTML("beforeend", `<svg class="tr-glow" width="${h.scrollWidth}" height="${h.scrollHeight}" aria-hidden="true">${paths}</svg>`);
         if (trace) h.querySelectorAll(".tr-glow path").forEach((p) => { // draw itself from the root out, about a second

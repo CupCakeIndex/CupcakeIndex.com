@@ -2661,11 +2661,13 @@ table.roster th.sortable.on a { color: var(--accent); }
 .tr-find .gs-results .co-face { width: 22px; height: 22px; font-size: 9px; }
 .htree { position: relative; }
 .tr-glow { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; z-index: 2; }
-.tr-glow path { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round;
-  filter: drop-shadow(0 0 3px var(--accent)) drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 60%, transparent)); }
-a.tr-node.tr-hit { border-color: var(--accent); animation: tr-pulse 1.3s ease-in-out infinite; }
-@keyframes tr-pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 75%, transparent), 0 0 8px color-mix(in srgb, var(--accent) 50%, transparent); }
-  50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--accent) 0%, transparent), 0 0 16px color-mix(in srgb, var(--accent) 80%, transparent); } }
+/* no blur filters or animated shadows here: on a big opened tree those repaint the whole canvas every frame */
+.tr-glow path { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; }
+.tr-glow path.halo { stroke-width: 9; stroke-opacity: .28; }
+a.tr-node.tr-hit { border-color: var(--accent); position: relative; }
+a.tr-node.tr-hit::after { content: ""; position: absolute; inset: -5px; border: 2px solid var(--accent); pointer-events: none;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 70%, transparent); animation: tr-pulse 1.3s ease-in-out infinite; will-change: opacity; }
+@keyframes tr-pulse { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
 .tr-all button { font-size: 11px; padding: 3px 8px; }
 a.tr-node:hover { border-color: var(--accent); text-decoration: none; }
 .tr-node span { min-width: 0; }
