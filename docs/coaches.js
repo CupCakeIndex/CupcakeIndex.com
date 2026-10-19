@@ -168,10 +168,10 @@ const Coaches = (() => {
     const E = TREE.edges || [];
     const group = (list, i) => { const m = new Map(); list.forEach((e) => { if (!m.has(e[i])) m.set(e[i], []); m.get(e[i]).push(e); }); return [...m]; };
     const first = ([, es]) => Math.min(...es.map((e) => e[4]));
-    const how = (es) => es.slice().sort((a, b) => a[4] - b[4]).map((e) => `${esc(e[6] || "Assistant")}, ${esc(teamName(e[2], e[3]))} ${yrs(e[4], e[5])}`).join(" · ");
+    const how = (es) => es.slice().sort((a, b) => a[4] - b[4]).map((e) => `${e[6] || "Assistant"}, ${teamName(e[2], e[3])} ${yrs(e[4], e[5])}`).join(" · ");
     const node = (k, es, kids) => {
-      const p = P[k] || { n: k }, f = findCoach(k)[0], now = f && f[1].on ? ` <small class="tr-now">${esc(teamName(f[0], f[1].tm))}</small>` : "";
-      return `<li><a class="tr-node" href="${link("coach", k)}">${pic(p, p.n)}<span><b>${esc(p.n)}</b>${now}<small>${how(es)}</small></span></a>${kids}</li>`;
+      const p = P[k] || { n: k }, f = findCoach(k)[0], now = f && f[1].on ? `<small class="tr-now">${esc(teamName(f[0], f[1].tm))}</small>` : "";
+      return `<li><a class="tr-node" href="${link("coach", k)}" title="${esc(p.n)}: ${esc(how(es))}">${pic(p, p.n)}<span><b>${esc(p.n)}</b>${now}<small>${esc(how(es))}</small></span></a>${kids}</li>`;
     };
     const branch = (k, depth, max, seen, from, to) => { // from/to: 1 -> 0 walks up to mentors, 0 -> 1 walks down to assistants
       if (depth > max) return "";
@@ -180,9 +180,11 @@ const Coaches = (() => {
     };
     const upHtml = branch(s, 1, 3, new Set([s]), 1, 0), downHtml = branch(s, 1, 2, new Set([s]), 0, 1);
     const nDown = new Set(E.filter((e) => e[0] === s).map((e) => e[1])).size;
+    // drawn left to right like an ancestry chart: him, then the next generation in the column to his right, and so on
+    const chart = (kids) => `<div class="htree"><ul><li><span class="tr-node me">${pic(me, name)}<span><b>${esc(name)}</b></span></span>${kids}</li></ul></div>`;
     const tree = `<div class="co-tree">
-        <div><h4>Came from</h4>${upHtml ? `<p class="note">Head coaches he worked under, and who they worked under.</p><div class="tree">${upHtml}</div>` : `<p class="muted">No head coaches in our data that he worked under.</p>`}</div>
-        <div><h4>His tree${nDown ? ` <small class="muted">${nDown} head coach${nDown > 1 ? "es" : ""}</small>` : ""}</h4>${downHtml ? `<p class="note">His assistants who became head coaches, and theirs.</p><div class="tree">${downHtml}</div>` : `<p class="muted">None of his assistants have become head coaches yet.</p>`}</div>
+        <div><h4>Came from</h4>${upHtml ? `<p class="note">Head coaches he worked under (next column), and who they worked under.</p>${chart(upHtml)}` : `<p class="muted">No head coaches in our data that he worked under.</p>`}</div>
+        <div><h4>His tree${nDown ? ` <small class="muted">${nDown} head coach${nDown > 1 ? "es" : ""}</small>` : ""}</h4>${downHtml ? `<p class="note">His assistants who became head coaches (next column), and theirs.</p>${chart(downHtml)}` : `<p class="muted">None of his assistants have become head coaches yet.</p>`}</div>
       </div>
       <p class="note">From each coach's Wikipedia page: an assistant job links him to that team's head coach that season. NFL and FBS head coaches only, from our head coach lists (NFL since ${TREE.from?.nfl || 1999}, college since ${TREE.from?.cfb || 2005}) plus the earlier head coaching jobs on our coaches' pages. Someone who'd already been a head coach for 3+ seasons doesn't count as an assistant's tree.</p>`;
     el.innerHTML = `<div class="card co-hero">
