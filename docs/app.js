@@ -229,7 +229,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "375"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "376"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -1026,7 +1026,7 @@ function openTeam(name) {
   const sched = buildSched();
   const bench = nfl ? "top-8 NFL team" : "top-25 team";
   $("#drawer-body").innerHTML = `
-    <div class="d-head">${logo(t)}<div><h2>#${t.rank} ${esc(t.team)}</h2><span class="muted">${esc(t.conference || "")} · ${esc(t.record)}${t.ap_rank ? " · AP #" + esc(t.ap_rank) : ""}</span>
+    <div class="d-head"><a class="d-tlink" href="#" aria-label="${esc(t.team)} team page">${logo(t)}</a><div><h2><a class="d-tlink" href="#">#${t.rank} ${esc(t.team)}</a></h2><span class="muted">${esc(t.conference || "")} · ${esc(t.record)}${t.ap_rank ? " · AP #" + esc(t.ap_rank) : ""}</span>
       <div><a id="team-page-link" class="boxlink" href="#">Roster, schedule &amp; stats →</a> <a class="boxlink" href="${link("breakdown", t.team)}">Full breakdown →</a></div></div></div>
     ${why.length ? `<div class="why"><b>Why they're here</b><ul>${why.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
     <div class="stats">
@@ -1066,6 +1066,8 @@ function openTeam(name) {
   Live.teamId(league, t).then((id) => {
     const a = $("#team-page-link");
     if (a && id) a.href = link("team", id); else if (a) a.remove();
+    // the logo and name at the top go to the team page too (no team page: they're plain again)
+    document.querySelectorAll("#drawer-body .d-tlink").forEach((el) => { if (id) el.href = link("team", id); else el.replaceWith(...el.childNodes); });
     if (id) Live.fillBugs(league, id, $("#drawer-body"));
   });
 }

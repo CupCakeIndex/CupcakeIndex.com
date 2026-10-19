@@ -92,6 +92,11 @@ tbody tr:last-child td { border-bottom: 0; }
 .d-head { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; }
 .d-head img, .d-head .logo-ph { width: 48px; height: 48px; }
 .d-head h2 { margin: 0; font-size: 22px; }
+.d-head .d-tlink { color: inherit; text-decoration: none; line-height: 0; }  /* logo and name open the team page */
+.d-head h2 .d-tlink { line-height: inherit; }
+.d-head h2 .d-tlink:hover { color: var(--accent); }
+.d-head > .d-tlink img { transition: transform .15s; }
+.d-head > .d-tlink:hover img { transform: scale(1.08); }
 .why { background: var(--accent-soft); border-radius: 10px; padding: 10px 12px; margin: 12px 0; }
 .why ul { margin: 4px 0 0; padding-left: 18px; }
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }

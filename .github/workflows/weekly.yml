@@ -20,6 +20,9 @@ on:
     # Minutes are off the top of the hour, when GitHub's scheduler is busiest (it skipped runs on Oct 4).
     - cron: "7 13 * 8-12,1 1"
     - cron: "7 13 * 8-12,1 2"
+    # Right after Monday Night Football (Terry): NFL only, Tuesday 05:47 UTC = 1:47 AM EDT / 12:47 AM EST, after the last
+    # Monday game ends, so the rankings include it overnight instead of waiting for Tuesday 9am.
+    - cron: "47 5 * 9-12,1 2"
     # NFL prediction refreshes after the injury reports (minute 37 = NFL only, rankings date left alone):
     # Thursday 18:37 UTC for Thursday night, Sunday 14:37 UTC (10:37am EDT / 9:37am EST) for Sunday and Monday.
     - cron: "37 18 * 9-12,1 4"
@@ -66,7 +69,7 @@ jobs:
           CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           SEASON: ${{ inputs.season }}
-          LEAGUE: ${{ github.event_name == 'schedule' && startsWith(github.event.schedule, '37 ') && 'nfl' || github.event_name == 'schedule' && !startsWith(github.event.schedule, '7 13') && 'cfb' || inputs.league || 'all' }}
+          LEAGUE: ${{ github.event_name == 'schedule' && (startsWith(github.event.schedule, '37 ') || startsWith(github.event.schedule, '47 5 ')) && 'nfl' || github.event_name == 'schedule' && !startsWith(github.event.schedule, '7 13') && 'cfb' || inputs.league || 'all' }}
           KEEP_DATE: ${{ github.event_name == 'schedule' && (startsWith(github.event.schedule, '37 ') || startsWith(github.event.schedule, '38 ')) && '--keep-date' || '' }}
         run: |
           [[ "$LEAGUE" =~ ^(all|cfb|nfl)$ ]] || LEAGUE=all
