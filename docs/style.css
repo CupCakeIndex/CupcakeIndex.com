@@ -55,7 +55,6 @@ main { max-width: 1280px; margin: 0 auto; padding: 16px; }
 .fold-tog:hover { text-decoration: underline; }
 .fold-tog + .note, .fold-tog + .fr-how { margin-top: 4px; }
 .co-how > .fold-tog { margin: 0; font-size: 13px; }
-.co-hero > .fold-tog { flex: 1 0 100%; text-align: left; margin: 0; }
 
 .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; align-items: center; }
 .filters input[type=search] { flex: 1; min-width: 160px; }
@@ -2552,7 +2551,8 @@ table.roster th.sortable.on a { color: var(--accent); }
 .co-seat > div b { font-size: 22px; }
 .co-seat > div small { color: var(--muted); }
 .co-seat ul { margin: 8px 0 0; padding-left: 18px; color: var(--ink); font-size: 13px; }
-.co-hero .co-seat-how { flex: 1 0 100%; margin: 0; padding-top: 10px; border-top: 1px solid var(--line); }
+.co-seat .co-seat-how { margin: 8px 0 0; color: var(--muted); }
+.co-seat > .fold-tog { margin: 8px 0 0; display: block; }
 .co-scope { margin-bottom: 10px; }
 .co-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
 .co-tile { border: 1px solid var(--line); padding: 8px 10px; }
@@ -2561,13 +2561,17 @@ table.roster th.sortable.on a { color: var(--accent); }
 .co-tile em { display: block; font-style: normal; font-size: 11px; color: var(--muted); }
 .co-seas td img { width: 18px; height: 18px; vertical-align: middle; }
 /* Coach profile: offense / defense background and his teams' scheme tendencies */
-.cp-bg { display: grid; gap: 6px; margin-bottom: 14px; }
-.cp-mind { justify-self: start; font-weight: 700; font-size: 15px; padding: 2px 10px; border: 1px solid currentColor; }
+.cp-bg { display: grid; gap: 10px; margin-bottom: 16px; }
+.cp-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cp-mind { font-weight: 700; font-size: 14px; padding: 3px 10px; border: 1px solid currentColor; }
 .cp-off { color: var(--accent); } .cp-def { color: var(--bar); } .cp-st, .cp-both { color: var(--ink); }
-.cp-split { display: flex; height: 8px; max-width: 360px; background: var(--line); }
-.cp-split i { display: block; }
-.cp-split i.cp-off { background: var(--accent); } .cp-split i.cp-def { background: var(--bar); } .cp-split i.cp-st { background: var(--muted); }
-.cp-bg p { margin: 2px 0 0; font-size: 13px; }
+.cp-split { display: flex; gap: 3px; max-width: 420px; }
+.cp-split span { display: flex; flex-direction: column; gap: 3px; min-width: 64px; }
+.cp-split i { display: block; height: 5px; border-radius: 3px; background: currentColor; }
+.cp-split small { font-size: 11px; white-space: nowrap; }
+.cp-split .cp-st { color: var(--muted); }
+.cp-coord { display: grid; gap: 2px; font-size: 13px; }
+.cp-coord > small { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; }
 .cp-scheme h4 { margin: 4px 0 8px; }
 .cp-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .cp-tag { font-size: 12px; padding: 2px 8px; border: 1px solid var(--accent); color: var(--accent); }

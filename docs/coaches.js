@@ -142,7 +142,8 @@ const Coaches = (() => {
     const hs = c?.on && c.hs;
     const seat = hs ? `<div class="co-seat seat-${hs.lab}"><div><span class="seat seat-${hs.lab}">${esc(SEAT[hs.lab])}</span>
         <b>${Math.round(100 * hs.p)}%</b> <small>chance he's out after this season</small></div>
-        ${hs.why?.length ? `<ul>${hs.why.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}</div>` : "";
+        ${hs.why?.length ? `<ul>${hs.why.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}
+        <p class="note co-seat-how">Hot seat is our estimate, from a model trained on every head coach season since 1999 (NFL) and 2006 (college): this season's record against what we expected, last season, years in the job and the program's usual standard. Tested on seasons it never saw, its Safe coaches were out about 7% of the time, Teetering about 22% and Hot seat about half. Just for fun.</p></div>` : "";
     // ---- stats: current team / career / last 3, like the Coaches table
     const scope = ["t", "c", "r"].includes(params.get("scope")) && c?.[params.get("scope")] ? params.get("scope") : c?.t ? "t" : "c";
     const S = c?.[scope];
@@ -202,11 +203,12 @@ const Coaches = (() => {
     const ord = (n) => n + ([11, 12, 13].includes(n % 100) ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th");
     const fmt = (v, f) => (f === "pct" ? `${v}%` : f === "pts" ? `${v > 0 ? "+" : ""}${v}%` : `${v}`);
     const yrsTot = bg ? bg.off + bg.def + bg.st : 0;
-    const bgHtml = !bg ? "" : `<div class="cp-bg"><span class="cp-mind cp-${bg.lab}">${esc(MIND[bg.lab])}</span>
-        <div class="cp-split" title="Years as an assistant on each side of the ball (from his Wikipedia career list)">${[["off", "Offense"], ["def", "Defense"], ["st", "Special teams"]].filter(([k]) => bg[k])
-          .map(([k, l]) => `<i class="cp-${k}" style="flex:${bg[k]}"></i>`).join("")}</div>
-        <small class="muted">As an assistant: ${[["off", "offense"], ["def", "defense"], ["st", "special teams"]].filter(([k]) => bg[k]).map(([k, l]) => `${bg[k]} year${bg[k] > 1 ? "s" : ""} on ${l}`).join(" · ") || "—"}</small>
-        ${bg.coord.length ? `<p>${bg.coord.map((x) => `${esc(x[0])}, ${esc(teamName(x[1], x[2]))} ${yrs(x[3], x[4])}`).join("<br>")}</p>` : ""}</div>`;
+    const sides = [["off", "offense"], ["def", "defense"], ["st", "special teams"]].filter(([k]) => bg?.[k]);
+    const bgHtml = !bg ? "" : `<div class="cp-bg"><div class="cp-head"><span class="cp-mind cp-${bg.lab}">${esc(MIND[bg.lab])}</span>
+        <small class="muted">${yrsTot} year${yrsTot > 1 ? "s" : ""} as an assistant${sides.length === 1 ? `, all on ${sides[0][1]}` : ""}</small></div>
+        ${sides.length > 1 ? `<div class="cp-split" title="Years as an assistant on each side of the ball (from his Wikipedia career list)">${sides
+          .map(([k, l]) => `<span class="cp-${k}" style="flex:${bg[k]}"><i></i><small>${l[0].toUpperCase() + l.slice(1)} ${bg[k]}</small></span>`).join("")}</div>` : ""}
+        ${bg.coord.length ? `<div class="cp-coord"><small class="muted">Coordinator jobs</small>${bg.coord.map((x) => `<span>${esc(x[0])}, ${esc(teamName(x[1], x[2]))} <small class="muted">${yrs(x[3], x[4])}</small></span>`).join("")}</div>` : ""}</div>`;
     const statGroup = (side, title) => { const rows = (scheme?.stats || []).filter((x) => x[4] === side); return rows.length ? `<div><h4>${title}</h4><table class="box cp-tbl"><tbody>${rows.map(([k, label, v, f, , rk, N]) =>
         `<tr><td>${esc(label)}</td><td class="num"><b>${fmt(v, f)}</b></td><td class="num muted">${rk ? `${ord(rk)} of ${N}` : ""}</td></tr>`).join("")}</tbody></table></div>` : ""; };
     const PERS = (g) => `${g} (${g[0]} RB, ${g[1]} TE)`;
@@ -224,7 +226,6 @@ const Coaches = (() => {
         <div class="co-id"><h2>${esc(name)}</h2><p>${job}</p>
           ${me?.w ? `<p class="co-links"><a href="https://en.wikipedia.org/wiki/${encodeURIComponent(me.w.replace(/ /g, "_"))}" target="_blank" rel="noopener">Wikipedia</a>${me.cr ? ` <small class="muted">· photo from Wikipedia</small>` : ""}</p>` : ""}</div>
         ${seat}
-        ${hs ? `<p class="note co-seat-how">Hot seat is our estimate, from a model trained on every head coach season since 1999 (NFL) and 2006 (college): this season's record against what we expected, last season, years in the job and the program's usual standard. Tested on seasons it never saw, its Safe coaches were out about 7% of the time, Teetering about 22% and Hot seat about half. Just for fun.</p>` : ""}
       </div>
       ${profile}
       ${S ? `<div class="card"><h3>Stats</h3>${stats}</div>` : ""}
