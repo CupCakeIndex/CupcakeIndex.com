@@ -1946,23 +1946,25 @@ const Live = (() => {
       // hash unimportant, so every kick starts on the middle line (no free data says which hash it was on).
       const narrow = slot.clientWidth < 560;
       const W = narrow ? 400 : 640, H = narrow ? 250 : 320, top = Math.max(45, Math.ceil((Math.max(...kicks.map((k) => k.d)) + 3) / 5) * 5);
-      const LEFT = 18, RIGHT = narrow ? 52 : 70, PX = (W - LEFT - RIGHT) / top; // pixels per yard along the field
-      const OB = 0.45 * PX, C45 = Math.SQRT1_2, BASE = H - 14 * OB * C45 - 20; // across the field is foreshortened, 45 degrees back; room under the near sideline for the numbers
+      // the whole strip fits: its near-left corner (pushed left by the slant) and far-right corner (pushed right) stay on the picture
+      const LAT = 12, C45 = Math.SQRT1_2, M = 10, PX = (W - 2 * M) / (top + 2 * LAT * 0.45 * C45); // pixels per yard along the field
+      const OB = 0.45 * PX, LEFT = M + LAT * OB * C45, BASE = H - LAT * OB * C45 - 14; // across the field is foreshortened, 45 degrees back
       const P = (d, lat = 0, h = 0) => [LEFT + (top - d) * PX + lat * OB * C45, BASE - lat * OB * C45 - h * PX]; // d = yards in front of the posts
       const pt = (d, lat) => P(d, lat).map((n) => n.toFixed(1)).join(",");
-      const strip = (d0, d1, l0 = -14, l1 = 14) => `${pt(d0, l0)} ${pt(d1, l0)} ${pt(d1, l1)} ${pt(d0, l1)}`;
+      const strip = (d0, d1, l0 = -LAT, l1 = LAT) => `${pt(d0, l0)} ${pt(d1, l0)} ${pt(d1, l1)} ${pt(d0, l1)}`;
       const half = 3.08; // the uprights are 18.5 feet apart: 3.08 yards either side of the middle
       const g = [`<linearGradient id="pc-turf" x1="0" y1="1" x2="0" y2="0"><stop offset="0" class="pc-turf-near"/><stop offset="1" class="pc-turf-far"/></linearGradient>`,
-        `<polygon class="pc-turf" points="${strip(top, -2)}"/>`];
+        `<polygon class="pc-turf" points="${strip(top, 0)}"/>`]; // the field ends at the end line, where the posts stand
       for (let d = top; d > 10; d -= 10) if (Math.round((top - d) / 10) % 2 === 0) g.push(`<polygon class="pc-stripe" points="${strip(d, Math.max(10, d - 10))}"/>`);
       g.push(`<polygon class="kc-ez" points="${strip(10, 0)}"/>`); // the end zone
       for (let d = 10; d <= top; d += 5) { // yard lines, numbered like the field (the goal line is 10 yards in front of the posts)
-        const [x0, y0] = P(d, -14), [x1, y1] = P(d, 14), line = d - 10;
+        const [x0, y0] = P(d, -LAT), [x1, y1] = P(d, LAT), line = d - 10;
         g.push(`<line class="pc-yl${line % 10 ? " five" : ""}${line === 0 ? " kc-goal" : ""}" x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}"/>`);
-        if (line && !(line % 10) && line <= 50) g.push(`<text class="pc-num kc-num" x="${x0.toFixed(1)}" y="${(y0 + 14).toFixed(1)}">${line}</text>`);
+        // numbers painted on the field where the kicks are (the middle), each one ON its yard line; the far side is drawn back at 45 degrees
+        if (line && !(line % 10) && line <= 50) { const [nx, ny] = P(d, -5); g.push(`<text class="pc-num kc-num" x="${nx.toFixed(1)}" y="${(ny + 4).toFixed(1)}">${line > 50 ? 100 - line : line}</text>`); }
       }
       for (const lat of [-half, half]) for (let d = 11; d < top; d++) if (d % 5) { const [x0, y0] = P(d, lat - 0.5), [x1, y1] = P(d, lat + 0.5); g.push(`<line class="pc-hash" x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}"/>`); }
-      g.push(`<polygon class="pc-side" points="${strip(top, -2)}"/>`);
+      g.push(`<polygon class="pc-side" points="${strip(top, 0)}"/>`);
       // the goalposts on the end line, to scale: crossbar 10 feet up, uprights 35 feet above it. The far upright is drawn
       // first so kicks that go behind it read that way; the near one is drawn over the flights (below).
       const BAR = 3.33, TIP = BAR + 11.67, post = (lat, h0, h1) => { const [x0, y0] = P(0, lat, h0), [x1, y1] = P(0, lat, h1); return `M${x0.toFixed(1)},${y0.toFixed(1)}L${x1.toFixed(1)},${y1.toFixed(1)}`; };
@@ -2004,8 +2006,9 @@ const Live = (() => {
       pts.slice().sort((p, q) => (q.res === "g") - (p.res === "g")).forEach((k) => { // makes first, misses drawn on top
         const [x, y] = spot.get(k.i);
         g.push(`<circle class="kc-dot ${cls(k)}" data-i="${k.i}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rad}"><title>${esc(tip(k))}</title></circle>`);
+        if (!all) g.push(`<text class="kc-dist" data-i="${k.i}" x="${x.toFixed(1)}" y="${(y + 15).toFixed(1)}">${k.d}</text>`); // a game: each kick's distance under its spot
       });
-      if (all && long) { const [x, y] = spot.get(long.i); g.push(`<text class="kc-long" x="${x.toFixed(1)}" y="${(y + 16).toFixed(1)}">LONG ${long.d}</text>`); }
+      if (all && long) { const [x, y] = spot.get(long.i); g.push(`<text class="kc-long" x="${(x - 8).toFixed(1)}" y="${(y - 9).toFixed(1)}">LONG ${long.d}</text>`); // above-left of the dot, clear of the yard numbers }
       g.push(`<circle class="kc-ball" id="kc-ball" r="4"/>`);
       // the numbers over the chart, ranked against the league's kickers on "All weeks" (src/pass_charts.py)
       const R = all ? file.ranks?.kick : null, rk = (key) => (R?.[key] ? `<em class="ay-rk${R[key][0] <= 5 ? " top" : ""}">#${R[key][0]} of ${R[key][1]}</em>` : "");
@@ -2038,6 +2041,7 @@ const Live = (() => {
           if (stop || n >= pts.length) { if (!stop) { ball.classList.remove("on"); $("#kc-play").textContent = "Tap a kick for the play."; } return; }
           const k = pts[n], dot = svg.querySelector(`.kc-dot[data-i="${k.i}"]`), arc = svg.querySelector(`.kc-arc[data-i="${k.i}"]`);
           dot.classList.remove("kc-wait");
+          svg.querySelector(`.kc-dist[data-i="${k.i}"]`)?.classList.remove("kc-wait");
           $("#kc-play").textContent = tip(k);
           const L = arc.getTotalLength(), t0 = performance.now(), dur = 1100;
           arc.style.strokeDasharray = `${L}`; arc.style.strokeDashoffset = `${L}`; arc.classList.remove("kc-wait");
@@ -3319,6 +3323,9 @@ const Live = (() => {
       return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${(bw - 2).toFixed(1)}" height="${(base - by).toFixed(1)}" class="cc-bar" data-n="${bnodes.length - 1}" style="fill:${shade(sr, r)};animation-delay:${(0.05 + (gi / Math.max(1, xs.length - 1)) * 0.6).toFixed(2)}s"/>`;
     }).join("")).join("");
     const benchOver = benchLine ? benchLine.replace(/data-n="(\d+)"/g, (_, n) => { bnodes.push({ ...nodes[+n] }); return `data-n="${bnodes.length - 1}"`; }) : "";
+    // kicking, one player, FG %: one bar chart that splits a season by distance when tapped (kickYears)
+    const kickOne = cat === "kicking" && players.length === 1 && metric === "fieldGoalPct";
+    if (!kickOne) kyData = null;
     const svg = (mode, body) => `<svg viewBox="0 0 ${W} ${H}" class="cc-chart cc-${mode}" data-mode="${mode}" role="img" aria-label="${esc(C.labels[metric])} by ${align === "career" ? "career year" : "season"}">${grid}${xlabels}${body}</svg>`;
     const mode = ccPref("view", "line") === "bar" ? "bar" : "line";
     const chart = `<div class="cc-box" id="cc-box" data-mode="${mode}">${svg("line", lines)}${svg("bar", bars + benchOver)}<div class="cc-brush"></div><div class="cc-tip"></div></div>
@@ -3359,40 +3366,102 @@ const Live = (() => {
         ${hasBoth ? `<div class="seg" id="cc-lvl" title="Which seasons to show">${[["college", "College"], ["nfl", "NFL"], ["both", "Both"]].map(([v, l]) => `<button data-lvl="${v}" class="${v === lvl ? "active" : ""}">${l}</button>`).join("")}</div>` : ""}
         <label>Chart <select id="cc-metric">${names.map((n) => `<option value="${esc(n)}"${n === metric ? " selected" : ""}>${esc(C.labels[n])}</option>`).join("")}</select></label>
         <label>Line up by <select id="cc-align"><option value="season"${align === "season" ? " selected" : ""}>Season</option><option value="career"${align === "career" ? " selected" : ""}>Career year</option></select></label>
-        <div class="seg" id="cc-view"><button data-v="line" class="${mode === "line" ? "active" : ""}">Line</button><button data-v="bar" class="${mode === "bar" ? "active" : ""}">Bar</button></div>
+        ${kickOne ? "" : `<div class="seg" id="cc-view"><button data-v="line" class="${mode === "line" ? "active" : ""}">Line</button><button data-v="bar" class="${mode === "bar" ? "active" : ""}">Bar</button></div>`}
         <div class="seg"><button id="cc-tbl" class="${ccPref("table", "1") === "1" ? "active" : ""}" title="Show or hide the data table">Table</button></div>
         <div class="cc-search"><input id="cc-q" type="search" placeholder="Compare with another player…" autocomplete="off"${players.length >= 4 ? " disabled" : ""}><div id="cc-results" class="cc-results hidden"></div></div>
       </div>
       <div class="cc-legend">${legend}</div>
-      ${chart}
-      ${cat === "kicking" && players.length === 1 ? kickSplits(C, C.rows.filter(lvlOk), collegeOnly && main.lg === "nfl" ? C.careerCollege : C.career, st.ks) : ""}
+      ${kickOne ? kickYears(series[0].rows) || chart : chart}
       <div class="table-wrap${ccPref("table", "1") === "1" ? "" : " hidden"}" id="cc-table">${table}</div>
     </div>`;
   }
 
-  // Kicking: make % by distance (1-19 ... 50+) for one season or the career, picked with the buttons over it
+  // Kicking, one player: field goal % by season as bars. Tap a season and its bar splits into make % by distance (1-19 ...
+  // 50+) and extra points (blue), the other seasons fading back; tap it again (or another season) to put it back together.
   const KICK_SPLITS = [["fieldGoalsMade1_19-fieldGoalAttempts1_19", "1–19"], ["fieldGoalsMade20_29-fieldGoalAttempts20_29", "20–29"],
     ["fieldGoalsMade30_39-fieldGoalAttempts30_39", "30–39"], ["fieldGoalsMade40_49-fieldGoalAttempts40_49", "40–49"], ["fieldGoalsMade50-fieldGoalAttempts50", "50+"],
     ["xp", "XP"]]; // extra points: ESPN has made and tried as two stats
-  function kickSplits(C, rows, career, pick) {
-    const have = (v) => v && KICK_SPLITS.some(([k]) => v[k] != null);
-    const seasons = rows.filter((r) => have(r.vals)).map((r) => [String(r.year), r.vals]);
-    if (!seasons.length) return "";
-    const opts = [...seasons, ...(have(career) ? [["career", career]] : [])];
-    const [sel, vals] = opts.find(([y]) => y === pick) || seasons.at(-1);
+  let kyData = null; // what the tap handler needs (wireCareer)
+  function kickYears(rows) {
     const ma = (v) => { const m = /^(\d+)-(\d+)$/.exec(String(v ?? "")); return m ? [+m[1], +m[2]] : null; };
-    const xp = (v) => (num(v.extraPointsMade) != null && num(v.extraPointAttempts) != null ? [num(v.extraPointsMade), num(v.extraPointAttempts)] : null);
-    const W = 600, H = 190, base = 150, top = 22, cw = W / KICK_SPLITS.length;
-    const bars = KICK_SPLITS.map(([k, label], i) => {
-      const x = k === "xp" ? xp(vals) : ma(vals[k]), cx = cw * i + cw / 2, pct = x && x[1] ? x[0] / x[1] : null, h = pct == null ? 0 : pct * (base - top);
-      return `${pct == null ? "" : `<rect class="cc-bar ks-bar${k === "xp" ? " xp" : pct === 1 ? " full" : ""}" x="${(cx - 26).toFixed(1)}" y="${(base - h).toFixed(1)}" width="52" height="${h.toFixed(1)}"/>`}
-        <text class="ks-pct" x="${cx.toFixed(1)}" y="${(base - h - 6).toFixed(1)}">${pct == null ? "–" : Math.round(pct * 100) + "%"}</text>
-        ${k === "xp" ? `<line class="ks-sep" x1="${(cw * i).toFixed(1)}" x2="${(cw * i).toFixed(1)}" y1="${top}" y2="${base + 34}"/>` : ""}<text class="ks-yd" x="${cx.toFixed(1)}" y="${base + 17}">${label}</text><text class="ks-ma" x="${cx.toFixed(1)}" y="${base + 32}">${x ? `${x[0]}/${x[1]}` : ""}</text>`;
+    const yrs = rows.map((r) => ({ year: r.year, team: r.team, pct: num(r.vals.fieldGoalPct), fg: ma(r.vals["fieldGoalsMade-fieldGoalAttempts"]),
+      parts: KICK_SPLITS.map(([k, label]) => ({ k, label, x: k === "xp" ? (num(r.vals.extraPointsMade) != null && num(r.vals.extraPointAttempts) != null ? [num(r.vals.extraPointsMade), num(r.vals.extraPointAttempts)] : null) : ma(r.vals[k]) })) }))
+      .filter((r) => r.pct != null);
+    if (!yrs.length) return "";
+    const W = 720, H = 270, padL = 40, padR = 12, top = 28, base = H - 48, gw = (W - padL - padR) / yrs.length, bw = Math.min(80, gw * 0.62);
+    const py = (p) => base - (p / 100) * (base - top);
+    const grid = [0, 25, 50, 75, 100].map((f) => `<line x1="${padL}" y1="${py(f).toFixed(1)}" x2="${W - padR}" y2="${py(f).toFixed(1)}" class="${f ? "cc-grid" : "cc-axis"}"/><text x="${padL - 6}" y="${(py(f) + 3.5).toFixed(1)}" class="cc-y">${f}%</text>`).join("");
+    const bars = yrs.map((r, i) => {
+      const x = padL + i * gw + (gw - bw) / 2, y = py(r.pct), cx = x + bw / 2;
+      return `<g class="ky-yr" data-i="${i}" role="button" aria-label="${r.year}: ${r.pct}% field goals. Tap to split by distance"><rect class="ky-hit" x="${(padL + i * gw).toFixed(1)}" y="${top - 20}" width="${gw.toFixed(1)}" height="${base - top + 44}"/>
+        <rect class="cc-bar ky-bar" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${(base - y).toFixed(1)}"/>
+        <text class="ky-pct" x="${cx.toFixed(1)}" y="${(y - 7).toFixed(1)}">${r.pct.toFixed(1)}%</text>
+        <text class="ky-x" x="${cx.toFixed(1)}" y="${base + 17}">${r.year}</text><text class="ky-sub" x="${cx.toFixed(1)}" y="${base + 32}">${r.fg ? `${r.fg[0]}/${r.fg[1]}` : ""}</text></g>`;
     }).join("");
-    return `<div class="ks"><div class="ks-head"><h4>Make % by distance + extra points</h4>
-        <div class="seg" id="cc-ks" title="Field goals by distance, and extra points">${opts.map(([y]) => `<button data-ks="${y}" class="${y === sel ? "active" : ""}">${y === "career" ? "Career" : y}</button>`).join("")}</div></div>
-      <svg viewBox="0 0 ${W} ${H}" class="ks-chart" role="img" aria-label="Field goal make percentage by distance, ${sel === "career" ? "career" : sel}">
-        <line x1="0" x2="${W}" y1="${base}" y2="${base}" class="cc-axis"/>${bars}</svg></div>`;
+    kyData = { yrs, W, padL, padR, top, base, gw, bw, py, open: null };
+    return `<div class="cc-box ky-box"><svg viewBox="0 0 ${W} ${H}" id="ky-chart" class="ky-chart" role="img" aria-label="Field goal percentage by season">${grid}${bars}<g id="ky-split"></g>
+        <text id="ky-title" class="ky-title" x="${W - padR}" y="14"></text></svg></div>
+      <p class="cc-hint muted" id="ky-hint">Tap a season to split it into make % by distance and extra points.</p>`;
+  }
+  // tap a season: its bar breaks apart into the six distance / XP bars, sliding out across the chart; tap again to fold them back
+  function wireKickYears() {
+    const svg = $("#ky-chart"), D = kyData;
+    if (!svg || !D) return;
+    const split = svg.querySelector("#ky-split"), ease = (t) => 1 - (1 - t) ** 3;
+    let raf = 0;
+    const animate = (from, to, dur, done) => {
+      cancelAnimationFrame(raf);
+      const t0 = performance.now(), rects = [...split.querySelectorAll(".ky-part")];
+      const step = (now) => {
+        const t = ease(Math.min(1, (now - t0) / dur));
+        rects.forEach((el, j) => ["x", "y", "width", "height"].forEach((a) => el.setAttribute(a, (from[j][a] + (to[j][a] - from[j][a]) * t).toFixed(1))));
+        if (t < 1) raf = requestAnimationFrame(step); else done?.();
+      };
+      raf = requestAnimationFrame(step);
+    };
+    const geo = (i) => { // the season's bar, cut into six slices (where the parts start) and the six bars across the chart (where they end)
+      const r = D.yrs[i], x = D.padL + i * D.gw + (D.gw - D.bw) / 2, y = D.py(r.pct), n = r.parts.length;
+      const sw = (D.W - D.padL - D.padR) / n, pw = Math.min(64, sw * 0.6);
+      return r.parts.map((p, j) => {
+        const pct = p.x && p.x[1] ? p.x[0] / p.x[1] : null, ty = pct == null ? D.base : D.py(pct * 100);
+        return { p, pct, cx: D.padL + j * sw + sw / 2, from: { x: x + (j * D.bw) / n, y, width: D.bw / n, height: D.base - y },
+          to: { x: D.padL + j * sw + (sw - pw) / 2, y: ty, width: pw, height: D.base - ty } };
+      });
+    };
+    const close = (instant) => {
+      const i = D.open;
+      if (i == null) return;
+      D.open = null;
+      svg.classList.remove("ky-split-on");
+      svg.querySelectorAll(".ky-yr").forEach((g) => g.classList.remove("ky-dim", "ky-on"));
+      $("#ky-title").textContent = "";
+      $("#ky-hint").textContent = "Tap a season to split it into make % by distance and extra points.";
+      split.querySelectorAll(".ky-lbl").forEach((t) => t.remove());
+      if (instant) { split.innerHTML = ""; return; }
+      const G = geo(i);
+      animate(G.map((x) => x.to), G.map((x) => x.from), 380, () => { if (D.open == null) split.innerHTML = ""; });
+    };
+    const open = (i) => {
+      close(true);
+      D.open = i;
+      const r = D.yrs[i], G = geo(i);
+      svg.classList.add("ky-split-on");
+      svg.querySelectorAll(".ky-yr").forEach((g) => { const me = +g.dataset.i === i; g.classList.toggle("ky-on", me); g.classList.toggle("ky-dim", !me); });
+      split.innerHTML = G.map((x) => `<rect class="cc-bar ky-part${x.p.k === "xp" ? " xp" : x.pct === 1 ? " full" : ""}" x="${x.from.x}" y="${x.from.y}" width="${x.from.width}" height="${x.from.height}"/>`).join("");
+      $("#ky-title").textContent = `${r.year} · tap again to put it back`;
+      $("#ky-hint").textContent = `${r.year}: make % from each distance, and extra points (blue). Made/tried under each bar.`;
+      animate(G.map((x) => x.from), G.map((x) => x.to), 520, () => {
+        if (D.open !== i) return;
+        split.insertAdjacentHTML("beforeend", G.map((x, j) => `${x.p.k === "xp" ? `<line class="ky-lbl ky-sep" x1="${(x.cx - (D.W - D.padL - D.padR) / G.length / 2).toFixed(1)}" x2="${(x.cx - (D.W - D.padL - D.padR) / G.length / 2).toFixed(1)}" y1="${D.top}" y2="${D.base + 34}"/>` : ""}
+          <text class="ky-lbl ky-pct" x="${x.cx.toFixed(1)}" y="${(x.to.y - 7).toFixed(1)}">${x.pct == null ? "–" : Math.round(x.pct * 100) + "%"}</text>
+          <text class="ky-lbl ky-x" x="${x.cx.toFixed(1)}" y="${D.base + 17}">${x.p.label}</text><text class="ky-lbl ky-sub" x="${x.cx.toFixed(1)}" y="${D.base + 32}">${x.p.x ? `${x.p.x[0]}/${x.p.x[1]}` : "0/0"}</text>`).join(""));
+      });
+    };
+    svg.onclick = (e) => {
+      const g = e.target.closest(".ky-yr"), i = g ? +g.dataset.i : null;
+      if (D.open != null && (i === D.open || i == null || g.classList.contains("ky-dim"))) return close(false); // tap anywhere to fold it back
+      if (i != null) open(i);
+    };
   }
 
   // chart style and table on/off are remembered per browser (a convenience; everything works without it)
@@ -3491,7 +3560,7 @@ const Live = (() => {
 
   function wireCareer(id, params) {
     initCcHover();
-    $("#cc-view").onclick = (e) => {
+    if ($("#cc-view")) $("#cc-view").onclick = (e) => {
       const v = e.target.dataset.v, box = $("#cc-box");
       if (!v || !box || box.dataset.mode === v) return;
       ccSetPref("view", v);
@@ -3513,7 +3582,7 @@ const Live = (() => {
     $("#cc-cats").onclick = (e) => { const c = e.target.dataset.cat; if (c) go({ cat: c, metric: null }); };
     $("#cc-metric").onchange = (e) => go({ metric: e.target.value });
     $("#cc-align").onchange = (e) => go({ align: e.target.value, from: null, to: null });
-    if ($("#cc-ks")) $("#cc-ks").onclick = (e) => { const v = e.target.closest("[data-ks]")?.dataset.ks; if (v) go({ ks: v }); };
+    wireKickYears();
     if ($("#cc-lvl")) $("#cc-lvl").onclick = (e) => { const v = e.target.dataset.lvl; if (v) go({ lvl: v, from: null, to: null }); };
     if ($("#cc-box")) $("#cc-box").ccZoom = (from, to) => go({ from, to });
     if ($("#cc-unzoom")) $("#cc-unzoom").onclick = () => go({ from: null, to: null });
@@ -3658,14 +3727,14 @@ const Live = (() => {
     $("#pl-season").onchange = (e) => { const v = e.target.value; location.hash = link("player", id, v[0] === "c" ? { cseason: v.slice(1) } : { season: v }); };
     const careers = await careersP;
     if (my !== token) return;
-    const cst = { cat: params.get("cat"), metric: params.get("metric"), align: params.get("align"), from: params.get("from"), to: params.get("to"), lvl: params.get("lvl"), ks: params.get("ks") };
+    const cst = { cat: params.get("cat"), metric: params.get("metric"), align: params.get("align"), from: params.get("from"), to: params.get("to"), lvl: params.get("lvl") };
     // top-10 average line; don't hold the chart up more than a few seconds for it
     const bench = careers ? await Promise.race([top10Avg(careers, cst).catch(() => null), new Promise((r) => setTimeout(() => r(null), 4000))]) : null;
     if (my !== token) return;
     $("#career-slot").innerHTML = careers ? careerCard(careers, cst, bench)
       : `<div class="card muted">Season-by-season stats aren't available for this player.</div>`;
     if (careers) {
-      if ($("#cc-view")) wireCareer(id, params); // not there when the player has no season stats
+      if ($("#cc-cats")) wireCareer(id, params); // not there when the player has no season stats
       fillFaces($("#career-slot"));
       const me = careers[0], n = me.seasons.length;
       if (!exp && n) $("#pl-exp").textContent = ` · ${n} ${me.lvl === "NFL" ? "NFL" : "college"} season${n > 1 ? "s" : ""} (${me.seasons[0]}${n > 1 ? "–" + me.seasons[n - 1] : ""})`;
