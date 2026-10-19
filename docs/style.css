@@ -2770,6 +2770,16 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .kc-arc.long { opacity: .9; stroke-width: 2.2; }
 .kc-long { fill: var(--good); font: 700 10px var(--font-head); letter-spacing: .08em; text-anchor: middle; }
 .kc-num { font-size: 11px; text-anchor: middle; }
+/* Stats by year, kicking: make % by distance for one season or the career (live.js kickSplits) */
+.ks { margin: 14px 0 6px; }
+.ks-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 4px; }
+.ks-head h4 { margin: 0; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.ks-chart { display: block; width: 100%; max-width: 560px; height: auto; }
+.ks-bar { fill: var(--accent); }
+.ks-bar.full { fill: var(--good); }
+.ks-pct { fill: var(--ink); font: 700 15px var(--font-head); text-anchor: middle; }
+.ks-yd { fill: var(--ink); font: 600 12px var(--font-head); text-anchor: middle; }
+.ks-ma { fill: var(--muted); font: 400 11px var(--font-head); text-anchor: middle; }
 .kc-ball { fill: #8a5a2b; stroke: #fff; stroke-width: 1.2; opacity: 0; }
 .kc-ball.on { opacity: 1; }
 .kc-field .kc-wait { opacity: 0; }

@@ -3156,7 +3156,7 @@ const Live = (() => {
   const PRIMARY = (pos) => pos === "QB" ? "passing" : ["RB", "FB", "HB"].includes(pos) ? "rushing" : ["WR", "TE"].includes(pos) ? "receiving"
     : pos === "K" || pos === "PK" ? "kicking" : pos === "P" ? "punting" : DEF_POS.has(pos) ? "defensive" : null;
   const KEY_METRIC = { passing: "passingYards", rushing: "rushingYards", receiving: "receivingYards", defensive: "totalTackles",
-    kicking: "fieldGoalsMade", punting: "puntYards", scoring: "totalPoints", returning: "kickReturnYards" };
+    kicking: "fieldGoalPct", punting: "puntYards", scoring: "totalPoints", returning: "kickReturnYards" };
   const CAT_LABEL = { passing: "Passing", rushing: "Rushing", receiving: "Receiving", defensive: "Defense", defensiveInterceptions: "Interceptions",
     kicking: "Kicking", punting: "Punting", scoring: "Scoring", returning: "Returns" };
   const CMP_COLORS = ["var(--accent)", "#e8e8e8", "#8f96a3", "#5aa9e6"];
@@ -3219,8 +3219,12 @@ const Live = (() => {
     if (!catNames.length) return null;
     const cat = catNames.includes(st.cat) ? st.cat : catNames.includes(PRIMARY(main.pos)) ? PRIMARY(main.pos) : catNames[0];
     const C = main.cats[cat];
-    const metric = C.names.includes(st.metric) ? st.metric : C.names.includes(KEY_METRIC[cat]) ? KEY_METRIC[cat] : C.names.find((n) => /yards/i.test(n)) || C.names[1] || C.names[0];
-    return { catNames, cat, C, metric, align: st.align === "career" ? "career" : "season", lvl, lvlOk, hasBoth };
+    // only stats that have a number in the seasons shown (college and NFL feeds name some stats differently: a college
+    // kicker's "FGM" has no NFL seasons, and the chart would be empty)
+    const usable = C.names.filter((n) => C.rows.some((r) => lvlOk(r) && num(r.vals[n]) != null));
+    const names = usable.length ? usable : C.names;
+    const metric = names.includes(st.metric) ? st.metric : names.includes(KEY_METRIC[cat]) ? KEY_METRIC[cat] : names.find((n) => /yards/i.test(n)) || names[1] || names[0];
+    return { catNames, cat, C, metric, names, align: st.align === "career" ? "career" : "season", lvl, lvlOk, hasBoth };
   }
 
   // Top-10 average line: for each season on the chart, the average of that season's 10 leaders in the stat
@@ -3249,7 +3253,7 @@ const Live = (() => {
     const main = players[0];
     const pk = careerPick(players, st);
     if (!pk) return `<div class="card"><h3>Stats by year</h3><p class="muted">No season stats available.</p></div>`;
-    const { catNames, cat, C, metric, align, lvl, lvlOk, hasBoth } = pk;
+    const { catNames, cat, C, metric, names, align, lvl, lvlOk, hasBoth } = pk;
     const collegeOnly = lvl === "college";
     const series = players.map((p, i) => {
       const PC = p.cats[cat], bySeason = new Map();
@@ -3271,7 +3275,8 @@ const Live = (() => {
     const zoomed = allXs.filter((x) => x >= zFrom && x <= zTo);
     const xs = zoomed.length >= 2 ? zoomed : allXs, isZoomed = xs.length < allXs.length, inView = new Set(xs);
     const benchAt = (x) => (bench && align === "season" ? bench.get(x) : undefined);
-    const max = Math.max(1, ...series.flatMap((s) => s.rows.filter((r) => inView.has(r.x)).map((r) => r.v)), ...xs.map(benchAt).filter((v) => v != null));
+    const max = /pct/i.test(metric) ? 100 // percentages run 0-100
+      : Math.max(1, ...series.flatMap((s) => s.rows.filter((r) => inView.has(r.x)).map((r) => r.v)), ...xs.map(benchAt).filter((v) => v != null));
     // line chart (SVG): one line per player, a dot on each season; the line breaks over seasons with no stats
     const W = 720, H = 230, padL = 46, padR = 14, top = 18, base = H - 22;
     const gw = (W - padL - padR) / Math.max(1, xs.length), px = (gi) => padL + gi * gw + gw / 2, py = (v) => base - (Math.max(0, v) / max) * (base - top);
@@ -3352,7 +3357,7 @@ const Live = (() => {
         <div class="seg" id="cc-cats">${catNames.map((k) => `<button data-cat="${esc(k)}" class="${k === cat ? "active" : ""}">${esc(CAT_LABEL[k] || k)}</button>`).join("")}</div></div>
       <div class="cc-controls">
         ${hasBoth ? `<div class="seg" id="cc-lvl" title="Which seasons to show">${[["college", "College"], ["nfl", "NFL"], ["both", "Both"]].map(([v, l]) => `<button data-lvl="${v}" class="${v === lvl ? "active" : ""}">${l}</button>`).join("")}</div>` : ""}
-        <label>Chart <select id="cc-metric">${C.names.map((n) => `<option value="${esc(n)}"${n === metric ? " selected" : ""}>${esc(C.labels[n])}</option>`).join("")}</select></label>
+        <label>Chart <select id="cc-metric">${names.map((n) => `<option value="${esc(n)}"${n === metric ? " selected" : ""}>${esc(C.labels[n])}</option>`).join("")}</select></label>
         <label>Line up by <select id="cc-align"><option value="season"${align === "season" ? " selected" : ""}>Season</option><option value="career"${align === "career" ? " selected" : ""}>Career year</option></select></label>
         <div class="seg" id="cc-view"><button data-v="line" class="${mode === "line" ? "active" : ""}">Line</button><button data-v="bar" class="${mode === "bar" ? "active" : ""}">Bar</button></div>
         <div class="seg"><button id="cc-tbl" class="${ccPref("table", "1") === "1" ? "active" : ""}" title="Show or hide the data table">Table</button></div>
@@ -3360,8 +3365,32 @@ const Live = (() => {
       </div>
       <div class="cc-legend">${legend}</div>
       ${chart}
+      ${cat === "kicking" && players.length === 1 ? kickSplits(C, C.rows.filter(lvlOk), collegeOnly && main.lg === "nfl" ? C.careerCollege : C.career, st.ks) : ""}
       <div class="table-wrap${ccPref("table", "1") === "1" ? "" : " hidden"}" id="cc-table">${table}</div>
     </div>`;
+  }
+
+  // Kicking: make % by distance (1-19 ... 50+) for one season or the career, picked with the buttons over it
+  const KICK_SPLITS = [["fieldGoalsMade1_19-fieldGoalAttempts1_19", "1–19"], ["fieldGoalsMade20_29-fieldGoalAttempts20_29", "20–29"],
+    ["fieldGoalsMade30_39-fieldGoalAttempts30_39", "30–39"], ["fieldGoalsMade40_49-fieldGoalAttempts40_49", "40–49"], ["fieldGoalsMade50-fieldGoalAttempts50", "50+"]];
+  function kickSplits(C, rows, career, pick) {
+    const have = (v) => v && KICK_SPLITS.some(([k]) => v[k] != null);
+    const seasons = rows.filter((r) => have(r.vals)).map((r) => [String(r.year), r.vals]);
+    if (!seasons.length) return "";
+    const opts = [...seasons, ...(have(career) ? [["career", career]] : [])];
+    const [sel, vals] = opts.find(([y]) => y === pick) || seasons.at(-1);
+    const ma = (v) => { const m = /^(\d+)-(\d+)$/.exec(String(v ?? "")); return m ? [+m[1], +m[2]] : null; };
+    const W = 520, H = 190, base = 150, top = 22, cw = W / KICK_SPLITS.length;
+    const bars = KICK_SPLITS.map(([k, label], i) => {
+      const x = ma(vals[k]), cx = cw * i + cw / 2, pct = x && x[1] ? x[0] / x[1] : null, h = pct == null ? 0 : pct * (base - top);
+      return `${pct == null ? "" : `<rect class="cc-bar ks-bar${pct === 1 ? " full" : ""}" x="${(cx - 26).toFixed(1)}" y="${(base - h).toFixed(1)}" width="52" height="${h.toFixed(1)}"/>`}
+        <text class="ks-pct" x="${cx.toFixed(1)}" y="${(base - h - 6).toFixed(1)}">${pct == null ? "–" : Math.round(pct * 100) + "%"}</text>
+        <text class="ks-yd" x="${cx.toFixed(1)}" y="${base + 17}">${label}</text><text class="ks-ma" x="${cx.toFixed(1)}" y="${base + 32}">${x ? `${x[0]}/${x[1]}` : ""}</text>`;
+    }).join("");
+    return `<div class="ks"><div class="ks-head"><h4>Make % by distance</h4>
+        <div class="seg" id="cc-ks">${opts.map(([y]) => `<button data-ks="${y}" class="${y === sel ? "active" : ""}">${y === "career" ? "Career" : y}</button>`).join("")}</div></div>
+      <svg viewBox="0 0 ${W} ${H}" class="ks-chart" role="img" aria-label="Field goal make percentage by distance, ${sel === "career" ? "career" : sel}">
+        <line x1="0" x2="${W}" y1="${base}" y2="${base}" class="cc-axis"/>${bars}</svg></div>`;
   }
 
   // chart style and table on/off are remembered per browser (a convenience; everything works without it)
@@ -3482,6 +3511,7 @@ const Live = (() => {
     $("#cc-cats").onclick = (e) => { const c = e.target.dataset.cat; if (c) go({ cat: c, metric: null }); };
     $("#cc-metric").onchange = (e) => go({ metric: e.target.value });
     $("#cc-align").onchange = (e) => go({ align: e.target.value, from: null, to: null });
+    if ($("#cc-ks")) $("#cc-ks").onclick = (e) => { const v = e.target.closest("[data-ks]")?.dataset.ks; if (v) go({ ks: v }); };
     if ($("#cc-lvl")) $("#cc-lvl").onclick = (e) => { const v = e.target.dataset.lvl; if (v) go({ lvl: v, from: null, to: null }); };
     if ($("#cc-box")) $("#cc-box").ccZoom = (from, to) => go({ from, to });
     if ($("#cc-unzoom")) $("#cc-unzoom").onclick = () => go({ from: null, to: null });
@@ -3626,7 +3656,7 @@ const Live = (() => {
     $("#pl-season").onchange = (e) => { const v = e.target.value; location.hash = link("player", id, v[0] === "c" ? { cseason: v.slice(1) } : { season: v }); };
     const careers = await careersP;
     if (my !== token) return;
-    const cst = { cat: params.get("cat"), metric: params.get("metric"), align: params.get("align"), from: params.get("from"), to: params.get("to"), lvl: params.get("lvl") };
+    const cst = { cat: params.get("cat"), metric: params.get("metric"), align: params.get("align"), from: params.get("from"), to: params.get("to"), lvl: params.get("lvl"), ks: params.get("ks") };
     // top-10 average line; don't hold the chart up more than a few seconds for it
     const bench = careers ? await Promise.race([top10Avg(careers, cst).catch(() => null), new Promise((r) => setTimeout(() => r(null), 4000))]) : null;
     if (my !== token) return;
