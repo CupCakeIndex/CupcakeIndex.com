@@ -221,10 +221,19 @@ const Coaches = (() => {
         <p class="note">His team's real tendencies with him as head coach, ranked against the other ${lg === "nfl" ? "31 NFL" : "FBS"} teams' current head coaches (1st = most). Coordinators call a lot of it, especially on the side he didn't coach.
         ${lg === "nfl" ? "Data: nflverse play-by-play, FTN charting, and NFL Next Gen Stats for personnel and coverage (through last season)." : "College data is game totals only (no formations or coverages)."}</p></div>`;
     const profile = bgHtml || scHtml ? `<div class="card co-prof"><h3>Profile</h3>${bgHtml}${scHtml}</div>` : "";
+    // quick facts under his name: this season, career, coach score, playoffs, offense/defense
+    const now = c && c.sea?.find((r) => r[1] === c.tm && r[0] === Math.max(...c.sea.map((x) => x[0])));
+    const fact = (k, v) => `<span class="co-fact"><small>${esc(k)}</small><b>${v}</b></span>`;
+    const facts = !c ? "" : `<div class="co-facts">
+        ${c.on && now ? fact(`${now[0]} season`, `${now[2]}-${now[3]}${now[4] ? "-" + now[4] : ""}`) : ""}
+        ${fact("Career", `${c.c.w}-${c.c.l}${c.c.t ? "-" + c.c.t : ""}`)}
+        ${c.c.score != null ? fact("Coach score", `${c.c.score}<em>#${c.c.rk}</em>`) : ""}
+        ${c.c.pw + c.c.pl ? fact("Postseason", `${c.c.pw}-${c.c.pl}${c.c.ti ? `<em>${c.c.ti} title${c.c.ti > 1 ? "s" : ""}</em>` : ""}`) : ""}
+        ${bg ? fact("Background", esc({ off: "Offense", def: "Defense", st: "Special teams", both: "Both sides" }[bg.lab])) : ""}</div>`;
     el.innerHTML = `<div class="card co-hero">
         ${pic(me, name, "big")}
         <div class="co-id"><h2>${esc(name)}</h2><p>${job}</p>
-          ${me?.w ? `<p class="co-links"><a href="https://en.wikipedia.org/wiki/${encodeURIComponent(me.w.replace(/ /g, "_"))}" target="_blank" rel="noopener">Wikipedia</a>${me.cr ? ` <small class="muted">· photo from Wikipedia</small>` : ""}</p>` : ""}</div>
+          ${me?.w ? `<p class="co-links"><a href="https://en.wikipedia.org/wiki/${encodeURIComponent(me.w.replace(/ /g, "_"))}" target="_blank" rel="noopener">Wikipedia</a>${me.cr ? ` <small class="muted">· photo from Wikipedia</small>` : ""}</p>` : ""}${facts}</div>
         ${seat}
       </div>
       ${profile}
@@ -243,6 +252,28 @@ const Coaches = (() => {
       const all = e.target.closest("[data-tr]");
       if (all) { all.parentElement.nextElementSibling.querySelectorAll(".tr-tog").forEach((t) => flip(t, !!all.dataset.tr)); glow(); }
     };
+    // ---- drag a tree around with the mouse (phones scroll it with a finger as usual). A drag isn't a click: it won't open a coach.
+    box.querySelectorAll(".htree").forEach((h) => {
+      let drag = null;
+      h.ondragstart = (e) => e.preventDefault(); // no "dragging a link" ghost image
+      h.onpointerdown = (e) => {
+        if (e.pointerType !== "mouse" || e.button !== 0 || e.target.closest("button, input")) return;
+        drag = { x: e.clientX, y: e.clientY, l: h.scrollLeft, t: h.scrollTop, moved: false, id: e.pointerId };
+      };
+      h.onpointermove = (e) => {
+        if (!drag) return;
+        const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+        if (!drag.moved && Math.hypot(dx, dy) < 5) return;
+        if (!drag.moved) { drag.moved = true; h.classList.add("panning"); try { h.setPointerCapture(drag.id); } catch {} }
+        h.scrollLeft = drag.l - dx;
+        h.scrollTop = drag.t - dy;
+      };
+      h.onpointerup = h.onpointercancel = () => {
+        if (drag?.moved) h.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); }, { capture: true, once: true });
+        drag = null;
+        h.classList.remove("panning");
+      };
+    });
     // ---- find a coach in the tree: open the branches down to him, a glowing line from the root out to him, his box pulses
     const q = $("#tr-q");
     if (!q) return;
