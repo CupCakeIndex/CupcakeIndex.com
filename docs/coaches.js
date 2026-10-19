@@ -123,7 +123,7 @@ const Coaches = (() => {
   const pic = (p, n, cls = "") => (safeUrl(p?.img) ? `<img class="co-face ${cls}" src="${esc(p.img)}" alt="" loading="lazy" decoding="async">`
     : `<span class="co-face ph ${cls}" role="img" aria-label="${esc(n)}">${SILHOUETTE}</span>`); // no photo: a blank head and shoulders
   // titles as a head coach (coach_tree.json "tr"): one trophy per title, the CFP trophy for college, a silver Lombardi for the NFL
-  // real trophy photos (docs/img, cut out from Wikimedia Commons, credited on the About page)
+  // trophy pictures (docs/img: Terry's CFP and Lombardi images, background removed)
   const CUP = `<img src="img/trophy-cfp.png" alt="" aria-hidden="true">`;
   const LOMBARDI = `<img src="img/trophy-lombardi.png" alt="" aria-hidden="true">`;
   const TITLE = { cfb: ["national title", CUP], nfl: ["Super Bowl", LOMBARDI] };
