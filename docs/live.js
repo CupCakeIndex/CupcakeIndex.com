@@ -1960,9 +1960,13 @@ const Live = (() => {
       for (let d = 10; d <= top; d += 5) { // yard lines, numbered like the field (the goal line is 10 yards in front of the posts)
         const [x0, y0] = P(d, -LAT), [x1, y1] = P(d, LAT), line = d - 10;
         g.push(`<line class="pc-yl${line % 10 ? " five" : ""}${line === 0 ? " kc-goal" : ""}" x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}"/>`);
-        // numbers painted on the field where the kicks are (the middle), each one ON its yard line; the far side is drawn back at 45 degrees
-        if (line && !(line % 10) && line <= 50) { const [nx, ny] = P(d, -5); g.push(`<text class="pc-num kc-num" x="${nx.toFixed(1)}" y="${(ny + 4).toFixed(1)}">${line > 50 ? 100 - line : line}</text>`); }
       }
+      // the scale is kick distance (yards from the posts), marked on the line the kicks sit on, so a 60-yard try sits on "60"
+      for (let d = 20; d <= top; d += 10) {
+        const [tx, ty] = P(d, 0), [ux, uy] = P(d, -2.2);
+        g.push(`<line class="kc-tick" x1="${tx.toFixed(1)}" y1="${ty.toFixed(1)}" x2="${ux.toFixed(1)}" y2="${uy.toFixed(1)}"/><text class="kc-num" x="${ux.toFixed(1)}" y="${(uy + 12).toFixed(1)}">${d}</text>`);
+      }
+      { const [lx2, ly2] = P(top, -LAT); g.push(`<text class="kc-axis" x="${(lx2 + 4).toFixed(1)}" y="${(ly2 + 13).toFixed(1)}">YARDS FROM THE POSTS</text>`); }
       for (const lat of [-half, half]) for (let d = 11; d < top; d++) if (d % 5) { const [x0, y0] = P(d, lat - 0.5), [x1, y1] = P(d, lat + 0.5); g.push(`<line class="pc-hash" x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}"/>`); }
       g.push(`<polygon class="pc-side" points="${strip(top, 0)}"/>`);
       // the goalposts on the end line, to scale: crossbar 10 feet up, uprights 35 feet above it. The far upright is drawn
@@ -3371,7 +3375,7 @@ const Live = (() => {
         <div class="cc-search"><input id="cc-q" type="search" placeholder="Compare with another player…" autocomplete="off"${players.length >= 4 ? " disabled" : ""}><div id="cc-results" class="cc-results hidden"></div></div>
       </div>
       <div class="cc-legend">${legend}</div>
-      ${kickOne ? kickYears(series[0].rows) || chart : chart}
+      ${kickOne ? kickYears(series[0].rows, bench) || chart : chart}
       <div class="table-wrap${ccPref("table", "1") === "1" ? "" : " hidden"}" id="cc-table">${table}</div>
     </div>`;
   }
@@ -3382,26 +3386,34 @@ const Live = (() => {
     ["fieldGoalsMade30_39-fieldGoalAttempts30_39", "30–39"], ["fieldGoalsMade40_49-fieldGoalAttempts40_49", "40–49"], ["fieldGoalsMade50-fieldGoalAttempts50", "50+"],
     ["xp", "XP"]]; // extra points: ESPN has made and tried as two stats
   let kyData = null; // what the tap handler needs (wireCareer)
-  function kickYears(rows) {
+  function kickYears(rows, bench) {
     const ma = (v) => { const m = /^(\d+)-(\d+)$/.exec(String(v ?? "")); return m ? [+m[1], +m[2]] : null; };
     const yrs = rows.map((r) => ({ year: r.year, team: r.team, pct: num(r.vals.fieldGoalPct), fg: ma(r.vals["fieldGoalsMade-fieldGoalAttempts"]),
       parts: KICK_SPLITS.map(([k, label]) => ({ k, label, x: k === "xp" ? (num(r.vals.extraPointsMade) != null && num(r.vals.extraPointAttempts) != null ? [num(r.vals.extraPointsMade), num(r.vals.extraPointAttempts)] : null) : ma(r.vals[k]) })) }))
       .filter((r) => r.pct != null);
     if (!yrs.length) return "";
-    const W = 720, H = 270, padL = 40, padR = 12, top = 28, base = H - 48, gw = (W - padL - padR) / yrs.length, bw = Math.min(80, gw * 0.62);
+    const W = 720, H = 290, padL = 40, padR = 12, top = 36, base = H - 50, gw = (W - padL - padR) / yrs.length, bw = Math.min(84, gw * 0.56);
     const py = (p) => base - (p / 100) * (base - top);
     const grid = [0, 25, 50, 75, 100].map((f) => `<line x1="${padL}" y1="${py(f).toFixed(1)}" x2="${W - padR}" y2="${py(f).toFixed(1)}" class="${f ? "cc-grid" : "cc-axis"}"/><text x="${padL - 6}" y="${(py(f) + 3.5).toFixed(1)}" class="cc-y">${f}%</text>`).join("");
+    // a value pill over a bar: the number on a small rounded tag
+    const pill = (cx, y, txt, cls = "") => `<g class="ky-pill${cls}"><rect x="${(cx - 27).toFixed(1)}" y="${(y - 27).toFixed(1)}" width="54" height="19" rx="9.5"/><text x="${cx.toFixed(1)}" y="${(y - 13.5).toFixed(1)}">${txt}</text></g>`;
+    const defs = `<defs><linearGradient id="ky-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="ky-g0"/><stop offset="1" class="ky-g1"/></linearGradient>
+      <linearGradient id="ky-gx" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="ky-gx0"/><stop offset="1" class="ky-gx1"/></linearGradient></defs>`;
     const bars = yrs.map((r, i) => {
-      const x = padL + i * gw + (gw - bw) / 2, y = py(r.pct), cx = x + bw / 2;
-      return `<g class="ky-yr" data-i="${i}" role="button" aria-label="${r.year}: ${r.pct}% field goals. Tap to split by distance"><rect class="ky-hit" x="${(padL + i * gw).toFixed(1)}" y="${top - 20}" width="${gw.toFixed(1)}" height="${base - top + 44}"/>
-        <rect class="cc-bar ky-bar" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${(base - y).toFixed(1)}"/>
-        <text class="ky-pct" x="${cx.toFixed(1)}" y="${(y - 7).toFixed(1)}">${r.pct.toFixed(1)}%</text>
-        <text class="ky-x" x="${cx.toFixed(1)}" y="${base + 17}">${r.year}</text><text class="ky-sub" x="${cx.toFixed(1)}" y="${base + 32}">${r.fg ? `${r.fg[0]}/${r.fg[1]}` : ""}</text></g>`;
+      const x = padL + i * gw + (gw - bw) / 2, y = py(r.pct), cx = x + bw / 2, b = bench?.get(r.year);
+      return `<g class="ky-yr" data-i="${i}" role="button" aria-label="${r.year}: ${r.pct}% field goals. Tap to split by distance"><rect class="ky-hit" x="${(padL + i * gw).toFixed(1)}" y="${top - 30}" width="${gw.toFixed(1)}" height="${base - top + 66}"/>
+        <rect class="ky-track" x="${x.toFixed(1)}" y="${top}" width="${bw.toFixed(1)}" height="${base - top}" rx="7"/>
+        <rect class="ky-bar" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${(base - y).toFixed(1)}" rx="7"/>
+        ${b != null ? `<line class="ky-bench" x1="${(x - 6).toFixed(1)}" x2="${(x + bw + 6).toFixed(1)}" y1="${py(b).toFixed(1)}" y2="${py(b).toFixed(1)}"><title>Top-10 kickers' average: ${b.toFixed(1)}%</title></line>` : ""}
+        ${pill(cx, y, `${r.pct.toFixed(1)}%`)}
+        <text class="ky-x" x="${cx.toFixed(1)}" y="${base + 19}">${r.year}</text><text class="ky-sub" x="${cx.toFixed(1)}" y="${base + 35}">${r.fg ? `${r.fg[0]} of ${r.fg[1]}` : ""}</text></g>`;
     }).join("");
-    kyData = { yrs, W, padL, padR, top, base, gw, bw, py, open: null };
-    return `<div class="cc-box ky-box"><svg viewBox="0 0 ${W} ${H}" id="ky-chart" class="ky-chart" role="img" aria-label="Field goal percentage by season">${grid}${bars}<g id="ky-split"></g>
-        <text id="ky-title" class="ky-title" x="${W - padR}" y="14"></text></svg></div>
-      <p class="cc-hint muted" id="ky-hint">Tap a season to split it into make % by distance and extra points.</p>`;
+    kyData = { yrs, W, padL, padR, top, base, gw, bw, py, pill, open: null };
+    const hasBench = yrs.some((r) => bench?.get(r.year) != null);
+    return `<div class="cc-box ky-box"><svg viewBox="0 0 ${W} ${H}" id="ky-chart" class="ky-chart" role="img" aria-label="Field goal percentage by season">${defs}${grid}${bars}<g id="ky-split"></g>
+
+        </svg></div>
+      <p class="cc-hint muted ky-cap">${hasBench ? `<span class="ky-key"><i></i>Top-10 kickers' average</span>` : ""}<span id="ky-hint">Tap a season to split it into make % by distance and extra points.</span></p>`;
   }
   // tap a season: its bar breaks apart into the six distance / XP bars, sliding out across the chart; tap again to fold them back
   function wireKickYears() {
@@ -3434,7 +3446,6 @@ const Live = (() => {
       D.open = null;
       svg.classList.remove("ky-split-on");
       svg.querySelectorAll(".ky-yr").forEach((g) => g.classList.remove("ky-dim", "ky-on"));
-      $("#ky-title").textContent = "";
       $("#ky-hint").textContent = "Tap a season to split it into make % by distance and extra points.";
       split.querySelectorAll(".ky-lbl").forEach((t) => t.remove());
       if (instant) { split.innerHTML = ""; return; }
@@ -3447,14 +3458,14 @@ const Live = (() => {
       const r = D.yrs[i], G = geo(i);
       svg.classList.add("ky-split-on");
       svg.querySelectorAll(".ky-yr").forEach((g) => { const me = +g.dataset.i === i; g.classList.toggle("ky-on", me); g.classList.toggle("ky-dim", !me); });
-      split.innerHTML = G.map((x) => `<rect class="cc-bar ky-part${x.p.k === "xp" ? " xp" : x.pct === 1 ? " full" : ""}" x="${x.from.x}" y="${x.from.y}" width="${x.from.width}" height="${x.from.height}"/>`).join("");
-      $("#ky-title").textContent = `${r.year} · tap again to put it back`;
-      $("#ky-hint").textContent = `${r.year}: make % from each distance, and extra points (blue). Made/tried under each bar.`;
+      split.innerHTML = G.map((x) => `<rect class="ky-part${x.p.k === "xp" ? " xp" : ""}" x="${x.from.x}" y="${x.from.y}" width="${x.from.width}" height="${x.from.height}" rx="6"/>`).join("");
+      $("#ky-hint").textContent = `${r.year}: make % from each distance, and extra points (blue). Tap again to put it back.`;
       animate(G.map((x) => x.from), G.map((x) => x.to), 520, () => {
         if (D.open !== i) return;
+        split.insertAdjacentHTML("afterbegin", `<g class="ky-lbl">${G.map((x) => `<rect class="ky-track" x="${x.to.x.toFixed(1)}" y="${D.top}" width="${x.to.width.toFixed(1)}" height="${D.base - D.top}" rx="6"/>`).join("")}</g>`); // the 100% tracks, under the bars
         split.insertAdjacentHTML("beforeend", G.map((x, j) => `${x.p.k === "xp" ? `<line class="ky-lbl ky-sep" x1="${(x.cx - (D.W - D.padL - D.padR) / G.length / 2).toFixed(1)}" x2="${(x.cx - (D.W - D.padL - D.padR) / G.length / 2).toFixed(1)}" y1="${D.top}" y2="${D.base + 34}"/>` : ""}
-          <text class="ky-lbl ky-pct" x="${x.cx.toFixed(1)}" y="${(x.to.y - 7).toFixed(1)}">${x.pct == null ? "–" : Math.round(x.pct * 100) + "%"}</text>
-          <text class="ky-lbl ky-x" x="${x.cx.toFixed(1)}" y="${D.base + 17}">${x.p.label}</text><text class="ky-lbl ky-sub" x="${x.cx.toFixed(1)}" y="${D.base + 32}">${x.p.x ? `${x.p.x[0]}/${x.p.x[1]}` : "0/0"}</text>`).join(""));
+          <g class="ky-lbl">${D.pill(x.cx, x.pct == null ? D.base : x.to.y, x.pct == null ? "–" : Math.round(x.pct * 100) + "%", x.p.k === "xp" ? " xp" : "")}</g>
+          <text class="ky-lbl ky-x" x="${x.cx.toFixed(1)}" y="${D.base + 19}">${x.p.label}</text><text class="ky-lbl ky-sub" x="${x.cx.toFixed(1)}" y="${D.base + 35}">${x.p.x ? `${x.p.x[0]} of ${x.p.x[1]}` : "none"}</text>`).join(""));
       });
     };
     svg.onclick = (e) => {

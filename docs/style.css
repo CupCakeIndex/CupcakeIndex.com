@@ -2769,26 +2769,37 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .kc-play { min-height: 1.4em; margin: 8px 0 0; font-size: 13px; }
 .kc-arc.long { opacity: .9; stroke-width: 2.2; }
 .kc-long { fill: var(--good); font: 700 10px var(--font-head); letter-spacing: .08em; text-anchor: end; paint-order: stroke; stroke: var(--card); stroke-width: 3px; }
-.kc-num { font-size: 13px; text-anchor: middle; opacity: .35; }
+.kc-num { fill: var(--ink); font: 700 12px var(--font-head); text-anchor: middle; opacity: .75; paint-order: stroke; stroke: var(--card); stroke-width: 3px; }
+.kc-tick { stroke: var(--accent); stroke-width: 2; opacity: .8; }
+.kc-axis { fill: var(--muted); font: 700 9px var(--font-head); letter-spacing: .12em; }
 .kc-dist { fill: var(--ink); font: 700 10px var(--font-head); text-anchor: middle; paint-order: stroke; stroke: var(--card); stroke-width: 3px; }
 /* Stats by year, kicking: FG % by season; a tapped season splits into make % by distance + XP (live.js kickYears) */
 .ky-chart { display: block; width: 100%; height: auto; }
 .ky-yr { cursor: pointer; transition: opacity .3s; }
 .ky-hit { fill: transparent; }
-.ky-bar { fill: var(--accent); }
-.ky-yr:hover .ky-bar { filter: brightness(1.15); }
-.ky-pct { fill: var(--ink); font: 700 14px var(--font-head); text-anchor: middle; }
-.ky-x { fill: var(--ink); font: 600 12px var(--font-head); text-anchor: middle; }
+.ky-track { fill: var(--ink); opacity: .05; }
+.ky-bar, .ky-part { fill: url(#ky-g); }
+.ky-part.xp { fill: url(#ky-gx); }  /* extra points: their own color, apart from the field goal bars */
+.ky-g0 { stop-color: color-mix(in srgb, var(--accent) 80%, #fff); }
+.ky-g1 { stop-color: color-mix(in srgb, var(--accent) 70%, #000); }
+.ky-gx0 { stop-color: #7db8ff; }
+.ky-gx1 { stop-color: #2f6fd6; }
+.ky-yr:hover .ky-bar { filter: brightness(1.12); }
+.ky-pill rect { fill: var(--card); stroke: var(--accent); stroke-width: 1.2; }
+.ky-pill text { fill: var(--ink); font: 700 12px var(--font-head); text-anchor: middle; }
+.ky-pill.xp rect { stroke: #4f9dff; }
+.ky-bench { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 4 3; opacity: .7; }
+.ky-cap { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; }
+.ky-key { display: inline-flex; align-items: center; gap: 6px; }
+.ky-key i { display: inline-block; width: 18px; border-top: 2px dashed var(--ink); opacity: .7; }
+.ky-x { fill: var(--ink); font: 700 13px var(--font-head); text-anchor: middle; }
 .ky-sub { fill: var(--muted); font: 400 11px var(--font-head); text-anchor: middle; }
 .ky-yr.ky-dim { opacity: 0; }
-.ky-yr.ky-on .ky-bar, .ky-yr.ky-on text { opacity: 0; transition: opacity .2s; }
-.ky-part { fill: var(--accent); }
-.ky-part.full { fill: var(--good); }
-.ky-part.xp { fill: #4f9dff; }  /* extra points: their own color, apart from the field goal bars */
+.ky-yr.ky-on .ky-bar, .ky-yr.ky-on .ky-track, .ky-yr.ky-on .ky-pill, .ky-yr.ky-on .ky-bench, .ky-yr.ky-on text { opacity: 0; transition: opacity .2s; }
 .ky-sep { stroke: var(--line); stroke-dasharray: 3 3; }
 .ky-lbl { animation: ky-in .25s ease-out both; }
 @keyframes ky-in { from { opacity: 0; } to { opacity: 1; } }
-.ky-title { fill: var(--accent); font: 700 11px var(--font-head); text-anchor: end; letter-spacing: .05em; }
+
 .kc-ball { fill: #8a5a2b; stroke: #fff; stroke-width: 1.2; opacity: 0; }
 .kc-ball.on { opacity: 1; }
 .kc-field .kc-wait { opacity: 0; }
