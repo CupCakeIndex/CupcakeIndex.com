@@ -370,26 +370,35 @@ NFL_SITES = ("azcardinals atlantafalcons baltimoreravens buffalobills panthers c
 
 
 def page(url):
-    try:
-        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=25) as r:
-            return r.read().decode("utf-8", "replace")
-    except Exception:
-        return ""
+    for i in range(2):  # a busy site gets a second try
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=25) as r:
+                return r.read().decode("utf-8", "replace")
+        except Exception:
+            time.sleep(2)
+    return ""
+
+
+NFL_SITE_TEAM = dict(zip(NFL_SITES, "ARI ATL BAL BUF CAR CHI CIN CLE DAL DEN DET GB HOU IND JAX KC LV LAC LA MIA MIN NE NO NYG NYJ PHI PIT SF SEA TB TEN WAS".split()))
 
 
 def nfl_sites():
-    """{norm(name): (photo url, site)} for every coach card on the 32 team sites, head coaches and assistants alike."""
+    """{norm(name): (photo url, site, team, job title)} for every coach card on the 32 team sites, head coaches and assistants alike."""
     def one(d):
         h = page(f"https://www.{d}.com/team/coaches-roster/") or page(f"https://www.{d}.com/team/coaches/")
-        out = {}
+        out, jobs = {}, {}
         for card in h.split("d3-o-person-card")[1:]:
-            img = re.search(r'https://static\.clubs\.nfl\.com/image/(?:upload|private)/[^"\s]*?/([a-z0-9_-]+)/([a-z0-9]+)\.(?:jpg|png)', card)
+            img = re.search(r'https://static\.clubs\.nfl\.com/image/(upload|private)/[^"\s]*?/([a-z0-9_-]+)/([a-z0-9]+)\.(jpg|png)', card)
             t = re.search(r'__title">\s*(?:<a[^>]*>)?\s*([^<]+?)\s*<', card)
+            role = re.search(r'__roofline">\s*([^<]+?)\s*<', card)
+            if t:
+                jobs[norm(unescape(t.group(1)))] = (NFL_SITE_TEAM[d], " ".join(unescape(role.group(1)).split()) if role else "")
             if img and t:  # square crop around the face from the same image server
-                out[norm(unescape(t.group(1)))] = (f"https://static.clubs.nfl.com/image/upload/c_thumb,g_face,w_240,h_240/f_auto/{img.group(1)}/{img.group(2)}", f"{d}.com")
-        return out
+                out[norm(unescape(t.group(1)))] = (f"https://static.clubs.nfl.com/image/{img.group(1)}/c_thumb,g_face,w_240,h_240/f_auto/{img.group(2)}/{img.group(3)}.{img.group(4)}", f"{d}.com")
+        return out, jobs
     with ThreadPoolExecutor(8) as ex:
-        return {k: v for r in ex.map(one, NFL_SITES) for k, v in r.items()}
+        res = list(ex.map(one, NFL_SITES))
+    return {k: v for r, _ in res for k, v in r.items()}, {k: v for _, j in res for k, v in j.items()}
 
 
 def school_sites(teams):
@@ -466,7 +475,8 @@ def college_sites(coaches):
             return (n, (src, host)) if src.startswith("https://") else None
         src = urllib.parse.parse_qs(urllib.parse.urlparse(u).query).get("url", [u])[0]  # images.sidearmdev.com/resize?url=...
         src = urllib.parse.urljoin(f"https://{host}/", src.split("?")[0])
-        return n, ("https://images.sidearmdev.com/crop?" + urllib.parse.urlencode({"url": src, "width": 240, "height": 240, "type": "jpeg", "gravity": "smart"}), host)
+        # resized, not cropped: these are tall portraits, and the page's circle keeps the top (its "smart" crop cut off heads)
+        return n, ("https://images.sidearmdev.com/resize?" + urllib.parse.urlencode({"url": src, "width": 240, "type": "jpeg"}), host)
     with ThreadPoolExecutor(8) as ex:
         return dict(filter(None, ex.map(one, coaches)))
 
@@ -532,9 +542,15 @@ def main():
     nopic = {n for n in everyone if not espn.get(n) and not (cache.get(n) or {}).get("img")}
     now_job = {c["n"]: (lg, c["tm"]) for lg in ("nfl", "cfb") for c in (C.get(lg) or {}).get("coaches", []) if c.get("on")}
     won = {(lg, c["n"]): c["c"].get("tiy", []) for lg in ("nfl", "cfb") for c in (C.get(lg) or {}).get("coaches", []) if c.get("c")}
-    nfl = nfl_sites()
+    nfl, staff = nfl_sites()
     site = {n: nfl[norm(n)] for n in everyone if norm(n) in nfl and (now_job.get(n, ("",))[0] == "nfl" or n in nopic)}
     site.update(college_sites([(n, tm) for n, (lg, tm) in now_job.items() if lg == "cfb" and n not in site]))
+    # a team site that didn't answer this run: keep the staff photo we had last time
+    prev = json.loads(OUT.read_text(encoding="utf-8")).get("people", {}) if OUT.exists() else {}
+    for n in everyone:
+        q = prev.get(slug(n)) or {}
+        if n not in site and isinstance(q.get("cr"), str) and (n in now_job or n in nopic):
+            site[n] = (q["img"], q["cr"])
     people = {}
     for n in everyone:
         w = cache.get(n) or {}
@@ -547,6 +563,8 @@ def main():
                 p["cr"] = 1  # photo from Wikipedia: credit it
         if n in now_job:
             p["job"] = list(now_job[n])  # head coach right now: [league, team] (for site search)
+        elif norm(n) in staff and staff[norm(n)][1]:
+            p["asst"] = ["nfl", *staff[norm(n)]]  # on an NFL staff now (not head coach): [league, team, job title]
         tr = {lg: sorted(set(TITLES_BEFORE[lg].get(n, [])) | set(won.get((lg, n), []))) for lg in ("nfl", "cfb")}
         if tr["nfl"] or tr["cfb"]:
             p["tr"] = {lg: ys for lg, ys in tr.items() if ys}  # titles as a head coach: {"cfb": [2003, 2009, ...]}

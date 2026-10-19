@@ -32,6 +32,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 OUT = ROOT / "docs" / "data" / "coaches.json"
+OUT_TEAMS = ROOT / "docs" / "data" / "coach_teams.json"
+TEAMS = {}  # build() fills it: {league: {coach: {team: stats}}}
 HIST = ROOT / "data" / "history"
 MOVED = {"OAK": "LV", "SD": "LAC", "STL": "LA"}
 NAME_FIX = {"Klint Kubliak": "Klint Kubiak"}  # nflverse typos
@@ -213,8 +215,9 @@ def stats(games, rec, fbs, coach_of):
             "lift": round(100 * lift_s / lift_n, 1) if lift_n else None, "yrs": len(yrs), "y1": yrs[0], "y2": yrs[-1]}
 
 
-def score(coaches, scope, min_g):
-    """Coach score 0-100 among coaches with at least min_g games in this scope (career or recent)."""
+def score(coaches, scope, min_g, extra=()):
+    """Coach score 0-100 among coaches with at least min_g games in this scope (career or recent).
+    extra: more stat sets (his other teams) scored on the same scale, without a rank."""
     pool = [c[scope] for c in coaches if c.get(scope) and c[scope]["g"] >= min_g]
     if len(pool) < 5:
         return
@@ -232,7 +235,7 @@ def score(coaches, scope, min_g):
         m = sum(v) / len(v)
         sd = math.sqrt(sum((x - m) ** 2 for x in v) / len(v)) or 1
         z[k] = (m, sd)
-    for s in pool:
+    for s in pool + [s for s in extra if s["g"] >= min_g]:
         tot = sum(WEIGHTS[k] * (f(s) - z[k][0]) / z[k][1] for k, f in part.items())
         s["score"] = max(1, min(99, round(50 + 15 * tot / 0.6)))  # 0.6 ~ the spread of the weighted sum
     for i, s in enumerate(sorted(pool, key=lambda s: -s["score"])):
@@ -250,7 +253,7 @@ def build(lg, rows, current, fbs=None, edge=None):
     rec = team_records(rows)
     now = max(x[0] for x in rows)
     active = {c: t for t, c in current.items()}
-    out = []
+    out, others = [], {}
     for name, games in by_coach.items():
         games.sort(key=lambda x: x[0])
         stints = []
@@ -265,6 +268,8 @@ def build(lg, rows, current, fbs=None, edge=None):
         c = {"n": NAME_FIX.get(name, name), "tm": tm, "on": name in active, "st": stints,
              "c": stats(games, rec, fbs, coach_of), "r": stats(recent, rec, fbs, coach_of) if recent else None,
              "t": stats(here, rec, fbs, coach_of) if here else None}
+        # his other teams, for the coach page's team buttons (docs/data/coach_teams.json, not this file)
+        others[c["n"]] = {team: stats([x for x in games if x[2] == team], rec, fbs, coach_of) for team in {x[2] for x in games} - {tm}}
         if edge and name in active:
             c["edge"] = round(edge(name), 2)
         # season by season: [season, team, wins, losses, ties, postseason wins, postseason losses]
@@ -282,7 +287,8 @@ def build(lg, rows, current, fbs=None, edge=None):
             c["hs"] = {"p": round(p, 3), "lab": hot_seat.band(p), "why": hot_seat.why(x, p, this[2:5])}
         out.append(c)
     for sc in ("c", "r", "t"):
-        score(out, sc, MIN_GAMES[lg][sc])
+        score(out, sc, MIN_GAMES[lg][sc], [x for o in others.values() for x in o.values()] if sc == "t" else ())
+    TEAMS[lg] = {n: o for n, o in others.items() if o}
     out.sort(key=lambda c: (not c["on"], -(c["c"].get("score") or 0), -c["c"]["g"]))
     print(f"  {lg}: {len(out)} coaches, {sum(c['on'] for c in out)} current, {sum('score' in c['c'] for c in out)} with a career score")
     return {"from": min(x[0] for x in rows), "to": now, "coaches": out}
@@ -308,6 +314,10 @@ def main():
             d["cfb"] = old["cfb"]
     OUT.write_text(json.dumps(d, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
     print(f"  {OUT.name}: {OUT.stat().st_size // 1024} KB")
+    if TEAMS:  # {league: {coach: {team: stats}}}: every team he coached but his current (or last) one (a league skipped this run keeps its old list)
+        old = json.loads(OUT_TEAMS.read_text(encoding="utf-8")) if OUT_TEAMS.exists() else {}
+        OUT_TEAMS.write_text(json.dumps({**old, **TEAMS}, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
+        print(f"  {OUT_TEAMS.name}: {OUT_TEAMS.stat().st_size // 1024} KB")
 
 
 if __name__ == "__main__":

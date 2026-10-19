@@ -44,10 +44,12 @@ def slug(name):
 def background(jobs, now):
     side = Counter()
     coord = []
+    seasons = set()  # every season he was an assistant (a job on both sides, or a graduate assistant, counts once)
     for lg, team, y1, y2, role, head in jobs:
         if head:
             continue
         yrs = min(y2, now) - y1 + 1
+        seasons |= set(range(y1, min(y2, now) + 1))
         r = role or ""
         o, d, s = bool(OFF.search(r)), bool(DEF.search(r)), bool(ST.search(r))
         if re.search(r"offensive", r, re.I):
@@ -67,7 +69,7 @@ def background(jobs, now):
     lab = ("off" if o >= 2 * max(d, 1) and o >= 3 else "def" if d >= 2 * max(o, 1) and d >= 3
            else "st" if s >= 2 * max(o, d, 1) else "both")
     coord.sort(key=lambda c: -c[3])
-    return {"lab": lab, "off": o, "def": d, "st": s, "coord": coord[:3]}
+    return {"lab": lab, "yrs": len(seasons), "off": o, "def": d, "st": s, "coord": coord[:3]}
 
 
 # ------------------------------------------------------------------ NFL team tendencies

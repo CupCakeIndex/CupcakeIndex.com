@@ -2574,6 +2574,10 @@ table.roster th.sortable.on a { color: var(--accent); }
 .co-seat .co-seat-how { margin: 8px 0 0; color: var(--muted); }
 .co-seat > .fold-tog { margin: 8px 0 0; display: block; }
 .co-scope { margin-bottom: 10px; }
+/* the coach page's team buttons: logo, team, his years there */
+.co-teams button { display: inline-flex; align-items: center; gap: 6px; }
+.co-teams button img, .co-teams button .logo-ph { width: 16px; height: 16px; }
+.co-teams button small { opacity: .7; font-size: 11px; }
 .co-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
 .co-tile { border: 1px solid var(--line); padding: 8px 10px; }
 .co-tile small { display: block; font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
@@ -2676,11 +2680,11 @@ a.tr-node:hover { border-color: var(--accent); text-decoration: none; }
 .tro-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; margin: 1px 0 2px; }
 .tro { display: inline-flex; align-items: center; gap: 1px; line-height: 0; }
 .tro svg { width: 12px; height: 12px; fill: currentColor; flex: none; }
-.tro-cfb svg { width: 7px; height: 16px; }  /* the tall CFP trophy, in its own colors */
+.tro-cfb svg { width: 9px; height: 21px; }  /* the tall CFP trophy, in its own colors */
 .tro-nfl { color: #aab3bd; }
 .tro-row.big { margin: 6px 0 4px; }
 .tro-row.big svg { width: 17px; height: 17px; }
-.tro-row.big .tro-cfb svg { width: 11px; height: 26px; }
+.tro-row.big .tro-cfb svg { width: 13px; height: 30px; }
 .tro small { margin-left: 5px; font-size: 11px; line-height: 1.2; color: var(--muted); }
 .tr-node small { font-size: 10.5px; color: var(--muted); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .tr-node small.tr-now { color: var(--accent); -webkit-line-clamp: 1; }

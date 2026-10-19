@@ -8,6 +8,8 @@ const Coaches = (() => {
     if (!D) [D, T] = await Promise.all([getJSON("data/coaches.json").catch(() => ({})), getJSON("data/teams.json").catch(() => ({}))]);
   };
   const loadTree = async () => { if (!TREE) TREE = await getJSON("data/coach_tree.json").catch(() => ({ people: {}, edges: [] })); };
+  let TEAMS = null; // src/coaches.py: stats for each coach's other teams, {league: {coach: {team: stats}}} (coach pages only)
+  const loadTeams = async () => { if (!TEAMS) TEAMS = await getJSON("data/coach_teams.json").catch(() => ({})); };
   let PROF = null; // src/coach_profile.py: background (offense / defense) and his teams' scheme tendencies
   const loadProf = async () => { if (!PROF) PROF = await getJSON("data/coach_profile.json").catch(() => ({ coaches: {} })); };
   // same as slug() in src/coach_tree.py
@@ -122,7 +124,7 @@ const Coaches = (() => {
     : `<span class="co-face ph ${cls}" role="img" aria-label="${esc(n)}">${SILHOUETTE}</span>`); // no photo: a blank head and shoulders
   // titles as a head coach (coach_tree.json "tr"): one trophy per title, the CFP trophy for college, a silver Lombardi for the NFL
   // the CFP trophy: gold taper, a silver football in a gold frame, a black base (drawn small, in its own colors)
-  const CUP = `<svg viewBox="0 0 12 28" aria-hidden="true"><path fill="#d9ab3c" d="M2.1 6.5h7.8C9.3 11.5 7.7 16.3 6.7 21H5.3C4.3 16.3 2.7 11.5 2.1 6.5z"/><path fill="#f6dc8c" d="M2.9 9.5C3.9 13 4.8 16.6 5.4 21h.5C5.5 16.4 4.6 12.7 2.9 9.5z"/><path fill="#c8962a" d="M6 .4C9.9 2.6 11 6.6 6 12.6 1 6.6 2.1 2.6 6 .4z"/><path fill="#e9ebee" d="M6 2.3C8.4 3.9 8.9 6.5 6 10.2 3.1 6.5 3.6 3.9 6 2.3z"/><path stroke="#8d939b" stroke-width=".55" d="M4.9 4.9h2.2M4.7 6.1h2.6M4.9 7.3h2.2"/><rect x="2.4" y="21" width="7.2" height="6.6" rx=".7" fill="#18181c" stroke="#c8962a" stroke-width=".5"/><path fill="#c8962a" d="M6 22.7c.8.5.9 1.2 0 2.2-.9-1-.8-1.7 0-2.2z"/></svg>`;
+  const CUP = `<svg viewBox="0 0 20 46" aria-hidden="true"><path fill="#e2b545" d="M10 1C4.4 3.9 1.5 9.3 2.9 14.6c1 3.6 4.5 7 6.3 20.4h.8z"/><path fill="#b98a2b" d="M10 1c5.6 2.9 8.5 8.3 7.1 13.6-1 3.6-4.5 7-6.3 20.4H10z"/><path fill="#f3db8f" d="M4.1 9.6c-.6 2.3-.5 4.1.1 5.7 1 2.9 3.5 6.2 4.9 15.6C8 23 5.6 19.6 4.9 15.6c-.4-2-.7-3.9-.8-6z"/><path fill="#eef0f3" d="M10 3.4c3.7 2.4 4.6 7.2 0 13.8-4.6-6.6-3.7-11.4 0-13.8z"/><path fill="#c3c7cd" d="M10 3.4c3.7 2.4 4.6 7.2 0 13.8z"/><path stroke="#6f757d" stroke-width=".9" stroke-linecap="round" d="M8.7 8h2.6M8.5 9.8h3M8.7 11.6h2.6"/><path fill="#17171b" d="M4.5 35h11v9.6a1.2 1.2 0 0 1-1.2 1.2H5.7a1.2 1.2 0 0 1-1.2-1.2z"/><ellipse cx="10" cy="35" rx="5.5" ry="1.2" fill="#2b2b31" stroke="#c99a35" stroke-width=".7"/><path fill="#c99a35" d="M10 38.4c1.1.7 1.3 1.7 0 3.1-1.3-1.4-1.1-2.4 0-3.1z"/></svg>`;
   const LOMBARDI = `<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="4.6" rx="3.3" ry="4.4" transform="rotate(-40 8 4.6)"/><path d="M6.4 8.8h3.2l1.2 4H5.2zM3.8 12.8h8.4V15.4H3.8z"/></svg>`;
   const TITLE = { cfb: ["national title", CUP], nfl: ["Super Bowl", LOMBARDI] };
   const trophies = (p, label = false) => !p?.tr ? "" : ["cfb", "nfl"].filter((lg) => p.tr[lg]?.length).map((lg) => {
@@ -139,13 +141,16 @@ const Coaches = (() => {
   async function page(s, params) {
     const el = $("#view-coach");
     el.innerHTML = `<div class="card muted">Loading…</div>`;
-    await Promise.all([load(), loadTree(), loadProf()]);
+    await Promise.all([load(), loadTree(), loadProf(), loadTeams()]);
     const mine = findCoach(s), P = TREE.people || {}, me = P[s];
     if (!mine.length && !me) { el.innerHTML = `<div class="card">Coach not found. <a href="${link("coaches")}">All coaches →</a></div>`; return; }
     const [lg, c] = mine[0] || [league, null], name = c?.n || me.n;
     // ---- header: photo, job, hot seat
     const since = c && c.st.filter((x) => x[0] === c.tm).at(-1)?.[1];
-    const job = !c ? `<span class="muted">Not a head coach in our data</span>`
+    // not a head coach anywhere now: his NFL staff job if he has one (from the team sites), otherwise Unemployed
+    const working = mine.some(([, x]) => x.on), asst = !working && me?.asst;
+    const job = asst ? `Now: ${esc(asst[2])}, ${teamLink(asst[0], asst[1])}`
+      : !c ? `<span class="muted">Not a head coach in our data</span>`
       : c.on ? `Head coach, ${teamLink(lg, c.tm)} <small class="muted">since ${since}</small>`
       : `Last head coaching job: ${teamLink(lg, c.tm)} <small class="muted">(${yrs(c.st.at(-1)[1], c.st.at(-1)[2])})</small>`;
     const hs = c?.on && c.hs;
@@ -153,15 +158,28 @@ const Coaches = (() => {
         <b>${Math.round(100 * hs.p)}%</b> <small>chance he's out after this season</small></div>
         ${hs.why?.length ? `<ul>${hs.why.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}
         <p class="note co-seat-how">Hot seat is our estimate, from a model trained on every head coach season since ${D.nfl?.from || 1999} (NFL) and ${D.cfb?.from || 1980} (college): this season's record against what we expected, last season, years in the job and the program's usual standard. Tested on seasons it never saw, its Safe coaches were out about 7% of the time, Teetering about 22% and Hot seat about half. Just for fun.</p></div>` : "";
-    // ---- stats: current team / career / last 3, like the Coaches table
-    const scope = ["t", "c", "r"].includes(params.get("scope")) && c?.[params.get("scope")] ? params.get("scope") : c?.t ? "t" : "c";
-    const S = c?.[scope];
+    // ---- stats: pick a team he coached (every league, newest first), all time, or the last 3 seasons
+    const opts = []; // [key, label, stats, league]
+    mine.forEach(([l2, c2]) => {
+      const seen = new Set();
+      c2.st.slice().reverse().forEach(([tm]) => {
+        if (seen.has(tm)) return;
+        seen.add(tm);
+        const span = c2.st.filter((x) => x[0] === tm), st = tm === c2.tm ? c2.t : TEAMS[l2]?.[c2.n]?.[tm];
+        const t = team(l2, tm);
+        if (st) opts.push([`${l2}:${tm}`, `${t.id ? logo(t) + " " : ""}${esc(teamName(l2, tm))} <small>${span.map((x) => yrs(x[1], x[2])).join(", ")}</small>`, st, l2]);
+      });
+    });
+    mine.forEach(([l2, c2]) => opts.push([`c:${l2}`, mine.length > 1 ? `All time ${l2 === "nfl" ? "NFL" : "college"}` : "All time", c2.c, l2]));
+    if (c?.r) opts.push(["r", "Last 3 seasons", c.r, lg]);
+    const OLD = { t: `${lg}:${c?.tm}`, c: `c:${lg}` }; // links from before the team buttons
+    const want = OLD[params.get("scope")] || params.get("scope");
+    const chosen = opts.find((o) => o[0] === want) || opts.find((o) => o[0] === `${lg}:${c?.tm}`) || opts[0];
+    const S = chosen?.[2], sLg = chosen?.[3];
     const tile = (k, v, sub = "") => `<div class="co-tile"><small>${esc(k)}</small><b>${v}</b>${sub ? `<em>${sub}</em>` : ""}</div>`;
-    const also = mine.slice(1).map(([l2, c2]) => `the ${l2 === "nfl" ? "NFL" : "college game"}: ${c2.c.w}-${c2.c.l}${c2.c.t ? "-" + c2.c.t : ""} (${c2.st.map((x) => `${esc(teamName(l2, x[0]))} ${yrs(x[1], x[2])}`).join(", ")})`);
-    const stats = !S ? "" : `<div class="presets co-scope" id="co-pscope">${[["t", c.on ? "Current team" : "Last team"], ["c", "All time"], ["r", "Last 3 seasons"]]
-        .filter(([k]) => c[k]).map(([k, l]) => `<button data-v="${k}" class="${k === scope ? "on" : ""}">${l}</button>`).join("")}</div>
+    const stats = !S ? "" : `<div class="presets co-scope co-teams" id="co-pscope">${opts.map(([k, l]) => `<button data-v="${esc(k)}" class="${k === chosen[0] ? "on" : ""}">${l}</button>`).join("")}</div>
       <div class="co-tiles">
-        ${tile("Coach score", S.score ?? "—", S.rk ? `#${S.rk} in the ${lg === "nfl" ? "NFL" : "FBS"}` : "not enough games")}
+        ${tile("Coach score", S.score ?? "—", S.rk ? `#${S.rk} in the ${sLg === "nfl" ? "NFL" : "FBS"}` : S.score != null ? "with this team" : "not enough games")}
         ${tile("Record", `${S.w}-${S.l}${S.t ? "-" + S.t : ""}`, S.pct == null ? "" : S.pct.toFixed(3).replace(/^0/, "") + " win %")}
         ${tile("Postseason", `${S.pw}-${S.pl}`, S.ti ? `${S.ti} title${S.ti > 1 ? "s" : ""}` : "")}
         ${tile("Vs winning teams", `${S.gw}-${S.gl}`)}
@@ -170,7 +188,7 @@ const Coaches = (() => {
         ${tile("Team lift", S.lift == null ? "—" : f1(S.lift), "win % vs the year before him")}
         ${tile("Cupcake wins", S.cup == null ? "—" : S.cup + "%", "of his wins")}
         ${tile("Seasons", S.yrs, yrs(S.y1, S.y2))}
-      </div>${also.length ? `<p class="note">Also a head coach in ${also.join("; ")}.</p>` : ""}`;
+      </div>`;
     // ---- season by season (every league he coached in)
     const seas = mine.flatMap(([l2, c2]) => (c2.sea || []).map((r) => [l2, ...r])).sort((a, b) => b[1] - a[1]);
     const seasons = !seas.length ? "" : `<div class="table-wrap"><table class="box co-seas"><thead><tr><th>Season</th><th>Team</th><th class="num">Record</th><th class="num">Postseason</th></tr></thead><tbody>
@@ -211,10 +229,10 @@ const Coaches = (() => {
     const MIND = { off: "Offensive mind", def: "Defensive mind", st: "Special teams background", both: "Both sides of the ball" };
     const ord = (n) => n + ([11, 12, 13].includes(n % 100) ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th");
     const fmt = (v, f) => (f === "pct" ? `${v}%` : f === "pts" ? `${v > 0 ? "+" : ""}${v}%` : `${v}`);
-    const yrsTot = bg ? bg.off + bg.def + bg.st : 0;
+    const yrsTot = bg ? bg.yrs || bg.off + bg.def + bg.st : 0; // seasons as an assistant (a job on both sides counts once)
     const sides = [["off", "offense"], ["def", "defense"], ["st", "special teams"]].filter(([k]) => bg?.[k]);
     const bgHtml = !bg ? "" : `<div class="cp-bg"><div class="cp-head"><span class="cp-mind cp-${bg.lab}">${esc(MIND[bg.lab])}</span>
-        <small class="muted">${yrsTot} year${yrsTot > 1 ? "s" : ""} as an assistant${sides.length === 1 ? `, all on ${sides[0][1]}` : ""}</small></div>
+        <small class="muted">${yrsTot} year${yrsTot > 1 ? "s" : ""} as an assistant${sides.length === 1 ? `, ${bg[sides[0][0]] >= yrsTot ? "all" : bg[sides[0][0]]} on ${sides[0][1]}` : ""}</small></div>
         ${sides.length > 1 ? `<div class="cp-split" title="Years as an assistant on each side of the ball (from his Wikipedia career list)">${sides
           .map(([k, l]) => `<span class="cp-${k}" style="flex:${bg[k]}"><i></i><small>${l[0].toUpperCase() + l.slice(1)} ${bg[k]}</small></span>`).join("")}</div>` : ""}
         ${bg.coord.length ? `<div class="cp-coord"><small class="muted">Coordinator jobs</small>${bg.coord.map((x) => `<span>${esc(x[0])}, ${esc(teamName(x[1], x[2]))} <small class="muted">${yrs(x[3], x[4])}</small></span>`).join("")}</div>` : ""}</div>`;
@@ -242,7 +260,7 @@ const Coaches = (() => {
         ${bg ? fact("Background", esc({ off: "Offense", def: "Defense", st: "Special teams", both: "Both sides" }[bg.lab])) : ""}</div>`;
     el.innerHTML = `<div class="card co-hero">
         ${pic(me, name, "big")}
-        <div class="co-id"><h2>${esc(name)}</h2><p>${job}</p>${trophies(me) ? `<p class="tro-row big">${trophies(me, true)}</p>` : ""}
+        <div class="co-id"><h2>${esc(name)}${!working && !asst ? ` <span class="retired-tag">Unemployed</span>` : ""}</h2><p>${job}</p>${trophies(me) ? `<p class="tro-row big">${trophies(me, true)}</p>` : ""}
           ${me?.w ? `<p class="co-links"><a href="https://en.wikipedia.org/wiki/${encodeURIComponent(me.w.replace(/ /g, "_"))}" target="_blank" rel="noopener">Wikipedia</a>${me.cr === 1 ? ` <small class="muted">· photo from Wikipedia</small>` : ""}</p>` : ""}${typeof me?.cr === "string" ? `<p class="co-links"><small class="muted">Photo: ${esc(me.cr)}</small></p>` : ""}${facts}</div>
         ${seat}
       </div>
