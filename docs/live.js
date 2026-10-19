@@ -1970,21 +1970,25 @@ const Live = (() => {
   // your finger without scrolling. show(p) gets the pointer in the SVG's own coordinates; hide() when you let go or leave.
   function scrubber(svg, show, hide, axis = "x") {
     const at = (e) => { const m = svg.getScreenCTM(); return m ? new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse()) : null; };
-    let held = false, timer = 0;
+    // pinched: from a second finger until every finger is up, or while the chart is zoomed in (pinchPan's pz-on), touches
+    // zoom and pan the chart and the line stays hidden
+    let held = false, timer = 0, pinched = false;
+    const off = () => pinched || !!svg.closest(".pz-on");
     svg.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse") { const p = at(e); if (p) show(p); } });
     svg.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") hide(); });
     svg.addEventListener("touchstart", (e) => {
-      if (e.touches.length > 1) { clearTimeout(timer); held = false; return hide(); } // two fingers: that's a pinch
+      if (e.touches.length > 1) pinched = true;
+      if (off()) { clearTimeout(timer); held = false; return hide(); } // two fingers: that's a pinch
       const t = e.touches[0], p = at(t);
       if (p) show(p); // right away
       clearTimeout(timer);
       if (axis === "y") timer = setTimeout(() => { held = true; }, 220);
     }, { passive: true });
     svg.addEventListener("touchmove", (e) => {
-      if (e.touches.length > 1) return;
+      if (e.touches.length > 1 || off()) return;
       if (axis === "x" || held) { if (held) e.preventDefault(); const p = at(e.touches[0]); if (p) show(p); } else clearTimeout(timer);
     }, { passive: false });
-    svg.addEventListener("touchend", (e) => { if (e.touches.length) return; clearTimeout(timer); held = false; hide(); });
+    svg.addEventListener("touchend", (e) => { if (e.touches.length) return; clearTimeout(timer); held = false; pinched = false; hide(); });
   }
   // the scrub line's label: a small rounded tag (same look as the kicking chart's value tags)
   const scanTag = (x, y, txt, anchor = "middle") => { const w = 14 + 7 * txt.length, x0 = anchor === "end" ? x - w : anchor === "start" ? x : x - w / 2;
@@ -3472,10 +3476,12 @@ const Live = (() => {
     if (!kickOne) kyData = null;
     const svg = (mode, body) => `<svg viewBox="0 0 ${W} ${H}" class="cc-chart cc-${mode}" data-mode="${mode}" role="img" aria-label="${esc(C.labels[metric])} by ${align === "career" ? "career year" : "season"}">${grid}${xlabels}${body}</svg>`;
     const mode = ccPref("view", "line") === "bar" ? "bar" : "line";
-    const chart = `<div class="cc-box" id="cc-box" data-mode="${mode}">${svg("line", lines)}${svg("bar", bars + benchOver)}<div class="cc-brush"></div><div class="cc-tip"></div></div>
-      <p class="cc-hint muted">${isZoomed ? `Showing ${align === "career" ? "career years " : ""}${xs[0]}–${xs[xs.length - 1]} · <button class="link" id="cc-unzoom">Reset zoom</button>` : "Drag across the chart to zoom in on a stretch of seasons"}</p>`;
+    const chart = `<div class="cc-range" id="cc-range"><div class="cc-rtrack"><i class="cc-rsel"></i><span class="cc-rlab"></span>
+        <button class="cc-rh" role="slider" aria-label="First season"></button><button class="cc-rh" role="slider" aria-label="Last season"></button></div></div>
+      <div class="cc-box" id="cc-box" data-mode="${mode}">${svg("line", lines)}${svg("bar", bars + benchOver)}<i class="cc-rline"></i><i class="cc-rline"></i><div class="cc-tip"></div></div>
+      <p class="cc-hint muted">${isZoomed ? `Showing ${align === "career" ? "career years " : ""}${xs[0]}–${xs[xs.length - 1]} · <button class="link" id="cc-unzoom">Reset zoom</button>` : "Drag the squares above the chart to zoom in on a stretch of seasons"}</p>`;
     // what the hover box needs (read by initCcHover once the chart is on the page)
-    ccHover = { W, H, top, base, cols: xs.map((x, gi) => ({ x, px: px(gi) })), sets: { line: nodes, bar: bnodes }, stat: C.labels[metric], series: series.map((sr) => ({ name: sr.p.name, color: sr.color })) };
+    ccHover = { W, H, top, base, padL, padR, all: allXs, sel: [xs[0], xs[xs.length - 1]], zoomed: isZoomed, career: align === "career", cols: xs.map((x, gi) => ({ x, px: px(gi) })), sets: { line: nodes, bar: bnodes }, stat: C.labels[metric], series: series.map((sr) => ({ name: sr.p.name, color: sr.color })) };
     const legend = series.map((sr, i) => `<span class="cc-chip" style="--c:${sr.color}">${face(sr.p.headshot, sr.p.name, "hs", sr.p.lg === "nfl", sr.p.born)} ${esc(sr.p.name)} <small>${esc(sr.p.pos || "")}</small>
       ${i ? `<button class="cc-x-btn" data-rm="${esc(sr.p.lg)}:${esc(sr.p.id)}" aria-label="Remove">×</button>` : ""}</span>`).join("")
       + (benchLine ? `<span class="cc-bench-key" title="Each season's average for the top 10 players in this stat"><i></i>Top-10 avg</span>` : "")
@@ -3675,41 +3681,68 @@ const Live = (() => {
       tip.classList.toggle("edge-r", x > r.width - 80);
       tip.classList.remove("on"); void tip.offsetWidth; tip.classList.add("on"); // replay the pop-in for each new dot
     };
-    const brush = box.querySelector(".cc-brush");
-    let drag = null;
-    const colAt = (clientX) => { // nearest season column to the pointer, and its x on screen
-      const svg = box.querySelector(`svg[data-mode="${mode}"]`), r = svg.getBoundingClientRect(), k = Math.min(r.width / H.W, r.height / H.H);
-      const ox = (r.width - H.W * k) / 2, sx = (clientX - r.left - ox) / k;
-      let i = 0;
-      H.cols.forEach((c, j) => { if (Math.abs(c.px - sx) < Math.abs(H.cols[i].px - sx)) i = j; });
-      return { i, left: clientX - box.getBoundingClientRect().left, k, oy: (r.height - H.H * k) / 2 };
+    // picking seasons is the range bar's job (initCcRange); on the chart a touch or a mouse just reads the dots
+    box.addEventListener("pointerdown", (e) => show(e, e.pointerType === "touch"));
+    box.addEventListener("pointermove", (e) => show(e, e.pointerType === "touch"));
+    box.addEventListener("pointerleave", hide);
+  }
+
+  // Season range bar over Stats by year (Terry's sketch): drag either square to pick the first and last season, and the
+  // chart zooms to them when you let go (at least two seasons). The track spans the chart's plot area with one stop per
+  // season, so on the full chart the squares sit between the bars and dashed lines show where each one cuts the chart.
+  function initCcRange() {
+    const R = $("#cc-range"), box = $("#cc-box"), H = ccHover;
+    if (!R || !box || !H) return;
+    if (H.all.length < 3) { R.remove(); return; }
+    const track = R.querySelector(".cc-rtrack"), sel = R.querySelector(".cc-rsel"), lab = R.querySelector(".cc-rlab");
+    const hs = R.querySelectorAll(".cc-rh"), lines = box.querySelectorAll(".cc-rline"), n = H.all.length;
+    let a = Math.max(0, H.all.indexOf(H.sel[0])), b = H.all.indexOf(H.sel[1]), drag = null;
+    if (b < 0) b = n - 1;
+    const yr = (x) => (H.career ? `Yr ${x}` : `${x}`);
+    const fit = () => { // line the track up with the chart's plot area as drawn on screen
+      const m = box.querySelector(`svg[data-mode="${box.dataset.mode}"]`)?.getScreenCTM();
+      if (!m) return;
+      const left = R.getBoundingClientRect().left, x0 = m.a * H.padL + m.e - left, x1 = m.a * (H.W - H.padR) + m.e - left;
+      Object.assign(track.style, { left: `${x0}px`, width: `${x1 - x0}px` });
     };
-    box.addEventListener("pointerdown", (e) => {
-      show(e, e.pointerType === "touch");
-      if (e.pointerType === "mouse" && e.button !== 0) return;
-      drag = { x0: e.clientX, a: colAt(e.clientX) };
-    });
-    box.addEventListener("pointermove", (e) => {
-      if (drag && Math.abs(e.clientX - drag.x0) > 12) {
-        drag.moved = true;
-        hide();
-        const b = colAt(e.clientX), l = Math.min(drag.a.left, b.left), w = Math.abs(b.left - drag.a.left);
-        Object.assign(brush.style, { display: "block", left: `${l}px`, width: `${w}px`, top: `${b.oy + H.top * b.k}px`, height: `${(H.base - H.top) * b.k}px` });
-        return;
-      }
-      if (!drag) show(e, e.pointerType === "touch");
-    });
-    const end = (e) => {
-      if (!drag) return;
-      const d = drag;
-      drag = null;
-      brush.style.display = "none";
-      if (!d.moved || !e) return;
-      const b = colAt(e.clientX), lo = Math.min(d.a.i, b.i), hi = Math.max(d.a.i, b.i);
-      if (hi > lo && box.ccZoom) box.ccZoom(H.cols[lo].x, H.cols[hi].x); // need at least two seasons
+    const draw = () => {
+      const L = (a / n) * 100, Rt = ((b + 1) / n) * 100;
+      hs[0].style.left = `${L}%`; hs[1].style.left = `${Rt}%`;
+      Object.assign(sel.style, { left: `${L}%`, width: `${Rt - L}%` });
+      lab.style.left = `${(L + Rt) / 2}%`;
+      lab.textContent = `${yr(H.all[a])}–${yr(H.all[b])}`;
+      hs[0].setAttribute("aria-valuetext", yr(H.all[a])); hs[1].setAttribute("aria-valuetext", yr(H.all[b]));
+      const tr = track.getBoundingClientRect(), bx = box.getBoundingClientRect();
+      lines.forEach((ln, i) => { // only lines up with the bars when the chart shows every season
+        ln.style.display = drag != null && !H.zoomed ? "block" : "none";
+        ln.style.left = `${tr.left - bx.left + (tr.width * (i ? Rt : L)) / 100}px`;
+      });
     };
-    box.addEventListener("pointerup", end);
-    box.addEventListener("pointerleave", () => { end(null); hide(); });
+    const commit = () => {
+      if (H.all[a] === H.sel[0] && H.all[b] === H.sel[1]) return;
+      const all = a === 0 && b === n - 1;
+      box.ccZoom?.(all ? null : H.all[a], all ? null : H.all[b]);
+    };
+    hs.forEach((h, i) => {
+      h.onpointerdown = (e) => { e.preventDefault(); try { h.setPointerCapture(e.pointerId); } catch {} drag = i; R.classList.add("on"); draw(); };
+      h.onpointermove = (e) => {
+        if (drag !== i) return;
+        const tr = track.getBoundingClientRect(), f = Math.round(((e.clientX - tr.left) / tr.width) * n);
+        if (i) b = Math.min(n - 1, Math.max(a + 1, f - 1)); else a = Math.max(0, Math.min(b - 1, f));
+        draw();
+      };
+      h.onpointerup = h.onpointercancel = () => { if (drag !== i) return; drag = null; R.classList.remove("on"); draw(); commit(); };
+      h.onkeydown = (e) => { // arrow keys move a square one season
+        const d = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
+        if (!d) return;
+        e.preventDefault();
+        if (i) b = Math.min(n - 1, Math.max(a + 1, b + d)); else a = Math.max(0, Math.min(b - 1, a + d));
+        draw(); commit();
+      };
+    });
+    fit(); draw();
+    const re = () => { if (!R.isConnected) return removeEventListener("resize", re); fit(); draw(); };
+    addEventListener("resize", re);
   }
 
   function wireCareer(id, params) {
@@ -3740,6 +3773,7 @@ const Live = (() => {
     pinchPan($("#cc-box")); pinchPan(document.querySelector(".ky-box")); // pinch to zoom on phones
     if ($("#cc-lvl")) $("#cc-lvl").onclick = (e) => { const v = e.target.dataset.lvl; if (v) go({ lvl: v, from: null, to: null }); };
     if ($("#cc-box")) $("#cc-box").ccZoom = (from, to) => go({ from, to });
+    initCcRange();
     if ($("#cc-unzoom")) $("#cc-unzoom").onclick = () => go({ from: null, to: null });
     document.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = () => go({ vs: vs.filter((v) => v !== b.dataset.rm).join(",") })));
     const q = $("#cc-q"), box = $("#cc-results");
