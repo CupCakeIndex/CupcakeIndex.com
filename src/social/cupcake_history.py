@@ -73,6 +73,9 @@ def build(year, refresh=False):
     if not reg:
         return None
     raw = reg + post
+    # older seasons have dates but no kickoff times (every game at midnight UTC): those dates are already right
+    starts = [model.g(x, "startDate") or "" for x in raw]
+    no_times = sum("T00:00:00" in s for s in starts) > 0.8 * len(starts)
     div = model.divisions(raw)
     fbs = {n for n, c in div.items() if c == "fbs"}
     if len(fbs) < 80:  # older seasons may not label each team's division in the games feed: CFBD's FBS list for that year
@@ -106,7 +109,7 @@ def build(year, refresh=False):
             ap = ap_by_week[wk]
         hp, apts = model.g(x, "homePoints"), model.g(x, "awayPoints")
         done = bool(model.g(x, "completed", default=False)) and hp is not None and apts is not None
-        games.append({"w": wk, "d": eastern_date(model.g(x, "startDate"), bool(model.g(x, "startTimeTBD", default=False))), "h": h, "a": a,
+        games.append({"w": wk, "d": eastern_date(model.g(x, "startDate"), no_times or bool(model.g(x, "startTimeTBD", default=False))), "h": h, "a": a,
                       "hp": hp if done else None, "ap": apts if done else None,
                       "n": bool(model.g(x, "neutralSite", default=False)), "c": bool(model.g(x, "conferenceGame", default=False)),
                       "p": is_post, "hr": ap.get(h), "ar": ap.get(a), "id": model.g(x, "id")})

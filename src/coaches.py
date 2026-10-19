@@ -114,6 +114,14 @@ def with_old(staff):
     return staff
 
 
+# National champions when no single last game decided it (before the BCS title game in 1998), both in a split year,
+# plus USC's 2003 AP title next to LSU's BCS one. Their bowl win counts as the title.
+CFB_CHAMPS = {1979: ["Alabama"], 1980: ["Georgia"], 1981: ["Clemson"], 1982: ["Penn State"], 1983: ["Miami"], 1984: ["BYU"],
+              1985: ["Oklahoma"], 1986: ["Penn State"], 1987: ["Miami"], 1988: ["Notre Dame"], 1989: ["Miami"],
+              1990: ["Colorado", "Georgia Tech"], 1991: ["Miami", "Washington"], 1992: ["Alabama"], 1993: ["Florida State"],
+              1994: ["Nebraska"], 1995: ["Nebraska"], 1996: ["Florida"], 1997: ["Michigan", "Nebraska"], 2003: ["USC"]}
+
+
 def cfb_games(staff):
     seasons = {}
     for f in sorted((HIST / "cfb").glob("*.json")):
@@ -147,7 +155,8 @@ def cfb_games(staff):
                 us, them = (x["hp"], x["ap"]) if home else (x["ap"], x["hp"])
                 hfa = 0 if x["n"] else (2.5 if home else -2.5)
                 diff = 0.6 * (R0.get(team, -20) - R0.get(opp, -20)) + hfa  # last year's strength (FCS ~ -20), regressed
-                title = bool(title_done and x["p"] and x["d"] == last_post)
+                champ = x["p"] and team in CFB_CHAMPS.get(y, ()) and i == len(gs) - 1  # its bowl, its last game
+                title = bool(champ or (y >= 1998 and title_done and x["p"] and x["d"] == last_post))
                 rows.append((y, coach, team, opp, us, them, x["p"], title, phi(diff / 16.0)))
             if y == max(seasons):
                 cur[team] = staff_y[-1][0]

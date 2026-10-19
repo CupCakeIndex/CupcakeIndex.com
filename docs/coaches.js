@@ -120,8 +120,9 @@ const Coaches = (() => {
   const SILHOUETTE = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9.2" r="4.3"/><path d="M2.8 24c.6-5.3 4.4-8.6 9.2-8.6s8.6 3.3 9.2 8.6z"/></svg>`;
   const pic = (p, n, cls = "") => (safeUrl(p?.img) ? `<img class="co-face ${cls}" src="${esc(p.img)}" alt="" loading="lazy" decoding="async">`
     : `<span class="co-face ph ${cls}" role="img" aria-label="${esc(n)}">${SILHOUETTE}</span>`); // no photo: a blank head and shoulders
-  // titles as a head coach (coach_tree.json "tr"): one trophy per title, a gold cup for college, a silver Lombardi for the NFL
-  const CUP = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1h8v4.5a4 4 0 0 1-8 0zM1.5 2H4v1.4H2.9v.6a1.6 1.6 0 0 0 1.3 1.6l-.3 1.3A3 3 0 0 1 1.5 4zM14.5 2H12v1.4h1.1v.6a1.6 1.6 0 0 1-1.3 1.6l.3 1.3A3 3 0 0 0 14.5 4zM7 9.4h2V12H7zM4.5 12.5h7V15h-7z"/></svg>`;
+  // titles as a head coach (coach_tree.json "tr"): one trophy per title, the CFP trophy for college, a silver Lombardi for the NFL
+  // the CFP trophy: gold taper, a silver football in a gold frame, a black base (drawn small, in its own colors)
+  const CUP = `<svg viewBox="0 0 12 28" aria-hidden="true"><path fill="#d9ab3c" d="M2.1 6.5h7.8C9.3 11.5 7.7 16.3 6.7 21H5.3C4.3 16.3 2.7 11.5 2.1 6.5z"/><path fill="#f6dc8c" d="M2.9 9.5C3.9 13 4.8 16.6 5.4 21h.5C5.5 16.4 4.6 12.7 2.9 9.5z"/><path fill="#c8962a" d="M6 .4C9.9 2.6 11 6.6 6 12.6 1 6.6 2.1 2.6 6 .4z"/><path fill="#e9ebee" d="M6 2.3C8.4 3.9 8.9 6.5 6 10.2 3.1 6.5 3.6 3.9 6 2.3z"/><path stroke="#8d939b" stroke-width=".55" d="M4.9 4.9h2.2M4.7 6.1h2.6M4.9 7.3h2.2"/><rect x="2.4" y="21" width="7.2" height="6.6" rx=".7" fill="#18181c" stroke="#c8962a" stroke-width=".5"/><path fill="#c8962a" d="M6 22.7c.8.5.9 1.2 0 2.2-.9-1-.8-1.7 0-2.2z"/></svg>`;
   const LOMBARDI = `<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="4.6" rx="3.3" ry="4.4" transform="rotate(-40 8 4.6)"/><path d="M6.4 8.8h3.2l1.2 4H5.2zM3.8 12.8h8.4V15.4H3.8z"/></svg>`;
   const TITLE = { cfb: ["national title", CUP], nfl: ["Super Bowl", LOMBARDI] };
   const trophies = (p, label = false) => !p?.tr ? "" : ["cfb", "nfl"].filter((lg) => p.tr[lg]?.length).map((lg) => {
