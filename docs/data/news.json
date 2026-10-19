@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-19T09:46:31Z",
+ "updated": "2026-10-19T10:18:37Z",
  "teams": {
   "nfl:22": {
    "name": "Arizona Cardinals",
@@ -42,6 +42,13 @@
    "lg": "nfl",
    "id": "3",
    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/chi.png"
+  },
+  "nfl:4": {
+   "name": "Cincinnati Bengals",
+   "short": "Bengals",
+   "lg": "nfl",
+   "id": "4",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/cin.png"
   },
   "nfl:5": {
    "name": "Cleveland Browns",
@@ -274,13 +281,6 @@
    "id": "2294",
    "logo": "https://cdn.collegefootballdata.com/logos/500/2294.png"
   },
-  "cfb:2309": {
-   "name": "Kent State",
-   "short": "Kent State",
-   "lg": "cfb",
-   "id": "2309",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/2309.png"
-  },
   "cfb:96": {
    "name": "Kentucky",
    "short": "Kentucky",
@@ -393,26 +393,12 @@
    "id": "2483",
    "logo": "https://cdn.collegefootballdata.com/logos/500/2483.png"
   },
-  "cfb:204": {
-   "name": "Oregon State",
-   "short": "Oregon State",
-   "lg": "cfb",
-   "id": "204",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/204.png"
-  },
   "cfb:213": {
    "name": "Penn State",
    "short": "Penn State",
    "lg": "cfb",
    "id": "213",
    "logo": "https://cdn.collegefootballdata.com/logos/500/213.png"
-  },
-  "cfb:242": {
-   "name": "Rice",
-   "short": "Rice",
-   "lg": "cfb",
-   "id": "242",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/242.png"
   },
   "cfb:164": {
    "name": "Rutgers",
@@ -442,13 +428,6 @@
    "id": "2579",
    "logo": "https://cdn.collegefootballdata.com/logos/500/2579.png"
   },
-  "cfb:58": {
-   "name": "South Florida",
-   "short": "South Florida",
-   "lg": "cfb",
-   "id": "58",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/58.png"
-  },
   "cfb:2633": {
    "name": "Tennessee",
    "short": "Tennessee",
@@ -477,13 +456,6 @@
    "id": "2641",
    "logo": "https://cdn.collegefootballdata.com/logos/500/2641.png"
   },
-  "cfb:202": {
-   "name": "Tulsa",
-   "short": "Tulsa",
-   "lg": "cfb",
-   "id": "202",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/202.png"
-  },
   "cfb:26": {
    "name": "UCLA",
    "short": "UCLA",
@@ -511,16 +483,119 @@
    "lg": "cfb",
    "id": "254",
    "logo": "https://cdn.collegefootballdata.com/logos/500/254.png"
-  },
-  "cfb:265": {
-   "name": "Washington State",
-   "short": "Washington State",
-   "lg": "cfb",
-   "id": "265",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/265.png"
   }
  },
  "items": [
+  {
+   "title": "NFL Week 6 winners and losers led by 3 hot-seat coaches at breaking point",
+   "url": "https://sports.yahoo.com/articles/nfl-week-6-winners-losers-100701498.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-19T10:07:01Z",
+   "summary": "For hot-seat coaches Shane Steichen and Nick SIrianni, \"everything is on the table\" after humbling Week 6 losses. That's a problem for both of them.",
+   "image": "",
+   "teams": []
+  },
+  {
+   "title": "SEC football standings after chaos, upsets rule Week 7",
+   "url": "https://sports.yahoo.com/articles/sec-football-standings-chaos-upsets-100643883.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-19T10:06:43Z",
+   "summary": "SEC football has been shaken up but the race still continues. Going into Week 8, a lot of teams still control their own destiny and some don't.",
+   "image": "https://media.zenfs.com/en/uga_wire_usa_today_articles_805/195b780e189d4e8aa58dd35410a7d93d.jpg",
+   "teams": []
+  },
+  {
+   "title": "OU football's loss to Kentucky makes Texas win mirage, not start of special run | Mussatto",
+   "url": "https://sports.yahoo.com/articles/ou-footballs-loss-kentucky-makes-100605230.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-19T10:06:05Z",
+   "summary": "OU football's momentum from the Texas win vanished as four turnovers led to a 21-13 loss against Kentucky.",
+   "image": "https://media.zenfs.com/en/the_oklahoman_natl_articles_469/324bfc7a7adfd76ccbc03034e201f61c.jpg",
+   "teams": [
+    "cfb:96",
+    "cfb:251"
+   ]
+  },
+  {
+   "title": "Controversial ending aside, BYU’s win over Notre Dame was transformational moment for the football program",
+   "url": "https://sports.yahoo.com/articles/controversial-ending-aside-byu-win-100001948.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-19T10:00:01Z",
+   "summary": "Successful launch: BYU earned the respect it has craved for decades with 28-24 win over Notre Dame.",
+   "image": "https://media.zenfs.com/en/deseret_news_992/4b3963d5d7c21aef86832d777214c13a.jpg",
+   "teams": [
+    "cfb:87",
+    "cfb:252"
+   ]
+  },
+  {
+   "title": "The Bear’s Den: Caleb Williams, Kyler Gordon Lead Bears To Win",
+   "url": "https://sports.yahoo.com/articles/bear-den-caleb-williams-kyler-100000177.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-19T10:00:00Z",
+   "summary": "The returns of Caleb Williams and Kyler Gordon were huge in Sunday’s Chicago Bears win over the Atlanta Falcons",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/614c871f10db58553b93bc391d11cce5.jpg",
+   "teams": [
+    "nfl:1",
+    "nfl:3"
+   ]
+  },
+  {
+   "title": "10 things we learned from Patriots vs. Jets",
+   "url": "https://sports.yahoo.com/articles/10-things-learned-patriots-vs-100000305.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-19T10:00:00Z",
+   "summary": "What we learned from the Patriots’ Week 6 win over the Jets.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/46fbc8655b904d7608f22f337b17d6e9.jpg",
+   "teams": [
+    "nfl:17",
+    "nfl:20"
+   ]
+  },
+  {
+   "title": "5 takeaways from the Steelers’ OT win over the Tampa Bay Buccaneers",
+   "url": "https://sports.yahoo.com/articles/5-takeaways-steelers-ot-win-100000530.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-19T10:00:00Z",
+   "summary": "Takeaways, analysis, and overreactions from the Steelers’ Week 6 win.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/7676ee75068b30fea7ab75bff0b46cc3.jpg",
+   "teams": [
+    "nfl:27",
+    "nfl:23"
+   ]
+  },
+  {
+   "title": "Texas A&M has reportedly offered two rising 2027 DBs out of Florida",
+   "url": "https://sports.yahoo.com/articles/texas-m-reportedly-offered-two-094537204.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-19T09:45:37Z",
+   "summary": "Texas A&M has reportedly offered rising 2027 Florida-based defensive backs Dave Belhomme and Alan Blackshere.",
+   "image": "",
+   "teams": [
+    "cfb:245",
+    "cfb:57"
+   ]
+  },
+  {
+   "title": "Bengals Bye Week Awards: Defensive MVP",
+   "url": "https://sports.yahoo.com/articles/bengals-bye-week-awards-defensive-094500185.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-19T09:45:00Z",
+   "summary": "The defense has improved, but it also seems to be a feast-or-famine unit.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/a3f3fd713fd87ec860630abdde891fc4.jpg",
+   "teams": [
+    "nfl:4"
+   ]
+  },
   {
    "title": "ESPN analyst predicts Texas A&M vs. Alabama in Week 8",
    "url": "https://sports.yahoo.com/articles/espn-analyst-predicts-texas-m-093055129.html",
@@ -690,6 +765,16 @@
    ]
   },
   {
+   "title": "Playoff Predictor: Upsets turn CFP rankings into beautiful havoc",
+   "url": "https://sports.yahoo.com/articles/playoff-predictor-upsets-turn-cfp-084720041.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-19T08:47:20Z",
+   "summary": "Nobody has a clean résumé anymore. Our CFP Playoff Predictor sorts through the chaos and reveals which contenders survive the committee.",
+   "image": "",
+   "teams": []
+  },
+  {
    "title": "Does Georgia football play a game this week?",
    "url": "https://sports.yahoo.com/articles/does-georgia-football-play-game-080414771.html",
    "source": "Yahoo Sports",
@@ -802,19 +887,6 @@
     "nfl:21",
     "nfl:22",
     "nfl:14"
-   ]
-  },
-  {
-   "title": "South Florida scoop-and-score turns tide in 29-2 win over Kent State",
-   "url": "https://sports.yahoo.com/articles/south-florida-scoop-score-turns-053024684.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-19T05:30:24Z",
-   "summary": "Bulls hold Flashes to 2 points. It’s the first time since 2020 an FBS team scored exactly 2.",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/de363f2d46fc7c834bf4f5267fbb4965.jpg",
-   "teams": [
-    "cfb:58",
-    "cfb:2309"
    ]
   },
   {
@@ -967,18 +1039,6 @@
    ]
   },
   {
-   "title": "Andrew Thomas doesn’t know why he was benched by Giants after clearing concussion protocol",
-   "url": "https://sports.yahoo.com/articles/andrew-thomas-doesn-t-know-041331689.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-19T04:13:31Z",
-   "summary": "First, the officials surprised Andrew Thomas by pulling him off the field.",
-   "image": "https://media.zenfs.com/en/ny_post_sports_articles_389/bda8fefd6837d2911b0b18625049f188.jpg",
-   "teams": [
-    "nfl:19"
-   ]
-  },
-  {
    "title": "College Football Playoff Expansion Leaves Broadcast Opportunities on the Sidelines",
    "url": "https://sports.yahoo.com/articles/college-football-playoff-expansion-leaves-041000538.html",
    "source": "Yahoo Sports",
@@ -987,42 +1047,6 @@
    "summary": "\"Expanding the College Football Playoff to 24 teams will give more programs a chance to compete for a national championship. But the sport is missing a golden opportunity to expand something else…",
    "image": "",
    "teams": []
-  },
-  {
-   "title": "Tennessee Football 2028 In-State CB Target Jermaine Cobbins Visits for Third Saturday in October",
-   "url": "https://sports.yahoo.com/articles/tennessee-football-2028-state-cb-040626402.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-19T04:06:26Z",
-   "summary": "2028 Springfield (TN) CB Jermaine Cobbins watches Tennessee football defeat Alabama.",
-   "image": "https://media.zenfs.com/en/tennessee_volunteers_on_si_articles_393/523d5fc77bd12b1e757054017070c2d0.jpg",
-   "teams": [
-    "cfb:2633",
-    "cfb:333"
-   ]
-  },
-  {
-   "title": "Fantasy football week 6 recap - we keep winning",
-   "url": "https://sports.yahoo.com/article/fantasy-football-week-6-recap---we-keep-winning-040003116.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-19T04:00:03Z",
-   "summary": "Josh Norris and Hayden Winks are joined by Matt Harmon to break down all of the action from Week 6 of the NFL season.",
-   "image": "https://d29szjachogqwa.cloudfront.net/images/user-uploaded/week-1-recap-vod_6865.png",
-   "teams": []
-  },
-  {
-   "title": "Three lingering thoughts from WSU's loss to Oregon State | Rewind",
-   "url": "https://sports.yahoo.com/articles/three-lingering-thoughts-wsus-loss-035900514.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-19T03:59:00Z",
-   "summary": "Oct. 18—PULLMAN — About a day out, it still feels a bit tricky to wrangle Washington State's last game, a road loss to Oregon State on Saturday evening. In a 48-30 victory for the Beavers, the…",
-   "image": "",
-   "teams": [
-    "cfb:265",
-    "cfb:204"
-   ]
   },
   {
    "title": "Has the Travis Hunter breakout arrived? Jacksonville CB/WR showcases long-term, two-way potential vs. Texans",
@@ -1034,58 +1058,6 @@
    "image": "https://sportshub.cbsistatic.com/i/2026/10/18/2f4f6888-93a1-415f-bfb9-c169ddd2a54d/travis-hunter-jaguars.jpg",
    "teams": [
     "nfl:34"
-   ]
-  },
-  {
-   "title": "Sunday Night Football: Packers move to 4-2 with 23-13 victory over Cowboys",
-   "url": "https://sports.yahoo.com/articles/sunday-night-football-packers-move-035347374.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-19T03:53:47Z",
-   "summary": "Green Bay has won three games in a row after a strong defensive performance against Dallas on Sunday night.",
-   "image": "",
-   "teams": [
-    "nfl:6",
-    "nfl:9"
-   ]
-  },
-  {
-   "title": "Packers’ defense dominates Cowboys in 23-13 victory",
-   "url": "https://sports.yahoo.com/articles/packers-defense-dominates-cowboys-23-035258811.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-19T03:52:58Z",
-   "summary": "Another two turnovers and a big pass rush presence limited Dallas’ high-powered offense on Sunday night.",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/3c72de02979494c51fae3db74ff86738.jpg",
-   "teams": [
-    "nfl:6",
-    "nfl:9"
-   ]
-  },
-  {
-   "title": "Omar Cooper Jr. becomes latest Jets rookie with breakout performance to help make history",
-   "url": "https://sports.yahoo.com/articles/omar-cooper-jr-becomes-latest-035238233.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-19T03:52:38Z",
-   "summary": "There were not many positives for the Jets to take away from Sunday’s 26-19 loss to the Patriots, but they got another standout performance from one of their rookie first-round picks.",
-   "image": "https://media.zenfs.com/en/ny_post_sports_articles_389/0f6defb6d0558a07826da37a452f88c9.jpg",
-   "teams": [
-    "nfl:17",
-    "nfl:20"
-   ]
-  },
-  {
-   "title": "Bear Bachmeier's all-around performance for BYU shakes up the Heisman Watch",
-   "url": "https://sports.yahoo.com/articles/bear-bachmeiers-around-performance-byu-035208205.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-19T03:52:08Z",
-   "summary": "BYU quarterback Bear Bachmeier's late touchdown pass lifted the Cougars to a 28-24 victory over Notre Dame on Saturday and fueled his return to the Heisman Watch top contenders list.",
-   "image": "https://media.zenfs.com/en/the_sporting_news_articles_584/7a98ccd39942e7e143cbd3f08bc568f4",
-   "teams": [
-    "cfb:87",
-    "cfb:252"
    ]
   },
   {
@@ -1103,19 +1075,6 @@
    ]
   },
   {
-   "title": "Tulsa scores 31 straight to take down Rice, 38-17",
-   "url": "https://sports.yahoo.com/articles/tulsa-scores-31-straight-down-034604964.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-19T03:46:04Z",
-   "summary": "Tulsa ends three-game losing streak and picks up first American win of 2026.",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/2d6241fbe30d9feea1e1d6ac6f386458.jpg",
-   "teams": [
-    "cfb:202",
-    "cfb:242"
-   ]
-  },
-  {
    "title": "SMU trending with 4-star defensive target: 'They're definitely leading now'",
    "url": "https://on3.com/rivals/news/smu-trending-with-4-star-defensive-target-theyre-definitely-leading-now/",
    "source": "On3",
@@ -1125,6 +1084,31 @@
    "image": "https://on3static.com/cdn-cgi/image/height=630,width=1200,quality=90,fit=cover/uploads/dev/assets/cms/2026/06/15101108/Brayden-Arnold.jpg",
    "teams": [
     "cfb:2567"
+   ]
+  },
+  {
+   "title": "Rams K Blake Grupe left SoFi Stadium with crutches and a brace on his leg",
+   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/rams-k-blake-grupe-left-sofi-stadium-with-crutches-and-a-brace-on-his-leg",
+   "source": "Pro Football Talk",
+   "league": "nfl",
+   "published": "2026-10-19T01:59:34Z",
+   "summary": "The Rams signed kicker Blake Grupe after Week 5.",
+   "image": "https://nbcsports.brightspotcdn.com/dims4/default/d534dd6/2147483647/strip/false/crop/7240x4073+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2Fd8%2Fa1%2Fdb5e5fa246388f9050d5ab865f23%2F2026-10-18t194618z-2015387194-mt1usatoday30124421-rtrmadp-3-nfl-arizona-cardinals-at-los-angeles-rams.jpg",
+   "teams": [
+    "nfl:14"
+   ]
+  },
+  {
+   "title": "Sunday Night Football: Jordan Love TD gives Packers 17-0 halftime lead",
+   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/sunday-night-football-jordan-love-td-gives-packers-17-0-halftime-lead",
+   "source": "Pro Football Talk",
+   "league": "nfl",
+   "published": "2026-10-19T01:57:22Z",
+   "summary": "Jordan Love threw for a touchdown and rushed for one in the first half of Sunday's game against the Cowboys.",
+   "image": "https://nbcsports.brightspotcdn.com/dims4/default/c0ead50/2147483647/strip/false/crop/6239x3509+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2Ffb%2Fea%2F519bbb4c43cba999aec5c6232a91%2F2300882963.jpg",
+   "teams": [
+    "nfl:6",
+    "nfl:9"
    ]
   },
   {
@@ -1759,18 +1743,6 @@
    ]
   },
   {
-   "title": "Alvin Kamara reaches 5,000 career receiving yards, puts Saints up 17-10",
-   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/alvin-kamara-reaches-5-000-career-receiving-yards-puts-saints-up-17-10",
-   "source": "Pro Football Talk",
-   "league": "nfl",
-   "published": "2026-10-18T18:54:31Z",
-   "summary": "Saints running back Alvin Kamara reached a career milestone while putting his team in the lead for the first time on Sunday.",
-   "image": "https://nbcsports.brightspotcdn.com/dims4/default/8495c9b/2147483647/strip/false/crop/6474x3642+0+337/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2Fe0%2Fa3%2F3833288c4803823539797452f4da%2F2299226397.jpg",
-   "teams": [
-    "nfl:18"
-   ]
-  },
-  {
    "title": "Eagles lose another starter to injury after team already without Jalen Hurts, Saquon Barkley, others",
    "url": "https://www.cbssports.com/nfl/news/nolan-smith-injury-eagles-lose-another-starter/",
    "source": "CBS Sports",
@@ -1779,19 +1751,6 @@
    "summary": "Nolan Smith exited with a concussion and will not return",
    "image": "https://sportshub.cbsistatic.com/i/2026/10/18/93ad1ccb-e323-4fa3-b067-e6e5133ac18d/nolan-smith-eagles.jpg",
    "teams": [
-    "nfl:21"
-   ]
-  },
-  {
-   "title": "Panthers lead Eagles 10-7 at halftime",
-   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/panthers-lead-eagles-10-7-at-halftime",
-   "source": "Pro Football Talk",
-   "league": "nfl",
-   "published": "2026-10-18T18:48:06Z",
-   "summary": "The Panthers led 10-0 before the Eagles made things interesting.",
-   "image": "https://nbcsports.brightspotcdn.com/dims4/default/7d23ef1/2147483647/strip/false/crop/4668x2626+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F12%2F26%2Ff3252baa43dfb987f0dc1c997616%2F2300842576.jpg",
-   "teams": [
-    "nfl:29",
     "nfl:21"
    ]
   },
