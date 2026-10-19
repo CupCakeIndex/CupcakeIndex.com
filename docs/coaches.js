@@ -8,6 +8,8 @@ const Coaches = (() => {
     if (!D) [D, T] = await Promise.all([getJSON("data/coaches.json").catch(() => ({})), getJSON("data/teams.json").catch(() => ({}))]);
   };
   const loadTree = async () => { if (!TREE) TREE = await getJSON("data/coach_tree.json").catch(() => ({ people: {}, edges: [] })); };
+  let PROF = null; // src/coach_profile.py: background (offense / defense) and his teams' scheme tendencies
+  const loadProf = async () => { if (!PROF) PROF = await getJSON("data/coach_profile.json").catch(() => ({ coaches: {} })); };
   // same as slug() in src/coach_tree.py
   const slug = (n) => (n || "").normalize("NFKD").replace(/[^\x00-\x7f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const SEAT = { hot: "Hot seat", teeter: "Teetering", safe: "Safe" };
@@ -128,7 +130,7 @@ const Coaches = (() => {
   async function page(s, params) {
     const el = $("#view-coach");
     el.innerHTML = `<div class="card muted">Loading…</div>`;
-    await Promise.all([load(), loadTree()]);
+    await Promise.all([load(), loadTree(), loadProf()]);
     const mine = findCoach(s), P = TREE.people || {}, me = P[s];
     if (!mine.length && !me) { el.innerHTML = `<div class="card">Coach not found. <a href="${link("coaches")}">All coaches →</a></div>`; return; }
     const [lg, c] = mine[0] || [league, null], name = c?.n || me.n;
@@ -194,13 +196,37 @@ const Coaches = (() => {
         <div><h4>His tree${nDown ? ` <small class="muted">${nDown} head coach${nDown > 1 ? "es" : ""}</small>` : ""}</h4>${downHtml ? `<p class="note">His assistants who became head coaches (next column), and theirs.</p>${chart(downHtml)}` : `<p class="muted">None of his assistants have become head coaches yet.</p>`}</div>
       </div>
       <p class="note">From each coach's Wikipedia page: an assistant job links him to that team's head coach that season. NFL and FBS head coaches only, from our head coach lists (NFL since ${TREE.from?.nfl || 1999}, college since ${TREE.from?.cfb || 2005}) plus the earlier head coaching jobs on our coaches' pages. Someone who'd already been a head coach for 3+ seasons doesn't count as an assistant's tree.</p>`;
+    // ---- profile: offense or defense guy, and how his teams play
+    const pr = PROF.coaches?.[s] || {}, bg = pr.bg, scheme = c?.on && pr.scheme;
+    const MIND = { off: "Offensive mind", def: "Defensive mind", st: "Special teams background", both: "Both sides of the ball" };
+    const ord = (n) => n + ([11, 12, 13].includes(n % 100) ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th");
+    const fmt = (v, f) => (f === "pct" ? `${v}%` : f === "pts" ? `${v > 0 ? "+" : ""}${v}%` : `${v}`);
+    const yrsTot = bg ? bg.off + bg.def + bg.st : 0;
+    const bgHtml = !bg ? "" : `<div class="cp-bg"><span class="cp-mind cp-${bg.lab}">${esc(MIND[bg.lab])}</span>
+        <div class="cp-split" title="Years as an assistant on each side of the ball (from his Wikipedia career list)">${[["off", "Offense"], ["def", "Defense"], ["st", "Special teams"]].filter(([k]) => bg[k])
+          .map(([k, l]) => `<i class="cp-${k}" style="flex:${bg[k]}"></i>`).join("")}</div>
+        <small class="muted">As an assistant: ${[["off", "offense"], ["def", "defense"], ["st", "special teams"]].filter(([k]) => bg[k]).map(([k, l]) => `${bg[k]} year${bg[k] > 1 ? "s" : ""} on ${l}`).join(" · ") || "—"}</small>
+        ${bg.coord.length ? `<p>${bg.coord.map((x) => `${esc(x[0])}, ${esc(teamName(x[1], x[2]))} ${yrs(x[3], x[4])}`).join("<br>")}</p>` : ""}</div>`;
+    const statGroup = (side, title) => { const rows = (scheme?.stats || []).filter((x) => x[4] === side); return rows.length ? `<div><h4>${title}</h4><table class="box cp-tbl"><tbody>${rows.map(([k, label, v, f, , rk, N]) =>
+        `<tr><td>${esc(label)}</td><td class="num"><b>${fmt(v, f)}</b></td><td class="num muted">${rk ? `${ord(rk)} of ${N}` : ""}</td></tr>`).join("")}</tbody></table></div>` : ""; };
+    const PERS = (g) => `${g} (${g[0]} RB, ${g[1]} TE)`;
+    const scHtml = !scheme ? "" : `<div class="cp-scheme">
+        <h4>How his teams play <small class="muted">${esc(teamName(lg, c.tm))} ${scheme.seasons.length > 1 ? `${scheme.seasons[0]}–${String(scheme.seasons.at(-1)).slice(2)}` : scheme.seasons[0]}</small></h4>
+        ${scheme.tags.length ? `<div class="cp-tags">${scheme.tags.map(([t]) => `<span class="cp-tag">${esc(t)}</span>`).join("")}</div>` : ""}
+        <div class="cp-grid">${statGroup("off", "Offense")}${statGroup("game", "Game management")}${statGroup("def", "Defense")}</div>
+        ${scheme.pers.length ? `<p class="cp-line"><b>Most-used personnel:</b> ${scheme.pers.map(([g, p]) => `${esc(PERS(g))} ${p}%`).join(" · ")}</p>` : ""}
+        ${scheme.cov.length ? `<p class="cp-line"><b>Most-used coverage:</b> ${scheme.cov.map(([g, p]) => `Cover ${esc(g)} ${p}%`).join(" · ")}</p>` : ""}
+        <p class="note">His team's real tendencies with him as head coach, ranked against the other ${lg === "nfl" ? "31 NFL" : "FBS"} teams' current head coaches (1st = most). Coordinators call a lot of it, especially on the side he didn't coach.
+        ${lg === "nfl" ? "Data: nflverse play-by-play, FTN charting, and NFL Next Gen Stats for personnel and coverage (through last season)." : "College data is game totals only (no formations or coverages)."}</p></div>`;
+    const profile = bgHtml || scHtml ? `<div class="card co-prof"><h3>Profile</h3>${bgHtml}${scHtml}</div>` : "";
     el.innerHTML = `<div class="card co-hero">
         ${pic(me, name, "big")}
         <div class="co-id"><h2>${esc(name)}</h2><p>${job}</p>
           ${me?.w ? `<p class="co-links"><a href="https://en.wikipedia.org/wiki/${encodeURIComponent(me.w.replace(/ /g, "_"))}" target="_blank" rel="noopener">Wikipedia</a>${me.cr ? ` <small class="muted">· photo from Wikipedia</small>` : ""}</p>` : ""}</div>
         ${seat}
+        ${hs ? `<p class="note co-seat-how">Hot seat is our estimate, from a model trained on every head coach season since 1999 (NFL) and 2006 (college): this season's record against what we expected, last season, years in the job and the program's usual standard. Tested on seasons it never saw, its Safe coaches were out about 7% of the time, Teetering about 22% and Hot seat about half. Just for fun.</p>` : ""}
       </div>
-      ${hs ? `<p class="note co-seat-how">Hot seat is our estimate, from a model trained on every head coach season since 1999 (NFL) and 2006 (college): this season's record against what we expected, last season, years in the job and the program's usual standard. Tested on seasons it never saw, its Safe coaches were out about 7% of the time, Teetering about 22% and Hot seat about half. Just for fun.</p>` : ""}
+      ${profile}
       ${S ? `<div class="card"><h3>Stats</h3>${stats}</div>` : ""}
       <div class="card"><h3>Coaching tree</h3>${tree}</div>
       ${seasons ? `<div class="card"><h3>Season by season</h3>${seasons}</div>` : ""}
@@ -229,26 +255,27 @@ const Coaches = (() => {
       people.set(n, [n, k, was && !was[2].includes(w) ? `${was[2]} · ${w}` : w]);
     }));
     let hits = [];
-    function glow() { // draw the path to each hit as an overlay on its chart (redrawn when branches open or close)
+    function glow(trace = false) { // the path to each hit, drawn over its chart (redrawn when branches open or close)
       box.querySelectorAll(".tr-glow").forEach((g) => g.remove());
       const charts = new Map();
       hits.filter((a) => a.offsetParent).forEach((a) => { const h = a.closest(".htree"); if (!charts.has(h)) charts.set(h, []); charts.get(h).push(a); });
       for (const [h, list] of charts) {
         const R = h.getBoundingClientRect(), X = (x) => x - R.left + h.scrollLeft, Y = (y) => y - R.top + h.scrollTop;
-        const d = list.map((a) => {
-          let li = a.closest("li"), out = "";
-          while (li) {
-            const up = li.parentElement.closest("li");
-            if (!up || !h.contains(up)) break;
-            const from = (up.querySelector(":scope > .tr-tog") || up.firstElementChild).getBoundingClientRect(), me = li.firstElementChild.getBoundingClientRect();
-            const bar = X(li.getBoundingClientRect().left), pn = up.firstElementChild.getBoundingClientRect();
-            const y0 = up.parentElement.parentElement === h ? Y(up.getBoundingClientRect().top + 24) : Y(pn.top + pn.height / 2), y1 = Y(me.top + me.height / 2);
-            out += `M${X(from.right)} ${y0}H${bar}V${y1}H${X(me.left)}`;
-            li = up;
+        const paths = list.map((a) => { // root first, so the line traces outward from him
+          const seg = [];
+          for (let li = a.closest("li"), up; li && (up = li.parentElement.closest("li")) && h.contains(up); li = up) {
+            const from = (up.querySelector(":scope > .tr-tog") || up.firstElementChild).getBoundingClientRect(), pn = up.firstElementChild.getBoundingClientRect();
+            const me = li.firstElementChild.getBoundingClientRect(), bar = X(li.getBoundingClientRect().left);
+            seg.unshift(`M${X(from.right)} ${Y(pn.top + pn.height / 2)}H${bar}V${Y(me.top + me.height / 2)}H${X(me.left)}`);
           }
-          return out;
+          return `<path d="${seg.join("")}"/>`;
         }).join("");
-        h.insertAdjacentHTML("beforeend", `<svg class="tr-glow" width="${h.scrollWidth}" height="${h.scrollHeight}" aria-hidden="true"><path d="${d}"/></svg>`);
+        h.insertAdjacentHTML("beforeend", `<svg class="tr-glow" width="${h.scrollWidth}" height="${h.scrollHeight}" aria-hidden="true">${paths}</svg>`);
+        if (trace) h.querySelectorAll(".tr-glow path").forEach((p) => { // draw itself from the root out, about a second
+          const L = p.getTotalLength();
+          p.style.strokeDasharray = L;
+          p.animate([{ strokeDashoffset: L }, { strokeDashoffset: 0 }], { duration: 400 + Math.min(1200, L * 1.2), easing: "ease-in-out", fill: "backwards" });
+        });
       }
     }
     function find(v) {
@@ -260,13 +287,13 @@ const Coaches = (() => {
         hits = all.filter((a) => nameOf(a).toLowerCase() === t);
         if (!hits.length) hits = all.filter((a) => nameOf(a).toLowerCase().includes(t));
         hits.forEach((a) => {
-          a.classList.add("tr-hit");
+          setTimeout(() => hits.includes(a) && a.classList.add("tr-hit"), 900); // his box pulses once the line gets there
           for (let ul = a.closest("ul"); ul && box.contains(ul); ul = ul.parentElement.closest("ul")) // open every branch on the way
             if (ul.classList.contains("shut")) flip(ul.previousElementSibling, true);
         });
       }
       $("#tr-msg").textContent = t && !hits.length ? "Not in this tree." : hits.length > 1 ? `${hits.length} spots in the tree` : "";
-      glow();
+      glow(true);
       hits[0]?.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
     }
     // suggestions: the same dropdown and name matching as the search bar up top (app.js initSearch / fuzzyScore)

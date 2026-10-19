@@ -51,6 +51,9 @@ jobs:
         # cloud routine publishes it ~2 hours later, every day (that sandbox can't download nflverse injuries/depth charts).
         continue-on-error: true
         run: python src/analyst_data.py
+      - name: Coach profiles (offense or defense background, and each current coach's scheme tendencies)
+        continue-on-error: true
+        run: python src/coach_profile.py
       - name: Publish
         run: |
           git config user.name "rankings-bot"
@@ -58,6 +61,7 @@ jobs:
           git add docs/data/viz
           git add docs/data/nfl/*/charts 2>/dev/null || true
           git add analyst/data/rankings.json 2>/dev/null || true
+          git add docs/data/coach_profile.json 2>/dev/null || true
           git diff --cached --quiet && echo "No changes" && exit 0
           git commit -m "Visualize data $(date -u +%Y-%m-%dT%H:%MZ)"
           for try in 1 2 3; do git pull --rebase -q && git push -q && exit 0; sleep 10; done
