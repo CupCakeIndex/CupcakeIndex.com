@@ -2490,6 +2490,17 @@ const Live = (() => {
     }));
     return { live: games.some((e) => e.status.type.state === "in"), byTeam };
   }
+  // The NFL's official report (nfl.com, the same one each team's site shows; src/nfl_injuries.py, hourly): its game
+  // status wins over ESPN's until the team's game ends, since ESPN lags (Trey Amos stayed IR on ESPN when Washington
+  // listed him Questionable). On the report with no game status = expected to play.
+  const injNorm = (n) => (n || "").toLowerCase().replace(/\s+(jr|sr|ii|iii|iv|v)\.?$/, "").replace(/[^a-z ]/g, "");
+  const officialFor = (off, team) => {
+    const nm = (team.displayName || team.name || "").toLowerCase();
+    const k = Object.keys(off?.teams || {}).find((x) => nm.endsWith(x.toLowerCase()));
+    const r = k && off.teams[k];
+    if (!r || Date.now() > Date.parse(r.kickoff) + 4 * 3600000) return null;
+    return new Map(r.players.map((p) => [injNorm(p[0]), { status: p[4], note: [p[2], p[3]].filter(Boolean).join(" · ") }]));
+  };
   let injP = null, injAt = 0;
   const injData = () => {
     if (Date.now() - injAt > 55000) { injP = null; injAt = Date.now(); } // refreshed about once a minute
@@ -2497,17 +2508,21 @@ const Live = (() => {
     const [rep, stand, ig, starts] = await Promise.all([api(`${SITE("nfl")}/injuries`, 120000),
       api(`${STAND("nfl")}/standings?level=3`, 86400000).catch(() => null), inGameInjuries().catch(() => ({ live: false, byTeam: new Map() })),
       getJSON("data/nfl_starts.json").catch(() => null)]);
+    const offRep = await getJSON("data/nfl_injuries.json").catch(() => null);
     const tm = new Map(stand ? groupsOf(stand).flatMap((g) => g.entries).map((e) => [String(e.team.id), e.team]) : []);
     const yr = rep.season?.year || new Date().getFullYear();
     const teams = await Promise.all((rep.injuries || []).map(async (t) => {
       const dc = await api(`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${yr}/teams/${t.id}/depthcharts`, 3600000).catch(() => null);
       // who's missing (Out / IR / Doubtful, or hurt in today's game and not back): decides who the next man up is
       const idOf = (i) => (/\/id\/(\d+)/.exec((i.athlete?.links || []).map((l) => l.href).join(" ")) || [])[1] || "";
-      const missing = new Set((t.injuries || []).filter((i) => INJ_HIT(i.status) >= 0.75).map(idOf).filter(Boolean));
+      const off = officialFor(offRep, t);
+      const stOf = (name, s) => { const o = off?.get(injNorm(name)); return o ? o.status : s; }; // official status, else ESPN's
+      const missing = new Set((t.injuries || []).filter((i) => INJ_HIT(stOf(i.athlete?.displayName, i.status)) >= 0.75).map(idOf).filter(Boolean));
       // the league report leaves out long-term injured reserve (Trey Amos, Laremy Tunsil...): the team roster has them
       const reported = new Set((t.injuries || []).map(idOf));
       const roster = await teamPeople("nfl", t.id, yr).catch(() => null);
-      const extra = roster ? [...roster.byId.values()].filter((p) => INJ_HIT(p.inj) > 0 && !reported.has(p.id)) : [];
+      const extra = roster ? [...roster.byId.values()].filter((p) => !reported.has(p.id))
+        .map((p) => ({ ...p, inj: stOf(p.name, p.inj), offNote: off?.get(injNorm(p.name))?.note })).filter((p) => INJ_HIT(p.inj) > 0) : [];
       extra.forEach((p) => { if (INJ_HIT(p.inj) >= 0.75) missing.add(p.id); });
       for (const [id, g] of ig.byTeam.get(String(t.id)) || []) if (g.hit >= 0.5) missing.add(id);
       // each depth-chart spot (QB, LT, the three WR spots...) in order: KEY players are everyone down to the first
@@ -2542,16 +2557,16 @@ const Live = (() => {
         if (regular) return [INJ_POS_W[pos] || 2, s, true];
         return [s ? INJ_W[s.key] * (s.depth === 2 ? 0.15 : 0.05) : (INJ_POS_W[pos] || 1) * 0.3, s, false];
       };
-      const hurt = (t.injuries || []).filter((i) => INJ_HIT(i.status) > 0).map((i) => {
-        const a = i.athlete || {}, id = idOf(i);
+      const hurt = (t.injuries || []).map((i) => ({ i, st: stOf(i.athlete?.displayName, i.status) })).filter((x) => INJ_HIT(x.st) > 0).map(({ i, st }) => {
+        const a = i.athlete || {}, id = idOf(i), o = off?.get(injNorm(a.displayName));
         const pos = a.position?.abbreviation || "", [w, s, key] = weight(id, pos);
-        return { id, name: a.displayName || "", pos, status: i.status, key, onChart: !!s, w, lost: w * INJ_HIT(i.status),
-          note: i.shortComment || "", pic: a.headshot?.href || "" };
+        return { id, name: a.displayName || "", pos, status: st, key, onChart: !!s, w, lost: w * INJ_HIT(st),
+          note: o ? `NFL report: ${o.note}` : i.shortComment || "", pic: a.headshot?.href || "" };
       });
       for (const p of extra) {
         const [w, s, key] = weight(p.id, p.pos);
         hurt.push({ id: p.id, name: p.name, pos: p.pos, status: p.inj, key, onChart: !!s, w, lost: w * INJ_HIT(p.inj),
-          note: /injured reserve/i.test(p.inj) ? "On injured reserve" : "", pic: p.pic });
+          note: p.offNote ? `NFL report: ${p.offNote}` : /injured reserve/i.test(p.inj) ? "On injured reserve" : "", pic: p.pic });
       }
       // today's games: hurt in the game counts right away (or counts more, if the report had him lower)
       for (const [id, g] of ig.byTeam.get(String(t.id)) || []) {
@@ -2621,7 +2636,7 @@ const Live = (() => {
           <span class="inj-pct">${Math.round(t.health)}%</span><span class="inj-so">${t.keyOut} key, ${t.hurt.length} total</span></button>`).join("")}</div>
       <p class="fr-how">Tap a team for its report. <b>% healthy</b> weighs who's hurt: a starting QB counts about 10x a punter. <b>Key players</b> count fully: the starters, the next man up when a starter is out (with QB1 out, QB2 is the starter, so losing him hurts just as much), and anyone hurt who has started 5+ games since last season (even if ESPN has dropped him from the depth chart, like most players on IR). Other backups count a little. Out or IR counts fully, Doubtful 3/4, Questionable 1/4. The dashed line is the league average.</p>
       <div id="inj-detail"><h3>${esc(focus.team.displayName || "")} injury report</h3>${list(focus)}</div>
-      <p class="note">ESPN's injury report and depth charts, plus today's games: anyone hurt during a game counts right away (from the play-by-play, marked IN-GAME) and drops off if he returns. During games this page refreshes every minute. Players already moved off the depth chart (often to IR) count at 30%.</p></div>`;
+      <p class="note">The NFL's official injury report (the game statuses each team's site shows) until a team's game is played, otherwise ESPN's, with ESPN's depth charts, plus today's games: anyone hurt during a game counts right away (from the play-by-play, marked IN-GAME) and drops off if he returns. During games this page refreshes every minute. Players already moved off the depth chart (often to IR) count at 30%.</p></div>`;
     $("#inj-chart").onclick = (e) => {
       const b = e.target.closest("[data-t]");
       if (!b) return;

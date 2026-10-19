@@ -30,6 +30,8 @@ jobs:
       - run: pip install -r requirements.txt -r src/social/requirements.txt
       - name: Fetch headlines
         run: python src/news.py
+      - name: NFL official injury report (nfl.com, same game statuses as the team sites)
+        run: python src/nfl_injuries.py || echo "NFL injury report unavailable"
       - name: Football card releases (once a day, the 12:00 UTC run)
         run: |
           if [ "$(date -u +%H)" = "12" ] || [ ! -f docs/data/cards.json ]; then python src/cards.py || echo "Card calendar unavailable"; fi
@@ -37,7 +39,7 @@ jobs:
         run: |
           git config user.name "rankings-bot"
           git config user.email "rankings-bot@users.noreply.github.com"
-          git add docs/data/news.json docs/data/cards.json
+          git add docs/data/news.json docs/data/cards.json docs/data/nfl_injuries.json
           git diff --cached --quiet && echo "No changes" && exit 0
           git commit -m "News update $(date -u +%Y-%m-%dT%H:%MZ)"
           git pull --rebase
