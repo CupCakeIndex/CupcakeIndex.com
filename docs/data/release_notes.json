@@ -1,5 +1,14 @@
 [
   {
+    "version": "1.81.5",
+    "build": 360,
+    "date": "2026-10-19",
+    "items": [
+      "Fixed: NFL team pages for teams on an \"Average Road\" schedule (like the Seahawks) were stuck on Loading forever. NFL teams also showed the college description under their schedule badge.",
+      "NFL Season pace now uses the usual \"on pace\" (total so far divided by team games played, times 17), the same math as our X posts. It used to add ESPN's cautious rest-of-season projection, so Jaxon Smith-Njigba showed about 1,600 receiving yards on the site but a record pace on X; now both say 2,032. Defensive pace uses the same math."
+    ]
+  },
+  {
     "version": "1.81.4",
     "build": 359,
     "date": "2026-10-19",

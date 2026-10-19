@@ -2674,11 +2674,12 @@ const Live = (() => {
     const [r, sched] = await Promise.all([fetch(url.split("#")[0], { headers: { "X-Fantasy-Filter": JSON.stringify(filter) } }),
       api(`${base}?view=proTeamSchedules_wl`, 86400000).catch(() => null)]);
     if (!r.ok) throw new Error(`ESPN ${r.status}`);
-    // this week's opponent for each team: [opponent id, home?]
-    const opp = new Map();
+    // this week's opponent for each team: [opponent id, home?], and how many games each team has played (for season pace)
+    const opp = new Map(), played = new Map(), done = Date.now() - 4 * 3600000;
     for (const t of sched?.settings?.proTeams || []) {
       const g = t.proGamesByScoringPeriod?.[wk]?.[0];
       if (g) opp.set(t.id, g.homeProTeamId === t.id ? [g.awayProTeamId, true] : [g.homeProTeamId, false]);
+      played.set(t.id, Object.values(t.proGamesByScoringPeriod || {}).flat().filter((x) => x?.date && x.date < done).length);
     }
     const list = [];
     for (const { player: p } of (await r.json()).players || []) {
@@ -2686,11 +2687,13 @@ const Live = (() => {
       if (!pos || !p.proTeamId) continue; // rostered on an NFL team
       const st = (p.stats || []).filter((s) => s.seasonId === y), pj = st.filter((s) => s.statSourceId === 1), real = st.filter((s) => s.statSourceId === 0);
       const week = pj.find((s) => s.statSplitTypeId === 1 && s.scoringPeriodId === wk), ros = pj.find((s) => s.statSplitTypeId === 0);
-      const so = real.find((s) => s.statSplitTypeId === 0), playedWk = real.some((s) => s.statSplitTypeId === 1 && s.scoringPeriodId === wk);
+      const so = real.find((s) => s.statSplitTypeId === 0);
       const line = (s) => ({ ...(s?.stats || {}), pts: s?.appliedTotal || 0 });
       const W = line(week), R = line(ros), S = line(so);
-      // Season pace = real stats so far + ESPN's rest-of-season projection (once this week's game is played it's in both: drop the projected one)
-      const pace = Object.fromEntries(PJ_PACE_KEYS.map((k) => [k, (S[k] || 0) + (R[k] || 0) - (playedWk ? W[k] || 0 : 0)]));
+      // Season pace, the usual "on pace" (same as our X pace posts): total so far / team games played x 17.
+      // (It used to be ESPN's rest-of-season projection added on, which is cautious and showed far less than the X posts.)
+      const tgp = played.get(p.proTeamId) || 0;
+      const pace = Object.fromEntries(PJ_PACE_KEYS.map((k) => [k, tgp ? ((S[k] || 0) / tgp) * 17 : 0]));
       list.push({ id: p.id, name: p.fullName, pos, team: p.proTeamId, opp: opp.get(p.proTeamId), week: W, ros: R, so: S, pace });
     }
     const data = { y, wk, list };
@@ -2722,7 +2725,8 @@ const Live = (() => {
     }
     for (const o of out.values()) {
       o.left = Math.max(0, 17 - (tg[o.team] || 0));
-      o.pace = Object.fromEntries(DP_COLS.map(([, k]) => [k, o.g ? (o.so[k] / o.g) * (o.g + o.left) : 0]));
+      const tgp = tg[o.team] || o.g; // the usual "on pace" (same as our X pace posts): total / team games played x 17
+      o.pace = Object.fromEntries(DP_COLS.map(([, k]) => [k, tgp ? (o.so[k] / tgp) * 17 : 0]));
     }
     return { season, through, list: [...out.values()] };
   })().catch(() => { defPaceP = null; return null; }));
@@ -2750,7 +2754,7 @@ const Live = (() => {
         <div class="presets" id="pj-pos">${[["", "All"], ...Object.values(PJ_POS).map((p) => [p, p]), ...Object.entries(DP_POS)].map(([v, l]) => `<button data-pos="${v}" class="${v === pos ? "on" : ""}">${l}</button>`).join("")}</div>
         <input id="pj-search" type="search" placeholder="Filter player or team…">
       </div>
-      <p class="fr-how"><b>Season pace</b>: where each defender's ${esc(data.season)} totals are headed if he keeps it up. His per-game average so far times his games plus his team's games left. Hover a number to see his total so far.</p>
+      <p class="fr-how"><b>Season pace</b>: where each defender's ${esc(data.season)} totals are headed at this rate, the usual "on pace": his total so far divided by his team's games played, times 17. Same math as our X posts. Hover a number to see his total so far.</p>
       <div class="table-wrap"><table id="pj-table"><thead><tr><th class="num">#</th><th>Player</th><th>Team</th><th class="num" title="Games played + team games left">G</th>${DP_COLS.map(([l, k]) => th(k, l)).join("")}</tr></thead>
         <tbody>${all.map((r, i) => `<tr data-name="${esc(r.name.toLowerCase())} ${esc(abbr(r.team).toLowerCase())}"><td class="num muted">${i + 1}</td>
           <td><div class="team">${face(`https://a.espncdn.com/i/headshots/nfl/players/full/${r.id}.png`, r.name, "hs")}<div><a href="${link("player", r.id)}"><b>${esc(r.name)}</b></a><small class="muted">${esc(DP_POS[r.pos])}${r.yr === 1 ? " · rookie" : ""}</small></div></div></td>
@@ -2808,7 +2812,7 @@ const Live = (() => {
         <div class="presets" id="pj-pos">${[["", "All"], ...Object.values(PJ_POS).map((p) => [p, p]), ...Object.entries(DP_POS)].map(([v, l]) => `<button data-pos="${v}" class="${v === pos ? "on" : ""}" ${DP_POS[v] ? 'title="Defense: season pace"' : ""}>${l}</button>`).join("")}</div>
         <input id="pj-search" type="search" placeholder="Filter player or team…">
       </div>
-      <p class="fr-how">${pace ? `<b>Season pace</b>: where each player's ${esc(data.y)} totals are headed. Real stats so far plus ESPN's projection for every game left (each one set for that week's opponent). Hover a number to see his total so far.`
+      <p class="fr-how">${pace ? `<b>Season pace</b>: where each player's ${esc(data.y)} totals are headed. The usual "on pace": his total so far divided by his team's games played, times 17 (same math as our X posts). Hover a number to see his total so far.`
         : `ESPN's projections for <b>${esc(whenTxt)}</b>.`} These are ESPN's fantasy football forecasts, not betting lines.</p>
       <div class="table-wrap"><table id="pj-table"><thead><tr><th class="num">#</th><th>Player</th><th>Team</th>${wk1 ? "<th>Opp</th>" : ""}
         ${cols.map(([l, k, t]) => th(k, l, t)).join("")}${th("pts", "PPR pts", "Projected fantasy points, PPR scoring (1 per catch)")}</tr></thead>
@@ -4490,7 +4494,7 @@ const Live = (() => {
           ${img(teamLogo(T), "hero")}
           <div class="th-id"><h2>${esc(T.displayName || "")}</h2>
             <p>${[conf, T.standingSummary].filter(Boolean).map(esc).join(" · ")}</p>
-            ${prof ? `<p class="th-prof">${profileBadge(prof)} <small>${esc(PROFILES[prof].desc)}</small></p>` : ""}</div>
+            ${prof ? `<p class="th-prof">${profileBadge(prof)} <small>${esc(profs()[prof]?.desc || "")}</small></p>` : ""}</div>
           <div class="th-ranks">
             <div class="th-rk"><small>RECORD</small><b>${esc(T.recordSummary || ours?.record || "–")}</b></div>
             ${ours ? `<a class="th-rk ours" href="${link("rankings", null, { team: ours.team })}" title="Cupcake Index rank. Click for why."><small>OUR RANK</small><b>#${ours.rank}</b></a>` : ""}
