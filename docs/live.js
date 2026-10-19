@@ -2008,7 +2008,7 @@ const Live = (() => {
         g.push(`<circle class="kc-dot ${cls(k)}" data-i="${k.i}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rad}"><title>${esc(tip(k))}</title></circle>`);
         if (!all) g.push(`<text class="kc-dist" data-i="${k.i}" x="${x.toFixed(1)}" y="${(y + 15).toFixed(1)}">${k.d}</text>`); // a game: each kick's distance under its spot
       });
-      if (all && long) { const [x, y] = spot.get(long.i); g.push(`<text class="kc-long" x="${(x - 8).toFixed(1)}" y="${(y - 9).toFixed(1)}">LONG ${long.d}</text>`); // above-left of the dot, clear of the yard numbers }
+      if (all && long) { const [x, y] = spot.get(long.i); g.push(`<text class="kc-long" x="${(x - 8).toFixed(1)}" y="${(y - 9).toFixed(1)}">LONG ${long.d}</text>`); } // above-left of the dot, clear of the yard numbers
       g.push(`<circle class="kc-ball" id="kc-ball" r="4"/>`);
       // the numbers over the chart, ranked against the league's kickers on "All weeks" (src/pass_charts.py)
       const R = all ? file.ranks?.kick : null, rk = (key) => (R?.[key] ? `<em class="ay-rk${R[key][0] <= 5 ? " top" : ""}">#${R[key][0]} of ${R[key][1]}</em>` : "");
