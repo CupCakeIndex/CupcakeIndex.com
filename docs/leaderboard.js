@@ -65,6 +65,27 @@ const Leaderboard = (() => {
     }
   }
 
+  // -------- our model's row: its pick (the favorite) in every graded game, from the weekly rankings files (week N's file
+  // holds week N+1's predictions, graded when the rankings run). College counts only the default Pick'em slate: games
+  // with an AP Top 25 or one of our top 25 teams. A tie counts for nobody.
+  async function modelRow(lg, season) {
+    const weeks = INDEX.leagues[lg]?.seasons?.[season]?.weeks || [];
+    const files = await Promise.all(weeks.map((w) => weekData(lg, season, w).catch(() => null)));
+    const log = {};
+    files.forEach((d, i) => {
+      if (!d) return;
+      const top = new Set((d.teams || []).filter((t) => t.power_rank <= 25 || (t.ap_rank && t.ap_rank <= 25)).map((t) => t.team));
+      const g = { w: 0, l: 0, done: true };
+      (d.predictions || []).forEach((p) => {
+        if (p.week !== weeks[i] + 1 || p.correct == null || !p.actual) return;
+        if (lg === "cfb" && !top.has(p.home) && !top.has(p.away)) return;
+        p.correct ? g.w++ : g.l++;
+      });
+      if (g.w + g.l) log[`2:${weeks[i] + 1}`] = g;
+    });
+    return { name: "Cupcake Index model", model: true, ...summary(log), perfect: 0 };
+  }
+
   // -------- the board (Pick'em > Leaderboard)
   async function render(root, lg) {
     const season = seasonNow(), me = user();
@@ -74,6 +95,8 @@ const Leaderboard = (() => {
     try {
       const snap = await (await Account.firestore()).collection("leaderboard").where("lg", "==", lg).where("season", "==", season).get();
       rows = snap.docs.map((d) => d.data());
+      const m = await modelRow(lg, season).catch(() => null);
+      if (m && m.w + m.l) rows.push(m);
     } catch (e) {
       root.innerHTML = tabs + `<div class="card">Couldn't load the leaderboard (${esc(e.code || e.message)}). Try again in a minute.</div>`;
       return;
@@ -84,7 +107,7 @@ const Leaderboard = (() => {
     const body = rows.slice(0, 200).map((r, i) => {
       if (!prev || prev.w !== r.w || prev.l !== r.l) rank = i + 1; // ties share a rank
       prev = r;
-      return `<tr class="${me && r.uid === me.uid ? "lb-me" : ""}"><td class="num">${rank}</td><td><b>${esc(r.name)}</b>${r.perfect ? ` <span class="lb-perfect" title="Perfect Pick'em: every game right in ${r.perfect} week${r.perfect > 1 ? "s" : ""}">🏅${r.perfect > 1 ? "×" + r.perfect : ""}</span>` : ""}</td>
+      return `<tr class="${r.model ? "lb-model" : me && r.uid === me.uid ? "lb-me" : ""}"><td class="num">${rank}</td><td><b>${esc(r.name)}</b>${r.model ? ` <span class="lb-tag" title="Our model's pick (its favorite) in every game">MODEL</span>` : ""}${r.perfect ? ` <span class="lb-perfect" title="Perfect Pick'em: every game right in ${r.perfect} week${r.perfect > 1 ? "s" : ""}">🏅${r.perfect > 1 ? "×" + r.perfect : ""}</span>` : ""}</td>
         <td class="num">${r.w}-${r.l}</td><td class="num">${pct(r)}%</td><td class="num">${esc(r.best || "–")}</td><td class="num">${r.weeks}</td></tr>`;
     }).join("");
     const join = !Account.enabled() ? "" : !me ? `<p class="note">Sign in (Settings) and pick a leaderboard name to join.</p>`
@@ -94,7 +117,7 @@ const Leaderboard = (() => {
       ${join}
       ${rows.length ? `<div class="table-wrap"><table class="box lb-tbl"><thead><tr><th class="num">#</th><th>Name</th><th class="num">Record</th><th class="num">Win %</th><th class="num">Best week</th><th class="num">Weeks</th></tr></thead><tbody>${body}</tbody></table></div>`
         : `<p class="muted">Nobody's on the board yet. Make your picks, pick a leaderboard name in Settings, and you'll show up once your first game is final.</p>`}
-      <p class="note">🏅 = Perfect Pick'em: every game picked, locked in on time, all right. Ranked by games picked right, then fewest wrong. Records update when each player opens Pick'em. Just for fun.</p></div>`;
+      <p class="note">🏅 = Perfect Pick'em: every game picked, locked in on time, all right. Ranked by games picked right, then fewest wrong. Records update when each player opens Pick'em. MODEL = our model, picking its favorite in every game${lg === "cfb" ? " on the Top 25 slate" : ""}; its record updates when the rankings run (Monday morning for the NFL weekend, Sunday for college). Just for fun.</p></div>`;
   }
 
   // -------- Settings section

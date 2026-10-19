@@ -1375,6 +1375,7 @@ a.mbug:hover .mb-mid b.mb-at { color: var(--accent); }
 .pk-wk small { font-size: 10px; color: var(--muted); }
 .pk-wk b { font-size: 13px; font-variant-numeric: tabular-nums; }
 .pk-wk.now { border-color: var(--accent); }
+.pk-wk small.pk-wk-m { font-size: 9px; opacity: .8; white-space: nowrap; }
 .pk-wk.open b { color: var(--muted); }
 a.pk-wk { color: inherit; text-decoration: none; cursor: pointer; }
 a.pk-wk:hover { border-color: var(--accent); }
@@ -2019,6 +2020,8 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 /* Pick'em leaderboard + leaderboard name (leaderboard.js) */
 .lb-tbl { max-width: 640px; }
 .lb-tbl tr.lb-me td { background: var(--accent-soft); color: var(--accent); }
+.lb-tbl tr.lb-model td { border-top: 1px dashed var(--accent); border-bottom: 1px dashed var(--accent); }
+.lb-tag { font-size: 10px; font-weight: 700; letter-spacing: .06em; color: var(--accent); border: 1px solid var(--accent); padding: 0 4px; vertical-align: 1px; }
 .lb-set { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
 .lb-set input { font: inherit; font-size: 14px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); padding: 6px 8px; min-width: 0; flex: 1 1 180px; max-width: 260px; }
 .lb-set small { flex-basis: 100%; }

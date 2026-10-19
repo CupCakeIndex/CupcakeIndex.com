@@ -212,7 +212,7 @@ const Pickem = (() => {
         ${MW + ML ? `<span title="Our model's record picking the same games you picked">Our model on your games: <b>${MW}-${ML}</b> · ${beatModel}</span>` : ""}
       </div>
       <div class="pk-weeks">${weeks.map(([k, g]) => `<a class="pk-wk${k === `${type}:${week}` ? " now" : ""}${g.done ? "" : " open"}" href="${link("picks", null, { season, week: k })}" title="${g.done ? "Final" : "Games still to play"}: see your picks">
-        <i style="--p:${pct(g.w, g.l)}%"></i><small>${wkName(k)}</small><b>${g.w}-${g.l}</b></a>`).join("")}${cur.browsing
+        <i style="--p:${pct(g.w, g.l)}%"></i><small>${wkName(k)}</small><b>${g.w}-${g.l}</b>${g.mw + g.ml ? `<small class="pk-wk-m" title="Our model's record on the games you picked">model ${g.mw}-${g.ml}</small>` : ""}</a>`).join("")}${cur.browsing
           ? `<a class="pk-wk pk-this" href="${link("picks")}" title="Back to this week's games"><small>Back to</small><b>This week →</b></a>` : ""}</div>
     </div>`;
   }
