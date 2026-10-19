@@ -68,7 +68,13 @@ const Leaderboard = (() => {
   // -------- our model's row: its pick (the favorite) in every graded game, from the weekly rankings files (week N's file
   // holds week N+1's predictions, graded when the rankings run). College counts only the default Pick'em slate: games
   // with an AP Top 25 or one of our top 25 teams. A tie counts for nobody.
-  async function modelRow(lg, season) {
+  const modelLogs = new Map();
+  const modelLog = (lg, season) => { // {"2:<week>": {w, l, done}}, also the "Model's weeks" boxes in Pick'em
+    const k = `${lg}-${season}`;
+    if (!modelLogs.has(k)) modelLogs.set(k, buildModelLog(lg, season).catch((e) => { modelLogs.delete(k); throw e; }));
+    return modelLogs.get(k);
+  };
+  async function buildModelLog(lg, season) {
     const weeks = INDEX.leagues[lg]?.seasons?.[season]?.weeks || [];
     const files = await Promise.all(weeks.map((w) => weekData(lg, season, w).catch(() => null)));
     const log = {};
@@ -83,8 +89,9 @@ const Leaderboard = (() => {
       });
       if (g.w + g.l) log[`2:${weeks[i] + 1}`] = g;
     });
-    return { name: "Cupcake Index model", model: true, ...summary(log), perfect: 0 };
+    return log;
   }
+  const modelRow = async (lg, season) => ({ name: "Cupcake Index model", model: true, ...summary(await modelLog(lg, season)), perfect: 0 });
 
   // -------- the board (Pick'em > Leaderboard)
   async function render(root, lg) {
@@ -152,5 +159,5 @@ const Leaderboard = (() => {
     catch (err) { msg(err.message === "taken" ? "Taken. Try another." : "Couldn't save it. Try again in a minute.", "lb-bad"); }
   });
 
-  return { publish, render, section, seasonNow, claim, valid, name: () => mine()?.name || "" };
+  return { publish, render, section, seasonNow, claim, valid, modelLog, name: () => mine()?.name || "" };
 })();

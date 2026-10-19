@@ -194,7 +194,16 @@ const Pickem = (() => {
       const [ta, wa] = a.split(":").map(Number), [tb, wb] = b.split(":").map(Number);
       return ta - tb || wa - wb;
     });
-    if (!weeks.length) return badgeHtml + `<div class="pk-season muted">Your season record shows up here once your first picked game is final. It's kept in this browser.</div>`;
+    // our model's own weeks on the full slate (the leaderboard's numbers), loaded once per league and season
+    const ml = cur.modelLog, mWeeks = Object.entries(ml || {}).sort(([a], [b]) => +a.split(":")[1] - +b.split(":")[1]);
+    if (ml === undefined) {
+      cur.modelLog = null;
+      const c = cur;
+      Leaderboard.modelLog(lg, season).then((m) => { c.modelLog = m; if (cur === c) draw(); }).catch(() => {});
+    }
+    const modelRow = mWeeks.length ? `<div class="pk-weeks pk-mweeks"><span class="pk-mlab" title="Our model's favorite in every game${lg === "cfb" ? " on the Top 25 slate" : ""}, graded when the rankings run">Model's weeks</span>${mWeeks.map(([k, g]) =>
+      `<a class="pk-wk" href="${link("picks", null, { season, week: k })}" title="Our model's record on ${lg === "cfb" ? "the Top 25 slate" : "every game"} that week"><i style="--p:${Math.round((100 * g.w) / (g.w + g.l))}%"></i><small>Wk ${k.split(":")[1]}</small><b>${g.w}-${g.l}</b></a>`).join("")}</div>` : "";
+    if (!weeks.length) return badgeHtml + `<div class="pk-season muted">Your season record shows up here once your first picked game is final. It's kept in this browser.</div>` + modelRow;
     const W = weeks.reduce((n, [, g]) => n + g.w, 0), L = weeks.reduce((n, [, g]) => n + g.l, 0);
     const MW = weeks.reduce((n, [, g]) => n + g.mw, 0), ML = weeks.reduce((n, [, g]) => n + g.ml, 0);
     const seq = weeks.map(([, g]) => g.seq || "").join(""), streakChar = seq.at(-1);
@@ -214,6 +223,7 @@ const Pickem = (() => {
       <div class="pk-weeks">${weeks.map(([k, g]) => `<a class="pk-wk${k === `${type}:${week}` ? " now" : ""}${g.done ? "" : " open"}" href="${link("picks", null, { season, week: k })}" title="${g.done ? "Final" : "Games still to play"}: see your picks">
         <i style="--p:${pct(g.w, g.l)}%"></i><small>${wkName(k)}</small><b>${g.w}-${g.l}</b>${g.mw + g.ml ? `<small class="pk-wk-m" title="Our model's record on the games you picked">model ${g.mw}-${g.ml}</small>` : ""}</a>`).join("")}${cur.browsing
           ? `<a class="pk-wk pk-this" href="${link("picks")}" title="Back to this week's games"><small>Back to</small><b>This week →</b></a>` : ""}</div>
+      ${modelRow}
     </div>`;
   }
 
