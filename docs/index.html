@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://a.espncdn.com">
 <meta name="theme-color" content="#0f1216">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=376">
+<link rel="stylesheet" href="style.css?v=377">
 <script>
 // Appearance (Dark / Light / System) + theme from the Settings page, applied before first paint so the page never flashes.
 // html[data-theme] = "dark" | "light" (System is resolved here and follows the device live); html[data-theme-name] = theme key.
@@ -330,7 +330,7 @@ window.CIT = (function () {
   <section id="view-about" class="view hidden">
     <div class="card prose">
       <h2>How it works</h2>
-      <p>Every Monday morning the model downloads the weekend's results and rebuilds the rankings from scratch. Each team gets a set of scores from 0 to 100, where 50 is average. The sliders decide how much each score counts.</p>
+      <p>After each weekend the model downloads the results and rebuilds the rankings from scratch. College updates Saturday night as the games finish (with a final pass Sunday morning and another Sunday night for the new polls). The NFL updates right after Monday Night Football, with a second pass Tuesday morning for stat corrections. Each team gets a set of scores from 0 to 100, where 50 is average. The sliders decide how much each score counts.</p>
       <ul id="factor-help"></ul>
       <h3>The cupcake problem (college)</h3>
       <p>Every FCS opponent is rated like a team about 25 points worse than an average FBS team, and FCS games count only 25% as much in the power rating. Margins are capped at 24 points. Beating an FCS team 70-0 proves about as much as a close loss to an average FBS team. On top of that, the Cupcake score measures how padded a schedule is <i>relative to the team playing it</i>. An opponent counts as a cupcake once they are below average and at least 14 points worse than you on a neutral field, and bigger mismatches count more. FCS opponents always count. A bad team playing other bad teams isn't padding; a top-10 team scheduling them is. A higher Cupcake score counts against a team. It only counts games already played: a cupcake still on the schedule is added once the game is final.</p>
@@ -343,12 +343,16 @@ window.CIT = (function () {
         <li><span class="prof-badge prof-walk">CUPCAKE WALK</span> easy schedule <i>and</i> padded. The records to be most skeptical of.</li>
       </ul>
       <h3>NFL</h3>
-      <p>The NFL has its own rating model, built for a 17-game league where most games are close. Four differences from college: (1) last season's rating carries over all year instead of fading out after a few weeks, because NFL rosters carry over; (2) the rating blends scoring margin with opponent-adjusted EPA per play (how well a team moves the ball and stops it, play by play), which predicts next week better than scores alone; (3) recent weeks count a bit more than September; (4) a team starting someone other than its usual quarterback is marked down. Margins are capped at 17 points and home field is worth 1 point. We tested it on every game from 2020 to 2025 using only what was known before kickoff: it picked 64.4% of winners (the old settings: 62.6%; the sportsbooks' favorite: 66.8%). Résumé is measured against a top-8 team. Monday's update runs before Monday Night Football. Tuesday's update adds that game.</p>
+      <p>The NFL has its own rating model, built for a 17-game league where most games are close. Four differences from college: (1) last season's rating carries over all year instead of fading out after a few weeks, because NFL rosters carry over; (2) the rating blends scoring margin with opponent-adjusted EPA per play (how well a team moves the ball and stops it, play by play), which predicts next week better than scores alone; (3) recent weeks count a bit more than September; (4) a team starting someone other than its usual quarterback is marked down. Margins are capped at 17 points and home field is worth 1 point. We tested it on every game from 2020 to 2025 using only what was known before kickoff: it picked 64.4% of winners (the old settings: 62.6%; the sportsbooks' favorite: 66.8%). Each team also gets a small <b>coach boost</b>: if its head coach's teams have beaten expectations in past seasons, its rating goes up a little (and down if they've fallen short). Résumé is measured against a top-8 team. Predictions refresh Thursday afternoon and Sunday morning, after the injury reports.</p>
       <p><b>The NFL has no cupcakes.</b> Nobody in the NFL schedules a cupcake, so the NFL side uses <b>strength of schedule</b> instead. Under each team is its schedule rank (SOS #1 = hardest so far, #32 = easiest). NFL schedule profiles cross schedule with record: <b>Proven</b> (hard road, winning), <b>Easy Road</b> (winning on an easy schedule, the records to be most skeptical of), <b>Tough Road</b> (hard road, losing) and <b>No Excuses</b> (easy road, still losing). A schedule within 3/4 of a point a game of average is <b>Average Road</b>: the difference is too small to call the road easy or hard, so the record mostly speaks for itself. Résumé Check takes away wins over the bottom half of the league. The NFL <b>Bully of the Week</b> is simply the week's biggest blowout.</p>
+      <h3>Injuries</h3>
+      <p>NFL injury statuses come from the league's official injury report, checked every 10 minutes. In college, the SEC, ACC, Big 12, Big Ten and MAC publish availability reports for conference games; when a team's starting quarterback is listed Out or Doubtful, its predictions are marked down 5 points, and other new absences a little each. College predictions refresh Friday evening and Saturday morning after those reports. Other conferences and non-conference games have no reports, so nothing changes for them.</p>
+      <h3>Coaches</h3>
+      <p>Every NFL head coach since 1999 and FBS head coach since 1980 has a <b>Coach score</b> from 0 to 100 (50 = average): 35% wins over expected, 30% record against winning teams, 15% postseason wins, 10% how much better the team got after he arrived, and 10% against him for padding his record with cupcakes. The <b>hot seat</b> (Safe, Teetering, Hot seat) is his chance of being out after this season, learned from every past coach season. Coaching trees come from each coach's career on Wikipedia.</p>
       <h3>Early season</h3>
       <p>In the first few weeks there isn't enough data, so ratings start from a preseason guess: last year's rating scaled by returning production, plus roster talent. That guess fades to zero within a few weeks. After that it's pure on-field results.</p>
       <h3>Keeping it honest</h3>
-      <p>Each week the ratings pick every game of the following week. On the Pick'em page you make your own picks for the week's games, with the model's win chance shown as a small hint, and see how you did once the games are final.</p>
+      <p>Each week the ratings pick every game of the following week. On the Pick'em page you make your own picks for the week's games, with the model's win chance shown as a small hint, and see how you did once the games are final. The model has its own row on the Pick'em leaderboard: it picks its favorite in every game, every week, so you can see whether you're beating it.</p>
       <h3>Scores, stats and standings</h3>
       <p>Live scores, box scores, player stats, rosters and standings load straight from ESPN's public data feed in your browser. They update automatically every 30 seconds while games are in progress.</p>
     </div>
@@ -365,25 +369,25 @@ window.CIT = (function () {
   </div>
 </div>
 
-<script src="app.js?v=376"></script>
-<script src="live.js?v=376"></script>
-<script src="daily.js?v=376"></script>
-<script src="share.js?v=376"></script>
-<script src="pickem.js?v=376"></script>
-<script src="fantasy.js?v=376"></script>
-<script src="news.js?v=376"></script>
-<script src="takes.js?v=376"></script>
-<script src="coaches.js?v=376"></script>
-<script src="viz.js?v=376"></script>
-<script src="settings.js?v=376"></script>
-<script src="firebase-config.js?v=376"></script>
-<script src="account.js?v=376"></script>
-<script src="stats.js?v=376"></script>
-<script src="admin.js?v=376"></script>
-<script src="breakdown.js?v=376"></script>
-<script src="tour.js?v=376"></script>
-<script src="leaderboard.js?v=376"></script>
-<script src="profile.js?v=376"></script>
-<script src="push.js?v=376"></script>
+<script src="app.js?v=377"></script>
+<script src="live.js?v=377"></script>
+<script src="daily.js?v=377"></script>
+<script src="share.js?v=377"></script>
+<script src="pickem.js?v=377"></script>
+<script src="fantasy.js?v=377"></script>
+<script src="news.js?v=377"></script>
+<script src="takes.js?v=377"></script>
+<script src="coaches.js?v=377"></script>
+<script src="viz.js?v=377"></script>
+<script src="settings.js?v=377"></script>
+<script src="firebase-config.js?v=377"></script>
+<script src="account.js?v=377"></script>
+<script src="stats.js?v=377"></script>
+<script src="admin.js?v=377"></script>
+<script src="breakdown.js?v=377"></script>
+<script src="tour.js?v=377"></script>
+<script src="leaderboard.js?v=377"></script>
+<script src="profile.js?v=377"></script>
+<script src="push.js?v=377"></script>
 </body>
 </html>
