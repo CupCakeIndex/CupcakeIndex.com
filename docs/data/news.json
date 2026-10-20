@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-20T23:07:23Z",
+ "updated": "2026-10-20T23:37:38Z",
  "teams": {
   "nfl:22": {
    "name": "Arizona Cardinals",
@@ -105,6 +105,13 @@
    "lg": "nfl",
    "id": "13",
    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lv.png"
+  },
+  "nfl:24": {
+   "name": "Los Angeles Chargers",
+   "short": "Chargers",
+   "lg": "nfl",
+   "id": "24",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lac.png"
   },
   "nfl:14": {
    "name": "Los Angeles Rams",
@@ -274,13 +281,6 @@
    "id": "48",
    "logo": "https://cdn.collegefootballdata.com/logos/500/48.png"
   },
-  "cfb:151": {
-   "name": "East Carolina",
-   "short": "East Carolina",
-   "lg": "cfb",
-   "id": "151",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/151.png"
-  },
   "cfb:57": {
    "name": "Florida",
    "short": "Florida",
@@ -330,6 +330,13 @@
    "id": "2305",
    "logo": "https://cdn.collegefootballdata.com/logos/500/2305.png"
   },
+  "cfb:2306": {
+   "name": "Kansas State",
+   "short": "Kansas State",
+   "lg": "cfb",
+   "id": "2306",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/2306.png"
+  },
   "cfb:96": {
    "name": "Kentucky",
    "short": "Kentucky",
@@ -343,13 +350,6 @@
    "lg": "cfb",
    "id": "99",
    "logo": "https://cdn.collegefootballdata.com/logos/500/99.png"
-  },
-  "cfb:235": {
-   "name": "Memphis",
-   "short": "Memphis",
-   "lg": "cfb",
-   "id": "235",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/235.png"
   },
   "cfb:2390": {
    "name": "Miami",
@@ -505,13 +505,6 @@
    "id": "245",
    "logo": "https://cdn.collegefootballdata.com/logos/500/245.png"
   },
-  "cfb:2655": {
-   "name": "Tulane",
-   "short": "Tulane",
-   "lg": "cfb",
-   "id": "2655",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/2655.png"
-  },
   "cfb:2116": {
    "name": "UCF",
    "short": "UCF",
@@ -550,14 +543,98 @@
  },
  "items": [
   {
+   "title": "Ryan Day Reveals Concerning Julian Sayin Injury Update",
+   "url": "https://sports.yahoo.com/articles/ryan-day-reveals-concerning-julian-232534973.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-20T23:25:34Z",
+   "summary": "Ohio State coach Ryan Day announces Julian Sayin is out indefinitely and reveals the Buckeyes are preparing for a potentially season-long absence.",
+   "image": "https://media.zenfs.com/en/detroit_sports_nation_articles_492/140c18fbe6c74a3bf409a9a9b9bec0e8.jpg",
+   "teams": [
+    "cfb:194"
+   ]
+  },
+  {
+   "title": "Purdue Football: Depth Chart Review – Washington – Defense",
+   "url": "https://sports.yahoo.com/articles/purdue-football-depth-chart-review-232335306.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-20T23:23:35Z",
+   "summary": "Purdue’s paper-thin defense ran out of injury luck against Washington. Jed Fisch and the Huskies punished their lack of depth.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/eab401e5b07e3fe305444a26740a6662.jpg",
+   "teams": []
+  },
+  {
    "title": "Sunday's late-afternoon window on CBS averaged 26.368 million viewers",
-   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/sundays-late-afternoon-window-on-cbs-averaged-26-368-million-viewers",
-   "source": "Pro Football Talk",
+   "url": "https://sports.yahoo.com/articles/sundays-afternoon-window-cbs-averaged-230105642.html",
+   "source": "Yahoo Sports",
    "league": "nfl",
    "published": "2026-10-20T23:01:05Z",
    "summary": "The late-afternoon window on Sunday continues to generate the biggest audiences for NFL viewing.",
-   "image": "https://nbcsports.brightspotcdn.com/dims4/default/db2d130/2147483647/strip/false/crop/4844x2725+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2Fb4%2F99%2F6f0b6328489fb29f4685440b4cbd%2F2301034173.jpg",
+   "image": "",
    "teams": []
+  },
+  {
+   "title": "Kansas State Wildcats, Collin Klein In Pursuit Of Rising In-State Offensive Tackle",
+   "url": "https://sports.yahoo.com/articles/kansas-state-wildcats-collin-klein-230034909.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-20T23:00:34Z",
+   "summary": "The Kansas State Wildcats have extended a scholarship offer to offensive tackle Benaiah Rizer of Topeka (Kan.) Seaman High School",
+   "image": "",
+   "teams": [
+    "cfb:2306"
+   ]
+  },
+  {
+   "title": "Deion Sanders Praises Mike Gundy, Eric Morris Ahead of Colorado's Trip to Oklahoma State",
+   "url": "https://sports.yahoo.com/articles/deion-sanders-praises-mike-gundy-230034801.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-20T23:00:34Z",
+   "summary": "Colorado coach Deion Sanders opened his press conference by praising Oklahoma State legend Mike Gundy and first-year coach Eric Morris. From a personal fishing invitation to Gundy to applauding…",
+   "image": "",
+   "teams": [
+    "cfb:197",
+    "cfb:38"
+   ]
+  },
+  {
+   "title": "Bo Nix on breakneck pace for game-winning drives",
+   "url": "https://sports.yahoo.com/articles/bo-nix-breakneck-pace-game-230000172.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-20T23:00:00Z",
+   "summary": "Historically, no player has ever recorded as many game-winning drives in their first 40 starts than Bo Nix. He has 14 of them and comparing that to the all-time list no other player even comes close…",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/4b962779aaebc4cfb1d92d57bac2c5ad.jpg",
+   "teams": []
+  },
+  {
+   "title": "Hot Take Tuesday: Chicago Bears’ Offense is Real, and it’s Spectacular",
+   "url": "https://sports.yahoo.com/articles/hot-tuesday-chicago-bears-offense-230000517.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-20T23:00:00Z",
+   "summary": "Week one already feels like a long time ago. You remember it, right? When the Chicago Bears dropped 59 points on the Carolina Panthers and made a statement to the league that they were for real. And…",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/bd390f62ffd2a806c9fb41885571f7ac.jpg",
+   "teams": [
+    "nfl:29",
+    "nfl:3"
+   ]
+  },
+  {
+   "title": "LSU Radio Host’s Viral Rant Tears Into Alabama After Shocking Loss to Tennessee",
+   "url": "https://sports.yahoo.com/articles/lsu-radio-host-viral-rant-225745217.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-20T22:57:45Z",
+   "summary": "LSU radio host delivers fiery rant, ripping apart Alabama following stunning loss to Tennessee! The post LSU Radio Host’s Viral Rant Tears Into Alabama After Shocking Loss to Tennessee appeared…",
+   "image": "https://media.zenfs.com/en/heavy_214/14f99791af81a94d19c5632a73e6a871.jpg",
+   "teams": [
+    "cfb:2633",
+    "cfb:333",
+    "cfb:99"
+   ]
   },
   {
    "title": "Ohio State quarterback Julian Sayin out indefinitely",
@@ -570,6 +647,19 @@
    "teams": [
     "cfb:194",
     "cfb:84"
+   ]
+  },
+  {
+   "title": "Seahawks host former SEC Defensive Player of the Year winner for a tryout",
+   "url": "https://sports.yahoo.com/articles/seahawks-host-former-sec-defensive-224201799.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-20T22:42:01Z",
+   "summary": "The former Los Angeles Chargers draft pick had a workout in Seattle.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/3e04f5e76de1b180682b9a322dbff535.jpg",
+   "teams": [
+    "nfl:24",
+    "nfl:26"
    ]
   },
   {
@@ -1102,37 +1192,12 @@
    ]
   },
   {
-   "title": "The AL Poll: Post Week 7",
-   "url": "https://sports.yahoo.com/articles/al-poll-post-week-7-205735366.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-20T20:57:35Z",
-   "summary": "Indiana Rises, LSU falls",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/de6728636d33197554ec260122ec7a47.jpg",
-   "teams": [
-    "cfb:84",
-    "cfb:99"
-   ]
-  },
-  {
    "title": "Rams turn to third kicker in three weeks after Blake Grupe's injury",
    "url": "https://sports.yahoo.com/articles/rams-turn-third-kicker-three-205700245.html",
    "source": "Yahoo Sports",
    "league": "nfl",
    "published": "2026-10-20T20:57:00Z",
    "summary": "The Rams are turning to their third kicker in as many weeks with Brandon McManus, who takes over after Blake Grupe suffered a torn ACL.",
-   "image": "",
-   "teams": [
-    "nfl:14"
-   ]
-  },
-  {
-   "title": "Rams add K Brandon McManus",
-   "url": "https://sports.yahoo.com/articles/rams-add-k-brandon-mcmanus-205635763.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-20T20:56:35Z",
-   "summary": "The Rams have found a new kicker.",
    "image": "",
    "teams": [
     "nfl:14"
@@ -1175,53 +1240,6 @@
    ]
   },
   {
-   "title": "Can you trust these NFL division leaders? feat. Trevor Sikkema + 2027 QB class breakdown: a new QB1?",
-   "url": "https://sports.yahoo.com/nfl/article/can-you-trust-these-nfl-division-leaders-feat-trevor-sikkema--2027-qb-class-breakdown-a-new-qb1-205315570.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-20T20:53:15Z",
-   "summary": "Nate Tice & Trevor Sikkema determine how much they trust the current NFL division leaders. Later, Nate breaks down the 2027 QB class.",
-   "image": "https://d29szjachogqwa.cloudfront.net/images/user-uploaded/fb301-10-20-thumb_3618.jpg",
-   "teams": []
-  },
-  {
-   "title": "Rams sign another new kicker",
-   "url": "https://sports.yahoo.com/articles/rams-sign-another-kicker-204740544.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-20T20:47:40Z",
-   "summary": "Brandon McManus is the third official kicker of the season and it’s not Week 7 yet",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/d7470a4fcef96f372a7ef823244451c0.jpg",
-   "teams": [
-    "nfl:14"
-   ]
-  },
-  {
-   "title": "What Clemson’s Dabo Swinney said about College Football Playoff expansion",
-   "url": "https://sports.yahoo.com/articles/clemson-dabo-swinney-said-college-204649493.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-20T20:46:49Z",
-   "summary": "Here’s what Clemson head coach Dabo Swinney had to say about the likely expansion of the College Football Playoff.",
-   "image": "",
-   "teams": [
-    "cfb:228"
-   ]
-  },
-  {
-   "title": "Jim Nantz says he 'learned a lesson' trying to Peanut punch ball from J.J. Watt: Don't do it",
-   "url": "https://sports.yahoo.com/articles/jim-nantz-says-learned-lesson-204509378.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-20T20:45:09Z",
-   "summary": "Jim Nantz took J.J. Watt's invitation to demonstrate the Peanut punch while they were broadcasting Sunday's Bills-Raiders game — \"and as soon as I did it, I regretted it,\" he told Pat McAfee.",
-   "image": "https://media.zenfs.com/en/la_times_articles_853/f1a88e2696fa1eabed3dbd014c463785.jpg",
-   "teams": [
-    "nfl:13",
-    "nfl:2"
-   ]
-  },
-  {
    "title": "Inside the rise of FIU's dominant, no-name defense under Jovan Dewitt: Bounceback transfers, modular scheme",
    "url": "https://www.cbssports.com/college-football/news/fiu-defense-dominance-2026-season-transfers-modular-scheme/",
    "source": "CBS Sports",
@@ -1231,43 +1249,6 @@
    "image": "https://sportshub.cbsistatic.com/i/2026/10/20/1358fbc7-2e97-4e28-ba21-9dd973d6f89e/fiu-defense.png",
    "teams": [
     "cfb:58"
-   ]
-  },
-  {
-   "title": "Amid civil unrest in Paris, NFL has 'never been close' to moving first game in France",
-   "url": "https://sports.yahoo.com/nfl/article/amid-civil-unrest-in-paris-nfl-has-never-been-close-to-moving-first-game-in-france-203657427.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-20T20:36:57Z",
-   "summary": "NFL officials have been in Paris for about 10 days working on logistics, league exec Peter O'Reilly said. \"We've got confidence in the plans, both from an ops and a security standpoint.\"",
-   "image": "",
-   "teams": []
-  },
-  {
-   "title": "Know the Foe: East Carolina",
-   "url": "https://sports.yahoo.com/articles/know-foe-east-carolina-203647643.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-20T20:36:47Z",
-   "summary": "After losing to Tulane on Friday, Memphis will have a quick turnaround before its next game against East Carolina on Thursday. The Pirates enter the game 3-3 and will look to win their fourth…",
-   "image": "",
-   "teams": [
-    "cfb:151",
-    "cfb:235",
-    "cfb:2655"
-   ]
-  },
-  {
-   "title": "Alabama Given Strong Percentage to Get Back on Track vs Texas A&M",
-   "url": "https://sports.yahoo.com/articles/alabama-given-strong-percentage-back-202456161.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-20T20:24:56Z",
-   "summary": "The Crimson Tide have lost two straight games entering this week.",
-   "image": "",
-   "teams": [
-    "cfb:333",
-    "cfb:245"
    ]
   },
   {
@@ -1316,6 +1297,18 @@
    "image": "https://on3static.com/cdn-cgi/image/height=630,width=1200,quality=90,fit=cover/uploads/dev/assets/cms/2026/10/20145303/Kenny-McClendon-Colorado-State.jpg",
    "teams": [
     "cfb:36"
+   ]
+  },
+  {
+   "title": "Colts add WR Mecole Hardman, P Thomas Morstead to practice squad",
+   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/colts-add-wr-mecole-hardman-p-thomas-morstead-to-practice-squad",
+   "source": "Pro Football Talk",
+   "league": "nfl",
+   "published": "2026-10-20T19:36:14Z",
+   "summary": "After firing General Manager Chris Ballard on Monday, the Colts have added a couple of depth pieces to their greater roster.",
+   "image": "https://nbcsports.brightspotcdn.com/dims4/default/9cbf711/2147483647/strip/false/crop/4027x2265+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2Fc8%2F91%2F78a83428475ebcd5149668fe5d13%2F2291411894.jpg",
+   "teams": [
+    "nfl:11"
    ]
   },
   {
