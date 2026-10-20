@@ -22,9 +22,9 @@ const BASE_PRESETS = {
 const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", recent: "FORM", cupcake: "CUP", luck: "UNLK" };
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
 const RANK_VIEWS = new Set(["rankings", "schedules", "resume"]);
-const VIEWS = new Set(["rankings", "picks", "schedules", "resume", "shame", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily", "fantasy", "news", "takes", "coaches", "coach", "admin", "breakdown", "games", "settings", "privacy"]);
+const VIEWS = new Set(["rankings", "picks", "schedules", "resume", "shame", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "daily", "hilo", "fantasy", "news", "takes", "coaches", "coach", "admin", "breakdown", "games", "settings", "privacy"]);
 // Sub-pages that light up a parent tab in the nav (the Daily player game lives under Games)
-const NAV_PARENT = { daily: "games", breakdown: "rankings", coach: "coaches" };
+const NAV_PARENT = { daily: "games", hilo: "games", breakdown: "rankings", coach: "coaches" };
 
 // ------------------------------------------------------------------ forgiving name search
 // Lowercase, strip accents/punctuation ("D.J." -> "dj", "Smith-Njigba" -> "smith njigba"), drop jr/sr/ii/iii.
@@ -152,6 +152,8 @@ async function route() {
     renderNotes();
   } else if (r.view === "daily") {
     Daily.render();
+  } else if (r.view === "hilo") {
+    Hilo.render();
   } else if (r.view === "games") {
     renderGames();
   } else if (r.view === "settings") {
@@ -211,6 +213,7 @@ function initNav() {
 function renderGames() {
   const games = [
     { href: "#/daily", name: "daily_player", title: "Daily player", desc: "Guess today's mystery NFL player in 8 tries. Each guess shows how close you are on team, division, position, age, college and number. A new player every day at midnight.", status: Daily.status() },
+    { href: "#/hilo", name: "higher_or_lower", title: "Higher or Lower", desc: "Two real NFL seasons side by side: who had more passing yards, sacks, points, wins...? Keep picking right to build a streak. The numbers get closer the longer you last.", status: Hilo.status() },
   ];
   $("#view-games").innerHTML = `<div class="card">
     <h2>Games</h2>
@@ -229,7 +232,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "377"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "378"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
