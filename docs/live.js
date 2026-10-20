@@ -1582,6 +1582,35 @@ const Live = (() => {
       } catch (e) { /* the full 5-second check still runs */ }
     }, 2000);
   }
+  // "Last 5 meetings" card. Pair keys are our team names sorted ("Alabama|Auburn"); college files are split by the
+  // key's first letter (h2h/a.json). Rows: [date, home, away, home pts, away pts, note?], newest first.
+  const h2hFiles = new Map();
+  async function meetingsCard(lg, ranks, away, home, date) {
+    const nm = (c) => (lg === "nfl" ? c.team.displayName : ourTeam(ranks, lg, c.team)?.team || c.team.location);
+    const A = nm(away), H = nm(home);
+    if (!A || !H) return "";
+    const key = [A, H].sort().join("|"), ch = key[0].toLowerCase();
+    const url = lg === "nfl" ? "data/nfl/h2h.json" : `data/cfb/h2h/${ch >= "a" && ch <= "z" ? ch : "0"}.json`;
+    if (!h2hFiles.has(url)) h2hFiles.set(url, getJSON(url).catch(() => { h2hFiles.delete(url); return null; }));
+    const d = await h2hFiles.get(url);
+    const day = (date || "").slice(0, 10);
+    const rows = (d?.games?.[key] || []).filter((g) => !day || g[0] <= day);
+    if (!rows.length) return "";
+    const ab = (n) => esc(n === A ? away.team.abbreviation : n === H ? home.team.abbreviation : n);
+    const logoOf = (n) => img(teamLogo(n === A ? away.team : home.team), "xs");
+    const winsOf = (n, list) => list.filter((g) => (g[1] === n && g[3] > g[4]) || (g[2] === n && g[4] > g[3])).length;
+    const rec = (n1, n2, w1, w2) => (w1 === w2 ? `tied ${w1}-${w2}` : w1 > w2 ? `${ab(n1)} ${w1}-${w2}` : `${ab(n2)} ${w2}-${w1}`);
+    const r = d.rec?.[key], [k1, k2] = key.split("|");
+    const since = lg === "nfl" ? 1999 : 1979;
+    const fmtDay = (s) => new Date(s + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    return `<div class="card mt"><h3>Last ${rows.length === 1 ? "meeting" : `${rows.length} meetings`}</h3>
+      <p class="mt-sum">${r ? `Since ${since}: <b>${rec(k1, k2, r[0], r[1])}</b>${r[2] ? `, ${r[2]} tie${r[2] > 1 ? "s" : ""}` : ""}` : ""}${rows.length > 1 ? ` · Last ${rows.length}: <b>${rec(A, H, winsOf(A, rows), winsOf(H, rows))}</b>` : ""}</p>
+      <div class="mt-list">${rows.map(([dt, h, a, hp, ap, note]) => `<div class="mt-row">
+        <span class="mt-d">${fmtDay(dt)}</span>
+        <span class="mt-g"><span class="${ap > hp ? "mt-w" : ""}">${logoOf(a)}${ab(a)} ${ap}</span> <span class="muted">@</span> <span class="${hp > ap ? "mt-w" : ""}">${logoOf(h)}${ab(h)} ${hp}</span></span>
+        ${note ? `<small class="mt-n">${esc(note)}</small>` : ""}</div>`).join("")}</div></div>`;
+  }
+
   async function game(id, params, refresh = false) {
     const lg = league, my = token;
     if (!refresh) loading("game");
@@ -1697,6 +1726,10 @@ const Live = (() => {
           <ul>${pred.notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul></div>`
           : pred?.why ? `<p class="why"><b>Why:</b> ${esc(pred.why)}</p>` : ""}</div>`);
     }
+    // last 5 meetings (src/social/h2h.py): NFL since 1999, college since 1979
+    const mt = await meetingsCard(lg, ranks, away, home, comp.date);
+    if (my !== token) return;
+    if (mt) col.left.push(mt);
     // win probability
     const wp = s.winprobability || [];
     if (wp.length > 2) col.right.push(`<div class="card"><h3>Win probability</h3>${wpChart(wp, away, home, tc, wpTimes(wp, s), st === "post")}</div>`);
