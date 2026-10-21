@@ -63,10 +63,10 @@ on:
           - deep_qb_deep_ball
           - deep_qb_third_down
       theme:
-        description: "Card look (a site theme; random = surprise me)"
+        description: "Card look (random = surprise me)"
         type: choice
         default: random
-        options: [random, mono, terminal, amber, broadcast, editorial, glass, varsity]
+        options: [random, broadcast, poster, podium, trading]
       post:
         description: "Post to X (untick to only make the picture)"
         type: boolean

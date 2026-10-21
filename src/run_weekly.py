@@ -68,7 +68,13 @@ def run_league(league, season, cfg_league, offline):
         name_of = {t["abbr"]: t["school"] for t in d["teams"]}
         nfl_R = {w: {name_of.get(a, a): r for a, r in R.items()} for w, R in byweek.items()}
         by_id = {x["id"]: x for x in ngames}
-        F = nfl_features.Features([season], refresh_last=not offline, live=True)  # QB quality, injury reports
+        if not offline:  # next week's listed starter can be stale: swap out a QB that ESPN lists as out (Hurts, 2026 Week 7)
+            nfl_features.fix_upcoming_qbs([x for x in ngames if x["season"] == season])
+            for x in games:
+                g = by_id.get(x.get("id"))
+                if g and not g["done"]:
+                    x["hqb"], x["aqb"] = g["hqb"], g["aqb"]
+        F =nfl_features.Features([season], refresh_last=not offline, live=True)  # QB quality, injury reports
         adjust = lambda x: nfl_model.adjustments(by_id[x["id"]], ngames, nfl_model.PARAMS, F) if x["id"] in by_id else 0.0
         nfl_S = nfl_model.season_score_ratings(season)  # predicted scores (offense/defense points)
         winds = {} if offline else {x["id"]: nfl_features.forecast_wind(x) for x in ngames if x["week"] == last + 1 and not x["done"]}

@@ -157,9 +157,10 @@ def players_map():
     return {r["pfr_id"]: r["gsis_id"] for r in _rows(f) if r.get("pfr_id") and r.get("gsis_id")}
 
 
-def injury_loads(season, refresh=False, pfr2gsis=None, names=None):
+def injury_loads(season, refresh=False, pfr2gsis=None, names=None, outs=None):
     """{(team, week): snap-weighted share of the lineup missing} (about 1.0 = one full-time starter out).
-    names: optional dict filled with (team, week) -> ["T.Smith (OT)", ...] for regulars (60%+ of snaps) listed Out/Doubtful."""
+    names: optional dict filled with (team, week) -> ["T.Smith (OT)", ...] for regulars (60%+ of snaps) listed Out/Doubtful.
+    outs: optional dict filled with the same load counting only players listed Out or Doubtful (carried into next week)."""
     inj = _rows(_fetch(f"{NFLV}/injuries/injuries_{season}.csv", f"injuries_{season}.csv", refresh))
     snaps = _rows(_fetch(f"{NFLV}/snap_counts/snap_counts_{season}.csv", f"snap_counts_{season}.csv", refresh))
     if not inj or not snaps:
@@ -187,6 +188,8 @@ def injury_loads(season, refresh=False, pfr2gsis=None, names=None):
             continue
         avg = sum(prev) / len(prev)
         load[(team(r["team"]), wk)] += sw * pw * avg
+        if outs is not None and sw >= 0.9:
+            outs[(team(r["team"]), wk)] = outs.get((team(r["team"]), wk), 0.0) + sw * pw * avg
         if names is not None and sw >= 0.9 and avg >= 0.6:
             names.setdefault((team(r["team"]), wk), []).append(f"{r.get('full_name') or r['gsis_id']} ({r.get('position') or '?'})")
     return dict(load)
@@ -231,6 +234,54 @@ def forecast_wind(x):
         return None
 
 
+QB_OUT = {"injured reserve", "out", "suspended", "physically unable to perform", "doubtful", "reserve/covid-19", "non-football injury"}
+
+
+def _plain(name):
+    """'Michael Penix Jr.' -> 'michael penix' (ESPN and nflverse spell suffixes and dots differently)."""
+    words = "".join(c for c in (name or "").lower() if c.isalnum() or c == " ").split()
+    return " ".join(w for w in words if w not in ("jr", "sr", "ii", "iii", "iv"))
+
+
+def fix_upcoming_qbs(games):
+    """nflverse lists a projected starter for next week's games that can be stale (Jalen Hurts, on injured reserve,
+    was still listed for Week 7 of 2026 after Tanner McKee had started Week 6). For each game of the next week,
+    ESPN's game page lists both teams' injuries: a listed QB who is out, doubtful or on a reserve list is replaced
+    by the team's most recent other starter (the backup who just played), so the model applies its QB change.
+    Changes games in place; returns the notes it printed."""
+    left = [x for x in games if not x["done"] and x.get("espn")]
+    if not left:
+        return []
+    week = min(x["week"] for x in left)
+    played = sorted((x for x in games if x["done"]), key=lambda x: (x["season"], x["week"]))
+    notes = []
+    for x in (x for x in left if x["week"] == week):
+        try:
+            url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event={x['espn']}"
+            with urllib.request.urlopen(url, timeout=20) as r:
+                inj = json.loads(r.read()).get("injuries", [])
+        except Exception as e:  # ESPN down: keep nflverse's names
+            print(f"  QB check: skipped {x['away']} at {x['home']} ({e.__class__.__name__})")
+            continue
+        out = {_plain(i.get("athlete", {}).get("displayName")) for t in inj for i in t.get("injuries", [])
+               if i.get("athlete", {}).get("position", {}).get("abbreviation") == "QB" and (i.get("status") or "").lower() in QB_OUT}
+        for side, team in (("h", x["home"]), ("a", x["away"])):
+            qb = x.get(f"{side}qb")
+            if not qb or _plain(qb) not in out:
+                continue
+            new = None  # the most recent starter for this team who isn't on the out list
+            for g in reversed(played):
+                s = "h" if g["home"] == team else "a" if g["away"] == team else None
+                if s and g.get(f"{s}qb") and _plain(g[f"{s}qb"]) not in out:
+                    new = (g[f"{s}qb"], g.get(f"{s}qb_id"))
+                    break
+            x[f"{side}qb"], x[f"{side}qb_id"] = new or ("Backup QB", None)
+            msg = f"  QB check: {team}: {qb} is listed out on ESPN, expecting {x[f'{side}qb']}"
+            print(msg)
+            notes.append(msg)
+    return notes
+
+
 class Features:
     """Everything the model can use beyond scores and EPA, for the given seasons."""
 
@@ -240,10 +291,27 @@ class Features:
         self.qbs = QBs(range(min(seasons) - 6, max(seasons) + 1), refresh_last, summary=live)
         pm = players_map()
         self.names = {}  # season -> {(team, week): regulars listed Out/Doubtful}, for the game page notes
-        self.inj = {s: injury_loads(s, refresh_last and s == max(seasons), pm, self.names.setdefault(s, {})) for s in seasons}
+        self.outs = {}   # season -> {(team, week): load from Out/Doubtful only}
+        self.inj = {s: injury_loads(s, refresh_last and s == max(seasons), pm, self.names.setdefault(s, {}), self.outs.setdefault(s, {}))
+                    for s in seasons}
+        self.last = {s: max((w for _, w in self.inj[s]), default=0) for s in seasons}  # newest week with a report
+
+    def _carry(self, tm, season, week):
+        """A week with no report yet (the next game, before teams publish one): the team's last report, so a player
+        who was out stays out until a new report says otherwise (Jalen Hurts, 2026 Week 7)."""
+        if week <= self.last.get(season, 0):
+            return None
+        wks = [w for t, w in self.outs.get(season, {}) if t == tm and w < week]
+        return max(wks) if wks and max(wks) >= week - 2 else None
 
     def out(self, tm, season, week):
-        return self.names.get(season, {}).get((tm, week), [])
+        got = self.names.get(season, {}).get((tm, week))
+        if got is None and (w := self._carry(tm, season, week)):
+            return [f"{n[:-1]}, out last game)" if n.endswith(")") else f"{n} (out last game)" for n in self.names.get(season, {}).get((tm, w), [])]
+        return got or []
 
     def injury(self, tm, season, week):
-        return self.inj.get(season, {}).get((tm, week), 0.0)
+        got = self.inj.get(season, {}).get((tm, week))
+        if got is None and (w := self._carry(tm, season, week)):
+            return self.outs[season].get((tm, w), 0.0)
+        return got or 0.0

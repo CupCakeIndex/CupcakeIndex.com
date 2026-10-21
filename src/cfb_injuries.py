@@ -132,7 +132,7 @@ class Reports:
         self.qbs = passing_leaders({t for t, _ in self.reps}, season) if self.reps else {}
         print(f"  injuries: {len(self.reps)} college team reports, {len(self.qbs)} starting QBs")
 
-    def _rep(self, team, week, opp=None):
+    def _rep(self, team, week, opp=None, carry=False):
         r = self.reps.get((team, week))
         if r and (opp is None or r["opp"] == opp):
             return r
@@ -141,37 +141,50 @@ class Reports:
                 r = self.reps.get((team, w))
                 if r and r["opp"] == opp:
                     return r
-        return None
+        return self._carried(team, week) if carry else None
 
-    def qb_out(self, team, week, opp=None):
-        r, q = self._rep(team, week, opp), norm(self.qbs.get(team))
+    def _carried(self, team, week):
+        """A game still to play whose report isn't out yet (conferences publish them a day or two before): the team's
+        last report, keeping only who was Out or Doubtful, so they stay out until a new report says otherwise
+        (Mississippi State, 2026 Week 8: Kamario Taylor and Fluff Bothwell out the week before)."""
+        last = max((w for t, w in self.reps if t == team), default=None)
+        if last is None or last >= week or last < week - 3:
+            return None
+        r = self.reps[(team, last)]
+        return {**r, "carried": last, "players": {n: p for n, p in r["players"].items() if WEIGHT.get(p["s"], 0) >= 0.75}}
+
+    def qb_out(self, team, week, opp=None, carry=False):
+        r, q = self._rep(team, week, opp, carry), norm(self.qbs.get(team))
         if not r or not q:
             return None
         return next((n for n, p in r["players"].items() if norm(n) == q and WEIGHT.get(p["s"], 0) >= 0.75), None)
 
-    def new_load(self, team, week, opp=None):
-        r = self._rep(team, week, opp)
+    def new_load(self, team, week, opp=None, carry=False):
+        r = self._rep(team, week, opp, carry)
         if not r:
             return 0.0
-        prev = (self.reps.get((team, week - 1)) or {}).get("players", {})
+        before = r.get("carried", week) - 1  # a carried report counts as new against the report before it
+        prev = (self.reps.get((team, before)) or {}).get("players", {})
         return sum(WEIGHT.get(p["s"], 0) for n, p in r["players"].items() if prev.get(n, {}).get("s") != "Out")
 
     def adjust(self, x):
         """Points to add to the home side's expected margin for game x (model.py format)."""
         m = 0.0
+        carry = not x.get("done")  # only games still to play fall back on the last report
         for team, opp, sign in ((x["home"], x["away"], 1), (x["away"], x["home"], -1)):
-            if self._rep(team, x["week"], opp):
-                m -= sign * ((QB_OUT if self.qb_out(team, x["week"], opp) else 0) + NEW_ABSENCE * self.new_load(team, x["week"], opp))
+            if self._rep(team, x["week"], opp, carry):
+                m -= sign * ((QB_OUT if self.qb_out(team, x["week"], opp, carry) else 0)
+                             + NEW_ABSENCE * self.new_load(team, x["week"], opp, carry))
         return m
 
     def out(self, team, season, week):
         """Players listed Out or Doubtful for the game page notes ("AK Dear (#0)"), starting QB first."""
-        r = self.reps.get((team, week))
+        r = self.reps.get((team, week)) or self._carried(team, week)
         if not r:
             return []
-        qb = self.qb_out(team, week)
-        lst = [f"{n} ({p['pos'] + ' ' if p['pos'] else ''}{p['n']})".replace(" )", ")") for n, p in r["players"].items()
-               if WEIGHT.get(p["s"], 0) >= 0.75]
+        qb = self.qb_out(team, week, carry=True)
+        lst = [f"{n} ({p['pos'] + ' ' if p['pos'] else ''}{p['n']}{', out last game' if r.get('carried') else ''})".replace(" )", ")").replace(" (, ", " (")
+               for n, p in r["players"].items() if WEIGHT.get(p["s"], 0) >= 0.75]
         return sorted(lst, key=lambda s: not (qb and s.startswith(qb)))
 
     def save(self, path):

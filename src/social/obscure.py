@@ -989,10 +989,17 @@ def team_logo(p):
     return logo
 
 
-def card(f, theme):
-    """Every stat card uses the broadcast look (flare_card.py); the theme picks its accent color."""
+LOOKS = ("broadcast", "poster", "podium", "trading")  # flare_card.py (broadcast) and card_looks.py, all in the site's orange
+ORANGE = (255, 107, 44)
+
+
+def card(f, look=None):
+    """A stat card in one of the LOOKS; anything else (an old site-theme name, None) picks one at random."""
+    import card_looks
     import flare_card
-    return flare_card.draw(f, hex_rgb(THEMES[theme]["accent"]), image, team_logo)
+    look = look if look in LOOKS else random.choice(LOOKS)
+    draw = {"broadcast": flare_card.draw, "poster": card_looks.poster, "podium": card_looks.podium, "trading": card_looks.trading}[look]
+    return draw(f, ORANGE, image, team_logo)
 
 
 def card_classic(f, theme):
@@ -1135,7 +1142,7 @@ def make(key, out, theme=None):
     f = STATS[key]()
     if not f:
         return None
-    theme = theme or random.choice(list(THEMES))
+    theme = theme or random.choice(LOOKS)  # the card look
     os.makedirs(out, exist_ok=True)
     png = os.path.join(out, f"obscure-{key}.png")
     card(f, theme).convert("RGB").save(png, optimize=True)
@@ -1165,7 +1172,7 @@ def rotation(now=None):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--stat", default="rotate", help="stat key, or rotate (default) / random / random-hot / random-stat")
-    ap.add_argument("--theme", choices=["random", *THEMES], default="random", help="card look (site themes)")
+    ap.add_argument("--theme", choices=["random", *LOOKS], default="random", help="card look")
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--ok-empty", action="store_true", help="no stat qualifies: exit quietly (no today.json) instead of failing")
     ap.add_argument("--all", action="store_true", help="render every stat")
