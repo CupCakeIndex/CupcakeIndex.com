@@ -1,5 +1,18 @@
 [
   {
+    "version": "1.92.1",
+    "build": 384,
+    "date": "2026-10-21",
+    "items": [
+      "The Visualize question box reads questions more like a person would. Words it doesn't know (typos, nicknames, extra words) no longer break the search, and numbers like the 100 in 'drops per 100 targets' are fine.",
+      "'Rate' means a percentage, so 'drop rate' finds Drop % and 'sack rate' finds sack %. A whole-word match now beats a word that only appears inside another word.",
+      "Questions starting with 'who' chart players ('who on the Commanders has the most drops'). 'What team' or 'which team' charts teams.",
+      "'Fewest' and 'least' questions only count players who actually do the thing, so 'who has the least drops' ranks receivers with 30+ targets instead of QBs and kickers with 0.",
+      "Two-stat questions like 'drops and targets' now plot every qualifying player, not just the 10 best on one stat (which was everyone with 0 drops).",
+      "Takeaways on most-first charts now say 'has the most' instead of 'is at the bottom'."
+    ]
+  },
+  {
     "version": "1.92.0",
     "build": 383,
     "date": "2026-10-21",

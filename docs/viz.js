@@ -154,7 +154,7 @@ const Viz = (() => {
         [`qb_epa_${k}`, `EPA per throw ${txt}`, (S) => div(zs(S, (z) => `z_${z}_epa`, f), zs(S, att, f)), { den: (S) => zs(S, att, f), d: 3, unit: "throws there", need: ["z_sl_epa"], pos, lg: "nfl" }],
         [`qb_rate_${k}`, `Passer rating ${txt}`, (S) => rating({ att: zs(S, att, f), cmp: zs(S, ok, f), pass_yds: zs(S, zYds, f), pass_td: zs(S, (z) => `z_${z}_td`, f), int: zs(S, (z) => `z_${z}_int`, f) }), { den: (S) => zs(S, att, f), d: 1, unit: "throws there", need: ["z_sl_epa"], pos, lg: "nfl" }],
         [`qb_td_${k}`, `TD passes ${txt}`, (S) => zs(S, (z) => `z_${z}_td`, f), { count: 1, need: ["z_sl_epa"], pos, lg: "nfl" }],
-        [`qb_int_${k}`, `Interceptions ${txt}`, (S) => zs(S, (z) => `z_${z}_int`, f), { count: 1, low: 1, need: ["z_sl_epa"], pos, lg: "nfl" }],
+        [`qb_int_${k}`, `Interceptions ${txt}`, (S) => zs(S, (z) => `z_${z}_int`, f), { count: 1, low: 1, need: ["z_sl_epa"], pos, lg: "nfl", vol: ["pass attempts", 100] }],
       ] : [
         [`rec_epa_${k}`, `EPA per target ${txt}`, (S) => div(zs(S, (z) => `ze_${z}`, f), zs(S, att, f)), { den: (S) => zs(S, att, f), d: 3, unit: "targets there", need: ["ze_sl"], pos, lg: "nfl" }],
         [`rec_ypt_${k}`, `Yards per target ${txt}`, (S) => div(zs(S, (z) => `zy_${z}`, f), zs(S, att, f)), { den: (S) => zs(S, att, f), d: 1, unit: "targets there", need: ["ze_sl"], pos, lg: "nfl" }],
@@ -175,12 +175,12 @@ const Viz = (() => {
     ["Passing", [
       ["pass_yds", "Passing yards", (S) => S.pass_yds, { count: 1, pos: "QB" }],
       ["pass_td", "Passing TDs", (S) => S.pass_td, { count: 1, pos: "QB" }],
-      ["int", "Interceptions thrown", (S) => S.int, { count: 1, low: 1, pos: "QB" }],
+      ["int", "Interceptions thrown", (S) => S.int, { count: 1, low: 1, pos: "QB", vol: ["pass attempts", 100] }],
       ["cmp_pct", "Completion %", (S) => div(100 * S.cmp, S.att), { den: (S) => S.att, pct: 1, pos: "QB" }],
       ["ypa", "Yards per attempt", (S) => div(S.pass_yds, S.att), { den: (S) => S.att, d: 2, pos: "QB" }],
       ["rating", "Passer rating (NFL formula)", rating, { den: (S) => S.att, d: 1, pos: "QB", lg: "nfl" }],
       ["eff", "Passing efficiency (NCAA formula)", (S) => div(8.4 * S.pass_yds + 330 * S.pass_td + 100 * S.cmp - 200 * S.int, S.att), { den: (S) => S.att, d: 1, pos: "QB", lg: "cfb" }],
-      ["sacked", "Times sacked", (S) => S.sacked, { count: 1, low: 1, pos: "QB", lg: "nfl" }],
+      ["sacked", "Times sacked", (S) => S.sacked, { count: 1, low: 1, pos: "QB", lg: "nfl", vol: ["pass attempts", 100] }],
       ["att", "Pass attempts", (S) => S.att, { count: 1, pos: "QB" }],
       ["td_pct", "TD % (TDs per attempt)", (S) => div(100 * S.pass_td, S.att), { den: (S) => S.att, pct: 1, pos: "QB" }],
       ["int_pct", "INT % (interceptions per attempt)", (S) => div(100 * S.int, S.att), { den: (S) => S.att, pct: 1, low: 1, pos: "QB" }],
@@ -275,11 +275,11 @@ const Viz = (() => {
       ["cov_cmp_pct", "Completion % allowed", (S) => div(100 * S.cov_cmp, S.cov_tgt), { den: (S) => S.cov_tgt, pct: 1, low: 1, unit: "targets", need: ["cov_tgt"] }],
       ["cov_ypt", "Yards allowed per target", (S) => div(S.cov_yds, S.cov_tgt), { den: (S) => S.cov_tgt, d: 1, low: 1, unit: "targets", need: ["cov_tgt"] }],
       ["cov_tgt", "Targets in coverage", (S) => S.cov_tgt, { count: 1, need: ["cov_tgt"] }],
-      ["cov_yds", "Yards allowed in coverage", (S) => S.cov_yds, { count: 1, low: 1, need: ["cov_tgt"] }],
-      ["cov_td", "TDs allowed in coverage", (S) => S.cov_td, { count: 1, low: 1, need: ["cov_tgt"] }],
+      ["cov_yds", "Yards allowed in coverage", (S) => S.cov_yds, { count: 1, low: 1, need: ["cov_tgt"], vol: ["targets in coverage", 20] }],
+      ["cov_td", "TDs allowed in coverage", (S) => S.cov_td, { count: 1, low: 1, need: ["cov_tgt"], vol: ["targets in coverage", 20] }],
       ["cov_yac", "Yards after catch allowed per catch", (S) => div(S.cov_yac, S.cov_cmp), { den: (S) => S.cov_cmp, d: 1, low: 1, unit: "catches allowed", need: ["cov_yac"] }],
       ["pressure", "Pressures (sacks, hits, hurries)", (S) => S.pressure, { count: 1, need: ["pressure"] }],
-      ["miss_tkl", "Missed tackles", (S) => S.miss_tkl, { count: 1, low: 1, need: ["miss_tkl"] }],
+      ["miss_tkl", "Missed tackles", (S) => S.miss_tkl, { count: 1, low: 1, need: ["miss_tkl"], vol: ["tackles", 25] }],
       ["miss_pct", "Missed tackle %", (S) => div(100 * S.miss_tkl, S.miss_tkl + S.pfr_tkl), { den: (S) => S.miss_tkl + S.pfr_tkl, pct: 1, low: 1, unit: "tackle tries", need: ["miss_tkl"] }],
     ]],
     ["Deep cuts: offense", [
@@ -302,9 +302,9 @@ const Viz = (() => {
     ]],
     // drops, broken tackles and interceptions on throws to him: Pro Football Reference's charting (nflverse pfr_advstats), 2022 on
     ["Drops and broken tackles", [
-      ["drops", "Drops", (S) => S.drops, { count: 1, low: 1, pos: "WR", need: ["drops"] }],
+      ["drops", "Drops", (S) => S.drops, { count: 1, low: 1, pos: "WR", need: ["drops"], vol: ["targets", 30] }],
       ["drop_pct", "Drop % (drops per target)", (S) => div(100 * S.drops, S.targets), { den: (S) => S.targets, pct: 1, low: 1, unit: "targets", pos: "WR", need: ["drops"] }],
-      ["tgt_int", "Interceptions on throws to him", (S) => S.tgt_int, { count: 1, low: 1, pos: "WR", need: ["drops"] }],
+      ["tgt_int", "Interceptions on throws to him", (S) => S.tgt_int, { count: 1, low: 1, pos: "WR", need: ["drops"], vol: ["targets", 30] }],
       ["btk", "Broken tackles (runs + catches)", (S) => S.rush_btk + S.rec_btk, { count: 1, need: ["drops"] }],
       ["rush_btk", "Broken tackles on runs", (S) => S.rush_btk, { count: 1, pos: "RB", need: ["drops"] }],
       ["rec_btk", "Broken tackles after the catch", (S) => S.rec_btk, { count: 1, pos: "WR", need: ["drops"] }],
@@ -315,7 +315,7 @@ const Viz = (() => {
     // pressures and bad throws: PFR's passing charting; blitzes: FTN's charting (5+ rushers or a DB/LB blitzing), both via nflverse
     ["Deep cuts: QB under pressure and vs the blitz", [
       ["pressured_pct", "Pressured % of dropbacks", (S) => div(100 * S.qb_pressured, S.dropbacks), { den: (S) => S.dropbacks, pct: 1, low: 1, unit: "dropbacks", need: ["qb_pressured"] }],
-      ["qb_pressured", "Times pressured", (S) => S.qb_pressured, { count: 1, low: 1, need: ["qb_pressured"] }],
+      ["qb_pressured", "Times pressured", (S) => S.qb_pressured, { count: 1, low: 1, need: ["qb_pressured"], vol: ["pass attempts", 100] }],
       ["bz_rate", "Blitzed % of dropbacks", (S) => div(100 * S.bz_db, S.ftn_db), { den: (S) => S.ftn_db, pct: 1, unit: "charted dropbacks", need: ["bz_db"] }],
       ["bz_cmp_pct", "Completion % vs the blitz", (S) => div(100 * S.bz_cmp, S.bz_att), { den: (S) => S.bz_att, pct: 1, unit: "throws vs the blitz", need: ["bz_db"] }],
       ["bz_ypa", "Yards per attempt vs the blitz", (S) => div(S.bz_yds, S.bz_att), { den: (S) => S.bz_att, d: 2, unit: "throws vs the blitz", need: ["bz_db"] }],
@@ -330,8 +330,8 @@ const Viz = (() => {
     // offensive linemen come from the snap counts (no box-score stats); penalties = accepted ones called on him, from play-by-play
     ["Offensive line and penalties", [
       ["off_snaps", "Snaps played", (S) => S.snaps, { count: 1, need: ["pen"] }],
-      ["pen", "Penalties called on him", (S) => S.pen, { count: 1, low: 1, need: ["pen"] }],
-      ["pen_yds", "Penalty yards", (S) => S.pen_yds, { count: 1, low: 1, need: ["pen"] }],
+      ["pen", "Penalties called on him", (S) => S.pen, { count: 1, low: 1, need: ["pen"], vol: ["snaps played", 200] }],
+      ["pen_yds", "Penalty yards", (S) => S.pen_yds, { count: 1, low: 1, need: ["pen"], vol: ["snaps played", 200] }],
       ["pen_rate", "Penalties per 100 snaps", (S) => div(100 * S.pen, S.snaps), { den: (S) => S.snaps, d: 1, low: 1, unit: "snaps", need: ["pen"] }],
     ]],
   ];
@@ -342,7 +342,7 @@ const Viz = (() => {
   // its name counts most, part of a word a bit less, a word only in its group half; most of the words have to be covered.
   const norm = (x) => x.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[.'’-]/g, "").toLowerCase();
   const QSYN = { def: "defense", defensive: "defense", defence: "defense", ints: "interceptions", int: "interceptions", picks: "interceptions",
-    td: "tds", touchdown: "tds", touchdowns: "tds", yds: "yards", yd: "yards", yard: "yards", pct: "%", percent: "%", percentage: "%",
+    td: "tds", touchdown: "tds", touchdowns: "tds", yds: "yards", yd: "yards", yard: "yards", pct: "%", percent: "%", percentage: "%", rate: "%",
     catches: "receptions", passing: "pass", rushing: "rush", running: "run", receiving: "rec", tackle: "tackles", sacks: "sack",
     // football shorthand people type ("pbus", "tfls", "qbr")
     pbu: "defended", pbus: "defended", pd: "defended", pds: "defended", breakups: "defended", breakup: "defended", tfl: "loss", tfls: "loss",
@@ -350,14 +350,25 @@ const Viz = (() => {
     looks: "targets", dropped: "drops", drop: "drops", fg: "field", fgs: "field", pts: "points", ppg: "points", rushes: "carries", atts: "attempts",
     explosives: "explosive", picked: "interceptions", interception: "interceptions", hurries: "pressures", pressures: "pressures", btk: "broken", btks: "broken" };
   const qStem = (t) => (t.length > 3 && !/ss$/.test(t) ? t.replace(/s$/, "") : t);
-  const qTok = (s) => norm(s).split(/[\s/()]+/).filter((t) => t && !["the", "of", "a", "per"].includes(t)).map((t) => qStem(QSYN[t] || t));
+  // numbers never name a stat ("drops per 100 targets" = drops per target)
+  const qTok = (s) => norm(s).split(/[\s/()]+/).filter((t) => t && !["the", "of", "a", "per"].includes(t) && !/^\d+$/.test(t)).map((t) => qStem(QSYN[t] || t));
+  // Every word any stat's name, unit or group uses. Words outside it (typos, names, "blorp") are skipped instead of sinking the match,
+  // so people can type the way they talk and the stat words still find the stat.
+  const qVocab = new WeakMap();
+  const vocabOf = (groups) => {
+    if (!qVocab.has(groups)) qVocab.set(groups, new Set(groups.flatMap(([g, l]) => [...qTok(g), ...l.flatMap((x) => [...qTok(x[1]), ...qTok(x[0].replace(/_/g, " ")), ...qTok(x[3].unit || "")])])));
+    return qVocab.get(groups);
+  };
   const bestStats = (side, groups) => {
-    const ws = qTok(side);
+    const voc = vocabOf(groups), all = qTok(side);
+    const ws = all.filter((t) => voc.has(t) || (t.length > 2 && [...voc].some((v) => v.startsWith(t))));
     if (!ws.length) return [];
+    const skip = (all.length - ws.length) * 0.02;
     return groups.flatMap(([g, l]) => l.map((x) => {
-      const hl = norm(`${x[1]} ${x[0].replace(/_/g, " ")}`), hg = norm(g), hw = new Set(qTok(x[1])); // whole words: the name you see, not the key
-      return [x, ws.reduce((n, t) => n + (hw.has(t) ? 1 : hl.includes(t) ? 0.8 : hg.includes(t) ? 0.5 : 0), 0) / ws.length - hl.length / 1e4];
-    })).filter((s) => s[1] >= 0.7).sort((a, b) => b[1] - a[1]);
+      // whole words of the name you see count most, then its unit ("targets" for drop %), then parts of words, then the group
+      const hl = norm(`${x[1]} ${x[0].replace(/_/g, " ")}`), hg = norm(g), hw = new Set(qTok(x[1])), hu = new Set(qTok(x[3].unit || ""));
+      return [x, ws.reduce((n, t) => n + (hw.has(t) ? 1 : hu.has(t) ? 0.9 : hl.includes(t) ? 0.8 : hg.includes(t) ? 0.5 : 0), 0) / ws.length - hl.length / 1e4 - skip];
+    })).filter((s) => s[1] >= 0.65).sort((a, b) => b[1] - a[1]);
   };
   // the Filter box: "run stops > 20 and sacks >= 3", "QB, EPA per dropback over .1", "rookies and tackles at least 30 or sacks > 5".
   // "or" splits it into groups (any group can match), "and" / "&" / a comma splits a group into conditions (all must match).
@@ -1250,7 +1261,7 @@ const Viz = (() => {
       if (!ks.length) return "";
       const v = (k) => fmt(s, val(s, k), per);
       if (st.type === "pie") { const tot = ks.reduce((a, k) => a + val(s, k), 0); return `${name(ks[0])} has ${Math.round((100 * val(s, ks[0])) / tot)}% of the ${who === "players" && st.team ? "team's" : "total"} ${lc(s[1])}${ks[1] ? `; ${name(ks[1])} is next with ${Math.round((100 * val(s, ks[1])) / tot)}%` : ""}.`; }
-      return `${name(ks[0])} ${st.order === "worst" ? "is at the bottom" : "leads"} with ${v(ks[0])}${ks[1] ? `; ${name(ks[1])} is next at ${v(ks[1])}` : ""}${ks.length > 2 && st.order !== "worst" ? `. ${ks.length} ${who} qualify` : ""}.`;
+      return `${name(ks[0])} ${st.order === "worst" ? (s[3].low ? "has the most" : "is at the bottom") : "leads"} with ${v(ks[0])}${ks[1] ? `; ${name(ks[1])} is next at ${v(ks[1])}` : ""}${ks.length > 2 && st.order !== "worst" ? `. ${ks.length} ${who} qualify` : ""}.`;
     })();
     // Related: the next questions, built by rule from this chart (same stat, same team, a closer look); they only offer stats this data has
     const related = (() => {
@@ -1489,7 +1500,7 @@ const Viz = (() => {
       .map(([w, p]) => [" " + norm(w) + " ", p]).sort((a, b) => b[0].length - a[0].length);
     const CITY = {};
     for (const x of Object.values(D.teams)) { const c = x[0].split(" ").slice(0, -1).join(" "); CITY[c] = (CITY[c] || 0) + 1; }
-    const ask = (raw) => {
+    const ask = (raw, plain) => {
       const lower = " " + norm(raw).replace(/[?!.,;:]/g, " ").replace(/\s+/g, " ").trim() + " ";
       let t = league === "cfb" ? lower.replace(/ targets? /g, " catches ") : lower;
       const o = {};
@@ -1521,8 +1532,10 @@ const Viz = (() => {
       else for (const ab of raw.match(/\b[A-Z]{2,4}\b/g) || []) { const k = Object.keys(D.teams).find((x) => D.teams[x][1] === ab); if (k) { o.team = k; t = t.replace(" " + norm(ab) + " ", " "); break; } }
       const rest = t.split(" ").filter((w) => w && !ASK_FILL.has(w)).join(" ");
       if (/ (vs|versus|and|x) /.test(` ${rest} `)) return null; // two stats: the scatter suggestions handle it
-      const wantP = o.pos || o.exp || o.draft || o.per === "share" || o.per === "snap" || / (players?|guys|receivers?|qbs?|backs?|rookies?) /.test(lower);
-      const wantT = !wantP && / (teams?|offenses?|defenses?) /.test(lower);
+      // "what team" / "which teams" = teams; any other "who" question is about players ("who on the commanders has the most drops")
+      const teamQ = / (what|which) (teams?|offenses?|defenses?) /.test(lower);
+      const wantP = !teamQ && (o.pos || o.exp || o.draft || o.per === "share" || o.per === "snap" || / (who|whos|players?|guys|receivers?|qbs?|backs?|rookies?) /.test(lower));
+      const wantT = teamQ || (!wantP && / (teams?|offenses?|defenses?) /.test(lower));
       const P1 = rest ? qBest(rest, "players")[0] : null, T1 = rest ? qBest(rest, "teams")[0] : null;
       // a team named with no player words ("chiefs points per game") means the team, unless the player stat fits clearly better
       const w = wantT ? "teams" : wantP ? "players" : (T1?.[1] || 0) > (P1?.[1] || 0) + (o.team ? -0.01 : 0.05) ? "teams" : P1 || ball ? "players" : T1 ? "teams" : null;
@@ -1530,12 +1543,17 @@ const Viz = (() => {
       const named = said && w === "players" && rest ? qBest(rest + " share", "players")[0] : null;
       if (named && /share/i.test(named[0][1]) && named[1] >= 0.9) { s = named[0]; delete o.per; }
       if (!s && ball && w === "players") s = statsFor("players", have).flatMap(([, l]) => l).find((x) => x[0] === "touches");
-      if (!s || (!Object.keys(o).length && !ball && rest === lower.trim())) return null; // nothing beyond a plain stat name: the stat itself is listed
+      if (!s || (!plain && !Object.keys(o).length && !ball && rest === lower.trim())) return null; // nothing beyond a plain stat name: the stat itself is listed
       const patch = { ...o, who: w, stat: s[0] };
       if (patch.from === "first") { patch.from = String(w === "players" ? Math.max(idx.players?.[league] || 0, (idx[league] || [])[0]) : (idx[league] || [])[0]); patch.to = String((idx[league] || []).at(-1)); }
       if (patch.from && !patch.to) patch.to = String((idx[league] || []).at(-1));
       // "most drops" = season totals, not one big game
       if (!patch.per && s[3].count && patch.type !== "line") patch.per = "total";
+      // "fewest drops" means among players who get thrown to, not QBs and kickers with 0: only count players with real volume
+      if (dir === "few" && s[3].low && s[3].vol && w === "players") {
+        const yrs = Math.max(1, (+patch.to || +st.to || 0) - (+patch.from || +st.from || 0) + 1);
+        patch.where = `${s[3].vol[0]} >= ${s[3].vol[1] * yrs}`;
+      }
       if (dir === "worst" || (dir === "most" && s[3].low) || (dir === "few" && !s[3].low)) patch.order = "worst";
       if (patch.per === "share" && !(s[3].count && w === "players")) delete patch.per;
       if (w === "teams" && patch.team) { patch.pick = patch.team; delete patch.team; }
@@ -1544,7 +1562,7 @@ const Viz = (() => {
       const label = [`${s[1]}${patch.per === "share" ? " (share of team)" : patch.per === "snap" ? " per 100 snaps" : ""}`,
         patch.team ? `${D.teams[patch.team][0]} players` : patch.pick ? `highlight ${D.teams[patch.pick][0]}` : patch.pos ? posOpts.find(([k]) => k === patch.pos)?.[1] : "",
         patch.exp ? "rookies" : "", patch.draft ? "undrafted" : "", patch.opp ? OPP.find(([k]) => k === patch.opp)[1].toLowerCase() : "",
-        patch.last ? `last ${patch.last} games` : "", patch.type === "line" ? "week by week" : patch.type ? `${patch.type} chart` : "", patch.order === "worst" ? (s[3].low ? "most first" : "lowest first") : "", patch.from ? (patch.from === patch.to ? patch.from : `${patch.from}–${patch.to}`) : ""].filter(Boolean).join(" · ");
+        patch.last ? `last ${patch.last} games` : "", patch.type === "line" ? "week by week" : patch.type ? `${patch.type} chart` : "", patch.order === "worst" ? (s[3].low ? "most first" : "lowest first") : "", patch.where ? `${patch.where.replace(" >=", "")}+` : "", patch.from ? (patch.from === patch.to ? patch.from : `${patch.from}–${patch.to}`) : ""].filter(Boolean).join(" · ");
       const note = o.from === "first" && w === "players" && idx.players?.[league] > (idx[league] || [])[0] ? ` (player stats start in ${idx.players[league]})` : "";
       return [label + note, "Your question", "", () => { st = { ...DEF, from: patch.from || st.from, to: patch.to || st.to, mode: st.mode, ...patch }; reload(); }];
     };
@@ -1570,7 +1588,7 @@ const Viz = (() => {
         miss[w] = [A[0]?.[0], B[0]?.[0]];
         for (const a of A.slice(0, 2)) for (const b of B.slice(0, 2)) if (a[0][0] !== b[0][0])
           out.push([a[1] + b[1], [`${a[0][1]} vs ${b[0][1]}`, `Scatter · ${w === "players" ? "players" : "teams"}`, "", () => {
-            setWho(w); st.type = "scatter"; st.stat = a[0][0]; st.y = b[0][0]; st.min = ""; st.radar = ""; redo(); }]]);
+            setWho(w); st.type = "scatter"; st.stat = a[0][0]; st.y = b[0][0]; st.min = ""; st.radar = ""; st.top = "all"; redo(); }]]);
       }
       // nothing on the same side: say which stat is a player stat and which is a team stat
       const half = (w) => miss[w].map((x, i) => x && [parts[i], x[1], w]).filter(Boolean);
@@ -1588,10 +1606,13 @@ const Viz = (() => {
         qs.hidden = false; return;
       }
       const words = q.split(/\s+/), pair = qPair(raw);
-      const one = qItems().map((it) => [it, norm(it[0]), norm(`${it[0]} ${it[1]} ${it[2]}`)]).filter(([, , all]) => words.every((w) => all.includes(w)))
-        .map(([it, l]) => [it, l.startsWith(q) ? 0 : words.filter((w) => !/^(and|vs|versus|against|x|&)$/.test(w)).every((w) => l.includes(w)) ? 1 : 2]).sort((a, b) => a[1] - b[1]).slice(0, 12);
+      const qt = qTok(q).filter((w) => !/^(and|vs|versus|against|x|&)$/.test(w)), whole = (it) => { const lt = new Set(qTok(it[0])); return qt.length && qt.every((w) => lt.has(w)); };
+      const one = qItems().map((it) => [it, norm(it[0]), norm(`${it[0]} ${it[1]} ${it[2]}`)]).filter(([it, , all]) => words.every((w) => all.includes(w)) || whole(it))
+        // whole words beat parts of words ("drop rate" is Drop %, not "sack rate ... dropbacks")
+        .map(([it, l]) => [it, l.startsWith(q) ? 0 : whole(it) ? 0.5 : words.filter((w) => !/^(and|vs|versus|against|x|&)$/.test(w)).every((w) => l.includes(w)) ? 1 : 2])
+        .sort((a, b) => a[1] - b[1] || (a[1] === 0.5 ? a[0][0].length - b[0][0].length : 0)).slice(0, 12);
       // a single item named by everything typed comes first, then the two-stat scatters, then looser single matches
-      const asked = ask(raw);
+      const asked = ask(raw, !one.some((x) => x[1] < 2));
       qHits = [...(asked ? [asked] : []), ...one.filter((x) => x[1] < 2).map((x) => x[0]), ...(pair?.hits || []), ...one.filter((x) => x[1] === 2).map((x) => x[0])];
       // nothing at all: drop one word at a time and offer what the rest of the question finds
       if (!qHits.length && words.length > 1) {
