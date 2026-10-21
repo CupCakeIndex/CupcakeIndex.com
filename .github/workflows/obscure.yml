@@ -92,7 +92,13 @@ jobs:
         env:
           STAT: ${{ github.event.schedule == '30 14 * 9-12,1 6' && 'nfl_injuries' || github.event.schedule == '17 18 * 9-12,1 3' && 'weekly_frauds' || github.event.schedule == '17 18 * 9-12,1 4' && 'weekly_overachievers' || inputs.stat || 'rotate' }}
           THEME: ${{ inputs.theme || 'random' }}
-        run: python src/social/obscure.py --stat "$STAT" --theme "$THEME"
+          # the 1 PM run first tries a take on the day's NFL news (writer.py, needs the ANTHROPIC_API_KEY secret);
+          # if there's no key or no good take, it makes the usual stat card
+          TAKE: ${{ github.event.schedule == '2 17 * 8-12,1 *' && 'yes' || '' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$TAKE" ] && python src/social/writer.py --take; then exit 0; fi
+          python src/social/obscure.py --stat "$STAT" --theme "$THEME"
       - uses: actions/upload-artifact@v4
         with:
           name: obscure-stat
@@ -107,6 +113,7 @@ jobs:
           X_API_SECRET: ${{ secrets.X_API_SECRET }}
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}   # writer.py: Claude punches up the post (optional)
         run: python src/social/post_to_x.py --meta out/social/today.json
       - name: Save the posting log (so nothing repeats)
         if: success()

@@ -104,6 +104,25 @@ back, set a repo **variable** `X_INCLUDE_LINK` = `true` (same place as step 4 be
 - Posting uses the X API v2 (`/2/media/upload` then `/2/tweets`). The old v1.1 upload that many
   tutorials show was shut off in 2025.
 
+## Claude writes the posts (optional, about $3-6 a month)
+
+With the GitHub secret `ANTHROPIC_API_KEY` set, `writer.py` has Claude rewrite every post right before it goes
+out: same numbers, a committed take, the team's official @ and a hashtag or two. The 1 PM stat post also tries a
+take on the day's NFL news first (a headline plus where its players and teams rank this season).
+Every Claude post is checked before it goes out. It can't add a number that isn't in the facts, tag an
+account that isn't an official team account in `handles.py` (players are never tagged), use a dash or a link,
+or go over 280 characters. If Claude's text fails a check, or there's no key, the original post goes out with
+the @'s and hashtags added.
+
+To turn it on:
+1. Go to console.anthropic.com, sign in, and open **Billing**. Add $10 of credits and set a monthly limit (say $10).
+2. Open **API keys** > **Create key**, and copy the key.
+3. In GitHub, go to the repo's **Settings** > **Secrets and variables** > **Actions** > **New repository secret**.
+   Set the name to `ANTHROPIC_API_KEY`, paste the key, and save.
+
+Try it on your computer: `python src/social/writer.py --facts` prints the news facts with no key needed.
+`python src/social/writer.py --test "some post"` rewrites one post, and `--take` writes a news take; both need the key.
+
 ## Stat posts and hot takes (twice a day, or whenever you want)
 
 `obscure.py` makes one post: a plain stat anyone can follow (QB rushing yards, interceptions, who a team

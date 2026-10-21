@@ -5,6 +5,8 @@ It only posts when ALL of these are true:
   - X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET are all set (GitHub *secrets*)
   - render.py didn't mark today's post as "skip" (stale or empty data)
   - it isn't a repeat (posted.py: same text, the same post with new numbers, or the same story key)
+If ANTHROPIC_API_KEY is set, writer.py has Claude punch up the wording first (same numbers, plus team @'s and
+hashtags); without it the original text goes out with the @'s and hashtags added.
 Otherwise it prints what it WOULD have posted and exits 0.
 
 Uses the X API v2: POST /2/media/upload (the old v1.1 upload endpoint was retired in 2025),
@@ -30,8 +32,22 @@ def main():
         meta = json.load(f)
 
     print("Tweet text:\n" + meta["text"] + "\nImage: " + (meta.get("image") or "none (text-only post)"))
-    # last line of defense: the account isn't verified, so X rejects anything over 280
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    if meta.get("skip"):
+        print(f"Not posting today: {meta.get('reason') or 'nothing fresh'}.")
+        return
+    import posted
+    why = posted.repeat(meta)
+    if why:
+        print(f"Not posting: {why} (see data/social/posted.json).")
+        return
+    plain = dict(meta)  # the log keeps the original wording, so repeats are still caught tomorrow
+    if not meta.get("written"):  # writer.py --take posts are Claude's already
+        import writer
+        meta["text"] = writer.punch_up(meta)
+        if meta["text"] != plain["text"]:
+            print("As posted (writer.py):\n" + meta["text"])
+    # last line of defense: the account isn't verified, so X rejects anything over 280
     from render import x_len
     if x_len(meta["text"]) > 280:
         sys.exit(f"Refusing to post: {x_len(meta['text'])} characters is over X's 280 limit.")
@@ -42,14 +58,6 @@ def main():
         return
     if missing:
         print("DRY RUN: posting is on but these secrets are missing: " + ", ".join(missing))
-        return
-    if meta.get("skip"):
-        print(f"Not posting today: {meta.get('reason') or 'nothing fresh'}.")
-        return
-    import posted
-    why = posted.repeat(meta)
-    if why:
-        print(f"Not posting: {why} (see data/social/posted.json).")
         return
 
     import requests
@@ -75,7 +83,7 @@ def main():
         sys.exit(f"Posting failed ({r.status_code}): {r.text[:500]}")
     tid = r.json()["data"]["id"]
     print("Posted: https://x.com/i/web/status/" + tid)
-    posted.add(meta)  # the workflow commits this so the next run knows
+    posted.add(plain)  # the workflow commits this so the next run knows
     try:  # the Takes page on the site; never fails the post over it
         import feed
         feed.add(meta, tid)
