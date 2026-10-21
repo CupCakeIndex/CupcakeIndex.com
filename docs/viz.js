@@ -141,6 +141,12 @@ const Viz = (() => {
       ...PEN_FAM.map(([k, l, ks]) => [`tpend_${k}`, `${l.replace(/ \(.*\)$/, "")} drawn`, (S) => famSum(S, "tpd_", ks), { count: 1, need: ["tpd_fs"] }]),
       ...PEN_SIDE.map(([k, l]) => [`tpend_side_${k}`, `Penalties drawn by ${l}`, (S) => S[`tpds_${k}`], { count: 1, need: ["tpds_o"] }]),
     ]],
+    ["Points erased by penalties", [
+      ["tpen_ptsnull", "Points erased by penalties (their own; TD 6, FG 3, safety 2)", (S) => S.tp_ptsnull, { count: 1, low: 1, need: ["tp_ptsnull"] }],
+      ["tpen_tdnull", "Touchdowns erased by penalties (their own)", (S) => S.tp_tdnull, { count: 1, low: 1, need: ["tp_tdnull"] }],
+      ["tpend_ptsnull", "Opponent points erased by penalties (the opponent's own)", (S) => S.tpd_ptsnull, { count: 1, need: ["tpd_ptsnull"] }],
+      ["tpend_tdnull", "Opponent touchdowns erased by penalties (the opponent's own)", (S) => S.tpd_tdnull, { count: 1, need: ["tpd_tdnull"] }],
+    ]],
     ["Penalty yards", [
       ...penYds("tpy_", PEN.map(([k]) => k)).map(([k, l, fn]) => [`tpeny_${k}`, l, fn, { count: 1, low: 1, need: ["tpy_fs"] }]),
       ...PEN_SIDE.map(([k, l]) => [`tpeny_side_${k}`, `Penalty yards on ${l}`, (S) => S[`tpsy_${k}`], { count: 1, low: 1, need: ["tpsy_o"] }]),
@@ -379,6 +385,10 @@ const Viz = (() => {
     ["Penalties by type (called on him)", [...PEN.filter(([k]) => !["dog", "tmm"].includes(k)).map(([k, l]) => [`pen_${k}`, l, (S) => S[`pn_${k}`], { count: 1, low: 1, need: [`pn_${k}`], vol: ["snaps played", 200] }]),
     ]],
     ["Penalties grouped (called on him)", PEN_FAM.map(([k, l, ks]) => [`pen_${k}`, l, (S) => famSum(S, "pn_", ks), { count: 1, low: 1, need: ["pn_fs"], vol: ["snaps played", 200] }])],
+    ["Points erased by his penalties", [
+      ["pen_ptsnull", "Points erased by his penalties (TD 6, FG 3, safety 2)", (S) => S.pn_ptsnull, { count: 1, low: 1, need: ["pn_ptsnull"] }],
+      ["pen_tdnull", "Touchdowns erased by his penalties", (S) => S.pn_tdnull, { count: 1, low: 1, need: ["pn_tdnull"] }],
+    ]],
     ["Penalty yards (called on him)", penYds("pny_", PEN.map(([k]) => k).filter((k) => !["dog", "tmm"].includes(k)))
       .map(([k, l, fn]) => [`peny_${k}`, l, fn, { count: 1, low: 1, need: ["pny_fs"], vol: ["snaps played", 200] }])],
   ];
@@ -396,7 +406,7 @@ const Viz = (() => {
     ff: "fumbles", qbr: "rating", comp: "completion", comps: "completion", cmp: "completion", recs: "receptions", tgt: "targets", tgts: "targets",
     looks: "targets", dropped: "drops", drop: "drops", fg: "field", fgs: "field", pts: "points", ppg: "points", rushes: "carries", atts: "attempts",
     explosives: "explosive", picked: "interceptions", interception: "interceptions", pressures: "pressures", btk: "broken", btks: "broken",
-    flags: "penalties", flag: "penalties", flagged: "penalties", penalized: "penalties", holds: "holding", pi: "interference", personal: "personal" };
+    flags: "penalties", nullified: "erased", wiped: "erased", negated: "erased", erase: "erased", flag: "penalties", flagged: "penalties", penalized: "penalties", holds: "holding", pi: "interference", personal: "personal" };
   const qStem = (t) => (t.length > 3 && !/ss$/.test(t) ? t.replace(/s$/, "") : t);
   // numbers never name a stat ("drops per 100 targets" = drops per target)
   const qTok = (s) => norm(s).split(/[\s/(),:;+]+/).filter((t) => t && !["the", "of", "a", "per"].includes(t) && !/^\d+$/.test(t)).map((t) => qStem(QSYN[t] || t));
@@ -691,6 +701,8 @@ const Viz = (() => {
       ["Most false starts", T_({ type: "bar", stat: "tpen_fs", per: "total", order: "worst", top: "15" })],
       ["Pre-snap penalties, most to fewest", T_({ type: "bar", stat: "tpen_pre", per: "total", order: "worst", top: "all" })],
       ["Who draws the most pass interference", T_({ type: "bar", stat: "tpend_dpi", per: "total", top: "15" })],
+      ["Points erased by their own penalties", T_({ type: "bar", stat: "tpen_ptsnull", per: "total", order: "worst", top: "15" })],
+      ["NFL-wide by season: points erased by penalties since 1999", T_({ type: "bar", scope: "league", stat: "tpen_ptsnull", per: "total", from: "1999", to: "" })],
       ["Personal fouls, most to fewest", T_({ type: "bar", stat: "tpen_pf", per: "total", order: "worst", top: "all" })],
       ["Penalties: offense vs defense", T_({ type: "scatter", stat: "tpen_side_o", y: "tpen_side_d", per: "total", top: "all" })],
       ["NFL-wide by season: personal fouls per game since 1999", T_({ type: "bar", scope: "league", stat: "tpen_pf", from: "1999", to: "" })],
@@ -822,6 +834,7 @@ const Viz = (() => {
       ["Deep cuts: clutch QBs", P_({ type: "bar", stat: "clutch", pos: "QB", top: "15" })],
       ["Deep cuts: deep ball QBs", P_({ type: "bar", stat: "deep_cmp_pct", pos: "QB", top: "15" })],
       ["Deep cuts: most penalized players", P_({ type: "bar", stat: "pen", per: "total", order: "worst", top: "15" })],
+      ["TD killers: touchdowns erased by his penalties", P_({ type: "bar", stat: "pen_tdnull", per: "total", order: "worst", top: "15" })],
       ["Most holding calls (players)", P_({ type: "bar", stat: "pen_hold", per: "total", order: "worst", top: "15" })],
       ["Most pass interference calls (players)", P_({ type: "bar", stat: "pen_dpi", per: "total", order: "worst", top: "15" })],
     ],
@@ -1561,7 +1574,7 @@ const Viz = (() => {
     const CITY = {};
     for (const x of Object.values(D.teams)) { const c = x[0].split(" ").slice(0, -1).join(" "); CITY[c] = (CITY[c] || 0) + 1; }
     // everyday words that never name a stat, so they don't make an answer a "closest match"
-    const ASK_SKIP = new Set(["over", "under", "when", "while", "from", "him", "her", "they", "them", "does", "during", "into", "about", "was", "were", "been", "will", "would", "could", "should", "per", "and", "season", "game", "games"]);
+    const ASK_SKIP = new Set(["out", "off", "up", "over", "under", "when", "while", "from", "him", "her", "they", "them", "does", "during", "into", "about", "was", "were", "been", "will", "would", "could", "should", "per", "and", "season", "game", "games"]);
     const ask = (raw, plain) => {
       const lower = " " + norm(raw).replace(/[?!.,;:]/g, " ").replace(/\s+/g, " ").trim() + " ";
       let t = league === "cfb" ? lower.replace(/ targets? /g, " catches ") : lower;
@@ -1576,6 +1589,11 @@ const Viz = (() => {
       take(/ (vs|against|versus|on|over) (the )?(good|winning|tophalf|top half|top|ranked|playoff|strong|best) ((teams?|defenses?|offenses?|opponents?) )?/, () => { o.opp = "good"; })
         || take(/ (vs|against|versus|on|over) (the )?(cupcakes?|bad|weak|bottomhalf|bottom half|losing|worst) ((teams?|defenses?|offenses?|opponents?) )?/, () => { o.opp = "soft"; })
         || take(/ (vs |against |versus )?cupcakes? /, () => { o.opp = "soft"; });
+      // the whole league as one bar per season: "nfl wide per year", "league-wide by season", "each year"
+      take(/ ((nfl|league|ncaa|college|fbs) ?wide|across the league|(per|by|each|every) (year|season)|year by year|season by season|over the years) /, () => {
+        o.scope = "league"; o.type = "bar"; if (!o.from) o.from = "first";
+      });
+      take(/ ((nfl|league|ncaa|college|fbs) ?wide|across the league|(per|by|each|every) (year|season)) /, () => {});
       take(/ (week by week|by week|each week|every week|over time|trend|trending|per week) /, () => { o.type = "line"; o.top = "5"; });
       take(/ pie( chart)? /, () => { o.type = "pie"; }) || take(/ (table|spreadsheet) /, () => { o.type = "table"; o.per = "total"; });
       const said = / share /.test(t); // "carry share": a share stat by that name beats "carries, as a share"
@@ -1607,8 +1625,8 @@ const Viz = (() => {
       if (/ (vs|versus|and|x) /.test(` ${rest} `)) return null; // two stats: the scatter suggestions handle it
       // "what team" / "which teams" = teams; any other "who" question is about players ("who on the commanders has the most drops")
       const teamQ = / (what|which) (teams?|offenses?|defenses?) /.test(lower);
-      const wantP = !teamQ && (o.pos || o.exp || o.draft || o.per === "share" || o.per === "snap" || / (who|whos|players?|guys|receivers?|qbs?|backs?|rookies?) /.test(lower));
-      const wantT = teamQ || (!wantP && / (teams?|offenses?|defenses?) /.test(lower));
+      const wantP = !teamQ && o.scope !== "league" && (o.pos || o.exp || o.draft || o.per === "share" || o.per === "snap" || / (who|whos|players?|guys|receivers?|qbs?|backs?|rookies?) /.test(lower));
+      const wantT = teamQ || o.scope === "league" || (!wantP && / (teams?|offenses?|defenses?) /.test(lower));
       const P1 = rest ? qBest(rest, "players")[0] : null, T1 = rest ? qBest(rest, "teams")[0] : null;
       // a team named with no player words ("chiefs points per game") means the team, unless the player stat fits clearly better
       const w = wantT ? "teams" : wantP ? "players" : (T1?.[1] || 0) > (P1?.[1] || 0) + (o.team ? -0.01 : 0.05) ? "teams" : P1 || ball ? "players" : T1 ? "teams" : null;
@@ -1635,7 +1653,7 @@ const Viz = (() => {
       const label = [`${s[1]}${patch.per === "share" ? " (share of team)" : patch.per === "snap" ? " per 100 snaps" : ""}`,
         patch.team ? `${D.teams[patch.team][0]} players` : patch.pick ? `highlight ${D.teams[patch.pick][0]}` : patch.pos ? posOpts.find(([k]) => k === patch.pos)?.[1] : "",
         patch.exp ? "rookies" : "", patch.draft ? "undrafted" : "", patch.opp ? OPP.find(([k]) => k === patch.opp)[1].toLowerCase() : "",
-        patch.last ? `last ${patch.last} games` : "", patch.type === "line" ? "week by week" : patch.type ? `${patch.type} chart` : "", patch.order === "worst" ? (s[3].low ? "most first" : "lowest first") : "", patch.where ? `${patch.where.replace(" >=", "")}+` : "", patch.from ? (patch.from === patch.to ? patch.from : `${patch.from}–${patch.to}`) : ""].filter(Boolean).join(" · ");
+        patch.last ? `last ${patch.last} games` : "", patch.scope === "league" ? `${league === "nfl" ? "NFL" : "FBS"}-wide by season` : patch.type === "line" ? "week by week" : patch.type ? `${patch.type} chart` : "", patch.order === "worst" ? (s[3].low ? "most first" : "lowest first") : "", patch.where ? `${patch.where.replace(" >=", "")}+` : "", patch.from ? (patch.from === patch.to ? patch.from : `${patch.from}–${patch.to}`) : ""].filter(Boolean).join(" · ");
       const note = o.from === "first" && w === "players" && idx.players?.[league] > (idx[league] || [])[0] ? ` (player stats start in ${idx.players[league]})` : "";
       // some words matched no stat at all ("punt return yards"): it's a guess, so say so
       const voc = vocabOf(statsFor(w, have)), unknown = qTok(rest).filter((x) => /^[a-z]{3,}$/.test(x) && !ASK_SKIP.has(x) && !voc.has(x) && ![...voc].some((v) => v.startsWith(x)));

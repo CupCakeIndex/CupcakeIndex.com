@@ -44,7 +44,7 @@ XCOLS = [
     # vs the blitz (FTN charting, 2022+): ftn_db = his charted dropbacks, bz_ = dropbacks where 5+ rushed or a DB/LB blitzed
     "ftn_db", "bz_db", "bz_att", "bz_cmp", "bz_yds", "bz_td", "bz_int", "bz_sk", "bz_epa",
     # accepted penalties on him (offensive linemen too)
-    "pen", "pen_yds", *[f"pn_{k}" for k, _ in PEN_TYPES], *[f"pny_{k}" for k, _ in PEN_TYPES],
+    "pen", "pen_yds", *[f"pn_{k}" for k, _ in PEN_TYPES], *[f"pny_{k}" for k, _ in PEN_TYPES], "pn_tdnull", "pn_ptsnull",
     # where the ball went (nflverse air yards + pass_location): zone = depth s/i/d (under 10 air yards, 10-19, 20+) + side l/m/r.
     # QBs: z_<zone>_att/_cmp/_yds/_td/_int/_epa; receivers: zt_<zone> targets, zc_<zone> catches, zy_ yards, ze_ EPA.
     # Throwaways and spikes have no zone.
@@ -58,7 +58,9 @@ TCOLS = ["opp_att", "opp_cmp", "opp_yac", "opp_short_att", "opp_short_cmp", "opp
          # every accepted penalty by the unit that committed it (o offense, d defense, s special teams) and the unit that drew it
          "tps_o", "tps_d", "tps_s", "tpds_o", "tpds_d", "tpds_s",
          # the same in penalty yards: tpy_/tpdy_ by type, tpsy_/tpdsy_ by unit
-         *[f"tpy_{k}" for k, _ in PEN_TYPES], *[f"tpdy_{k}" for k, _ in PEN_TYPES], "tpsy_o", "tpsy_d", "tpsy_s", "tpdsy_o", "tpdsy_d", "tpdsy_s"]
+         *[f"tpy_{k}" for k, _ in PEN_TYPES], *[f"tpdy_{k}" for k, _ in PEN_TYPES], "tpsy_o", "tpsy_d", "tpsy_s", "tpdsy_o", "tpdsy_d", "tpdsy_s",
+         # scores wiped out by the scoring team's own penalty ("TOUCHDOWN NULLIFIED by Penalty"): touchdowns, and points (TD 6, FG 3, safety 2)
+         "tp_tdnull", "tp_ptsnull", "tpd_tdnull", "tpd_ptsnull"]
 
 
 def f(x):
@@ -150,8 +152,25 @@ def per_game(season, T=None):
         # accepted penalties, on any play (false starts and holds are often "no_play")
         if row.get("penalty") == "1":
             d = (row.get("desc") or "").lower()
+            pk, w_ = PEN_OF.get(row.get("penalty_type")), int(f(row["week"]))
+            # a score his own team's foul took off the board. A defensive foul on a made field goal isn't one: the kicking team chose the yards.
+            # Checked before the "declined" rule below: a second, declined flag on the same play doesn't bring the touchdown back.
+            D_, pt_ = d.upper(), row.get("penalty_team")
+            own = "offsetting" not in d and pt_ not in (None, "", "NA") and (
+                6 if "TOUCHDOWN NULLIFIED" in D_ else
+                3 if "FIELD GOAL IS GOOD, NULLIFIED" in D_ and pt_ == row.get("posteam") else
+                2 if "SAFETY NULLIFIED" in D_ and pt_ == row.get("defteam") else 0)
+            if own:
+                if row.get("penalty_player_id") not in (None, "", "NA"):
+                    S[row["penalty_player_id"], w_]["pn_tdnull"] += own == 6
+                    S[row["penalty_player_id"], w_]["pn_ptsnull"] += own
+                T_[pt_, w_]["tp_tdnull"] += own == 6
+                T_[pt_, w_]["tp_ptsnull"] += own
+                opp_ = row["defteam"] if pt_ == row.get("posteam") else row.get("posteam")
+                if opp_ not in (None, "", "NA"):
+                    T_[opp_, w_]["tpd_tdnull"] += own == 6
+                    T_[opp_, w_]["tpd_ptsnull"] += own
             if "declined" not in d and "offsetting" not in d:
-                pk, w_ = PEN_OF.get(row.get("penalty_type")), int(f(row["week"]))
                 if row.get("penalty_player_id") not in (None, "", "NA"):
                     s = S[row["penalty_player_id"], w_]
                     s["pen"] += 1
@@ -160,7 +179,6 @@ def per_game(season, T=None):
                         s[f"pn_{pk}"] += 1
                         s[f"pny_{pk}"] += f(row.get("penalty_yards"))
                 # team ones too (delay of game, too many men have no player)
-                pt_ = row.get("penalty_team")
                 if pt_ not in (None, "", "NA") and row.get("posteam") not in (None, "", "NA"):
                     kick = row.get("play_type") in ("kickoff", "punt", "field_goal", "extra_point")
                     side = "s" if kick else "o" if pt_ == row["posteam"] else "d"
