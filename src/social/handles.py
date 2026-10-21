@@ -48,14 +48,34 @@ ALIASES = {"bucs": "Tampa Bay Buccaneers", "niners": "San Francisco 49ers", "pat
            "jags": "Jacksonville Jaguars", "phins": "Miami Dolphins", "bolts": "Los Angeles Chargers"}
 
 
+# team codes the stat cards use ("David Bailey (NYJ)"); matched only in capitals. Two-letter codes that are also
+# words or places (NO, LA) count only in parentheses, so "NO team" or "LA traffic" never tags anyone.
+ABBR = {"ARI": "Arizona Cardinals", "ATL": "Atlanta Falcons", "BAL": "Baltimore Ravens", "BUF": "Buffalo Bills",
+        "CAR": "Carolina Panthers", "CHI": "Chicago Bears", "CIN": "Cincinnati Bengals", "CLE": "Cleveland Browns",
+        "DAL": "Dallas Cowboys", "DEN": "Denver Broncos", "DET": "Detroit Lions", "GB": "Green Bay Packers",
+        "HOU": "Houston Texans", "IND": "Indianapolis Colts", "JAX": "Jacksonville Jaguars", "KC": "Kansas City Chiefs",
+        "LV": "Las Vegas Raiders", "LAC": "Los Angeles Chargers", "LAR": "Los Angeles Rams", "LA": "Los Angeles Rams",
+        "MIA": "Miami Dolphins", "MIN": "Minnesota Vikings", "NE": "New England Patriots", "NO": "New Orleans Saints",
+        "NYG": "New York Giants", "NYJ": "New York Jets", "PHI": "Philadelphia Eagles", "PIT": "Pittsburgh Steelers",
+        "SF": "San Francisco 49ers", "SEA": "Seattle Seahawks", "TB": "Tampa Bay Buccaneers", "TEN": "Tennessee Titans",
+        "WAS": "Washington Commanders", "WSH": "Washington Commanders"}
+PAREN_ONLY = {"NO", "LA", "MIN"}
+
+
+def _codes(text):
+    found = set(re.findall(r"(?<![A-Za-z0-9@#])[A-Z]{2,3}(?![A-Za-z0-9])", text))
+    return {ABBR[c] for c in found if c in ABBR and (c not in PAREN_ONLY or f"({c})" in text)}
+
+
 def nickname(full):
     """'San Francisco 49ers' -> '49ers' (every NFL nickname is unique)."""
     return full.rsplit(" ", 1)[-1]
 
 
 def teams_in(text):
-    """NFL teams named in a piece of text, by full name, nickname or a common short name."""
+    """NFL teams named in a piece of text, by full name, nickname, a common short name or a team code (NYJ)."""
     low = text.lower()
     words = set(re.findall(r"[a-z0-9]+", low))
-    return [t for t in NFL if t.lower() in low or nickname(t).lower() in words
+    codes = _codes(text)
+    return [t for t in NFL if t.lower() in low or nickname(t).lower() in words or t in codes
             or any(a in words for a, full in ALIASES.items() if full == t)]
