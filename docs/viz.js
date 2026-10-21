@@ -100,6 +100,43 @@ const Viz = (() => {
     ]],
   ];
   const TX = ["run_stop", "run_tkl", "run_tkl_yds", "stuff", "sy_stop", "third_stop", "pressure"]; // player columns a team's total is added up from
+  // where the ball went (src/deep_stats.py): zone = depth s/i/d (under 10 air yards, 10-19, 20+) + side l/m/r. QBs have
+  // z_<zone>_att/_cmp/_yds, receivers zt_<zone> (targets) and zc_<zone> (catches). A "split" stat is a breakdown, not one number:
+  // a bar chart stacks it (one 100% bar per player), a pie shows one player's slices; anywhere else it's the total.
+  const ZONES = ["sl", "sm", "sr", "il", "im", "ir", "dl", "dm", "dr"];
+  const ZD = { s: "Short", i: "Intermediate", d: "Deep" }, ZS = { l: "left", m: "middle", r: "right" };
+  const zs = (S, col, f) => ZONES.filter(f).reduce((a, z) => a + (S[col(z)] || 0), 0);
+  const zAtt = (z) => `z_${z}_att`, zCmp = (z) => `z_${z}_cmp`, zYds = (z) => `z_${z}_yds`, zTgt = (z) => `zt_${z}`, zRec = (z) => `zc_${z}`;
+  const BY = { // [key, label, which zones]
+    side: Object.entries(ZS).map(([k, l]) => [k, l, (z) => z[1] === k]),
+    depth: Object.entries(ZD).map(([k, l]) => [k, l.toLowerCase(), (z) => z[0] === k]),
+    zone: ZONES.map((z) => [z, `${ZD[z[0]].toLowerCase()} ${ZS[z[1]]}`, (x) => x === z]),
+  };
+  const DEPTH_TXT = { short: "short (under 10 air yards)", intermediate: "intermediate (10-19 air yards)", deep: "deep (20+ air yards)" };
+  const cap = (x) => x[0].toUpperCase() + x.slice(1);
+  const splitOf = (col, by) => BY[by].map(([, l, f]) => [cap(l), (S) => zs(S, col, f)]);
+  const zoneStats = (who) => {
+    const att = who === "qb" ? zAtt : zTgt, need = [who === "qb" ? "z_sl_att" : "zt_sl"];
+    const unit = who === "qb" ? "zoned throws" : "zoned targets", thing = who === "qb" ? "throws" : "targets", pos = who === "qb" ? "QB" : "WR";
+    const all = (S) => zs(S, att, () => 1), o = { den: all, pct: 1, unit, need, pos, lg: "nfl" };
+    return [
+      [`${who}_by_side`, `${who === "qb" ? "Where he throws" : "Where he's targeted"}: left / middle / right`, all, { count: 1, unit, need, pos, lg: "nfl", split: splitOf(att, "side") }],
+      [`${who}_by_depth`, `${who === "qb" ? "Where he throws" : "Where he's targeted"}: short / intermediate / deep`, all, { count: 1, unit, need, pos, lg: "nfl", split: splitOf(att, "depth") }],
+      [`${who}_by_zone`, `${who === "qb" ? "Where he throws" : "Where he's targeted"}: all 9 zones`, all, { count: 1, unit, need, pos, lg: "nfl", split: splitOf(att, "zone") }],
+      ...["side", "depth"].flatMap((by) => BY[by].map(([k, l, f]) => [`${who}_pct_${k}`, `% of ${thing} ${by === "side" ? `to the ${l}` : DEPTH_TXT[l]}`, (S) => div(100 * zs(S, att, f), all(S)), o])),
+      ...BY.zone.map(([k, l, f]) => [`${who}_pct_${k}`, `% of ${thing}: ${l}`, (S) => div(100 * zs(S, att, f), all(S)), o]),
+      ...["side", "depth"].flatMap((by) => BY[by].map(([k, l, f]) => [`${who}_n_${k}`, `${cap(thing)} ${by === "side" ? `to the ${l}` : DEPTH_TXT[l]}`, (S) => zs(S, att, f), { count: 1, need, pos, lg: "nfl" }])),
+    ];
+  };
+  // how it went in each part of the field
+  const zoneResults = (who) => {
+    const att = who === "qb" ? zAtt : zTgt, ok = who === "qb" ? zCmp : zRec, need = [who === "qb" ? "z_sl_att" : "zt_sl"], pos = who === "qb" ? "QB" : "WR";
+    const rows = [...BY.side.map((x) => [...x, `to the ${x[1]}`]), ...BY.depth.map((x) => [...x, DEPTH_TXT[x[1]]]), ...BY.zone.filter(([z]) => z[0] === "d").map((x) => [...x, `to the ${x[1]}`])];
+    return rows.flatMap(([k, , f, txt]) => [
+      [`${who}_cmp_${k}`, `${who === "qb" ? "Completion %" : "Catch %"} ${txt}`, (S) => div(100 * zs(S, ok, f), zs(S, att, f)), { den: (S) => zs(S, att, f), pct: 1, unit: `${who === "qb" ? "throws" : "targets"} there`, need, pos, lg: "nfl" }],
+      ...(who === "qb" ? [[`qb_ypa_${k}`, `Yards per attempt ${txt}`, (S) => div(zs(S, zYds, f), zs(S, att, f)), { den: (S) => zs(S, att, f), d: 2, unit: "throws there", need, pos, lg: "nfl" }]] : []),
+    ]);
+  };
   const rating = (S) => { // NFL passer rating
     if (!S.att) return null;
     const c = (x) => Math.max(0, Math.min(2.375, x));
@@ -221,6 +258,10 @@ const Viz = (() => {
       ["bz_epa", "EPA per dropback vs the blitz", (S) => div(S.bz_epa, S.bz_db), { den: (S) => S.bz_db, d: 3, unit: "blitzed dropbacks", need: ["bz_db"] }],
       ["bad_throw_pct", "Bad throw %", (S) => div(100 * S.bad_throws, S.att), { den: (S) => S.att, pct: 1, low: 1, unit: "pass attempts", need: ["bad_throws"] }],
     ]],
+    // where the ball went: nflverse's air yards + side of the field on every throw (the same data as the pass charts on player pages)
+    ["Where QBs throw (field zones)", zoneStats("qb")],
+    ["Where QBs throw: how it went", zoneResults("qb")],
+    ["Where receivers get targeted", [...zoneStats("rec"), ...zoneResults("rec")]],
     // offensive linemen come from the snap counts (no box-score stats); penalties = accepted ones called on him, from play-by-play
     ["Offensive line and penalties", [
       ["off_snaps", "Snaps played", (S) => S.snaps, { count: 1, need: ["pen"] }],
@@ -430,37 +471,114 @@ const Viz = (() => {
   }
   const stSub = () => Live.statsSubtabs("visualize");
 
-  // Presets: popular charts, one pick away (the Presets dropdown). People's own presets are added below these.
+  // Presets: popular charts, one pick away (the Presets dropdown). A plain string starts a new heading in the dropdown.
+  // People's own presets are added below these.
   const T_ = (o) => ({ who: "teams", ...o }), P_ = (o) => ({ who: "players", ...o });
   const PRESETS = {
     nfl: [
+      "Teams",
       ["Schedule vs record (the Schedules chart)", T_({ type: "scatter", stat: "ci_sos", y: "win_pct", top: "all" })],
       ["Who's for real: EPA per play vs points", T_({ type: "scatter", stat: "epa_play", y: "pts", top: "all" })],
+      ["Offense vs defense (EPA, four quadrants)", T_({ type: "scatter", stat: "epa_play", y: "def_epa_play", top: "all", quad: "Defense carries|Contenders|Bad at both|Shootouts" })],
+      ["Pass offense vs run offense (EPA)", T_({ type: "scatter", stat: "pass_epa_play", y: "rush_epa_play", top: "all", quad: "Run first|Do it all|Stuck|Air it out" })],
       ["Coach score vs power rating", T_({ type: "scatter", stat: "co_score", y: "ci_rating", top: "all" })],
       ["Best offenses (EPA per play)", T_({ type: "bar", stat: "epa_play", top: "15" })],
       ["Best defenses (EPA per play allowed)", T_({ type: "bar", stat: "def_epa_play", top: "15" })],
+      ["Net EPA: offense minus defense", T_({ type: "bar", stat: "net_epa", top: "all" })],
+      ["Point margin", T_({ type: "bar", stat: "margin", per: "total", top: "all" })],
       ["Turnover margin", T_({ type: "bar", stat: "to_margin", per: "total", top: "all" })],
-      ["NFL-wide by week: penalties per game, season vs season", T_({ type: "line", scope: "league", stat: "pen" })],
-      ["NFL-wide by season: penalties per game since 1999", T_({ type: "bar", scope: "league", stat: "pen", from: "1999", to: "" })],
+      ["Most sacks allowed", T_({ type: "bar", stat: "sacked", per: "total", order: "worst", top: "15" })],
+      ["Who blitzes the most", T_({ type: "bar", stat: "blitz_rate", top: "15" })],
+      ["Worst deep-ball defenses (deep completion % allowed)", T_({ type: "bar", stat: "deep_cmp_allowed", order: "worst", top: "15" })],
+      ["Most yards after catch allowed", T_({ type: "bar", stat: "yac_allowed", order: "worst", top: "15" })],
+      ["Most penalized teams", T_({ type: "bar", stat: "pen", order: "worst", top: "15" })],
+      ["Share of the league's sacks (pie)", T_({ type: "pie", stat: "def_sacks", top: "10" })],
       ["Team profiles (radar)", T_({ type: "radar", top: "3" })],
+      "League history",
+      ["NFL-wide by week: penalties per game, season vs season", T_({ type: "line", scope: "league", stat: "pen" })],
+      ["NFL-wide by week: points per game, season vs season", T_({ type: "line", scope: "league", stat: "pts" })],
+      ["NFL-wide by season: penalties per game since 1999", T_({ type: "bar", scope: "league", stat: "pen", from: "1999", to: "" })],
+      ["NFL-wide by season: points per game since 1999", T_({ type: "bar", scope: "league", stat: "pts", from: "1999", to: "" })],
+      ["NFL-wide by season: passing yards per game since 1999", T_({ type: "bar", scope: "league", stat: "pass_yds", from: "1999", to: "" })],
+      ["NFL-wide by season: rushing yards per game since 1999", T_({ type: "bar", scope: "league", stat: "rush_yds", from: "1999", to: "" })],
+      ["NFL-wide by season: sacks per game since 1999", T_({ type: "bar", scope: "league", stat: "def_sacks", from: "1999", to: "" })],
+      "Quarterbacks",
       ["Top passers (EPA per dropback)", P_({ type: "bar", stat: "epa_db", pos: "QB", top: "15" })],
+      ["Passer rating leaders", P_({ type: "bar", stat: "rating", pos: "QB", top: "15" })],
       ["QB efficiency vs volume", P_({ type: "scatter", stat: "epa_db", y: "pass_yds", pos: "QB", top: "all" })],
+      ["Completion % vs yards per attempt", P_({ type: "scatter", stat: "cmp_pct", y: "ypa", pos: "QB", top: "all", quad: "Gunslingers|Elite|Struggling|Dink and dunk" })],
       ["Passing yards race", P_({ type: "line", stat: "pass_yds", pos: "QB", top: "5", cum: "1" })],
+      ["Passing TD race", P_({ type: "line", stat: "pass_td", pos: "QB", top: "5", cum: "1" })],
+      ["Most interceptions thrown", P_({ type: "bar", stat: "int", per: "total", pos: "QB", order: "worst", top: "15" })],
+      ["Most sacked QBs", P_({ type: "bar", stat: "sacked", per: "total", pos: "QB", order: "worst", top: "15" })],
+      ["Running QBs (rushing yards)", P_({ type: "bar", stat: "rush_yds", per: "total", pos: "QB", top: "15" })],
+      ["Rookie QBs (EPA per dropback)", P_({ type: "bar", stat: "epa_db", pos: "QB", exp: "1", top: "10" })],
+      ["Under pressure: pressured % vs EPA", P_({ type: "scatter", stat: "pressured_pct", y: "epa_db", pos: "QB", top: "all" })],
+      ["Best vs the blitz (passer rating)", P_({ type: "bar", stat: "bz_rating", pos: "QB", top: "15" })],
+      ["Fewest bad throws", P_({ type: "bar", stat: "bad_throw_pct", pos: "QB", top: "15" })],
+      ["Red-zone TD % (QB)", P_({ type: "bar", stat: "rz_td_pct", pos: "QB", top: "15" })],
+      ["3rd-down QBs (conversion %)", P_({ type: "bar", stat: "third_db_pct", pos: "QB", top: "15" })],
       ["QB profiles (radar)", P_({ type: "radar", pos: "QB", top: "3" })],
-      ["Rushing yards race", P_({ type: "line", stat: "rush_yds", pos: "RB", top: "5", cum: "1" })],
-      ["Workhorse RB1s (carries per game)", P_({ type: "bar", stat: "carries", role: "RB1", top: "15" })],
+      "Where QBs throw",
+      ["Where QBs throw: left / middle / right", P_({ type: "bar", stat: "qb_by_side", pos: "QB", top: "15" })],
+      ["Where QBs throw: short / intermediate / deep", P_({ type: "bar", stat: "qb_by_depth", pos: "QB", top: "15" })],
+      ["Where QBs throw: all 9 zones", P_({ type: "bar", stat: "qb_by_zone", pos: "QB", top: "10" })],
+      ["One QB's throw map (pie: pick him in Highlight)", P_({ type: "pie", stat: "qb_by_zone", pos: "QB" })],
+      ["Who throws deep the most (% of throws 20+ air yards)", P_({ type: "bar", stat: "qb_pct_d", pos: "QB", top: "15" })],
+      ["Checkdown kings (% of throws under 10 air yards)", P_({ type: "bar", stat: "qb_pct_s", pos: "QB", top: "15" })],
+      ["Who works the middle of the field", P_({ type: "bar", stat: "qb_pct_m", pos: "QB", top: "15" })],
+      ["Aggressive vs accurate: deep % vs completion %", P_({ type: "scatter", stat: "qb_pct_d", y: "cmp_pct", pos: "QB", top: "all", quad: "Safe|Elite|Struggling|Gunslingers" })],
+      ["Left vs right: % of throws to each side", P_({ type: "scatter", stat: "qb_pct_l", y: "qb_pct_r", pos: "QB", top: "all" })],
+      ["Deep ball accuracy (completion % on 20+ air yards)", P_({ type: "bar", stat: "qb_cmp_d", pos: "QB", top: "15" })],
+      ["Deep middle: who hits it (completion %)", P_({ type: "bar", stat: "qb_cmp_dm", pos: "QB", top: "15" })],
+      ["Yards per attempt over the middle", P_({ type: "bar", stat: "qb_ypa_m", pos: "QB", top: "15" })],
+      ["Yards per attempt on intermediate throws (10-19)", P_({ type: "bar", stat: "qb_ypa_i", pos: "QB", top: "15" })],
+      ["Throw-zone profiles (radar)", P_({ type: "radar", pos: "QB", top: "3", radar: "qb_pct_l,qb_pct_m,qb_pct_r,qb_pct_s,qb_pct_i,qb_pct_d" })],
+      "Receivers",
       ["Best WR1s (receiving yards per game)", P_({ type: "bar", stat: "rec_yds", role: "WR1", top: "15" })],
       ["Best WR2s (receiving yards per game)", P_({ type: "bar", stat: "rec_yds", role: "WR2", top: "15" })],
+      ["Receiving yards race", P_({ type: "line", stat: "rec_yds", pos: "WR", top: "5", cum: "1" })],
+      ["Target leaders", P_({ type: "bar", stat: "targets", per: "total", pos: "WR", top: "15" })],
+      ["Air yards leaders", P_({ type: "bar", stat: "air_yds", per: "total", pos: "WR", top: "15" })],
       ["Deep threats: yards per catch vs catch rate", P_({ type: "scatter", stat: "ypr", y: "catch_pct", pos: "WR", top: "25" })],
+      ["EPA per target", P_({ type: "bar", stat: "epa_tgt", pos: "WR", top: "15" })],
       ["Yards after catch leaders", P_({ type: "bar", stat: "yac", top: "15" })],
+      ["Where receivers get targeted: left / middle / right", P_({ type: "bar", stat: "rec_by_side", pos: "WR", top: "15" })],
+      ["Where receivers get targeted: short / intermediate / deep", P_({ type: "bar", stat: "rec_by_depth", pos: "WR", top: "15" })],
+      ["Tight ends: where they get targeted", P_({ type: "bar", stat: "rec_by_depth", pos: "TE", top: "10" })],
+      ["Deep target share (% of targets 20+ air yards)", P_({ type: "bar", stat: "rec_pct_d", pos: "WR", top: "15" })],
+      ["Catch % on deep targets", P_({ type: "bar", stat: "rec_cmp_d", pos: "WR", top: "15" })],
+      ["Red-zone targets", P_({ type: "bar", stat: "rz_tgt", per: "total", top: "15" })],
+      ["WR profiles (radar)", P_({ type: "radar", pos: "WR", top: "3" })],
+      "Running backs",
+      ["Rushing yards race", P_({ type: "line", stat: "rush_yds", pos: "RB", top: "5", cum: "1" })],
+      ["Workhorse RB1s (carries per game)", P_({ type: "bar", stat: "carries", role: "RB1", top: "15" })],
+      ["Yards per carry", P_({ type: "bar", stat: "ypc", pos: "RB", top: "15" })],
+      ["Run success % vs yards per carry", P_({ type: "scatter", stat: "rush_succ_pct", y: "ypc", pos: "RB", top: "all", quad: "Boom or bust|Elite|Stuck|Grinders" })],
+      ["Explosive runs (10+ yards)", P_({ type: "bar", stat: "rush_10", per: "total", pos: "RB", top: "15" })],
+      ["Pass-catching backs", P_({ type: "bar", stat: "rec_yds", per: "total", pos: "RB", top: "15" })],
+      ["Scrimmage yards leaders", P_({ type: "bar", stat: "scrim", per: "total", top: "15" })],
+      ["RB profiles (radar)", P_({ type: "radar", pos: "RB", top: "3" })],
+      "Fantasy",
       ["Fantasy (PPR) leaders", P_({ type: "bar", stat: "ppr", top: "20" })],
+      ["Fantasy (PPR): QBs", P_({ type: "bar", stat: "ppr", pos: "QB", top: "15" })],
+      ["Fantasy (PPR): RBs", P_({ type: "bar", stat: "ppr", pos: "RB", top: "15" })],
+      ["Fantasy (PPR): WRs and TEs", P_({ type: "bar", stat: "ppr", pos: "WR", top: "15" })],
+      ["Fantasy (PPR) points race", P_({ type: "line", stat: "ppr", top: "5", cum: "1" })],
+      "Defense",
       ["Sack leaders", P_({ type: "bar", stat: "def_sacks", per: "total", pos: "DEF", top: "15" })],
+      ["Interception leaders", P_({ type: "bar", stat: "def_int", per: "total", pos: "DEF", top: "15" })],
+      ["Tackles for loss", P_({ type: "bar", stat: "tfl", per: "total", pos: "DEF", top: "15" })],
+      ["Passes defended", P_({ type: "bar", stat: "pd", per: "total", pos: "DEF", top: "15" })],
+      ["Pass rushers: pressures vs sacks", P_({ type: "scatter", stat: "pressure", y: "def_sacks", per: "total", pos: "EDGE", top: "50" })],
       ["DB coverage: passer rating allowed (corners)", P_({ type: "bar", stat: "cov_rating", pos: "CB", top: "15" })],
       ["DB coverage: success % vs yards per target (corners)", P_({ type: "scatter", stat: "cov_win", y: "cov_ypt", pos: "CB", top: "all" })],
       ["DB coverage: safeties, passer rating allowed", P_({ type: "bar", stat: "cov_rating", pos: "S", top: "15" })],
       ["DB coverage: rookie corners, success %", P_({ type: "bar", stat: "cov_win", pos: "CB", exp: "1", top: "15" })],
       ["DB coverage: most picked on (targets)", P_({ type: "bar", stat: "cov_tgt", per: "total", pos: "CB", top: "15" })],
       ["DB coverage: corner profiles (radar)", P_({ type: "radar", pos: "CB", top: "3" })],
+      ["Field goal % (kickers)", P_({ type: "bar", stat: "fg_pct", pos: "K", top: "15" })],
+      "Deep cuts",
       ["Deep cuts: pressure leaders", P_({ type: "bar", stat: "pressure", per: "total", pos: "DEF", top: "15" })],
       ["Deep cuts: missed tackles (most)", P_({ type: "bar", stat: "miss_tkl", per: "total", pos: "DEF", order: "worst", top: "15" })],
       ["Deep cuts: rookie LBs, run stops", P_({ type: "bar", stat: "run_stop", per: "total", pos: "LB", exp: "1", top: "15" })],
@@ -472,31 +590,53 @@ const Viz = (() => {
       ["Deep cuts: rookie DBs, ball production", P_({ type: "bar", stat: "ball", per: "total", pos: "CB", exp: "1", top: "15" })],
       ["Deep cuts: short-yardage backs", P_({ type: "bar", stat: "sy_conv_pct", pos: "RB", top: "15" })],
       ["Deep cuts: who gets stuffed most (RBs)", P_({ type: "bar", stat: "stuffed_pct", pos: "RB", order: "worst", top: "15" })],
+      ["Deep cuts: goal-line carries", P_({ type: "bar", stat: "gl_carries", per: "total", pos: "RB", top: "15" })],
       ["Deep cuts: rookie WRs, deep catches", P_({ type: "bar", stat: "deep_rec", per: "total", pos: "WR", exp: "1", top: "15" })],
       ["Deep cuts: 3rd-down go-to guys", P_({ type: "bar", stat: "third_conv", per: "total", top: "15" })],
       ["Deep cuts: clutch QBs", P_({ type: "bar", stat: "clutch", pos: "QB", top: "15" })],
       ["Deep cuts: deep ball QBs", P_({ type: "bar", stat: "deep_cmp_pct", pos: "QB", top: "15" })],
+      ["Deep cuts: most penalized players", P_({ type: "bar", stat: "pen", per: "total", order: "worst", top: "15" })],
     ],
     cfb: [
+      "Teams",
       ["Schedule vs cupcakes (the Schedules chart)", T_({ type: "scatter", stat: "ci_sos", y: "ci_cupcake", top: "all" })],
       ["Who's for real: EPA per play vs points", T_({ type: "scatter", stat: "epa_play", y: "pts", top: "50" })],
       ["Power rating vs record (who's lucky?)", T_({ type: "scatter", stat: "ci_rating", y: "win_pct", top: "50" })],
+      ["Offense vs defense (EPA, four quadrants)", T_({ type: "scatter", stat: "epa_play", y: "def_epa_play", top: "50", quad: "Defense carries|Contenders|Bad at both|Shootouts" })],
       ["Coach score vs power rating", T_({ type: "scatter", stat: "co_score", y: "ci_rating", top: "50" })],
+      ["Success rate vs EPA (consistent or explosive?)", T_({ type: "scatter", stat: "succ", y: "epa_play", top: "50" })],
+      ["Most padded schedules (cupcake score)", T_({ type: "bar", stat: "ci_cupcake", top: "15" })],
+      ["Hardest schedules", T_({ type: "bar", stat: "ci_sos", top: "15" })],
       ["Best offenses (EPA per play)", T_({ type: "bar", stat: "epa_play", top: "15" })],
       ["Best defenses (EPA per play allowed)", T_({ type: "bar", stat: "def_epa_play", top: "15" })],
-      ["Success rate vs EPA (consistent or explosive?)", T_({ type: "scatter", stat: "succ", y: "epa_play", top: "50" })],
+      ["Yards per play", T_({ type: "bar", stat: "ypp", top: "15" })],
+      ["Point margin", T_({ type: "bar", stat: "margin", per: "total", top: "25" })],
       ["Third-down rate", T_({ type: "bar", stat: "third", top: "15" })],
+      ["Most penalized teams", T_({ type: "bar", stat: "pen", order: "worst", top: "15" })],
       ["League-wide by week: points per game, season vs season", T_({ type: "line", scope: "league", stat: "pts" })],
       ["Team profiles (radar)", T_({ type: "radar", top: "3" })],
+      "Players",
       ["Top passers (passing efficiency)", P_({ type: "bar", stat: "eff", pos: "QB", top: "15" })],
+      ["Completion % vs yards per attempt", P_({ type: "scatter", stat: "cmp_pct", y: "ypa", pos: "QB", top: "50", quad: "Gunslingers|Elite|Struggling|Dink and dunk" })],
       ["Passing yards race", P_({ type: "line", stat: "pass_yds", pos: "QB", top: "5", cum: "1" })],
+      ["Passing TD race", P_({ type: "line", stat: "pass_td", pos: "QB", top: "5", cum: "1" })],
+      ["Running QBs (rushing yards)", P_({ type: "bar", stat: "rush_yds", per: "total", pos: "QB", top: "15" })],
       ["QB profiles (radar)", P_({ type: "radar", pos: "QB", top: "3" })],
       ["Rushing yards race", P_({ type: "line", stat: "rush_yds", pos: "RB", top: "5", cum: "1" })],
+      ["Yards per carry", P_({ type: "bar", stat: "ypc", pos: "RB", top: "15" })],
+      ["Rushing + receiving TDs", P_({ type: "bar", stat: "tds", per: "total", top: "15" })],
       ["Best WR1s (receiving yards per game)", P_({ type: "bar", stat: "rec_yds", role: "WR1", top: "15" })],
+      ["Receiving yards race", P_({ type: "line", stat: "rec_yds", pos: "WR", top: "5", cum: "1" })],
+      ["Yards per catch", P_({ type: "bar", stat: "ypr", pos: "WR", top: "15" })],
       ["Scrimmage yards leaders", P_({ type: "bar", stat: "scrim", top: "15" })],
       ["Sack leaders", P_({ type: "bar", stat: "def_sacks", per: "total", pos: "DEF", top: "15" })],
+      ["Interception leaders", P_({ type: "bar", stat: "def_int", per: "total", pos: "DEF", top: "15" })],
+      ["Tackle leaders", P_({ type: "bar", stat: "tackles", per: "total", pos: "DEF", top: "15" })],
+      ["Tackles for loss", P_({ type: "bar", stat: "tfl", per: "total", pos: "DEF", top: "15" })],
     ],
   };
+  // the dropdown's headings: [heading, [[name, index in the list], ...]] (the option's value is p<index>)
+  const presetGroups = (list) => list.reduce((out, x, i) => { if (typeof x === "string") out.push([x, []]); else (out.at(-1) || (out[0] = ["Popular", []]))[1].push([x[0], i]); return out; }, []);
   // your own presets: localStorage "viz-presets" {nfl: [{name, st}], cfb: [...]}, synced to your account when signed in (account.js)
   const MINE = "viz-presets";
   const mine = () => store.get(MINE) || {};
@@ -688,6 +828,43 @@ const Viz = (() => {
         + (partial ? " A week with most of its games still to play is left out until it's done." : "")
         + (multi ? "" : " Pick more seasons to compare years.");
       body.table = [...bars].reverse().map((b) => [order.indexOf(b) + 1 || "–", String(b.s), fmt(f2, b.v, per)]);
+    } else if (st.type === "bar" && stat[3].split) { // a breakdown: one 100% bar per player, split into its parts
+      const parts = stat[3].split, list = rank(stat, keys).filter((k) => val(stat, k) > 0);
+      const shown = [...new Set([...list.slice(0, top), ...picks.filter((k) => list.includes(k))])];
+      const cnt = (k, i) => parts[i][1](agg[k].S), pctOf = (k, i) => (100 * cnt(k, i)) / (stat[2](agg[k].S) || 1); // shares of his season total, whatever Totals says
+      title = `${stat[1]} (share of each one's ${unitOf(stat)})`;
+      cfg = { type: "bar", data: { labels: shown.map(short), datasets: parts.map(([l], i) => ({ label: l, data: shown.map((k) => pctOf(k, i)),
+        backgroundColor: PAL[i % PAL.length], borderColor: C("--card"), borderWidth: 1 })) },
+        options: { ...base, indexAxis: "y", plugins: { ...base.plugins, legend: { position: "top", labels: base.plugins.legend.labels },
+          tooltip: { ...base.plugins.tooltip, callbacks: { title: (c) => name(shown[c[0].dataIndex]), label: (c) => `${c.dataset.label}: ${Math.round(c.raw)}% (${cnt(shown[c.dataIndex], c.datasetIndex)} ${unitOf(stat).replace("zoned ", "")})` } } },
+          scales: { x: { ...base.scales.x, stacked: true, min: 0, max: 100, ticks: { ...base.scales.x.ticks, callback: (v) => `${v}%` } },
+            y: { ...base.scales.y, stacked: true, ticks: { ...base.scales.y.ticks, autoSkip: false, display: showNames, padding: showLogo ? 28 : 3 }, afterFit: (sc) => { if (showLogo) sc.width = Math.max(sc.width, 30); } } } },
+        plugins: [{ id: "vzStack", afterDatasetsDraw(c) { // logo by each name, the share inside each piece wide enough to hold it
+          const { ctx, chartArea: a } = c;
+          ctx.save(); ctx.font = `bold ${px(9)}px JetBrains Mono`; ctx.textBaseline = "middle"; ctx.textAlign = "center"; ctx.fillStyle = "#000";
+          c.data.datasets.forEach((ds, i) => c.getDatasetMeta(i).data.forEach((b, j) => {
+            if (i === 0 && showLogo) drawLogo(ctx, shown[j], a.left - Math.min(20, b.height + 4) / 2 - 4, b.y, Math.min(20, b.height + 4));
+            if (numsOn && !c.getDatasetMeta(i).hidden && Math.abs(b.x - b.base) >= 26) ctx.fillText(`${Math.round(ds.data[j])}%`, (b.x + b.base) / 2, b.y);
+          }));
+          ctx.restore(); } }] };
+      body = { h: Math.max(260, shown.length * 26 + 90) };
+      note = `The ${shown.length} with the most ${unitOf(stat)}${picks.length ? " plus your highlights" : ""}. Each bar adds up to 100% of his own ${unitOf(stat)}. Short = under 10 air yards (how far past the line of scrimmage the ball was thrown), intermediate = 10-19, deep = 20+; throwaways and spikes have no zone. Click a color in the key to hide it.`;
+      body.table = shown.map((k, i) => [i + 1, k, parts.map(([l], j) => `${l} ${Math.round(pctOf(k, j))}%`).join(" · ")]);
+    } else if (st.type === "pie" && stat[3].split) { // one player's breakdown: the highlighted one, else the busiest
+      const parts = stat[3].split, list = rank(stat, keys).filter((k) => val(stat, k) > 0);
+      const k = picks.find((x) => list.includes(x)) || list[0];
+      const vals = k ? parts.map(([, f]) => f(agg[k].S)) : [], total = vals.reduce((a, x) => a + x, 0);
+      title = k ? `${name(k)}: ${stat[1].replace(/^Where he/, "where he")}` : stat[1];
+      cfg = { type: "doughnut", data: { labels: parts.map(([l]) => l), datasets: [{ data: vals, backgroundColor: parts.map((p, i) => PAL[i % PAL.length]), borderColor: C("--card"), borderWidth: 2 }] },
+        plugins: [{ id: "vzSplitPie", afterDatasetsDraw(c) { // the share on each slice big enough for it
+          if (!numsOn) return;
+          const { ctx } = c; ctx.save(); ctx.font = `bold ${px(11)}px JetBrains Mono`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#000";
+          c.getDatasetMeta(0).data.forEach((arc, i) => { if (arc.circumference > 0.25 && total) { const p = arc.tooltipPosition(); ctx.fillText(`${Math.round((100 * vals[i]) / total)}%`, p.x, p.y); } });
+          ctx.restore(); } }],
+        options: { ...base, scales: {}, plugins: { ...base.plugins, legend: { position: "bottom", labels: base.plugins.legend.labels },
+          tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${c.label}: ${Math.round((100 * c.raw) / (total || 1))}% (${c.raw} ${unitOf(stat).replace("zoned ", "")})` } } } } };
+      body = { h: 420 };
+      note = `${total} ${unitOf(stat)}. Pick someone in Highlight to see his${k && !picks.includes(k) ? ` (this is ${name(k)}, the one with the most)` : ""}. Short = under 10 air yards, intermediate = 10-19, deep = 20+; throwaways and spikes have no zone.`;
     } else if (st.type === "bar") {
       const list = rank(stat, qualify(stat));
       const shown = [...new Set([...list.slice(0, top), ...picks.filter((k) => list.includes(k))])];
@@ -872,7 +1049,7 @@ const Viz = (() => {
       <div class="vz-q vz-findwrap"><input id="vz-q" type="search" placeholder="Search stats, presets, positions, teams… (try “run stops” or “sacks vs pressures”)" autocomplete="off" spellcheck="false"><div class="vz-sugg" id="vz-qs" hidden></div></div>
       <div class="vz-presets">
         <label>Presets<select id="vz-preset"><option value="">Pick a chart…</option>
-          <optgroup label="Popular">${PRESETS[league].map(([l], i) => `<option value="p${i}">${esc(l)}</option>`).join("")}</optgroup>
+          ${presetGroups(PRESETS[league]).map(([g, l]) => `<optgroup label="${esc(g)}">${l.map(([n, i]) => `<option value="p${i}">${esc(n)}</option>`).join("")}</optgroup>`).join("")}
           ${(mine()[league] || []).length ? `<optgroup label="Yours">${mine()[league].map((m, i) => `<option value="m${i}">${esc(m.name)}</option>`).join("")}</optgroup>` : ""}
         </select></label>
         <button class="btn" id="vz-save" type="button">Save as preset</button>
@@ -1025,7 +1202,7 @@ const Viz = (() => {
     const qbox = document.getElementById("vz-q"), qs = document.getElementById("vz-qs");
     const setWho = (w) => { if (w !== st.who) { st.who = w; st.pick = ""; st.team = ""; st.pos = ""; st.radar = ""; st.role = ""; } };
     const qItems = () => [
-      ...PRESETS[league].map(([l, o]) => [l, "Preset", "chart idea", () => { st = { ...DEF, from: st.from, to: st.to, ...o }; reload(); }]),
+      ...PRESETS[league].filter(Array.isArray).map(([l, o]) => [l, "Preset", "chart idea", () => { st = { ...DEF, from: st.from, to: st.to, ...o }; reload(); }]),
       ...(mine()[league] || []).map((m) => [m.name, "Your preset", "mine saved", () => { st = { ...DEF, from: st.from, to: st.to, ...m.st }; reload(); }]),
       ...["players", "teams"].flatMap((w) => statsFor(w, have).flatMap(([g, l]) => l.map((x) => [x[1], `${w === "players" ? "Player" : "Team"} stat · ${g}`, `${g} ${x[0]}`,
         () => { setWho(w); if (st.type === "radar" || st.type === "pie" && !x[3].count) st.type = "bar"; st.stat = x[0]; st.min = ""; redo(); }]))),

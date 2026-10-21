@@ -18,6 +18,7 @@ import requests
 
 from viz_data import NFLV, RAW, season_now
 
+ZONES = [d + side for d in "sid" for side in "lmr"]
 XCOLS = [
     # defense (tackles, sacks, TFL, hits, PD, INTs are already in the chart data)
     "run_tkl", "run_stop", "run_tkl_yds", "stuff", "sy_tkl", "sy_stop", "pass_tkl", "pass_stop", "third_stop", "rz_stop",
@@ -32,6 +33,9 @@ XCOLS = [
     "ftn_db", "bz_db", "bz_att", "bz_cmp", "bz_yds", "bz_td", "bz_int", "bz_sk", "bz_epa",
     # accepted penalties on him (offensive linemen too)
     "pen", "pen_yds",
+    # where the ball went (nflverse air yards + pass_location): zone = depth s/i/d (under 10 air yards, 10-19, 20+) + side l/m/r.
+    # QBs: z_<zone>_att/_cmp/_yds; receivers: zt_<zone> targets, zc_<zone> catches. Throwaways and spikes have no zone.
+    *[f"z_{z}_{c}" for z in ZONES for c in ("att", "cmp", "yds")], *[f"z{c}_{z}" for z in ZONES for c in "tc"],
 ]
 # team pass defense per game (per_game(season, T)): throws by depth, yards after catch, blitzes (FTN)
 TCOLS = ["opp_att", "opp_cmp", "opp_yac", "opp_short_att", "opp_short_cmp", "opp_short_yds", "opp_deep_att", "opp_deep_cmp", "opp_deep_yds",
@@ -208,6 +212,8 @@ def per_game(season, T=None):
 
         # ---- passing
         deep = f(row["air_yards"]) >= 20
+        side = (row.get("pass_location") or "")[:1]
+        zone = ("s" if f(row["air_yards"]) < 10 else "i" if not deep else "d") + side             if side in ("l", "m", "r") and row.get("air_yards") not in (None, "", "NA") and not sacked else None
         bz = BZ.get((row["game_id"], str(int(f(row["play_id"])))))
         t = T_[row["defteam"], wk]
         if row.get("qb_dropback") == "1":
@@ -261,6 +267,10 @@ def per_game(season, T=None):
                     s["deep_att"] += 1
                     s["deep_cmp"] += c
                     s["deep_yds"] += f(row["passing_yards"])
+                if zone:
+                    s[f"z_{zone}_att"] += 1
+                    s[f"z_{zone}_cmp"] += c
+                    s[f"z_{zone}_yds"] += f(row["passing_yards"])
                 if rz:
                     s["rz_att"] += 1
                     s["rz_pass_td"] += row.get("pass_touchdown") == "1"
@@ -279,6 +289,9 @@ def per_game(season, T=None):
             if deep:
                 s["deep_tgt"] += 1
                 s["deep_rec"] += c
+            if zone:
+                s[f"zt_{zone}"] += 1
+                s[f"zc_{zone}"] += c
             if late:
                 s["third_tgt"] += 1
                 s["third_conv"] += c and not lost
