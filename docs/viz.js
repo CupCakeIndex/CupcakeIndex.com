@@ -1588,7 +1588,18 @@ const Viz = (() => {
       if (parts.length !== 2) return null;
       const out = [], miss = {};
       for (const w of st.who === "teams" ? ["teams", "players"] : ["players", "teams"]) {
-        const A = qBest(parts[0], w), B = qBest(parts[1], w);
+        // a part of the field on one side carries over to the other when that stat has one: "throws to the middle vs completion %"
+        // = completion % to the middle, not completion % on every throw
+        const zone = parts.map((p) => (p.match(/\b((deep|short|intermediate) )?(left|middle|right)\b|\b(deep|short|intermediate)\b/) || [])[0]);
+        const side = (i) => {
+          const base = qBest(parts[i], w), z = zone[1 - i];
+          if (zone[i] || !z) return base;
+          // the same part of the field exactly: "deep" is deep, not deep left
+          const ZW = ["deep", "short", "intermediate", "left", "middle", "right"], want = z.split(" ").sort().join();
+          const hit = qBest(`${parts[i]} ${z}`, w).find((x) => qTok(x[0][1]).filter((t) => ZW.includes(t)).sort().join() === want);
+          return hit ? [[hit[0], hit[1] + 0.5], ...base.filter((x) => x[0] !== hit[0])] : base;
+        };
+        const A = side(0), B = side(1);
         miss[w] = [A[0]?.[0], B[0]?.[0]];
         for (const a of A.slice(0, 2)) for (const b of B.slice(0, 2)) if (a[0][0] !== b[0][0])
           out.push([a[1] + b[1], [`${a[0][1]} vs ${b[0][1]}`, `Scatter · ${w === "players" ? "players" : "teams"}`, "", () => {
