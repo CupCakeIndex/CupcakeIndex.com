@@ -20,7 +20,23 @@ const Viz = (() => {
     ["iuh", "Illegal use of hands"], ["icon", "Illegal contact"], ["shift", "Illegal shift or motion"], ["opi", "Offensive pass interference (OPI)"],
     ["idp", "Ineligible man downfield"], ["enc", "Encroachment"], ["ig", "Intentional grounding"], ["unsp", "Unsportsmanlike conduct"],
     ["taunt", "Taunting"], ["hc", "Horse-collar tackles"], ["tmm", "Too many men on the field (12 men)"]];
-  const PRE = ["fs", "offside", "nzi", "enc", "form", "shift", "dog", "tmm"]; // before the snap
+  // the types grouped by kind of foul: [key, name, types]. Every type is in exactly one group.
+  const PEN_FAM = [
+    ["pre", "Pre-snap penalties (procedural: false starts, offside, delay, formation…)", ["fs", "offside", "nzi", "enc", "form", "shift", "dog", "tmm"], "pre-snap (procedural)"],
+    ["holds", "Holding (offense + defense)", ["hold", "dhold"], "holding"],
+    ["pi", "Pass interference and illegal contact", ["dpi", "opi", "icon"], "pass interference and illegal contact"],
+    ["pf", "Personal fouls (roughness, roughing the passer, face masks, horse-collars)", ["ur", "rtp", "fm", "hc"], "personal foul"],
+    ["conduct", "Unsportsmanlike conduct and taunting", ["unsp", "taunt"], "unsportsmanlike conduct"],
+    ["blocks", "Blocking fouls (blocks above the waist, use of hands)", ["ibw", "iuh"], "blocking"],
+    ["passrules", "Passing rule fouls (ineligible downfield, grounding)", ["idp", "ig"], "passing rule"],
+  ];
+  const lc1 = (x) => x[0].toLowerCase() + x.slice(1);
+  // penalty yards: [key suffix, name] for every type and group, from yards columns with this prefix (tpy_ team, tpdy_ drawn, pny_ player)
+  const penYds = (pre, types) => [...PEN.filter(([k]) => types.includes(k)).map(([k, l]) => [k, `Yards from ${lc1(l)}`, (S) => S[`${pre}${k}`]]),
+    ...PEN_FAM.map(([k, , ks, short]) => [k, `Yards from ${short} penalties`, (S) => famSum(S, pre, ks.filter((x) => types.includes(x)))])];
+  const famSum = (S, pre, ks) => ks.reduce((a, k) => a + (S[`${pre}${k}`] || 0), 0);
+  // by the unit that committed it (from the play-by-play: who had the ball, and kicking plays)
+  const PEN_SIDE = [["o", "the offense"], ["d", "the defense"], ["s", "special teams"]];
   const T = [ // teams
     ["Scoring", [
       ["pts", "Points scored", (S) => S.pts, { count: 1 }],
@@ -117,9 +133,22 @@ const Viz = (() => {
     ]],
     // accepted penalties by type, from play-by-play (src/deep_stats.py PEN_TYPES): tp_ = committed, tpd_ = drawn (the other team's)
     ["Penalties by type", [...PEN.map(([k, l]) => [`tpen_${k}`, l, (S) => S[`tp_${k}`], { count: 1, low: 1, need: [`tp_${k}`] }]),
-      ["tpen_pre", "Pre-snap penalties (false starts, offside, delay, formation…)", (S) => PRE.reduce((a, k) => a + (S[`tp_${k}`] || 0), 0), { count: 1, low: 1, need: ["tp_fs"] }]]],
+    ]],
+    ["Penalties grouped", [
+      ...PEN_FAM.map(([k, l, ks]) => [`tpen_${k}`, l, (S) => famSum(S, "tp_", ks), { count: 1, low: 1, need: ["tp_fs"] }]),
+      ...PEN_SIDE.map(([k, l]) => [`tpen_side_${k}`, `Penalties on ${l}`, (S) => S[`tps_${k}`], { count: 1, low: 1, need: ["tps_o"] }]),
+      ...PEN_SIDE.map(([k, l]) => [`tpen_sidepct_${k}`, `% of penalties on ${l}`, (S) => div(100 * S[`tps_${k}`], S.tps_o + S.tps_d + S.tps_s), { den: (S) => S.tps_o + S.tps_d + S.tps_s, pct: 1, unit: "penalties", need: ["tps_o"] }]),
+      ...PEN_FAM.map(([k, l, ks]) => [`tpend_${k}`, `${l.replace(/ \(.*\)$/, "")} drawn`, (S) => famSum(S, "tpd_", ks), { count: 1, need: ["tpd_fs"] }]),
+      ...PEN_SIDE.map(([k, l]) => [`tpend_side_${k}`, `Penalties drawn by ${l}`, (S) => S[`tpds_${k}`], { count: 1, need: ["tpds_o"] }]),
+    ]],
+    ["Penalty yards", [
+      ...penYds("tpy_", PEN.map(([k]) => k)).map(([k, l, fn]) => [`tpeny_${k}`, l, fn, { count: 1, low: 1, need: ["tpy_fs"] }]),
+      ...PEN_SIDE.map(([k, l]) => [`tpeny_side_${k}`, `Penalty yards on ${l}`, (S) => S[`tpsy_${k}`], { count: 1, low: 1, need: ["tpsy_o"] }]),
+      ...penYds("tpdy_", PEN.map(([k]) => k)).map(([k, l, fn]) => [`tpendy_${k}`, `${l} drawn`, fn, { count: 1, need: ["tpdy_fs"] }]),
+      ...PEN_SIDE.map(([k, l]) => [`tpendy_side_${k}`, `Penalty yards drawn by ${l}`, (S) => S[`tpdsy_${k}`], { count: 1, need: ["tpdsy_o"] }]),
+    ]],
     ["Penalties drawn by type (the other team's)", [...PEN.map(([k, l]) => [`tpend_${k}`, `${l} drawn`, (S) => S[`tpd_${k}`], { count: 1, need: [`tpd_${k}`] }]),
-      ["tpend_pre", "Pre-snap penalties drawn", (S) => PRE.reduce((a, k) => a + (S[`tpd_${k}`] || 0), 0), { count: 1, need: ["tpd_fs"] }]]],
+    ]],
     ["Drops and broken tackles (players added up)", [
       ["team_drops", "Drops (dropped passes)", (S) => S.drops, { count: 1, low: 1, need: ["drops"] }],
       ["team_drop_pct", "Drop % (drops per pass attempt)", (S) => div(100 * S.drops, S.att), { den: (S) => S.att, pct: 1, low: 1, unit: "pass attempts", need: ["drops"] }],
@@ -348,7 +377,10 @@ const Viz = (() => {
       ["pen_rate", "Penalties per 100 snaps", (S) => div(100 * S.pen, S.snaps), { den: (S) => S.snaps, d: 1, low: 1, unit: "snaps", need: ["pen"] }],
     ]],
     ["Penalties by type (called on him)", [...PEN.filter(([k]) => !["dog", "tmm"].includes(k)).map(([k, l]) => [`pen_${k}`, l, (S) => S[`pn_${k}`], { count: 1, low: 1, need: [`pn_${k}`], vol: ["snaps played", 200] }]),
-      ["pen_pre", "Pre-snap penalties (false starts, offside, formation…)", (S) => PRE.reduce((a, k) => a + (S[`pn_${k}`] || 0), 0), { count: 1, low: 1, need: ["pn_fs"], vol: ["snaps played", 200] }]]],
+    ]],
+    ["Penalties grouped (called on him)", PEN_FAM.map(([k, l, ks]) => [`pen_${k}`, l, (S) => famSum(S, "pn_", ks), { count: 1, low: 1, need: ["pn_fs"], vol: ["snaps played", 200] }])],
+    ["Penalty yards (called on him)", penYds("pny_", PEN.map(([k]) => k).filter((k) => !["dog", "tmm"].includes(k)))
+      .map(([k, l, fn]) => [`peny_${k}`, l, fn, { count: 1, low: 1, need: ["pny_fs"], vol: ["snaps played", 200] }])],
   ];
   const statsFor = (who, D) => (who === "players" ? P : T).map(([g, list]) => [g, list.filter(([, , , o]) =>
     (!o.lg || o.lg === D.league) && (!o.need || o.need.every((c) => (who === "players" ? D.pcols : D.tcols).includes(c))))]).filter(([, l]) => l.length);
@@ -356,7 +388,7 @@ const Viz = (() => {
   // a stat from loose words ("defensive epa", "ints", "run stops"): the one whose name covers the words best. A whole word in
   // its name counts most, part of a word a bit less, a word only in its group half; most of the words have to be covered.
   const norm = (x) => x.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[.'’-]/g, "").toLowerCase();
-  const QSYN = { def: "defense", defensive: "defense", defence: "defense", ints: "interceptions", int: "interceptions", picks: "interceptions",
+  const QSYN = { def: "defense", defensive: "defense", offensive: "offense", defence: "defense", ints: "interceptions", int: "interceptions", picks: "interceptions",
     td: "tds", touchdown: "tds", touchdowns: "tds", yds: "yards", yd: "yards", yard: "yards", pct: "%", percent: "%", percentage: "%", rate: "%",
     catches: "receptions", passing: "pass", rushing: "rush", running: "run", receiving: "rec", tackle: "tackles", sacks: "sack",
     // football shorthand people type ("pbus", "tfls", "qbr")
@@ -367,7 +399,7 @@ const Viz = (() => {
     flags: "penalties", flag: "penalties", flagged: "penalties", penalized: "penalties", holds: "holding", pi: "interference", personal: "personal" };
   const qStem = (t) => (t.length > 3 && !/ss$/.test(t) ? t.replace(/s$/, "") : t);
   // numbers never name a stat ("drops per 100 targets" = drops per target)
-  const qTok = (s) => norm(s).split(/[\s/()]+/).filter((t) => t && !["the", "of", "a", "per"].includes(t) && !/^\d+$/.test(t)).map((t) => qStem(QSYN[t] || t));
+  const qTok = (s) => norm(s).split(/[\s/(),:;+]+/).filter((t) => t && !["the", "of", "a", "per"].includes(t) && !/^\d+$/.test(t)).map((t) => qStem(QSYN[t] || t));
   // Every word any stat's name, unit or group uses. Words outside it (typos, names, "blorp") are skipped instead of sinking the match,
   // so people can type the way they talk and the stat words still find the stat.
   const qVocab = new WeakMap();
@@ -659,6 +691,9 @@ const Viz = (() => {
       ["Most false starts", T_({ type: "bar", stat: "tpen_fs", per: "total", order: "worst", top: "15" })],
       ["Pre-snap penalties, most to fewest", T_({ type: "bar", stat: "tpen_pre", per: "total", order: "worst", top: "all" })],
       ["Who draws the most pass interference", T_({ type: "bar", stat: "tpend_dpi", per: "total", top: "15" })],
+      ["Personal fouls, most to fewest", T_({ type: "bar", stat: "tpen_pf", per: "total", order: "worst", top: "all" })],
+      ["Penalties: offense vs defense", T_({ type: "scatter", stat: "tpen_side_o", y: "tpen_side_d", per: "total", top: "all" })],
+      ["NFL-wide by season: personal fouls per game since 1999", T_({ type: "bar", scope: "league", stat: "tpen_pf", from: "1999", to: "" })],
       ["NFL-wide by season: roughing the passer calls per game since 1999", T_({ type: "bar", scope: "league", stat: "tpen_rtp", from: "1999", to: "" })],
       ["Share of the league's sacks (pie)", T_({ type: "pie", stat: "def_sacks", top: "10" })],
       ["Team profiles (radar)", T_({ type: "radar", top: "3" })],
@@ -1657,11 +1692,12 @@ const Viz = (() => {
         qs.hidden = false; return;
       }
       const words = q.split(/\s+/), pair = qPair(raw);
-      const qt = qTok(q).filter((w) => !/^(and|vs|versus|against|x|&)$/.test(w)), whole = (it) => { const lt = new Set(qTok(it[0])); return qt.length && qt.every((w) => lt.has(w)); };
+      const qt = qTok(q).filter((w) => !/^(and|vs|versus|against|x|&)$/.test(w)), extraW = (l) => qTok(l.replace(/\(.*?\)/g, " ")).filter((t) => !qt.includes(t)).length, whole =(it) => { const lt = new Set(qTok(it[0])); return qt.length && qt.every((w) => lt.has(w)); };
       const one = qItems().map((it) => [it, norm(it[0]), norm(`${it[0]} ${it[1]} ${it[2]}`)]).filter(([it, , all]) => words.every((w) => all.includes(w)) || whole(it))
         // whole words beat parts of words ("drop rate" is Drop %, not "sack rate ... dropbacks")
         .map(([it, l]) => [it, l.startsWith(q) ? 0 : whole(it) ? 0.5 : words.filter((w) => !/^(and|vs|versus|against|x|&)$/.test(w)).every((w) => l.includes(w)) ? 1 : 2])
-        .sort((a, b) => a[1] - b[1] || (a[1] === 0.5 ? a[0][0].length - b[0][0].length : 0)).slice(0, 12);
+        // ties: fewest name words you didn't type (outside the brackets), then the shorter name
+        .sort((a, b) => a[1] - b[1] || (a[1] === 0.5 ? extraW(a[0][0]) - extraW(b[0][0]) || a[0][0].length - b[0][0].length : 0)).slice(0, 12);
       // a single item named by everything typed comes first, then the two-stat scatters, then looser single matches
       const asked = ask(raw, !one.some((x) => x[1] < 2));
       // two stats ("drops vs targets"): the scatter comes before single stats that merely contain both words; only an exact name beats it

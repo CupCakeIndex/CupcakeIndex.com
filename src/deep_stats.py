@@ -44,7 +44,7 @@ XCOLS = [
     # vs the blitz (FTN charting, 2022+): ftn_db = his charted dropbacks, bz_ = dropbacks where 5+ rushed or a DB/LB blitzed
     "ftn_db", "bz_db", "bz_att", "bz_cmp", "bz_yds", "bz_td", "bz_int", "bz_sk", "bz_epa",
     # accepted penalties on him (offensive linemen too)
-    "pen", "pen_yds", *[f"pn_{k}" for k, _ in PEN_TYPES],
+    "pen", "pen_yds", *[f"pn_{k}" for k, _ in PEN_TYPES], *[f"pny_{k}" for k, _ in PEN_TYPES],
     # where the ball went (nflverse air yards + pass_location): zone = depth s/i/d (under 10 air yards, 10-19, 20+) + side l/m/r.
     # QBs: z_<zone>_att/_cmp/_yds/_td/_int/_epa; receivers: zt_<zone> targets, zc_<zone> catches, zy_ yards, ze_ EPA.
     # Throwaways and spikes have no zone.
@@ -54,7 +54,11 @@ XCOLS = [
 TCOLS = ["opp_att", "opp_cmp", "opp_yac", "opp_short_att", "opp_short_cmp", "opp_short_yds", "opp_deep_att", "opp_deep_cmp", "opp_deep_yds",
          "opp_db", "ftn_db", "blitz_db",
          # accepted penalties by type: tp_ = the team committed it, tpd_ = the team drew it (the other team committed it)
-         *[f"tp_{k}" for k, _ in PEN_TYPES], *[f"tpd_{k}" for k, _ in PEN_TYPES]]
+         *[f"tp_{k}" for k, _ in PEN_TYPES], *[f"tpd_{k}" for k, _ in PEN_TYPES],
+         # every accepted penalty by the unit that committed it (o offense, d defense, s special teams) and the unit that drew it
+         "tps_o", "tps_d", "tps_s", "tpds_o", "tpds_d", "tpds_s",
+         # the same in penalty yards: tpy_/tpdy_ by type, tpsy_/tpdsy_ by unit
+         *[f"tpy_{k}" for k, _ in PEN_TYPES], *[f"tpdy_{k}" for k, _ in PEN_TYPES], "tpsy_o", "tpsy_d", "tpsy_s", "tpdsy_o", "tpdsy_d", "tpdsy_s"]
 
 
 def f(x):
@@ -154,13 +158,26 @@ def per_game(season, T=None):
                     s["pen_yds"] += f(row.get("penalty_yards"))
                     if pk:
                         s[f"pn_{pk}"] += 1
+                        s[f"pny_{pk}"] += f(row.get("penalty_yards"))
                 # team ones too (delay of game, too many men have no player)
                 pt_ = row.get("penalty_team")
+                if pt_ not in (None, "", "NA") and row.get("posteam") not in (None, "", "NA"):
+                    kick = row.get("play_type") in ("kickoff", "punt", "field_goal", "extra_point")
+                    side = "s" if kick else "o" if pt_ == row["posteam"] else "d"
+                    T_[pt_, w_][f"tps_{side}"] += 1
+                    T_[pt_, w_][f"tpsy_{side}"] += f(row.get("penalty_yards"))
+                    drew = row["defteam"] if pt_ == row["posteam"] else row["posteam"]
+                    if drew not in (None, "", "NA"):
+                        dside = "s" if kick else "d" if side == "o" else "o"
+                        T_[drew, w_][f"tpds_{dside}"] += 1
+                        T_[drew, w_][f"tpdsy_{dside}"] += f(row.get("penalty_yards"))
                 if pk and pt_ not in (None, "", "NA"):
                     T_[pt_, w_][f"tp_{pk}"] += 1
+                    T_[pt_, w_][f"tpy_{pk}"] += f(row.get("penalty_yards"))
                     other = row["defteam"] if pt_ == row.get("posteam") else row.get("posteam")
                     if other not in (None, "", "NA"):
                         T_[other, w_][f"tpd_{pk}"] += 1
+                        T_[other, w_][f"tpdy_{pk}"] += f(row.get("penalty_yards"))
         pt = row.get("play_type")
         if pt not in ("run", "pass") or not row.get("down") or row["down"] == "NA":
             continue
