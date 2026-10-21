@@ -130,13 +130,13 @@ has actually beaten, how hard its schedule is from here) or a "hot take" that en
 arguments (e.g. "Georgia is 4-0. The teams it has beaten are a combined 3-12. Does a perfect record mean
 anything without a real test?"). A few hot takes are betting ones: the games where our model disagrees most
 with the books' line, and upset alerts. Those always say "for fun, not betting advice".
-Each card has the player's photo (or team logo) on a team-color panel, a top-5 bar chart, and a random site theme.
+Each card uses the broadcast look (`flare_card.py`). The team color fills the background, with light rays, speed stripes and a ribbon, and the player's photo (or the team logo) is large on the left. A glass panel holds the headline number and the top 5 with headshots and team-color bars. The theme only picks the accent color.
 No links, always 280 characters or fewer.
 
 It posts on its own at 1 PM and 7 PM Eastern (August-January), going through every stat in order so nothing
 repeats for about two weeks. To post one yourself: GitHub > **Actions** > **Obscure stat post** > **Run workflow**:
 - **Stat**: random, random-hot (hot takes only), random-stat (no hot takes), or a specific one.
-- **Theme**: the card's look (Mono, Green terminal, Amber, Broadcast, Editorial, Midnight Glass, Varsity). Random by default.
+- **Theme**: the card's accent color (from a site theme). Random by default.
 - **Post to X**: leave ticked to post. Untick it to only make the picture (download it from the run's **Artifacts**).
 
 Try them on your computer: `python src/social/obscure.py --all --out branding/samples/obscure`

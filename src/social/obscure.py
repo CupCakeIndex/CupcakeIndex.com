@@ -979,7 +979,24 @@ def dark_logo(im):
     return bool(solid.getbbox()) and ImageStat.Stat(small.convert("L"), solid).mean[0] < 60
 
 
+def team_logo(p):
+    """The team's logo, swapped for ESPN's dark-background version when it's mostly black (Iowa, Pitt...)."""
+    logo = image(p.get("logo"))
+    if logo and dark_logo(logo):
+        u = p.get("logo") or ""
+        cfbd = re.search(r"collegefootballdata\.com/logos/\d+/(\d+)\.png", u)  # college logos: same team id at ESPN
+        logo = image(f"https://a.espncdn.com/i/teamlogos/ncaa/500-dark/{cfbd[1]}.png" if cfbd else u.replace("/500/", "/500-dark/")) or logo
+    return logo
+
+
 def card(f, theme):
+    """Every stat card uses the broadcast look (flare_card.py); the theme picks its accent color."""
+    import flare_card
+    return flare_card.draw(f, hex_rgb(THEMES[theme]["accent"]), image, team_logo)
+
+
+def card_classic(f, theme):
+    """The first look (split panel, one theme per card). Kept for reference; nothing calls it."""
     T = {k: hex_rgb(v) for k, v in THEMES[theme].items() if isinstance(v, str) and v.startswith("#")}
     F = lambda size, weight="Regular": font_for(theme, size, weight)
     (lead, _, big), rest = f["rows"][0], f["rows"][1:]
