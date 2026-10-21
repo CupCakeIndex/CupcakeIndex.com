@@ -32,11 +32,19 @@ const Viz = (() => {
       ["third", "Third-down %", (S) => div(100 * S.third_conv, S.third_att), { den: (S) => S.third_att, pct: 1, need: ["third_att"] }],
       ["giveaways", "Turnovers (giveaways)", (S) => S.int + S.fum_lost, { count: 1, low: 1 }],
       ["sacked", "Sacks allowed", (S) => S.sacked, { count: 1, low: 1, need: ["sacked"] }],
+      ["pts_play", "Points per play", (S) => div(S.pts, S.plays), { den: (S) => S.plays, d: 3 }],
+      ["pass_rate", "Pass rate (% of plays that are passes)", (S) => div(100 * (S.att + (S.sacked || 0)), S.plays), { den: (S) => S.plays, pct: 1 }],
+      ["run_rate", "Run rate (% of plays that are runs)", (S) => div(100 * S.carries, S.plays), { den: (S) => S.plays, pct: 1 }],
+      ["int_rate", "Interception rate (% of passes)", (S) => div(100 * S.int, S.att), { den: (S) => S.att, pct: 1, low: 1, unit: "pass attempts" }],
+      ["sack_rate_off", "Sack rate allowed (% of dropbacks)", (S) => div(100 * S.sacked, S.att + S.sacked), { den: (S) => S.att + S.sacked, pct: 1, low: 1, unit: "dropbacks", need: ["sacked"] }],
     ]],
     ["Defense", [
       ["opp_yds", "Yards allowed", (S) => S.opp_yds ?? S.opp_pass_yds + S.opp_rush_yds, { count: 1, low: 1 }],
       ["opp_pass_yds", "Passing yards allowed", (S) => S.opp_pass_yds, { count: 1, low: 1 }],
       ["opp_rush_yds", "Rushing yards allowed", (S) => S.opp_rush_yds, { count: 1, low: 1 }],
+      ["yds_margin", "Yardage margin (gained minus allowed)", (S) => S.pass_yds + S.rush_yds - (S.opp_yds ?? S.opp_pass_yds + S.opp_rush_yds), { count: 1, fmt: "+" }],
+      ["ypp_allowed", "Yards per play allowed", (S) => div(S.opp_pass_yds + S.opp_rush_yds, S.opp_plays), { den: (S) => S.opp_plays, d: 2, low: 1, need: ["opp_plays"] }],
+      ["opp_pts_play", "Points allowed per play", (S) => div(S.opp_pts, S.opp_plays), { den: (S) => S.opp_plays, d: 3, low: 1, need: ["opp_plays"] }],
       ["def_sacks", "Sacks", (S) => S.def_sacks, { count: 1 }],
       ["def_int", "Interceptions", (S) => S.def_int, { count: 1 }],
       ["takeaways", "Takeaways", (S) => S.def_int + S.def_fr, { count: 1, need: ["def_fr"] }],
@@ -135,6 +143,16 @@ const Viz = (() => {
     return rows.flatMap(([k, , f, txt]) => [
       [`${who}_cmp_${k}`, `${who === "qb" ? "Completion %" : "Catch %"} ${txt}`, (S) => div(100 * zs(S, ok, f), zs(S, att, f)), { den: (S) => zs(S, att, f), pct: 1, unit: `${who === "qb" ? "throws" : "targets"} there`, need, pos, lg: "nfl" }],
       ...(who === "qb" ? [[`qb_ypa_${k}`, `Yards per attempt ${txt}`, (S) => div(zs(S, zYds, f), zs(S, att, f)), { den: (S) => zs(S, att, f), d: 2, unit: "throws there", need, pos, lg: "nfl" }]] : []),
+      // EPA, TDs and INTs by zone (added 2026-10): stats show only when every season picked has them
+      ...(who === "qb" ? [
+        [`qb_epa_${k}`, `EPA per throw ${txt}`, (S) => div(zs(S, (z) => `z_${z}_epa`, f), zs(S, att, f)), { den: (S) => zs(S, att, f), d: 3, unit: "throws there", need: ["z_sl_epa"], pos, lg: "nfl" }],
+        [`qb_rate_${k}`, `Passer rating ${txt}`, (S) => rating({ att: zs(S, att, f), cmp: zs(S, ok, f), pass_yds: zs(S, zYds, f), pass_td: zs(S, (z) => `z_${z}_td`, f), int: zs(S, (z) => `z_${z}_int`, f) }), { den: (S) => zs(S, att, f), d: 1, unit: "throws there", need: ["z_sl_epa"], pos, lg: "nfl" }],
+        [`qb_td_${k}`, `TD passes ${txt}`, (S) => zs(S, (z) => `z_${z}_td`, f), { count: 1, need: ["z_sl_epa"], pos, lg: "nfl" }],
+        [`qb_int_${k}`, `Interceptions ${txt}`, (S) => zs(S, (z) => `z_${z}_int`, f), { count: 1, low: 1, need: ["z_sl_epa"], pos, lg: "nfl" }],
+      ] : [
+        [`rec_epa_${k}`, `EPA per target ${txt}`, (S) => div(zs(S, (z) => `ze_${z}`, f), zs(S, att, f)), { den: (S) => zs(S, att, f), d: 3, unit: "targets there", need: ["ze_sl"], pos, lg: "nfl" }],
+        [`rec_ypt_${k}`, `Yards per target ${txt}`, (S) => div(zs(S, (z) => `zy_${z}`, f), zs(S, att, f)), { den: (S) => zs(S, att, f), d: 1, unit: "targets there", need: ["ze_sl"], pos, lg: "nfl" }],
+      ]),
     ]);
   };
   const rating = (S) => { // NFL passer rating
@@ -157,6 +175,13 @@ const Viz = (() => {
       ["rating", "Passer rating (NFL formula)", rating, { den: (S) => S.att, d: 1, pos: "QB", lg: "nfl" }],
       ["eff", "Passing efficiency (NCAA formula)", (S) => div(8.4 * S.pass_yds + 330 * S.pass_td + 100 * S.cmp - 200 * S.int, S.att), { den: (S) => S.att, d: 1, pos: "QB", lg: "cfb" }],
       ["sacked", "Times sacked", (S) => S.sacked, { count: 1, low: 1, pos: "QB", lg: "nfl" }],
+      ["att", "Pass attempts", (S) => S.att, { count: 1, pos: "QB" }],
+      ["td_pct", "TD % (TDs per attempt)", (S) => div(100 * S.pass_td, S.att), { den: (S) => S.att, pct: 1, pos: "QB" }],
+      ["int_pct", "INT % (interceptions per attempt)", (S) => div(100 * S.int, S.att), { den: (S) => S.att, pct: 1, low: 1, pos: "QB" }],
+      ["td_int", "TD-to-INT ratio", (S) => S.att ? S.pass_td / Math.max(S.int, 1) : null, { den: (S) => S.att, d: 1, pos: "QB" }],
+      ["sack_pct", "Sack % (sacks per dropback)", (S) => div(100 * S.sacked, S.att + S.sacked), { den: (S) => S.att + S.sacked, pct: 1, low: 1, unit: "dropbacks", pos: "QB", lg: "nfl" }],
+      ["tot_yds", "Total yards (passing + rushing)", (S) => S.pass_yds + S.rush_yds, { count: 1, pos: "QB" }],
+      ["tot_td", "Total TDs (passing + rushing)", (S) => S.pass_td + S.rush_td, { count: 1, pos: "QB" }],
     ]],
     ["Rushing and receiving", [
       ["rush_yds", "Rushing yards", (S) => S.rush_yds, { count: 1, pos: "RB" }],
@@ -175,6 +200,26 @@ const Viz = (() => {
       ["tds", "Rushing + receiving TDs", (S) => S.rush_td + S.rec_td, { count: 1 }],
       ["ppr", "Fantasy points (PPR)", (S) => S.ppr, { count: 1, d: 1, lg: "nfl" }],
     ]],
+    // usage: his share of the team's total in the games he played (tm_ columns, added up in sum()), and stats built from two
+    // columns. Any total can also be shown as a share with Show as > Share of team.
+    ["Usage and share", [
+      ["tgt_share", "Target share (% of team targets)", (S) => div(100 * S.targets, S.tm_targets), { den: (S) => S.targets, pct: 1, unit: "targets", pos: "WR", lg: "nfl" }],
+      ["air_share", "Air-yards share (% of team air yards)", (S) => div(100 * S.air_yds, S.tm_air_yds), { den: (S) => S.targets, pct: 1, unit: "targets", pos: "WR", lg: "nfl" }],
+      ["wopr", "WOPR (1.5 × target share + 0.7 × air-yards share)", (S) => S.tm_targets && S.tm_air_yds ? 1.5 * S.targets / S.tm_targets + 0.7 * S.air_yds / S.tm_air_yds : null, { den: (S) => S.targets, d: 2, unit: "targets", pos: "WR", lg: "nfl" }],
+      ["rec_share", "Catch share (% of team catches)", (S) => div(100 * S.rec, S.tm_rec), { den: (S) => S.rec, pct: 1, unit: "catches", pos: "WR" }],
+      ["carry_share", "Carry share (% of team carries)", (S) => div(100 * S.carries, S.tm_carries), { den: (S) => S.carries, pct: 1, unit: "carries", pos: "RB" }],
+      ["yds_share", "Scrimmage-yard share (% of team rushing + receiving yards)", (S) => div(100 * (S.rush_yds + S.rec_yds), S.tm_rush_yds + S.tm_rec_yds), { den: (S) => S.carries + S.rec, pct: 1, unit: "touches" }],
+      ["td_share", "TD share (% of team rushing + receiving TDs)", (S) => div(100 * (S.rush_td + S.rec_td), S.tm_rush_td + S.tm_rec_td), { den: (S) => S.carries + S.rec, pct: 1, unit: "touches" }],
+      ["touches", "Touches (carries + catches)", (S) => S.carries + S.rec, { count: 1 }],
+      ["ypt", "Yards per touch", (S) => div(S.rush_yds + S.rec_yds, S.carries + S.rec), { den: (S) => S.carries + S.rec, d: 2, unit: "touches" }],
+      ["td_rate", "TD rate (% of touches)", (S) => div(100 * (S.rush_td + S.rec_td), S.carries + S.rec), { den: (S) => S.carries + S.rec, pct: 1, unit: "touches" }],
+      ["adot", "Average depth of target (aDOT, air yards)", (S) => div(S.air_yds, S.targets), { den: (S) => S.targets, d: 1, unit: "targets", pos: "WR", lg: "nfl" }],
+      ["racr", "RACR (receiving yards ÷ air yards)", (S) => div(S.rec_yds, S.air_yds), { den: (S) => S.targets, d: 2, unit: "targets", pos: "WR", lg: "nfl" }],
+      ["yds_tgt", "Yards per target", (S) => div(S.rec_yds, S.targets), { den: (S) => S.targets, d: 1, unit: "targets", pos: "WR", lg: "nfl" }],
+      ["yac_rec", "Yards after catch per catch", (S) => div(S.yac, S.rec), { den: (S) => S.rec, d: 1, unit: "catches", pos: "WR", lg: "nfl" }],
+      ["ppr_touch", "Fantasy points (PPR) per touch", (S) => div(S.ppr, S.carries + S.rec), { den: (S) => S.carries + S.rec, d: 2, unit: "touches", lg: "nfl" }],
+      ["snaps", "Snaps played", (S) => S.snaps, { count: 1, noShare: 1, lg: "nfl" }],
+    ]],
     ["Defense and kicking", [
       ["tackles", "Tackles", (S) => S.tackles, { count: 1, pos: "DEF" }],
       ["def_sacks", "Sacks", (S) => S.def_sacks, { count: 1, d: 1, pos: "DEF" }],
@@ -182,6 +227,8 @@ const Viz = (() => {
       ["qb_hits", "QB hits (college: hurries)", (S) => S.qb_hits, { count: 1, pos: "DEF" }],
       ["pd", "Passes defended", (S) => S.pd, { count: 1, pos: "DEF" }],
       ["def_int", "Interceptions", (S) => S.def_int, { count: 1, pos: "DEF" }],
+      ["havoc", "Havoc plays (tackles for loss + passes defended + INTs)", (S) => S.tfl + S.pd + S.def_int, { count: 1, d: 1, pos: "DEF" }],
+      ["fg_att", "Field goal tries", (S) => S.fg_att, { count: 1, pos: "K" }],
       ["fg_made", "Field goals made", (S) => S.fg_made, { count: 1, pos: "K" }],
       ["fg_pct", "Field goal %", (S) => div(100 * S.fg_made, S.fg_att), { den: (S) => S.fg_att, pct: 1, pos: "K" }],
     ]],
@@ -334,7 +381,9 @@ const Viz = (() => {
     scheme: "", ttl: "", subt: "", bg: "", size: "", nums: "", grid: "", curve: "", big: "", round: "", // logo/names: "" = on, "0" = off; min: "" = automatic
     // where = the filter typed in plain English ("run stops > 20 and sacks >= 3"), every chart; cols = the Table's columns;
     // quad = scatter quadrant names, "top left|top right|bottom left|bottom right"
-    where: "", cols: "", quad: "" };
+    where: "", cols: "", quad: "",
+    // opp = only games vs "good" (top-half) teams or "soft" ones (cupcakes); last = each one's last N games
+    opp: "", last: "" };
   let st = { ...DEF };
   const save = () => {
     const q = new URLSearchParams({ league, show: "visualize" });
@@ -342,8 +391,8 @@ const Viz = (() => {
     history.replaceState(null, "", `#/stats?${q}`);
   };
 
-  async function file(season) {
-    const k = `${league}_${season}`;
+  async function file(season, lg = league) {
+    const k = `${lg}_${season}`;
     if (!files.has(k)) files.set(k, getJSON(`data/viz/${k}.json`).then((D) => { // deep cuts: a sparse [column, value, ...] list ends each NFL player row
       if (D?.xcols?.length) {
         const n = D.pcols.length + 3;
@@ -399,25 +448,68 @@ const Viz = (() => {
 
   // ---------------------------------------------------------------- crunching
   // rows -> { key: {S: summed columns, g: games, wk: {week: S}} } for one season, weeks wk1..wk2
+  // opponents in the top half of that season (our power rating; seasons without our rankings: win %). "vs cupcakes" = the
+  // other half plus anyone not ranked (FCS teams in college).
+  function goodSet(D) {
+    if (D.good) return D.good;
+    const W = {};
+    for (const r of D.trows) { const w = W[r[0]] || (W[r[0]] = [0, 0]); w[0] += r[3] > r[4] ? 1 : r[3] === r[4] ? 0.5 : 0; w[1]++; }
+    const ours = Object.keys(D.ours || {}).filter((k) => D.ours[k].ci_rating != null);
+    const score = ours.length ? (k) => D.ours[k]?.ci_rating ?? -1e9 : (k) => W[k][0] / W[k][1];
+    const ks = (ours.length ? ours : Object.keys(W)).sort((a, b) => score(b) - score(a));
+    return (D.good = new Set(ks.slice(0, Math.ceil(ks.length / 2))));
+  }
   function sum(D, who, w1, w2, byWeek) {
     const cols = who === "players" ? D.pcols : D.tcols, rows = who === "players" ? D.prows : D.trows, out = {};
     const left = who === "players" && st.noexit ? D.pcols.indexOf("left") + 3 : -1; // NFL QBs gone by halftime (hurt, or a blowout)
-    for (const r of rows) {
+    // vs good teams / vs cupcakes: who each team played each week
+    const oppOf = {};
+    if (st.opp) for (const r of D.trows) oppOf[`${r[0]}|${r[1]}`] = r[2];
+    const good = st.opp ? goodSet(D) : null;
+    const keep = (r) => {
+      if (r[1] < w1 || r[1] > w2 || (left > 2 && r[left])) return false;
+      if (!st.opp) return true;
+      const o = who === "players" ? oppOf[`${r[2]}|${r[1]}`] : r[2];
+      return o != null && good.has(o) === (st.opp === "good");
+    };
+    // last N games: each one's own last N in the weeks picked (byes and missed games skipped)
+    let lastOk = null;
+    if (+st.last) {
+      const wks = {};
+      for (const r of rows) if (keep(r)) (wks[r[0]] ||= []).push(r[1]);
+      lastOk = {};
+      for (const k in wks) lastOk[k] = new Set(wks[k].sort((a, b) => a - b).slice(-st.last));
+    }
+    // a player's team totals in the games he played (tm_<column>): what "Share of team" divides by. Everyone on the
+    // team counts toward the total, filters or not, and a traded player's share uses the team he was on that week.
+    const TW = {}, played = new Set();
+    if (who === "players") for (const r of rows) {
       if (r[1] < w1 || r[1] > w2) continue;
-      if (left > 2 && r[left]) continue;
+      const t = TW[`${r[2]}|${r[1]}`] || (TW[`${r[2]}|${r[1]}`] = new Array(cols.length).fill(0));
+      for (let i = 0; i < cols.length; i++) t[i] += r[i + 3];
+    }
+    for (const r of rows) {
+      if (!keep(r) || (lastOk && !lastOk[r[0]]?.has(r[1]))) continue;
       const o = out[r[0]] || (out[r[0]] = { S: Object.fromEntries(cols.map((c) => [c, 0])), g: 0, wk: {}, team: r[2] });
       o.g++;
       o.team = r[2];
+      if (who === "teams") played.add(`${r[0]}|${r[1]}`);
       cols.forEach((c, i) => { o.S[c] += r[i + 3]; });
+      const t = TW[`${r[2]}|${r[1]}`];
+      if (t) cols.forEach((c, i) => { o.S["tm_" + c] = (o.S["tm_" + c] || 0) + t[i]; });
       if (who === "teams") o.S.wins = (o.S.wins || 0) + (r[3] > r[4] ? 1 : r[3] === r[4] ? 0.5 : 0); // pts vs opp_pts
-      if (byWeek) { const w = o.wk[r[1]] || (o.wk[r[1]] = Object.fromEntries(cols.map((c) => [c, 0]))); cols.forEach((c, i) => { w[c] += r[i + 3]; }); }
+      if (byWeek) {
+        const w = o.wk[r[1]] || (o.wk[r[1]] = Object.fromEntries(cols.map((c) => [c, 0])));
+        cols.forEach((c, i) => { w[c] += r[i + 3]; });
+        if (t) cols.forEach((c, i) => { w["tm_" + c] = (w["tm_" + c] || 0) + t[i]; });
+      }
     }
     if (who === "players" && D.pseason) for (const [k, v] of Object.entries(D.pseason)) if (out[k]) D.pseason_cols.forEach((c, i) => { out[k].S["ss_" + c] = v[i]; });
     if (who === "teams" && D.tx?.length) { // team run stops etc.: the team's players added up, same weeks
       const ix = D.tx.map((c) => D.pcols.indexOf(c) + 3);
       for (const k in out) for (const c of D.tx) out[k].S[c] = 0;
       for (const r of D.prows) {
-        if (r[1] < w1 || r[1] > w2) continue;
+        if (!played.has(`${r[2]}|${r[1]}`)) continue; // the team games counted above (weeks, opponents, last N)
         const o = out[r[2]];
         if (!o) continue;
         D.tx.forEach((c, i) => { o.S[c] += r[ix[i]] || 0; });
@@ -427,7 +519,17 @@ const Viz = (() => {
     if (who === "teams") for (const k in out) if (!D.tcols.includes("opp_yds")) out[k].S.opp_yds = out[k].S.opp_pass_yds + out[k].S.opp_rush_yds;
     return out;
   }
-  const value = (stat, S, g, per) => { const v = stat[2](S, g); return v == null ? null : stat[3].count && per === "game" && g ? v / g : v; };
+  // Show as: a total any way you like. "share" = % of his team's total in the games he played (tm_ columns, sum()),
+  // "snap" = per 100 snaps (NFL players). Rates (completion %...) stay as they are.
+  const teamS = (S) => new Proxy(S, { get: (o, c) => o["tm_" + String(c)] });
+  const value = (stat, S, g, per) => {
+    const v = stat[2](S, g);
+    if (v == null || !stat[3].count || (per === "share" && stat[3].noShare)) return v;
+    if (per === "game") return g ? v / g : v;
+    if (per === "share") { if (S.tm_snaps == null && S.tm_rec == null) return null; const t = stat[2](teamS(S), g); return t ? (100 * v) / t : null; }
+    if (per === "snap") return S.snaps ? (100 * v) / S.snaps : null;
+    return v;
+  };
   const POS_OF = (pos, S) => {
     const p = (pos || "").toUpperCase();
     if (p === "QB") return "QB";
@@ -442,13 +544,15 @@ const Viz = (() => {
   const FINE = { EDGE: "Edge rushers", IDL: "Interior D-line", LB: "Linebackers", CB: "Cornerbacks", S: "Safeties", TE: "Tight ends" };
   const EXP = [["", "Everyone"], ["1", "Rookies"], ["2", "2nd year"], ["3", "3rd year"], ["1-2", "Rookies + 2nd year"], ["4+", "Vets (4+ years)"]];
   const DRAFT = [["", "Any"], ["1", "1st round"], ["2-3", "Rounds 2-3"], ["4-7", "Rounds 4-7"], ["U", "Undrafted"]];
+  const OPP = [["", "Everyone"], ["good", "Vs top-half teams"], ["soft", "Vs cupcakes (bottom half)"]], LAST = [["", "All games"], ["3", "Last 3 games"], ["5", "Last 5 games"]];
   const expOk = (y, e) => y != null && (e === "1-2" ? y >= 1 && y <= 2 : e === "4+" ? y >= 4 : y === +e);
   const draftOk = (dr, f) => { if (!dr) return false; const r = /^R(\d)/.exec(dr)?.[1]; return f === "U" ? !r : f === "1" ? r === "1" : f === "2-3" ? r === "2" || r === "3" : r >= "4"; };
+  const lc = (x) => x.replace(/^[A-Z](?=[a-z])/, (c) => c.toLowerCase()); // "Passing yards" -> "passing yards", "EPA per play" stays
   const fmt = (stat, v, per) => {
     if (v == null || Number.isNaN(v)) return "–";
-    const o = stat[3], d = o.pct ? 1 : o.d ?? (o.count && per === "game" ? 1 : 0);
+    const o = stat[3], sh = o.count && per === "share", d = o.pct || sh || (o.count && per === "snap") ? 1 : o.d ?? (o.count && per === "game" ? 1 : 0);
     const s = Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
-    return (v < 0 ? "-" : o.fmt === "+" && v > 0 ? "+" : "") + s + (o.pct ? "%" : "");
+    return (v < 0 ? "-" : o.fmt === "+" && v > 0 ? "+" : "") + s + (o.pct || sh ? "%" : "");
   };
 
   // ---------------------------------------------------------------- page
@@ -464,7 +568,7 @@ const Viz = (() => {
     if (!seasons.includes(+st.from) || +st.from > +st.to) st.from = st.from && +st.from < seasons[0] && +st.to >= seasons[0] ? String(seasons[0]) : st.to; // players from a team-only season: their first season
     try { await Promise.all([loadChartJs(), loadLogos()]); } catch { el.innerHTML = stSub() + `<div class="card">Couldn't load the chart library. Check your connection and try again.</div>`; return; }
     const span = seasons.filter((s) => s >= +st.from && s <= +st.to);
-    const Ds = (await Promise.all(span.map(file))).filter(Boolean);
+    const Ds = (await Promise.all(span.map((s) => file(s)))).filter(Boolean);
     await Promise.all(Ds.map(ours));
     if (!Ds.length) { el.innerHTML = stSub() + `<div class="card">Couldn't load the chart data. Try again in a minute.</div>`; return; }
     draw(el, seasons, Ds);
@@ -486,6 +590,11 @@ const Viz = (() => {
       ["Best defenses (EPA per play allowed)", T_({ type: "bar", stat: "def_epa_play", top: "15" })],
       ["Net EPA: offense minus defense", T_({ type: "bar", stat: "net_epa", top: "all" })],
       ["Point margin", T_({ type: "bar", stat: "margin", per: "total", top: "all" })],
+      ["Best offenses vs top-half defenses (EPA per play)", T_({ type: "bar", stat: "epa_play", top: "15", opp: "good" })],
+      ["Point margin vs top-half teams only", T_({ type: "bar", stat: "margin", top: "all", opp: "good" })],
+      ["Pass-happy teams (pass rate)", T_({ type: "bar", stat: "pass_rate", top: "15" })],
+      ["Points per play", T_({ type: "bar", stat: "pts_play", top: "15" })],
+      ["Yardage margin", T_({ type: "bar", stat: "yds_margin", top: "all" })],
       ["Turnover margin", T_({ type: "bar", stat: "to_margin", per: "total", top: "all" })],
       ["Most sacks allowed", T_({ type: "bar", stat: "sacked", per: "total", order: "worst", top: "15" })],
       ["Who blitzes the most", T_({ type: "bar", stat: "blitz_rate", top: "15" })],
@@ -533,6 +642,13 @@ const Viz = (() => {
       ["Deep middle: who hits it (completion %)", P_({ type: "bar", stat: "qb_cmp_dm", pos: "QB", top: "15" })],
       ["Yards per attempt over the middle", P_({ type: "bar", stat: "qb_ypa_m", pos: "QB", top: "15" })],
       ["Yards per attempt on intermediate throws (10-19)", P_({ type: "bar", stat: "qb_ypa_i", pos: "QB", top: "15" })],
+      ["Over the middle: how often vs how well (EPA per throw)", P_({ type: "scatter", stat: "qb_pct_m", y: "qb_epa_m", pos: "QB", top: "all", quad: "Picky but good|Middle masters|Stays away|Forces it" })],
+      ["Passer rating over the middle", P_({ type: "bar", stat: "qb_rate_m", pos: "QB", top: "15" })],
+      ["EPA per throw on deep balls (20+ air yards)", P_({ type: "bar", stat: "qb_epa_d", pos: "QB", top: "15" })],
+      ["Passer rating: left vs right", P_({ type: "scatter", stat: "qb_rate_l", y: "qb_rate_r", pos: "QB", top: "all" })],
+      ["QBs vs top-half defenses (EPA per dropback)", P_({ type: "bar", stat: "epa_db", pos: "QB", top: "15", opp: "good" })],
+      ["QBs vs cupcakes (EPA per dropback)", P_({ type: "bar", stat: "epa_db", pos: "QB", top: "15", opp: "soft" })],
+      ["TD % vs INT %", P_({ type: "scatter", stat: "td_pct", y: "int_pct", pos: "QB", top: "all", quad: "Careful|Elite|Struggling|Gunslingers" })],
       ["Throw-zone profiles (radar)", P_({ type: "radar", pos: "QB", top: "3", radar: "qb_pct_l,qb_pct_m,qb_pct_r,qb_pct_s,qb_pct_i,qb_pct_d" })],
       "Receivers",
       ["Best WR1s (receiving yards per game)", P_({ type: "bar", stat: "rec_yds", role: "WR1", top: "15" })],
@@ -549,6 +665,12 @@ const Viz = (() => {
       ["Deep target share (% of targets 20+ air yards)", P_({ type: "bar", stat: "rec_pct_d", pos: "WR", top: "15" })],
       ["Catch % on deep targets", P_({ type: "bar", stat: "rec_cmp_d", pos: "WR", top: "15" })],
       ["Red-zone targets", P_({ type: "bar", stat: "rz_tgt", per: "total", top: "15" })],
+      ["Target share leaders", P_({ type: "bar", stat: "tgt_share", pos: "WR", top: "15" })],
+      ["Target share, last 3 games (who's trending up)", P_({ type: "bar", stat: "tgt_share", pos: "WR", top: "15", last: "3" })],
+      ["WOPR (target share + air-yards share)", P_({ type: "bar", stat: "wopr", pos: "WR", top: "15" })],
+      ["Depth vs volume: aDOT vs target share", P_({ type: "scatter", stat: "adot", y: "tgt_share", pos: "WR", top: "all", quad: "Short + busy|Alpha|Role players|Deep shots" })],
+      ["RACR (receiving yards per air yard)", P_({ type: "bar", stat: "racr", pos: "WR", top: "15" })],
+      ["EPA per target over the middle", P_({ type: "bar", stat: "rec_epa_m", pos: "WR", top: "15" })],
       ["WR profiles (radar)", P_({ type: "radar", pos: "WR", top: "3" })],
       "Running backs",
       ["Rushing yards race", P_({ type: "line", stat: "rush_yds", pos: "RB", top: "5", cum: "1" })],
@@ -558,6 +680,8 @@ const Viz = (() => {
       ["Explosive runs (10+ yards)", P_({ type: "bar", stat: "rush_10", per: "total", pos: "RB", top: "15" })],
       ["Pass-catching backs", P_({ type: "bar", stat: "rec_yds", per: "total", pos: "RB", top: "15" })],
       ["Scrimmage yards leaders", P_({ type: "bar", stat: "scrim", per: "total", top: "15" })],
+      ["Workhorses: carry share", P_({ type: "bar", stat: "carry_share", pos: "RB", top: "15" })],
+      ["Yards per touch", P_({ type: "bar", stat: "ypt", pos: "RB", top: "15" })],
       ["RB profiles (radar)", P_({ type: "radar", pos: "RB", top: "3" })],
       "Fantasy",
       ["Fantasy (PPR) leaders", P_({ type: "bar", stat: "ppr", top: "20" })],
@@ -565,6 +689,7 @@ const Viz = (() => {
       ["Fantasy (PPR): RBs", P_({ type: "bar", stat: "ppr", pos: "RB", top: "15" })],
       ["Fantasy (PPR): WRs and TEs", P_({ type: "bar", stat: "ppr", pos: "WR", top: "15" })],
       ["Fantasy (PPR) points race", P_({ type: "line", stat: "ppr", top: "5", cum: "1" })],
+      ["Fantasy (PPR) points per touch", P_({ type: "bar", stat: "ppr_touch", top: "15" })],
       "Defense",
       ["Sack leaders", P_({ type: "bar", stat: "def_sacks", per: "total", pos: "DEF", top: "15" })],
       ["Interception leaders", P_({ type: "bar", stat: "def_int", per: "total", pos: "DEF", top: "15" })],
@@ -578,6 +703,8 @@ const Viz = (() => {
       ["DB coverage: most picked on (targets)", P_({ type: "bar", stat: "cov_tgt", per: "total", pos: "CB", top: "15" })],
       ["DB coverage: corner profiles (radar)", P_({ type: "radar", pos: "CB", top: "3" })],
       ["Field goal % (kickers)", P_({ type: "bar", stat: "fg_pct", pos: "K", top: "15" })],
+      ["Havoc plays (TFL + passes defended + INTs)", P_({ type: "bar", stat: "havoc", per: "total", pos: "DEF", top: "15" })],
+      ["Sack share (% of his team's sacks)", P_({ type: "bar", stat: "def_sacks", per: "share", pos: "DEF", top: "15", min: "3" })],
       "Deep cuts",
       ["Deep cuts: pressure leaders", P_({ type: "bar", stat: "pressure", per: "total", pos: "DEF", top: "15" })],
       ["Deep cuts: missed tackles (most)", P_({ type: "bar", stat: "miss_tkl", per: "total", pos: "DEF", order: "worst", top: "15" })],
@@ -611,6 +738,9 @@ const Viz = (() => {
       ["Best defenses (EPA per play allowed)", T_({ type: "bar", stat: "def_epa_play", top: "15" })],
       ["Yards per play", T_({ type: "bar", stat: "ypp", top: "15" })],
       ["Point margin", T_({ type: "bar", stat: "margin", per: "total", top: "25" })],
+      ["Point margin vs top-half teams only", T_({ type: "bar", stat: "margin", top: "25", opp: "good" })],
+      ["Who feasts on cupcakes (points per game vs the bottom half)", T_({ type: "bar", stat: "pts", top: "15", opp: "soft" })],
+      ["Pass-happy teams (pass rate)", T_({ type: "bar", stat: "pass_rate", top: "15" })],
       ["Third-down rate", T_({ type: "bar", stat: "third", top: "15" })],
       ["Most penalized teams", T_({ type: "bar", stat: "pen", order: "worst", top: "15" })],
       ["League-wide by week: points per game, season vs season", T_({ type: "line", scope: "league", stat: "pts" })],
@@ -618,6 +748,9 @@ const Viz = (() => {
       "Players",
       ["Top passers (passing efficiency)", P_({ type: "bar", stat: "eff", pos: "QB", top: "15" })],
       ["Completion % vs yards per attempt", P_({ type: "scatter", stat: "cmp_pct", y: "ypa", pos: "QB", top: "50", quad: "Gunslingers|Elite|Struggling|Dink and dunk" })],
+      ["QBs vs top-half defenses (passing efficiency)", P_({ type: "bar", stat: "eff", pos: "QB", top: "15", opp: "good" })],
+      ["Catch share leaders (% of team catches)", P_({ type: "bar", stat: "rec_share", pos: "WR", top: "15" })],
+      ["Workhorses: carry share", P_({ type: "bar", stat: "carry_share", pos: "RB", top: "15" })],
       ["Passing yards race", P_({ type: "line", stat: "pass_yds", pos: "QB", top: "5", cum: "1" })],
       ["Passing TD race", P_({ type: "line", stat: "pass_td", pos: "QB", top: "5", cum: "1" })],
       ["Running QBs (rushing yards)", P_({ type: "bar", stat: "rush_yds", per: "total", pos: "QB", top: "15" })],
@@ -706,17 +839,20 @@ const Viz = (() => {
     // rates: only who has at least 35% of the leader's attempts/plays (picked ones always count)
     // who counts for a rate stat: your minimum (in the stat's own unit: dropbacks, carries...) for the main stat,
     // otherwise 35% of the leader's. Highlighted ones always count.
-    const autoMin = (s) => s[3].den ? Math.round(0.35 * Math.max(0, ...keys.map((k) => s[3].den(agg[k].S, agg[k].g) || 0))) : 0;
+    // Share of team / per 100 snaps turn a total into a rate, so it needs a minimum too: his own total / his snaps
+    const per = st.type === "pie" ? "total" : who === "teams" && ["share", "snap"].includes(st.per) || st.per === "snap" && !D.pcols.includes("snaps") ? "game" : st.per; // a pie is a share of the whole: always season totals
+    const wkPer = per === "share" || per === "snap"; // a rate made from a total
+    const denOf = (s) => s[3].den || (s[3].count && per === "share" ? (S) => s[2](S) : s[3].count && per === "snap" ? (S) => S.snaps : null);
+    const autoMin = (s) => denOf(s) ? Math.round(0.35 * Math.max(0, ...keys.map((k) => denOf(s)(agg[k].S, agg[k].g) || 0))) : 0;
     const minFor = (s) => (st.min !== "" && s === stat ? +st.min : autoMin(s));
     const qualify = (s) => {
-      if (!s[3].den) return keys;
+      if (!denOf(s)) return keys;
       const m = minFor(s);
-      return keys.filter((k) => picks.includes(k) || (s[3].den(agg[k].S, agg[k].g) || 0) >= m);
+      return keys.filter((k) => picks.includes(k) || (denOf(s)(agg[k].S, agg[k].g) || 0) >= m);
     };
     const UNITS = { epa_db: "dropbacks", pass_epa_play: "pass plays", rush_epa_play: "rushes", epa_rush: "carries", ypc: "carries", ypr: "catches",
       catch_pct: "targets", epa_tgt: "targets", fg_pct: "field goal tries", third: "third downs", ppa_play: "plays", win_pct: "games" };
-    const unitOf = (s) => UNITS[s[0]] || s[3].unit || (["ypa", "cmp_pct", "rating", "eff"].includes(s[0]) ? "pass attempts" : who === "teams" ? "plays" : "attempts");
-    const per = st.type === "pie" ? "total" : st.per; // a pie is a share of the whole: always season totals
+    const unitOf = (s) => (s[3].count && per === "share" ? s[1].toLowerCase() : s[3].count && per === "snap" ? "snaps" : 0) || UNITS[s[0]] || s[3].unit || (["ypa", "cmp_pct", "rating", "eff"].includes(s[0]) ? "pass attempts" : who === "teams" ? "plays" : "attempts");
     const val = (s, k) => value(s, agg[k].S, agg[k].g, per);
     // the Filter box (every chart type): keep who matches any "or" group, where every condition in the group holds
     const W = (st.type === "line" || st.type === "bar") && who === "teams" && st.scope === "league" ? { groups: [], read: [], bad: [] } : parseWhere(st.where, who, groups, D.teams, confs);
@@ -750,7 +886,7 @@ const Viz = (() => {
     const gridOn = st.grid !== "0", numsOn = st.nums !== "0", tension = st.curve === "0" ? 0 : 0.25, radius = st.round ? 6 : 0;
     const weeksTxt = `${w1 > 1 || w2 < 99 ? `Weeks ${w1}–${D.bowls && w2 >= D.bowls ? "bowls" : Math.min(w2, maxWk)}` : league === "nfl" ? "Regular season" : "Full season incl. bowls"}`;
     const seasonTxt = multi ? `${st.from}–${st.to}` : st.to;
-    const perTxt = (s) => (s[3].count && per === "game" ? " per game" : "");
+    const perTxt = (s) => (!s[3].count ? "" : per === "game" ? " per game" : per === "share" ? " (share of team)" : per === "snap" ? " per 100 snaps" : "");
     const whole = (st.type === "line" || st.type === "bar") && who === "teams" && st.scope === "league"; // the whole league: a line or a bar per season
     const perTeam = stat[3].count ? per === "game" ? " per team per game" : " (all teams added up)" : "";
     let partial = 0;
@@ -871,7 +1007,7 @@ const Viz = (() => {
       title = `${stat[1]}${perTxt(stat)}`;
       cfg = { type: "bar", data: { labels: shown.map(short), datasets: [{ data: shown.map((k) => val(stat, k)), backgroundColor: shown.map((k) => hl(k) ? hi : color(k)), borderRadius: radius,
         borderColor: shown.map((k) => (hl(k) ? ink : "transparent")), borderWidth: 2 }] },
-        options: { ...base, indexAxis: "y", layout: { padding: { right: 56 } }, plugins: { ...base.plugins, legend: { display: false }, tooltip: { ...base.plugins.tooltip, callbacks: { title: (c) => name(shown[c[0].dataIndex]), label: (c) => fmt(stat, c.raw, st.per) } } },
+        options: { ...base, indexAxis: "y", layout: { padding: { right: 56 } }, plugins: { ...base.plugins, legend: { display: false }, tooltip: { ...base.plugins.tooltip, callbacks: { title: (c) => name(shown[c[0].dataIndex]), label: (c) => fmt(stat, c.raw, per) } } },
           scales: { ...base.scales, y: { ...base.scales.y, ticks: { ...base.scales.y.ticks, autoSkip: false, display: showNames, padding: showLogo ? 28 : 3 },
             afterFit: (sc) => { if (showLogo) sc.width = Math.max(sc.width, 30); } } } },
         plugins: [{ id: "vzBar", afterDatasetsDraw(c) { // logo by each name, the number at the end of each bar
@@ -882,12 +1018,12 @@ const Viz = (() => {
             if (showLogo) drawLogo(ctx, shown[i], a.left - sz / 2 - 4, b.y, sz);
             if (!numsOn) return;
             ctx.fillStyle = ink; ctx.textAlign = v < 0 ? "right" : "left";
-            ctx.fillText(fmt(stat, v, st.per), b.x + (v < 0 ? -4 : 4), b.y);
+            ctx.fillText(fmt(stat, v, per), b.x + (v < 0 ? -4 : 4), b.y);
           });
           ctx.restore(); } }] };
       body = { h: Math.max(260, shown.length * 26 + 60) };
       note = `${list.length} ${who} ranked${stat[3].den ? ` (at least ${minFor(stat)} ${unitOf(stat)}${st.min === "" ? ", 35% of the leader's; change it with Minimum" : ""})` : ""}.`;
-      body.table = shown.map((k, i) => [i + 1, k, fmt(stat, val(stat, k), st.per)]);
+      body.table = shown.map((k, i) => [i + 1, k, fmt(stat, val(stat, k), per)]);
     } else if (whole) { // line: one line per season, week by week
       const wks = [...new Set(Ds.flatMap((d) => d.trows.map((r) => r[1])))].filter((w) => w >= w1 && w <= w2).sort((a, b) => a - b);
       const bowls = Ds.find((d) => d.bowls)?.bowls;
@@ -913,11 +1049,11 @@ const Viz = (() => {
       note = `Each line is one season: every ${st.group ? `${st.group} ` : ""}team's games that week added up${stat[3].count && per === "game" ? ", then divided by the games played (bye weeks don't drag it down)" : ""}.${partial ? " A week with most of its games still to play is left out until it's done." : ""}${multi ? "" : " Pick more seasons to compare years."}`;
     } else if (st.type === "line") {
       const list = rank(stat, qualify(stat)), sers = (picks.length ? picks.filter((k) => agg[k]) : list.slice(0, Math.min(top, 8)));
-      title = `${stat[1]}${multi ? " by season" : st.cum ? ", adding up week by week" : " by week"}`;
+      title = `${stat[1]}${wkPer ? perTxt(stat) : ""}${multi ? " by season" : st.cum ? ", adding up week by week" : " by week"}`;
       let labels, data;
       if (multi) {
         labels = Ds.map((d) => String(d.season));
-        data = (k) => Ds.map((d) => { const o = agg[k].seasons[d.season]; return o ? value(stat, o.S, o.g, st.per) : null; });
+        data = (k) => Ds.map((d) => { const o = agg[k].seasons[d.season]; return o ? value(stat, o.S, o.g, per) : null; });
       } else {
         const wks = [...new Set(D.trows.map((r) => r[1]))].filter((w) => w >= w1 && w <= w2).sort((a, b) => a - b);
         labels = wks.map((w) => (D.bowls && w >= D.bowls ? "Bowls" : `Wk ${w}`));
@@ -925,15 +1061,15 @@ const Viz = (() => {
           const run = {}; let g = 0;
           return wks.map((w) => {
             const S = agg[k].wk[w];
-            if (!st.cum) return S ? stat[2](S, 1) : null;
+            if (!st.cum) return S ? wkPer ? value(stat, S, 1, per) : stat[2](S, 1) : null;
             if (S) { g++; for (const c in S) run[c] = (run[c] || 0) + S[c]; }
-            return g ? stat[3].count ? stat[2](run, g) : stat[2](run, g) : null;
+            return g ? wkPer ? value(stat, run, g, per) : stat[2](run, g) : null;
           });
         };
       }
       cfg = { type: "line", data: { labels, datasets: sers.map((k, i) => ({ label: short(k), data: data(k), borderColor: PAL[i % PAL.length], backgroundColor: PAL[i % PAL.length],
         borderWidth: hl(k) || i === 0 ? 3 : 2, pointRadius: 3, spanGaps: true, tension })) },
-        options: { ...base, layout: { padding: { right: showLogo ? 26 : 0 } }, plugins: { ...base.plugins, legend: { ...base.plugins.legend, display: showNames }, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${c.dataset.label}: ${fmt({ 3: { ...stat[3], count: 0 } }, c.raw)}` } } } },
+        options: { ...base, layout: { padding: { right: showLogo ? 26 : 0 } }, plugins: { ...base.plugins, legend: { ...base.plugins.legend, display: showNames }, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${c.dataset.label}: ${wkPer ? fmt(stat, c.raw, per) : fmt({ 3: { ...stat[3], count: 0 } }, c.raw)}` } } } },
         plugins: [{ id: "vzLine", afterDatasetsDraw(c) { // each line ends in its team's logo
           if (!showLogo) return;
           c.data.datasets.forEach((d, i) => {
@@ -948,7 +1084,7 @@ const Viz = (() => {
       const list = rank(s, keys).filter((k) => val(s, k) > 0), n = Math.min(top, 12);
       const shown = list.slice(0, n), rest = list.slice(n).reduce((a, k) => a + val(s, k), 0);
       const total = list.reduce((a, k) => a + val(s, k), 0);
-      title = `${who === "players" && st.team ? tm(st.team)[0] + ": " : ""}share of ${s[1].toLowerCase()}`.replace(/^s/, "S");
+      title = `${who === "players" && st.team ? tm(st.team)[0] + ": " : ""}share of ${lc(s[1])}`.replace(/^s/, "S");
       cfg = { type: "doughnut", data: { labels: [...shown.map(short), ...(rest ? ["Everyone else"] : [])],
         datasets: [{ data: [...shown.map((k) => val(s, k)), ...(rest ? [rest] : [])], backgroundColor: [...shown.map((k, i) => PAL[i % PAL.length]), ...(rest ? [line] : [])], borderColor: C("--card"), borderWidth: 2 }] },
         plugins: [{ id: "vzPie", afterDatasetsDraw(c) { // team logos on their slices; the share shows on hover
@@ -966,7 +1102,7 @@ const Viz = (() => {
       const pool = qualify(stat).filter((k) => qualify(ystat).includes(k)).filter((k) => val(stat, k) != null && val(ystat, k) != null);
       // How many: the top N by the stat across the bottom (X), plus anyone highlighted
       const both = [...new Set([...rank(stat, pool).slice(0, top), ...picks.filter((k) => pool.includes(k))])];
-      title = `${stat[1]}${perTxt(stat)} vs ${ystat[1].toLowerCase()}${perTxt(ystat)}`;
+      title = `${stat[1]}${perTxt(stat)} vs ${lc(ystat[1])}${perTxt(ystat)}`;
       const label = new Set([...rank(stat, both).slice(0, 4), ...rank(ystat, both).slice(0, 4), ...rank(stat, both).slice(-2), ...picks]);
       const pts = both.map((k) => ({ x: val(stat, k), y: val(ystat, k), k }));
       const avg = (a) => a.reduce((s, x) => s + x, 0) / (a.length || 1), mx = avg(pts.map((p) => p.x)), my = avg(pts.map((p) => p.y));
@@ -974,7 +1110,7 @@ const Viz = (() => {
       cfg = { type: "scatter", data: { datasets: [{ data: pts, pointRadius: pts.map((p) => (showLogo ? 11 : hl(p.k) ? 7 : 5)), pointHoverRadius: showLogo ? 13 : 7,
         pointBackgroundColor: pts.map((p) => (showLogo ? "transparent" : hl(p.k) ? hi : color(p.k))), pointBorderColor: pts.map((p) => (showLogo ? (hl(p.k) ? hi : "transparent") : ink)),
         pointBorderWidth: pts.map((p) => (hl(p.k) ? 2 : showLogo ? 0 : 0.5)) }] },
-        options: { ...base, layout: { padding: { right: 36, top: 8 } }, plugins: { ...base.plugins, legend: { display: false }, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${name(c.raw.k)}: ${fmt(stat, c.raw.x, st.per)}, ${fmt(ystat, c.raw.y, st.per)}` } } },
+        options: { ...base, layout: { padding: { right: 36, top: 8 } }, plugins: { ...base.plugins, legend: { display: false }, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${name(c.raw.k)}: ${fmt(stat, c.raw.x, per)}, ${fmt(ystat, c.raw.y, per)}` } } },
           scales: { x: { ...base.scales.x, reverse: !!stat[3].low, title: { display: true, text: stat[1] + perTxt(stat) + (stat[3].low ? " (better →)" : ""), color: muted } },
             y: { ...base.scales.y, reverse: !!ystat[3].low, title: { display: true, text: ystat[1] + perTxt(ystat) + (ystat[3].low ? " (better ↑)" : ""), color: muted } } } },
         plugins: [{ id: "vzLabels", afterDatasetsDraw(c) {
@@ -1035,11 +1171,13 @@ const Viz = (() => {
       body = { h: 440 };
       note = "100 = the best among everyone listed, 0 = the worst. Lower-is-better stats are flipped.";
     }
+    if (per === "share" && stat[3].count) note += ` Share of team = his part of his team's total in the games he played.`;
+    if (st.opp) note += " Top half = the top half of our power ratings that season; cupcakes = the bottom half and anyone unranked.";
     const whereBox = `<label class="vz-wide">Filter <small class="muted">e.g. run stops > 20 and sacks >= 3, or QB, EPA per dropback over .1</small><input id="vz-where" type="search" maxlength="200" placeholder="Type conditions… (and / or, > < >= <=)" value="${esc(st.where)}" autocomplete="off" spellcheck="false">
         ${W.bad.length ? `<small class="vz-wbad">Couldn't read ${W.bad.map((b) => `“${esc(b)}”`).join(", ")}. Try a stat, a comparison and a number (“tackles >= 30”), a position, a team or “rookies”.</small>` : whereRead ? `<small class="muted">Showing ${who} where ${esc(whereRead)}.</small>` : ""}</label>`;
     const autoTitle = title;
     if (st.ttl) title = st.ttl; // Style > Your title
-    const autoSub = `${lgTxt} · ${seasonTxt} · ${weeksTxt}${st.group ? ` · ${st.group}` : ""}${st.team ? ` · ${tm(st.team)[0]}` : ""}${st.role ? ` · ${st.role}s` : st.pos ? ` · ${st.pos === "DEF" ? "Defense" : FINE[st.pos] || st.pos}` : ""}${who === "players" && st.exp ? ` · ${EXP.find(([k]) => k === st.exp)?.[1]}` : ""}${who === "players" && st.draft ? ` · ${st.draft === "U" ? "Undrafted" : `Drafted: ${DRAFT.find(([k]) => k === st.draft)?.[1]}`}` : ""}${whereRead && st.type !== "table" ? ` · where ${whereRead}` : ""}`;
+    const autoSub = `${lgTxt} · ${seasonTxt} · ${weeksTxt}${st.group ? ` · ${st.group}` : ""}${st.team ? ` · ${tm(st.team)[0]}` : ""}${st.role ? ` · ${st.role}s` : st.pos ? ` · ${st.pos === "DEF" ? "Defense" : FINE[st.pos] || st.pos}` : ""}${who === "players" && st.exp ? ` · ${EXP.find(([k]) => k === st.exp)?.[1]}` : ""}${who === "players" && st.draft ? ` · ${st.draft === "U" ? "Undrafted" : `Drafted: ${DRAFT.find(([k]) => k === st.draft)?.[1]}`}` : ""}${whereRead && st.type !== "table" ? ` · where ${whereRead}` : ""}${st.opp ? ` · ${OPP.find(([k]) => k === st.opp)[1].toLowerCase()}` : ""}${+st.last ? ` · last ${st.last} games` : ""}`;
     const sub = st.subt || autoSub;
     const src = league === "nfl" ? "nflverse play-by-play (EPA)" : "CollegeFootballData.com (box scores; PPA = college EPA, garbage time left out)";
     const seasonOnly = [stat, ystat].some((s) => s[3].season) && (w1 > 1 || w2 < 99);
@@ -1064,7 +1202,9 @@ const Viz = (() => {
           : `<label class="vz-wide">${st.type === "scatter" ? "Across (X)" : st.type === "table" ? "Sort by" : "Stat"}${statSel("vz-stat", stat[0])}</label>${st.type === "scatter" ? `<label class="vz-wide">Up (Y)${statSel("vz-y", ystat[0])}</label>` : ""}`}
         <label>Seasons${who === "players" && idx.players?.[league] > (idx[league] || [])[0] ? ` <small class="muted">player stats start in ${idx.players[league]}</small>` : ""}<span class="vz-pair">${sel("vz-from", seasons.map((s) => [s, s]), st.from)}<i>to</i>${sel("vz-to", seasons.map((s) => [s, s]), st.to)}</span></label>
         <label>Weeks<span class="vz-pair">${sel("vz-wk1", wkOpts, st.wk1)}<i>to</i>${sel("vz-wk2", wkOpts, st.wk2)}</span></label>
-        ${st.type === "pie" ? "" : `<label>Totals${seg("vz-per", [["game", "Per game"], ["total", "Total"]], st.per)}</label>`}
+        ${st.type === "pie" ? "" : `<label>Show as${seg("vz-per", [["game", "Per game"], ["total", "Total"], ...(who === "players" ? [["share", "Share of team"], ...(D.pcols.includes("snaps") ? [["snap", "Per 100 snaps"]] : [])] : [])], per)}</label>`}
+        <label>Against${sel("vz-opp", OPP, st.opp)}</label>
+        <label>Games${sel("vz-last", LAST, st.last)}</label>
         ${(st.type === "bar" || st.type === "table") && !whole ? `<label>Show${seg("vz-order", [["best", "Best"], ["worst", "Worst"]], st.order)}</label>` : ""}
         ${st.type === "table" ? whereBox + `<details class="vz-wide vz-rstats"><summary>Columns (${tableCols().length}) · tap to change</summary><div id="vz-cols">${groups.map(([g, l]) => `<fieldset><legend>${esc(g)}</legend>${l.map((s) => `<label><input type="checkbox" value="${s[0]}"${tableCols().includes(s) ? " checked" : ""}> ${esc(s[1])}</label>`).join("")}</fieldset>`).join("")}<p class="muted">Up to 14. The sort column and the stats in your filter always show.</p></div></details>` : ""}
         ${(st.type === "line" || st.type === "bar") && who === "teams" ? `<label>${st.type === "bar" ? "Bars" : "Lines"}${seg("vz-scope", [["", st.type === "bar" ? "Each team" : "Top teams"], ["league", `Whole ${league === "nfl" ? "NFL" : "league"}${st.type === "bar" ? " by season" : ""}`]], st.scope)}</label>` : ""}
@@ -1128,7 +1268,7 @@ const Viz = (() => {
     ["ttl", "subt"].forEach((k) => { const x = document.getElementById("vz-" + k); if (x) x.onchange = () => { st[k] = x.value.trim(); redo(); }; });
     el.querySelectorAll("[data-sty]").forEach((x) => x.onchange = () => { st[x.dataset.sty] = +x.dataset.on ? (x.checked ? "" : "0") : (x.checked ? "1" : ""); redo(); });
     on("vz-stat", "stat"); on("vz-y", "y"); on("vz-wk1", "wk1"); on("vz-wk2", "wk2"); on("vz-top", "top"); on("vz-group", "group"); on("vz-team", "team"); on("vz-pos", "pos"); on("vz-exp", "exp"); on("vz-draft", "draft");
-    on("vz-from", "from", reload); on("vz-to", "to", reload);
+    on("vz-from", "from", reload); on("vz-to", "to", reload); on("vz-opp", "opp"); on("vz-last", "last");
     const nx = document.getElementById("vz-noexit");
     if (nx) nx.onchange = () => { st.noexit = nx.checked ? "1" : ""; redo(); };
     ["logo", "names"].forEach((k) => { const x = document.getElementById("vz-" + k); if (x) x.onchange = () => { st[k] = x.checked ? "" : "0"; redo(); }; });
@@ -1249,7 +1389,7 @@ const Viz = (() => {
     };
     let qHits = [], qCur = -1;
     const qShow = () => {
-      const raw = qbox.value.trim(), q = norm(raw);
+      const raw = qbox.value.trim(), cfbT = league === "cfb" && /target/i.test(raw), q = cfbT ? norm(raw).replace(/targets?/g, "catch") : norm(raw);
       if (q.length < 2) { qs.hidden = true; qHits = []; return; }
       const words = q.split(/\s+/), pair = qPair(raw);
       const one = qItems().map((it) => [it, norm(it[0]), norm(`${it[0]} ${it[1]} ${it[2]}`)]).filter(([, , all]) => words.every((w) => all.includes(w)))
@@ -1257,7 +1397,7 @@ const Viz = (() => {
       // a single item named by everything typed comes first, then the two-stat scatters, then looser single matches
       qHits = [...one.filter((x) => x[1] < 2).map((x) => x[0]), ...(pair?.hits || []), ...one.filter((x) => x[1] === 2).map((x) => x[0])];
       qCur = -1;
-      qs.innerHTML = (pair?.note ? `<p class="muted">${esc(pair.note)}</p>` : "") + qHits.map((it, i) => `<button type="button" data-i="${i}">${esc(it[0])} <small>${esc(it[1])}</small></button>`).join("")
+      qs.innerHTML = (cfbT ? `<p class="muted">College stats don't track targets, so these use catches.</p>` : "") + (pair?.note ? `<p class="muted">${esc(pair.note)}</p>` : "") + qHits.map((it, i) => `<button type="button" data-i="${i}">${esc(it[0])} <small>${esc(it[1])}</small></button>`).join("")
         || `<p class="muted">Nothing matches “${esc(raw)}”. To compare two stats, put “and” or “vs” between them.</p>`;
       qs.hidden = false;
     };
@@ -1392,5 +1532,60 @@ const Viz = (() => {
     }
   }
 
-  return { render };
+  // ---------------------------------------------------------------- Team pages > At a glance (live.js)
+  // Four small charts from the same files as Visualize, this season: who gets the targets (college: catches), who gets the
+  // carries, points scored vs allowed by week, and where the team ranks. Each one opens in Visualize to change anything.
+  async function glance(lg, id, el) {
+    idx = idx || await getJSON("data/viz/index.json").catch(() => ({}));
+    const season = (idx[lg] || []).at(-1), D = season && await file(season, lg), k = `${lg}:${id}`;
+    if (!D || !D.trows.some((r) => r[0] === k)) { el.innerHTML = `<p class="muted">No stats for this team yet this season.</p>`; return; }
+    const viz = (o) => `#/stats?${new URLSearchParams({ league: lg, show: "visualize", ...o })}`;
+    const open = (o) => `<a class="gl-open" href="${viz(o)}">Open in Visualize →</a>`;
+    const col = (c) => D.pcols.indexOf(c) + 3;
+    const shares = (c) => { // [[player, total]...] on this team, and the team's total
+      const by = {}; let tot = 0;
+      for (const r of D.prows) if (r[2] === k) { const v = r[col(c)] || 0; by[r[0]] = (by[r[0]] || 0) + v; tot += v; }
+      return [Object.entries(by).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]), tot];
+    };
+    const bars = ([list, tot], unit, cls = "") => {
+      const top = list[0]?.[1] || 1;
+      return list.slice(0, 5).map(([p, v]) => { const m = D.pmeta[p] || [p, ""];
+        return `<div class="gl-bar"><span class="gl-name" title="${esc(m[0])}"><a href="#/player/${esc(p)}?league=${lg}">${esc(m[0])}</a> <small class="muted">${esc(m[3] || m[1] || "")}</small></span>
+          <span class="gl-track"><i class="${cls}" style="width:${(100 * v / top).toFixed(1)}%"></i></span><span class="gl-num"><b>${Math.round(100 * v / tot)}%</b> <small class="muted">${v}</small></span></div>`; }).join("")
+        + `<p class="muted gl-foot">${tot} team ${unit}, ${D.season}</p>`;
+    };
+    const tg = D.league === "nfl" && shares("targets")[1] ? "targets" : "rec";
+    const games = D.trows.filter((r) => r[0] === k).sort((a, b) => a[1] - b[1]);
+    // points scored vs allowed, week by week (SVG, both themes through CSS colors)
+    const W = Math.round(Math.min(560, Math.max(300, (el.clientWidth || 600) / 2 - 40))), H = 190, pad = 30, top = Math.max(10, ...games.flatMap((r) => [r[3], r[4]])) * 1.15;
+    const x = (i) => pad + (games.length > 1 ? (i * (W - 2 * pad)) / (games.length - 1) : (W - 2 * pad) / 2), y = (v) => H - pad - (v * (H - 2 * pad)) / top;
+    const tm = (t) => D.teams[t]?.[1] || "";
+    const line = (j, cls) => `<polyline class="${cls}" points="${games.map((r, i) => `${x(i).toFixed(0)},${y(r[j]).toFixed(0)}`).join(" ")}"/>`
+      + games.map((r, i) => `<circle class="${cls}" cx="${x(i).toFixed(0)}" cy="${y(r[j]).toFixed(0)}" r="4"><title>Week ${r[1]} vs ${esc(tm(r[2]))}: ${r[3]}-${r[4]}</title></circle>`
+        + `<text class="${cls}" x="${x(i).toFixed(0)}" y="${(y(r[j]) + (r[j] >= r[7 - j] ? -9 : 17)).toFixed(0)}">${r[j]}</text>`).join("");
+    const svg = `<svg class="gl-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Points scored and allowed by week">
+      ${[0, 0.5, 1].map((f) => `<line class="gl-grid" x1="${pad}" x2="${W - pad}" y1="${y(top * f / 1.15).toFixed(0)}" y2="${y(top * f / 1.15).toFixed(0)}"/>`).join("")}
+      ${line(4, "gl-against")}${line(3, "gl-for")}
+      ${games.map((r, i) => `<text class="gl-wk" x="${x(i).toFixed(0)}" y="${H - 8}">${D.bowls && r[1] >= D.bowls ? "Bowl" : `Wk ${r[1]}`}</text>`).join("")}</svg>`;
+    // where they rank (per game, among every team with a game this season)
+    const saved = st; st = { ...DEF }; // sum() reads the Visualize settings (halftime exits, opponents, last N)
+    const TS = sum(D, "teams", 1, 99);
+    st = saved;
+    const n = Object.keys(TS).length, statOf = (key) => T.flatMap(([, l]) => l).find((s) => s[0] === key);
+    const ranks = [["pts", "Points / game"], ["opp_pts", "Allowed / game"], ["epa_play", "Offense EPA"], ["def_epa_play", "Defense EPA"]].map(([key, label]) => {
+      const s = statOf(key), v = (t) => value(s, TS[t].S, TS[t].g, "game");
+      const order = Object.keys(TS).filter((t) => v(t) != null).sort((a, b) => (s[3].low ? 1 : -1) * (v(a) - v(b)));
+      const r = order.indexOf(k) + 1;
+      return r ? `<div class="gl-bar"><span class="gl-name">${label} <small class="muted">${fmt({ 3: { ...s[3], d: s[3].count ? 1 : s[3].d } }, v(k), "total")}</small></span>
+        <span class="gl-track"><i class="${r <= n / 2 ? "" : "gl-low"}" style="width:${(100 * (n - r + 1) / n).toFixed(1)}%"></i></span><span class="gl-num"><b>#${r}</b> <small class="muted">of ${order.length}</small></span></div>` : "";
+    }).join("");
+    el.innerHTML = `<div class="gl-grid2">
+      <section class="gl-card"><h3>Who gets the ${tg === "targets" ? "targets" : "catches"}</h3>${bars(shares(tg), tg === "targets" ? "targets" : "catches")}${open({ who: "players", type: "bar", stat: tg === "targets" ? "tgt_share" : "rec_share", team: k, top: "10" })}</section>
+      <section class="gl-card"><h3>Who gets the carries</h3>${bars(shares("carries"), "carries", "gl-alt")}${open({ who: "players", type: "bar", stat: "carry_share", team: k, top: "10" })}</section>
+      <section class="gl-card"><h3>Points scored vs allowed</h3><p class="gl-key"><span class="gl-for">━ scored</span> <span class="gl-against">━ allowed</span></p>${svg}${open({ who: "teams", type: "line", stat: "pts", pick: k })}</section>
+      <section class="gl-card"><h3>Where they rank</h3><p class="muted gl-foot">${D.league === "nfl" ? "NFL" : "FBS"} rank this season, 1 = best. Longer bar = better.</p>${ranks}${open({ who: "teams", type: "bar", stat: "net_epa", top: "all", pick: k })}</section>
+    </div><p class="note">From the same play-by-play numbers as Stats &gt; Visualize${D.league === "cfb" ? " (college doesn't track targets, so catches stand in)" : ""}. Shares here are of the team's whole ${D.season} total; Visualize's "Share of team" counts only the games each player played.</p>`;
+  }
+
+  return { render, glance };
 })();

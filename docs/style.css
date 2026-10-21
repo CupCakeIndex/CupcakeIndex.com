@@ -2914,3 +2914,28 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .mt-g > span { display: inline-flex; align-items: center; gap: 4px; }
 .mt-w { font-weight: 800; color: var(--accent); }
 .mt-n { grid-column: 2; color: var(--muted); font-size: 11px; }
+
+/* Team pages > At a glance (viz.js glance()) */
+.gl-grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.gl-card { border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+.gl-card h3 { margin: 0 0 10px; font-size: 15px; }
+.gl-bar { display: grid; grid-template-columns: minmax(0, 11em) 1fr auto; align-items: center; gap: 10px; margin: 7px 0; }
+.gl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gl-name a { color: var(--ink); }
+.gl-track { height: 16px; background: var(--bar-bg); border-radius: 4px; overflow: hidden; }
+.gl-track i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.gl-track i.gl-alt { background: #3fb6e8; }
+.gl-track i.gl-low { background: #f72585; }
+.gl-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 5.5em; }
+.gl-foot { font-size: 12px; margin: 4px 0 8px; }
+.gl-open { display: inline-block; margin-top: 6px; font-size: 13px; font-weight: 600; color: var(--accent); }
+.gl-key { font-size: 12px; margin: 0 0 4px; }
+.gl-key .gl-for { color: var(--accent); } .gl-key .gl-against { color: var(--muted); }
+.gl-svg { width: 100%; height: auto; display: block; }
+.gl-svg polyline { fill: none; stroke-width: 3; }
+.gl-svg polyline.gl-for { stroke: var(--accent); } .gl-svg polyline.gl-against { stroke: var(--muted); }
+.gl-svg circle.gl-for { fill: var(--accent); } .gl-svg circle.gl-against { fill: var(--muted); }
+.gl-svg text { font-size: 11px; text-anchor: middle; font-family: "JetBrains Mono", monospace; }
+.gl-svg text.gl-for { fill: var(--accent); } .gl-svg text.gl-against { fill: var(--muted); } .gl-svg text.gl-wk { fill: var(--muted); }
+.gl-svg line.gl-grid { stroke: var(--line); }
+@media (max-width: 720px) { .gl-grid2 { grid-template-columns: 1fr; } .gl-bar { grid-template-columns: 1fr auto; gap: 2px 10px; margin: 9px 0; } .gl-name { grid-column: 1 / -1; } }

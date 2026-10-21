@@ -34,8 +34,9 @@ XCOLS = [
     # accepted penalties on him (offensive linemen too)
     "pen", "pen_yds",
     # where the ball went (nflverse air yards + pass_location): zone = depth s/i/d (under 10 air yards, 10-19, 20+) + side l/m/r.
-    # QBs: z_<zone>_att/_cmp/_yds; receivers: zt_<zone> targets, zc_<zone> catches. Throwaways and spikes have no zone.
-    *[f"z_{z}_{c}" for z in ZONES for c in ("att", "cmp", "yds")], *[f"z{c}_{z}" for z in ZONES for c in "tc"],
+    # QBs: z_<zone>_att/_cmp/_yds/_td/_int/_epa; receivers: zt_<zone> targets, zc_<zone> catches, zy_ yards, ze_ EPA.
+    # Throwaways and spikes have no zone.
+    *[f"z_{z}_{c}" for z in ZONES for c in ("att", "cmp", "yds", "td", "int", "epa")], *[f"z{c}_{z}" for z in ZONES for c in "tcye"],
 ]
 # team pass defense per game (per_game(season, T)): throws by depth, yards after catch, blitzes (FTN)
 TCOLS = ["opp_att", "opp_cmp", "opp_yac", "opp_short_att", "opp_short_cmp", "opp_short_yds", "opp_deep_att", "opp_deep_cmp", "opp_deep_yds",
@@ -271,6 +272,9 @@ def per_game(season, T=None):
                     s[f"z_{zone}_att"] += 1
                     s[f"z_{zone}_cmp"] += c
                     s[f"z_{zone}_yds"] += f(row["passing_yards"])
+                    s[f"z_{zone}_td"] += row.get("pass_touchdown") == "1"
+                    s[f"z_{zone}_int"] += row.get("interception") == "1"
+                    s[f"z_{zone}_epa"] += epa
                 if rz:
                     s["rz_att"] += 1
                     s["rz_pass_td"] += row.get("pass_touchdown") == "1"
@@ -292,6 +296,8 @@ def per_game(season, T=None):
             if zone:
                 s[f"zt_{zone}"] += 1
                 s[f"zc_{zone}"] += c
+                s[f"zy_{zone}"] += f(row["receiving_yards"])
+                s[f"ze_{zone}"] += epa
             if late:
                 s["third_tgt"] += 1
                 s["third_conv"] += c and not lost

@@ -4896,7 +4896,7 @@ const Live = (() => {
     const lg = league, my = token;
     store.set("lastTeam-" + lg, String(id)); // standings open on this team's conference
     const nfl = lg === "nfl";
-    const tab = ["roster", "takes", "injuries", ...(nfl ? ["depth", "moves"] : [])].includes(params.get("tab")) ? params.get("tab") : "schedule";
+    const tab = ["glance", "roster", "takes", "injuries", ...(nfl ? ["depth", "moves"] : [])].includes(params.get("tab")) ? params.get("tab") : "schedule";
     loading("team");
     let sch, ros, ranks, extra, takes, starters;
     try {
@@ -5055,8 +5055,8 @@ const Live = (() => {
     const movesRows = moves.map((t) => `<tr><td class="muted">${esc(new Date(t.date).toLocaleDateString(undefined, { month: "short", day: "numeric" }))}</td><td>${esc(t.description)}</td></tr>`).join("");
     const tabLink = (t, label) => `<a class="subtab${tab === t ? " on" : ""}" href="${link("team", id, { tab: t })}">${label}</a>`;
     view("team").innerHTML = `${hub}
-      <div class="subtabs">${tabLink("schedule", "Schedule")}${tabLink("roster", "Roster")}${nfl ? tabLink("depth", "Depth chart") + tabLink("injuries", "Injuries") + tabLink("moves", "Transactions") : tabLink("injuries", "Injuries")}${takes.length || starters.length ? tabLink("takes", `Takes <small>${takes.length + starters.length}</small>`) : ""}</div>
-      <div class="card">${tab === "takes" ? Takes.startersHtml(starters) + (takes.length ? `${starters.length ? `<h3 class="tk-posts-h">From our X account</h3>` : ""}${Takes.list(takes)}` : starters.length ? "" : `<p class="muted">No takes about this team yet.</p>`)
+      <div class="subtabs">${tabLink("schedule", "Schedule")}${tabLink("glance", "At a glance")}${tabLink("roster", "Roster")}${nfl ? tabLink("depth", "Depth chart") + tabLink("injuries", "Injuries") + tabLink("moves", "Transactions") : tabLink("injuries", "Injuries")}${takes.length || starters.length ? tabLink("takes", `Takes <small>${takes.length + starters.length}</small>`) : ""}</div>
+      <div class="card">${tab === "glance" ? `<div id="tm-glance"><p class="muted">Loading…</p></div>` : tab === "takes" ? Takes.startersHtml(starters) + (takes.length ? `${starters.length ? `<h3 class="tk-posts-h">From our X account</h3>` : ""}${Takes.list(takes)}` : starters.length ? "" : `<p class="muted">No takes about this team yet.</p>`)
         : tab === "roster"
         ? rosterRows || `<p class="muted">Roster not available.</p>`
         : tab === "injuries" ? injHtml || `<p class="muted">Injury report not available.</p>`
@@ -5068,6 +5068,8 @@ const Live = (() => {
         : `<p class="muted">No games scheduled.</p>`}</div>`;
     // the head coach, top right (coaches.js): photo, name and hot seat, linking to his page
     Coaches.forTeam(lg, T.id).then((h) => { const el = my === token && $("#th-coach"); if (el && h) el.outerHTML = h; }).catch(() => {});
+    // At a glance: charts from the Visualize data (viz.js)
+    if (tab === "glance") Viz.glance(lg, T.id, $("#tm-glance")).catch(() => { const el = my === token && $("#tm-glance"); if (el) el.innerHTML = `<p class="muted">Couldn't load the charts. Try again in a minute.</p>`; });
     // latest headlines mentioning this team (news.js), under the schedule
     if (tab === "schedule") News.forTeam(lg, T.id).then((h) => { if (h && my === token) view("team").insertAdjacentHTML("beforeend", h); });
     // arrived from an injury tag: pulse that player's row and show their latest update under it
