@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-21T04:14:47Z",
+ "updated": "2026-10-21T04:45:28Z",
  "teams": {
   "nfl:22": {
    "name": "Arizona Cardinals",
@@ -84,13 +84,6 @@
    "lg": "nfl",
    "id": "12",
    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/kc.png"
-  },
-  "nfl:24": {
-   "name": "Los Angeles Chargers",
-   "short": "Chargers",
-   "lg": "nfl",
-   "id": "24",
-   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lac.png"
   },
   "nfl:14": {
    "name": "Los Angeles Rams",
@@ -225,6 +218,13 @@
    "id": "2117",
    "logo": "https://cdn.collegefootballdata.com/logos/500/2117.png"
   },
+  "cfb:2132": {
+   "name": "Cincinnati",
+   "short": "Cincinnati",
+   "lg": "cfb",
+   "id": "2132",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/2132.png"
+  },
   "cfb:228": {
    "name": "Clemson",
    "short": "Clemson",
@@ -315,6 +315,13 @@
    "lg": "cfb",
    "id": "99",
    "logo": "https://cdn.collegefootballdata.com/logos/500/99.png"
+  },
+  "cfb:235": {
+   "name": "Memphis",
+   "short": "Memphis",
+   "lg": "cfb",
+   "id": "235",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/235.png"
   },
   "cfb:2390": {
    "name": "Miami",
@@ -470,6 +477,20 @@
    "id": "245",
    "logo": "https://cdn.collegefootballdata.com/logos/500/245.png"
   },
+  "cfb:2641": {
+   "name": "Texas Tech",
+   "short": "Texas Tech",
+   "lg": "cfb",
+   "id": "2641",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/2641.png"
+  },
+  "cfb:2655": {
+   "name": "Tulane",
+   "short": "Tulane",
+   "lg": "cfb",
+   "id": "2655",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/2655.png"
+  },
   "cfb:26": {
    "name": "UCLA",
    "short": "UCLA",
@@ -528,6 +549,65 @@
   }
  },
  "items": [
+  {
+   "title": "Joe Burrow's mom cries 'every single time' he takes the field. Here's why",
+   "url": "https://sports.yahoo.com/articles/joe-burrows-mom-cries-every-042536131.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-21T04:25:36Z",
+   "summary": "In episode one of Beyond Sunday season two featuring moms of Bengals players, Robin Burrow joins us to share her experience.",
+   "image": "https://media.zenfs.com/en/the_enquirer_natl_articles_358/db47dafe12cce1003c681d83aa63abb7.png",
+   "teams": []
+  },
+  {
+   "title": "'Football 301': Arch Manning's NFL Draft stock isn't cooked and here's why",
+   "url": "https://sports.yahoo.com/nfl/article/football-301-arch-mannings-nfl-draft-stock-isnt-cooked-and-heres-why-042321041.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-21T04:23:21Z",
+   "summary": "The constant social media barrage calling Arch \"overrated\" or a \"bust\" doesn't move Yahoo Sports' Nate Tice. He's seen enough from the process, traits and underlying play to keep faith in Manning's…",
+   "image": "",
+   "teams": []
+  },
+  {
+   "title": "Bryce Underwood's Michigan future bleak after Kyle Whittingham's call before Indiana game",
+   "url": "https://sports.yahoo.com/articles/bryce-underwoods-michigan-future-bleak-042153577.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-21T04:21:53Z",
+   "summary": "The Michigan Wolverines made a reportedly major decision regarding their quarterback this Saturday, as they host the Indiana Hoosiers. Can the Wolverines keep the momentum going regardless?",
+   "image": "https://media.zenfs.com/en/the_sporting_news_articles_584/7daefdb47f00f024ad266a066e3da1d1",
+   "teams": [
+    "cfb:130",
+    "cfb:84"
+   ]
+  },
+  {
+   "title": "Homecoming could be aerial display between UC Bearcats, Texas Tech",
+   "url": "https://sports.yahoo.com/articles/homecoming-could-aerial-display-between-040527031.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-21T04:05:27Z",
+   "summary": "UC Bearcats football takes on unbeaten Texas Tech at Nippert Stadium for Homecoming Oct. 24. The Red Raiders have never played in Cincinnati.",
+   "image": "https://media.zenfs.com/en/the_enquirer_natl_articles_358/073b23c6ba4d0f74ca9ab8c34a3aff85.jpg",
+   "teams": [
+    "cfb:2641",
+    "cfb:2132"
+   ]
+  },
+  {
+   "title": "Memphis bowl predictions after week 7",
+   "url": "https://sports.yahoo.com/articles/memphis-bowl-predictions-week-7-035321568.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-21T03:53:21Z",
+   "summary": "Memphis fell to 5-2 on Friday with a 31-17 loss against Tulane, and earlier this week, several outlets updated their bowl predictions. After a lot of early-season predictions had Charles Huff’s team…",
+   "image": "",
+   "teams": [
+    "cfb:235",
+    "cfb:2655"
+   ]
+  },
   {
    "title": "Eagles-Commanders Week 8 game will NOT be flexed out of Sunday night",
    "url": "https://sports.yahoo.com/articles/eagles-commanders-week-8-game-034727149.html",
@@ -926,30 +1006,16 @@
    ]
   },
   {
-   "title": "Insider Reveals Michigan’s Starting QB vs. Indiana",
-   "url": "https://sports.yahoo.com/articles/insider-reveals-michigan-starting-qb-003525654.html",
+   "title": "Notre Dame Fails On The Big Stage In BYU Loss",
+   "url": "https://sports.yahoo.com/articles/notre-dame-fails-big-stage-003600613.html",
    "source": "Yahoo Sports",
    "league": "cfb",
-   "published": "2026-10-21T00:35:25Z",
-   "summary": "Michigan is reportedly expected to start Tommy Carr over Bryce Underwood against Indiana after the freshman sparked a comeback win over Penn State.",
-   "image": "https://media.zenfs.com/en/detroit_sports_nation_articles_492/b7f4efeb4b2842b827c59e4cc3dc6831.jpg",
+   "published": "2026-10-21T00:36:00Z",
+   "summary": "The Irish had a chance to become the number one team in America and essentially lock in a CFP spot with a win, but earned a loss instead",
+   "image": "https://media.zenfs.com/en/notre_dame_fighting_irish_on_si_467/a91bb3a7bffc7abdeb11e2474d441730.jpg",
    "teams": [
-    "cfb:213",
-    "cfb:130",
-    "cfb:84"
-   ]
-  },
-  {
-   "title": "Report: Michigan Football QB Tommy Carr to make first career start vs Indiana",
-   "url": "https://sports.yahoo.com/articles/report-michigan-football-qb-tommy-003219438.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-21T00:32:19Z",
-   "summary": "Per reports, Michigan Football QB Tommy Carr will make his first career start against Indiana on Saturday:",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/e718442a86d67b5f7b152e9d5be28c66.jpg",
-   "teams": [
-    "cfb:130",
-    "cfb:84"
+    "cfb:87",
+    "cfb:252"
    ]
   },
   {
@@ -977,18 +1043,6 @@
    ]
   },
   {
-   "title": "Ohio State faces a major test without Julian Sayin",
-   "url": "https://sports.yahoo.com/articles/ohio-state-faces-major-test-002402556.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-21T00:24:02Z",
-   "summary": "Who will be the Buckeyes' next signal caller in Sayin's absence?",
-   "image": "https://media.zenfs.com/en/the_sporting_news_articles_584/a7135186f53c53022fdbbe44ddc312bb",
-   "teams": [
-    "cfb:194"
-   ]
-  },
-  {
    "title": "How does Rams’ depth chart look post-injuries?",
    "url": "https://sports.yahoo.com/articles/does-rams-depth-chart-look-002243088.html",
    "source": "Yahoo Sports",
@@ -998,18 +1052,6 @@
    "image": "https://media.zenfs.com/en/sb_nation_articles_115/4fcf20f9fc9d8437d8b269fb6aea7604.jpg",
    "teams": [
     "nfl:14"
-   ]
-  },
-  {
-   "title": "How many games can Michigan win the rest of regular season if Tommy Carr is QB1?",
-   "url": "https://sports.yahoo.com/articles/many-games-michigan-win-rest-001830090.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-21T00:18:30Z",
-   "summary": "Predict how many wins Michigan will have the rest of the regular season if Tommy Carr is the starting quarterback.",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/2cfff0b13ee4e42066ae37934a57d917.jpg",
-   "teams": [
-    "cfb:130"
    ]
   },
   {
@@ -1054,21 +1096,6 @@
    "summary": "Carr's rise from freshman backup to Michigan starter signals a new direction for the offense and raises questions about Underwood's future in Ann Arbor",
    "image": "https://sportshub.cbsistatic.com/i/2026/10/20/9726e480-aaba-49a5-95e3-fb678efa9d3d/michigan-qb.png",
    "teams": [
-    "cfb:130",
-    "cfb:84"
-   ]
-  },
-  {
-   "title": "Michigan set to start Tommy Carr vs. Indiana after he took over for Bryce Underwood in second half of win over Penn State",
-   "url": "https://sports.yahoo.com/college-football/breaking-news/article/michigan-set-to-start-tommy-carr-vs-indiana-after-he-took-over-for-bryce-underwood-in-second-half-of-win-over-penn-state-000829966.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-21T00:08:29Z",
-   "summary": "The grandson of former Michigan coach Lloyd Carr is the brother of Notre Dame QB CJ Carr.",
-   "image": "",
-   "teams": [
-    "cfb:87",
-    "cfb:213",
     "cfb:130",
     "cfb:84"
    ]
@@ -1226,19 +1253,6 @@
    "teams": [
     "cfb:194",
     "cfb:84"
-   ]
-  },
-  {
-   "title": "Seahawks host former SEC Defensive Player of the Year winner for a tryout",
-   "url": "https://sports.yahoo.com/articles/seahawks-host-former-sec-defensive-224201799.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-20T22:42:01Z",
-   "summary": "The former Los Angeles Chargers draft pick had a workout in Seattle.",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/3e04f5e76de1b180682b9a322dbff535.jpg",
-   "teams": [
-    "nfl:24",
-    "nfl:26"
    ]
   },
   {
