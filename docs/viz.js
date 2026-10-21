@@ -348,7 +348,7 @@ const Viz = (() => {
     pbu: "defended", pbus: "defended", pd: "defended", pds: "defended", breakups: "defended", breakup: "defended", tfl: "loss", tfls: "loss",
     ff: "fumbles", qbr: "rating", comp: "completion", comps: "completion", cmp: "completion", recs: "receptions", tgt: "targets", tgts: "targets",
     looks: "targets", dropped: "drops", drop: "drops", fg: "field", fgs: "field", pts: "points", ppg: "points", rushes: "carries", atts: "attempts",
-    explosives: "explosive", picked: "interceptions", interception: "interceptions", hurries: "pressures", pressures: "pressures", btk: "broken", btks: "broken" };
+    explosives: "explosive", picked: "interceptions", interception: "interceptions", pressures: "pressures", btk: "broken", btks: "broken" };
   const qStem = (t) => (t.length > 3 && !/ss$/.test(t) ? t.replace(/s$/, "") : t);
   // numbers never name a stat ("drops per 100 targets" = drops per target)
   const qTok = (s) => norm(s).split(/[\s/()]+/).filter((t) => t && !["the", "of", "a", "per"].includes(t) && !/^\d+$/.test(t)).map((t) => qStem(QSYN[t] || t));
@@ -1500,6 +1500,8 @@ const Viz = (() => {
       .map(([w, p]) => [" " + norm(w) + " ", p]).sort((a, b) => b[0].length - a[0].length);
     const CITY = {};
     for (const x of Object.values(D.teams)) { const c = x[0].split(" ").slice(0, -1).join(" "); CITY[c] = (CITY[c] || 0) + 1; }
+    // everyday words that never name a stat, so they don't make an answer a "closest match"
+    const ASK_SKIP = new Set(["over", "under", "when", "while", "from", "him", "her", "they", "them", "does", "during", "into", "about", "per", "and", "season", "game", "games"]);
     const ask = (raw, plain) => {
       const lower = " " + norm(raw).replace(/[?!.,;:]/g, " ").replace(/\s+/g, " ").trim() + " ";
       let t = league === "cfb" ? lower.replace(/ targets? /g, " catches ") : lower;
@@ -1564,7 +1566,9 @@ const Viz = (() => {
         patch.exp ? "rookies" : "", patch.draft ? "undrafted" : "", patch.opp ? OPP.find(([k]) => k === patch.opp)[1].toLowerCase() : "",
         patch.last ? `last ${patch.last} games` : "", patch.type === "line" ? "week by week" : patch.type ? `${patch.type} chart` : "", patch.order === "worst" ? (s[3].low ? "most first" : "lowest first") : "", patch.where ? `${patch.where.replace(" >=", "")}+` : "", patch.from ? (patch.from === patch.to ? patch.from : `${patch.from}–${patch.to}`) : ""].filter(Boolean).join(" · ");
       const note = o.from === "first" && w === "players" && idx.players?.[league] > (idx[league] || [])[0] ? ` (player stats start in ${idx.players[league]})` : "";
-      return [label + note, "Your question", "", () => { st = { ...DEF, from: patch.from || st.from, to: patch.to || st.to, mode: st.mode, ...patch }; reload(); }];
+      // some words matched no stat at all ("punt return yards"): it's a guess, so say so
+      const voc = vocabOf(statsFor(w, have)), unknown = qTok(rest).filter((x) => /^[a-z]{3,}$/.test(x) && !ASK_SKIP.has(x) && !voc.has(x) && ![...voc].some((v) => v.startsWith(x)));
+      return [label + note, unknown.length ? `Closest match (no stat for “${unknown.join(" ")}”)` : "Your question", "", () => { st = { ...DEF, from: patch.from || st.from, to: patch.to || st.to, mode: st.mode, ...patch }; reload(); }];
     };
     const EXAMPLES = league === "nfl"
       ? ["who gets the targets on Washington", "QBs vs cupcakes EPA per dropback", "carry share last 3 games", "rookies tackles", "sacks vs pressures", "passer rating over the middle"]
@@ -1613,7 +1617,10 @@ const Viz = (() => {
         .sort((a, b) => a[1] - b[1] || (a[1] === 0.5 ? a[0][0].length - b[0][0].length : 0)).slice(0, 12);
       // a single item named by everything typed comes first, then the two-stat scatters, then looser single matches
       const asked = ask(raw, !one.some((x) => x[1] < 2));
-      qHits = [...(asked ? [asked] : []), ...one.filter((x) => x[1] < 2).map((x) => x[0]), ...(pair?.hits || []), ...one.filter((x) => x[1] === 2).map((x) => x[0])];
+      // two stats ("drops vs targets"): the scatter comes before single stats that merely contain both words; only an exact name beats it
+      const cut = pair?.hits?.length ? 0.5 : 2;
+      qHits = [...(asked ? [asked] : []), ...one.filter((x) => x[1] < cut || (x[1] < 2 && x[0][1] === "Preset" && / vs /.test(x[0][0]))).map((x) => x[0]), ...(pair?.hits || []),
+        ...one.filter((x) => x[1] >= cut && !(x[1] < 2 && x[0][1] === "Preset" && / vs /.test(x[0][0]))).map((x) => x[0])];
       // nothing at all: drop one word at a time and offer what the rest of the question finds
       if (!qHits.length && words.length > 1) {
         const seen = new Set();

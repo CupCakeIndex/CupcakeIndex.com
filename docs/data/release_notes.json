@@ -1,5 +1,15 @@
 [
   {
+    "version": "1.92.2",
+    "build": 385,
+    "date": "2026-10-21",
+    "items": [
+      "Two stats with 'vs' or 'and' between them ('drops vs targets') now give the scatter chart first again, instead of a single stat that happens to contain both words.",
+      "'Sacks vs pressures' finds pressures again (it was picking QB hits).",
+      "When part of a question doesn't match any stat we track (like 'punt return yards'), the answer is labeled 'Closest match' and names the words it couldn't use, so you know it's a guess."
+    ]
+  },
+  {
     "version": "1.92.1",
     "build": 384,
     "date": "2026-10-21",
