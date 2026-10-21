@@ -770,7 +770,9 @@ FR_KEYS = {
     "WR": [(["53"], 0.3, 1, False), (["42"], 0.5, 10, False), (["25", "43"], 0.2, 0, False)],
 }
 FR_KEYS["TE"] = FR_KEYS["WR"]
-FR_HURT = {"OUT", "INJURY_RESERVE", "DOUBTFUL"}
+FR_HURT = {"OUT", "INJURY_RESERVE", "DOUBTFUL"}  # the site's list leaves these out (it has an "include injured" switch)
+FR_MISSED = 2  # the posts also skip anyone hurt at all (questionable too) or who missed this many of his team's games:
+               # a hurt guy playing under his projections isn't a fraud (Terry, Oct 21: Saquon went out twice)
 
 
 def fraud_scores():
@@ -805,7 +807,12 @@ def fraud_scores():
         if wsum:
             out.append({"id": p["id"], "name": p["fullName"], "pos": pos, "team": t["abbreviation"], "color": "#" + t.get("color", "555555"),
                         "logo": (t.get("logos") or [{}])[0].get("href"), "pic": f"https://a.espncdn.com/i/headshots/nfl/players/full/{p['id']}.png",
-                        "score": round(100 * score / wsum), "n": n})
+                        "score": round(100 * score / wsum), "n": n, "hurt": p.get("injuryStatus") not in (None, "ACTIVE")})
+    played = {}
+    for p in out:
+        played[p["team"]] = max(played.get(p["team"], 0), p["n"])
+    for p in out:
+        p["hurt"] = p["hurt"] or played[p["team"]] - p["n"] >= FR_MISSED
     return out, cur
 
 
@@ -838,10 +845,19 @@ def fraud_stamp(pic, p):
     return im
 
 
+def recent_leaders(key, weeks=3):
+    """Who led this weekly post in the last few weeks: they sit out, so the next guy gets the spotlight
+    (Terry, Oct 21: Saquon led Fraud watch two weeks running)."""
+    cut = (dt.date.today() - dt.timedelta(days=7 * weeks)).isoformat()
+    return {m[1] for p in posted.load() if p.get("stat") == key and p.get("date", "") >= cut
+            for m in [re.search(r"Week \d+: (.+?) \(", p.get("text", ""))] if m}
+
+
 @stat("weekly_frauds")
 def _():
     ps, cur = fraud_scores()
-    rows = sorted((p for p in ps if p["score"] >= 25), key=lambda p: -p["score"])
+    led = recent_leaders("weekly_frauds")
+    rows = sorted((p for p in ps if p["score"] >= 25 and not p["hurt"] and p["name"] not in led), key=lambda p: -p["score"])
     if len(rows) < 3:
         return None
     f0, f1 = rows[0], rows[1]
@@ -858,7 +874,8 @@ def _():
 @stat("weekly_overachievers")
 def _():
     ps, cur = fraud_scores()
-    rows = sorted((p for p in ps if p["score"] <= -25), key=lambda p: p["score"])
+    led = recent_leaders("weekly_overachievers")
+    rows = sorted((p for p in ps if p["score"] <= -25 and not p["hurt"] and p["name"] not in led), key=lambda p: p["score"])
     if len(rows) < 3:
         return None
     o0, o1 = rows[0], rows[1]
@@ -991,6 +1008,17 @@ def team_logo(p):
 
 LOOKS = ("broadcast", "poster", "podium", "trading")  # flare_card.py (broadcast) and card_looks.py, all in the site's orange
 ORANGE = (255, 107, 44)
+
+
+def look_for(key, f):
+    """Each kind of stat has its own look, so the feed rotates between them and you can tell the posts apart:
+    weekly series (Fraud watch, Over-achievers) = poster, hot takes = broadcast, player stats = trading card,
+    team lists (schedules, injuries, blowouts, records) = podium."""
+    if key.startswith("weekly_"):
+        return "poster"
+    if key.startswith("hot_"):
+        return "broadcast"
+    return "trading" if f["kind"] == "player" else "podium"
 
 
 def card(f, look=None):
@@ -1142,7 +1170,7 @@ def make(key, out, theme=None, f=None):
     f = f or STATS[key]()
     if not f:
         return None
-    theme = theme or random.choice(LOOKS)  # the card look
+    theme = theme if theme in LOOKS else random.choice(LOOKS) if theme == "random" else look_for(key, f)  # the card look
     os.makedirs(out, exist_ok=True)
     png = os.path.join(out, f"obscure-{key}.png")
     card(f, theme).convert("RGB").save(png, optimize=True)
@@ -1150,13 +1178,27 @@ def make(key, out, theme=None, f=None):
     lead = f["rows"][0][0]
     # same stat, same leader = the same post, even when the numbers and the runners-up changed (Zay Flowers went out twice)
     meta = {"day": "obscure", "stat": key, "key": f.get("key") or f"{key}:{lead.get('name') or lead.get('team')}", "weekly": "key" in f, "theme": theme, "image": png,
-            "text": text, "skip": False, "reason": "", "league": f["league"]}
+            "text": text, "skip": False, "reason": "", "league": f["league"], "weak": weak(f)}
     pid = lead.get("id") or (re.search(r"/(\d+)\.png", lead.get("pic") or "") or [None, None])[1]
     if f["kind"] == "player" and pid:  # the Takes tab on this player's page (feed.py)
         meta["players"] = {f"{f['league']}:{pid}": lead.get("name", "")}
     with open(os.path.join(out, f"obscure-{key}.json"), "w", encoding="utf-8") as fh:
         json.dump(meta, fh, indent=1, ensure_ascii=False)
     return meta
+
+
+MIN_LEAD = 5  # a player count stat whose leader has fewer than this is too small to post (Denzel Boston, 3 deep catches)
+
+
+def weak(f):
+    """Why this card isn't worth posting, or "" (Terry, Oct 21: no ties for #1, no tiny numbers)."""
+    rows = f["rows"]
+    if len(rows) > 1 and rows[0][1] == rows[1][1]:
+        return "tied for #1"
+    v = rows[0][1]
+    if f["kind"] == "player" and isinstance(v, int) and abs(v) < MIN_LEAD:
+        return f"the leader only has {v}"
+    return ""
 
 
 MIN_RELEVANCE = 2.0  # below this, the scheduled slot posts nothing (Terry: fewer cards, only ones people care about)
@@ -1214,7 +1256,9 @@ def by_relevance(keys):
         except Exception as e:  # one broken data source shouldn't stop the post
             print(f"[{k}] failed: {e!r}")
             continue
-        if f:
+        if f and weak(f):
+            print(f"[{k}] skipped: {weak(f)}")
+        elif f:
             out.append((relevance(k, f, news, recent), k, f))
     return sorted(out, key=lambda x: -x[0])
 
@@ -1232,7 +1276,7 @@ def rotation(now=None):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--stat", default="rotate", help="stat key, or rotate (default) / random / random-hot / random-stat")
-    ap.add_argument("--theme", choices=["random", *LOOKS], default="random", help="card look")
+    ap.add_argument("--theme", choices=["auto", "random", *LOOKS], default="auto", help="card look (auto = the stat type's own look)")
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--ok-empty", action="store_true", help="no stat qualifies: exit quietly (no today.json) instead of failing")
     ap.add_argument("--all", action="store_true", help="render every stat")
@@ -1247,7 +1291,7 @@ def main():
              "random-obscure": [k for k in rot if not k.startswith("hot_")]}  # old name for random-stat
     if a.stat not in STATS and a.stat not in pools and a.stat != "rotate":
         sys.exit(f"Unknown stat '{a.stat}'. Run with --list to see them.")
-    facts = {}  # facts already computed while ranking (rotate)
+    facts, scores = {}, {}  # facts already computed while ranking (rotate), and how relevant each was
     if a.all:
         keys = list(STATS)
     elif a.stat == "rotate":
@@ -1260,6 +1304,7 @@ def main():
         for sc, k, _ in scored[:8]:
             print(f"  relevance {sc:5.2f}  {k}")
         facts = {k: f for sc, k, f in scored if sc >= MIN_RELEVANCE}
+        scores = {k: sc for sc, k, f in scored}
         keys = [k for sc, k, f in scored if sc >= MIN_RELEVANCE]
         if not keys:
             print(f"Nothing relevant enough to post this time (best: {scored[0][0] if scored else 0} < {MIN_RELEVANCE}).")
@@ -1274,10 +1319,16 @@ def main():
     m = None
     for key in keys:
         try:
-            m = make(key, a.out, None if a.theme == "random" else a.theme, facts.get(key))
+            m = make(key, a.out, a.theme, facts.get(key))
         except Exception as e:  # one broken data source shouldn't stop the post
             print(f"[{key}] failed: {e!r}")
             m = None
+        if m and a.stat in pools and m.get("weak"):  # rotate already left these out; a stat picked by name still goes
+            print(f"[{key}] skipped: {m['weak']}; trying the next one")
+            m = None
+            continue
+        if m and scores.get(key, 0) >= 3:
+            m["tier"] = 2  # very relevant today: counts as one of the day's good posts (posted.over_cap)
         if m and not a.all and posted.repeat(m):
             print(f"[{key}] {posted.repeat(m)}; trying the next one")
             m = None

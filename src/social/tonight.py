@@ -1,7 +1,7 @@
 """Weeknight game-day post for X: Monday/Thursday night NFL, Tuesday-Friday college (MACtion and friends).
 
 Saturday and Sunday already have game-day posts (render.py). This one runs Monday-Friday afternoons and
-only posts when there are games tonight: today's games come from ESPN's scoreboard, the win chances from
+only posts when there's a big game tonight (any NFL game, or a college game with a top-25 team): today's games come from ESPN's scoreboard, the win chances from
 our model's predictions in the latest rankings file (matched by ESPN game id). Win chances only, no lines.
 
     python src/social/tonight.py                    # today (US Eastern)
@@ -26,6 +26,16 @@ try:
     EASTERN = ZoneInfo("America/New_York")
 except Exception:  # Windows without tz data: daylight time is close enough for a local test
     EASTERN = dt.timezone(dt.timedelta(hours=-4))
+BIG_RANK = 25  # a college game only counts as big when a team is in the AP top 25 or our top 25 (Terry: no minor "Tonight" games)
+
+
+def big_game(lg, p, rank):
+    """Every NFL game is big; a college game needs a ranked team."""
+    if lg == "nfl":
+        return True
+    return any((rank[t].get("ap_rank") or 99) <= BIG_RANK or rank[t]["power_rank"] <= BIG_RANK for t in (p["home"], p["away"]))
+
+
 SHOWS = {("nfl", 0): "Monday Night Football", ("nfl", 3): "Thursday Night Football"}
 
 
@@ -56,7 +66,7 @@ def card(day):
     games, curs = [], {}
     for lg in ("nfl", "cfb"):
         g, cur = tonight_games(lg, day)
-        games += [(lg,) + x for x in g]
+        games += [(lg,) + x for x in g if big_game(lg, x[0], x[1])]
         if cur:
             curs[lg] = cur
     if not games:
@@ -101,7 +111,7 @@ def main():
         meta = {"day": "tonight", "stat": f"tonight-{day.isoformat()}", "image": png, "text": text,
                 "skip": stale, "reason": "rankings data is stale" if stale else ""}
     else:
-        meta = {"day": "tonight", "image": png, "text": "", "skip": True, "reason": f"no games tonight ({day:%A})"}
+        meta = {"day": "tonight", "image": png, "text": "", "skip": True, "reason": f"no big games tonight ({day:%A})"}
     print(("SKIP: " + meta["reason"]) if meta["skip"] else f"{png}\n   {meta['text']}")
     for name in ("tonight.json", "today.json"):
         with open(os.path.join(a.out, name), "w", encoding="utf-8") as fh:

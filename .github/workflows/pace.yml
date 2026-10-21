@@ -19,10 +19,10 @@ on:
         default: cfb
         options: [cfb, nfl]
       theme:
-        description: "Card look (a site theme; random = surprise me)"
+        description: "Card look (auto = the trading card all player stats use; random = surprise me)"
         type: choice
-        default: random
-        options: [random, mono, terminal, amber, broadcast, editorial, glass, varsity]
+        default: auto
+        options: [auto, random, broadcast, poster, podium, trading]
       post:
         description: "Post to X (untick to only make the picture)"
         type: boolean
@@ -47,7 +47,7 @@ jobs:
       - name: Render the card (if anyone is on historic pace)
         env:
           LEAGUE: ${{ inputs.league }}
-          THEME: ${{ inputs.theme || 'random' }}
+          THEME: ${{ inputs.theme || 'auto' }}
         run: |
           # scheduled: Sunday (UTC) = Saturday night college, Monday (UTC) = Sunday night NFL
           if [ -z "$LEAGUE" ]; then LEAGUE=$([ "$(date -u +%u)" = "7" ] && echo cfb || echo nfl); fi

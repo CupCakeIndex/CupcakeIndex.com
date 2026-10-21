@@ -5,6 +5,7 @@ It only posts when ALL of these are true:
   - X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET are all set (GitHub *secrets*)
   - render.py didn't mark today's post as "skip" (stale or empty data)
   - it isn't a repeat (posted.py: same text, the same post with new numbers, or the same story key)
+  - today isn't full (posted.over_cap: about 4 posts a day, the lesser kinds stop first)
 If ANTHROPIC_API_KEY is set, writer.py has Claude punch up the wording first (same numbers, plus team @'s and
 hashtags); without it the original text goes out with the @'s and hashtags added.
 Otherwise it prints what it WOULD have posted and exits 0.
@@ -40,6 +41,10 @@ def main():
     why = posted.repeat(meta)
     if why:
         print(f"Not posting: {why} (see data/social/posted.json).")
+        return
+    full = posted.over_cap(meta)
+    if full:
+        print(f"Not posting: {full}.")
         return
     plain = dict(meta)  # the log keeps the original wording, so repeats are still caught tomorrow
     if not meta.get("written"):  # writer.py --take posts are Claude's already

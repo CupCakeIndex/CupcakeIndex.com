@@ -103,6 +103,18 @@ back, set a repo **variable** `X_INCLUDE_LINK` = `true` (same place as step 4 be
   (regenerate it and update `X_ACCESS_TOKEN` and `X_ACCESS_SECRET`).
 - Posting uses the X API v2 (`/2/media/upload` then `/2/tweets`). The old v1.1 upload that many
   tutorials show was shut off in 2025.
+- About 4 posts a day, best kinds first (`posted.py`, `DAILY_CAP`). The daily post, Bully, record
+  paces and big news always go (up to 6). Hot takes, weekly series, Tonight and the drought posts
+  stop at 4. Deep-cut stat cards, app tips and player game lines stop at 3, which saves room for
+  the better posts later in the day.
+- News posts are only major stories: a season-ending injury, a starting QB out, a head coach
+  fired or hired, or a trade. The same story about the same player or team never goes out twice
+  (30 days), and the post adds our model's win chance for that team's next game when it has one.
+- Stat cards skip a tie for #1 and tiny numbers (a player leading with under 5). Fraud watch and
+  Over-achievers skip anyone hurt (even questionable) or who missed 2+ games, and anyone who led
+  it in the last 3 weeks. Tonight posts need an NFL game or a top-25 college team.
+- Each kind of stat card has its own look: weekly series = poster, hot takes = broadcast,
+  player stats = trading card, team lists = podium. Pick another look in Run workflow if you want.
 
 ## Claude writes the posts (optional, about $3-6 a month)
 

@@ -1,14 +1,15 @@
 """Breaking news posts for X: the biggest football headlines, as soon as the hourly news job sees them.
 
 Reads docs/data/news.json (written by src/news.py from ESPN, CBS, Yahoo, Pro Football Talk and On3 feeds),
-picks at most ONE fresh headline that is real news (season-ending injury, coach fired or hired, trade,
-big contract, retirement, suspension) and writes a text-only post that credits the source:
+picks at most ONE fresh headline that is major news (a season-ending injury, a starting QB out, a head coach
+fired or hired, a trade) and writes a text-only post that credits the source, plus our model's win chance
+for that team's next game when it has one:
 
-    🚨 Saints release QB Derek Carr (via ESPN)
+    🚨 Eagles QB Jalen Hurts ruled out vs. Cowboys (via ESPN) Our model had the Eagles at 61% vs the Cowboys with Hurts starting.
 
 Strict on purpose: no rumors, no questions, no "could/should" columns, no odds, no other sports, no recruiting.
-Never the same story twice (posted.json keys: the article link, plus team + kind for 2 days so ESPN and PFT
-writing up the same thing don't both go out), and at most MAX_PER_DAY a day. No link in the post (Terry's rule).
+Never the same story twice (posted.json keys: the article link, plus kind + player or team for 30 days, so ESPN
+and PFT writing up the same thing, or a follow-up days later, don't both go out), and at most MAX_PER_DAY a day. No link in the post (Terry's rule).
 X's free API can't read other accounts, so this can't mirror Schefter or Underdog directly; the feeds are
 where their reports show up a few minutes later.
 
@@ -24,27 +25,23 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import posted
-from render import DATA, ROOT, tweet
+from render import DATA, ROOT, chance, latest, short, tweet, x_len
 
 MAX_PER_DAY = 3        # only big news (Terry, Oct 6: posts like "WVU releases updated depth chart" are dumb)
 FRESH_HOURS = 3        # older than this isn't breaking any more
 SOURCES = {"ESPN", "CBS Sports", "Yahoo Sports", "Pro Football Talk", "On3"}  # news desks, not opinion blogs
 
-# (kind, headline pattern). First match wins. kind_of() then keeps only the big ones.
+# Only the major stories (Terry, Oct 21): a season-ending injury, a starting QB out, a head coach fired or hired,
+# a trade. (kind, headline pattern); first match wins, then kind_of() keeps only the big ones.
 KINDS = [
-    ("injury", r"\b(out for (the )?(rest of the )?season|season-ending|torn (ACL|Achilles)|tore (his |an )?(ACL|Achilles)|to IR\b|on injured reserve)"),
-    ("coach", r"\b(fired|fires|parts ways|hired|hires|names .{0,40}(head coach|coordinator)|new head coach|resigns|steps down)\b"),
+    ("injury", r"\b(out for (the )?(rest of the )?season|season-ending|torn (ACL|Achilles)|tore (his |an )?(ACL|Achilles))"),
+    ("coach", r"\b(fire[sd]?|parts ways|hired|hires|names .{0,40}head coach|new head coach|resigns|steps down|out as .{0,30}coach)\b"),
     ("trade", r"\b(traded|trade for|trades? .{0,40}\bto\b|acquire[sd]?|deal sends)\b"),
-    ("contract", r"\b(signs?|agrees?|lands?|gets?)\b.{0,60}\b(extension|contract|deal)\b|\bmega-deal\b|\brecord deal\b"),
-    ("retire", r"\b(retires|retiring|announces (his )?retirement)\b"),
-    ("suspended", r"\b(suspended|suspends|suspension)\b"),
-    ("released", r"\b(release|released|releases|waived|waives|cuts)\b"),
+    ("qb", r"\b(ruled out|won't play|will not play|will miss|to miss|out (for|vs\.?|against|Sunday|Monday|Thursday|Week)|"
+           r"(placed|lands|goes|going) on (IR|injured reserve)|to IR\b|benched|loses starting job)"),
 ]
 COORD = re.compile(r"\b(coordinator|OC|DC|assistant|position coach|special teams|interim)\b", re.I)  # head coaches only
 QB = re.compile(r"\b(QB|quarterback)\b")
-# a star (one of the most-rostered NFL players) hurt or back: smaller news, but it's what people want first
-STAR_INJURY = (r"\b(injur\w*|week to week|week-to-week|ruled out|won't play|will miss|to miss|carted|surgery|MRI|concussion|"
-               r"hamstring|ankle|knee|groin|activated|returns? to practice|designated to return)\b")
 STARS = 80
 NOT_NEWS = re.compile(
     r"\?|\b(rumou?rs?|could|should|would|might|may|if|why|how|what|who|which|deadline|grades?|candidates?|targets?|"
@@ -52,7 +49,10 @@ NOT_NEWS = re.compile(
     r"practice squad|recruit\w*|commit\w*|offer|visit|transfer portal|basketball|baseball|softball|volleyball|soccer|"
     r"hockey|podcast|takeaways|winners|losers|film|watch|live|updates?|tracker|reaction|reacts|"
     r"jersey|number|hall of fame|anniversary|on this day|catch|here's|know|depth chart|polls?|ratings|instead|cautionary|"
-    r"lessons?|column|opinion|analysis|notebook|observations|thoughts|explained|breakdown)\b|--", re.I)
+    r"lessons?|column|opinion|analysis|notebook|observations|thoughts|explained|breakdown|it's not|it’s not|isn't|isn’t)\b|--", re.I)
+# the same kind of story about the same player (or team) within this many days is the same story
+# (Maryland's coach went out twice, three days apart)
+SAME_STORY_DAYS = 30
 
 
 def star_names():
@@ -65,21 +65,88 @@ def star_names():
         return []
 
 
-def kind_of(title, stars=()):
-    """Only big news: a head coach hired or fired, or a star (or any QB) traded, hurt, cut, signed, suspended or retiring."""
+def head_coaches():
+    """Current head coaches' names, both leagues (docs/data/coaches.json)."""
+    try:
+        c = json.load(open(os.path.join(DATA, "coaches.json"), encoding="utf-8"))
+        return [x["n"] for lg in ("nfl", "cfb") for x in c[lg]["coaches"] if x.get("on")]
+    except (OSError, ValueError, KeyError):
+        return []
+
+
+def predictions():
+    """This week's model picks, both leagues: [(league, prediction)]."""
+    out = []
+    for lg in ("nfl", "cfb"):
+        try:
+            cur, _, _ = latest(lg)
+            out += [(lg, p) for p in cur.get("predictions", [])]
+        except Exception as e:
+            print(f"(no {lg} predictions: {e!r})")
+    return out
+
+
+def starting_qbs(preds):
+    """{QB name: (league, prediction, side)} for the QBs our model has starting this week."""
+    return {p[f"{side}_qb"]: (lg, p, side) for lg, p in preds for side in ("home", "away") if p.get(f"{side}_qb")}
+
+
+def kind_of(title, stars=(), qbs=(), coaches=()):
+    """Only big news: a head coach hired or fired, a trade or season-ending injury for a star or any QB, or a starting QB out."""
     if NOT_NEWS.search(title):
         return None
-    star = any(n in title for n in stars) or bool(QB.search(title))
+    qb = bool(QB.search(title)) or any(n in title for n in qbs)
+    star = qb or any(n in title for n in stars)
     k = next((k for k, pat in KINDS if re.search(pat, title, re.I)), None)
     if k == "coach":
-        return None if COORD.search(title) else k
+        if COORD.search(title):
+            return None
+        # the coach has to be the one fired or hired ("Fired ESPN host loses cool at Deion Sanders" isn't about him)
+        who = "(head coach" + "".join("|" + re.escape(n) for n in coaches) + ")"
+        verb = r"\b(fire[sd]?|parts ways with|hire[sd]?|names|resigns|steps down|let go|out as)\b"
+        return k if re.search(verb + ".{0,22}" + who, title, re.I) or re.search(who + ".{0,25}" + verb, title, re.I) else None
     if k == "trade":
-        return k if star or re.search(r"\b(first-round|blockbuster)\b", title, re.I) else None
-    if k:
+        return k
+    if k == "injury":
         return k if star else None
-    if re.search(STAR_INJURY, title, re.I) and any(n in title for n in stars):
-        return "star"
+    if k == "qb":
+        return k if qb else None
     return None
+
+
+def subject(it, names):
+    """Who the story is about: the first known name in the headline, or else the team(s)."""
+    return next((n for n in names if n in it["title"]), "+".join(sorted(it["teams"])))
+
+
+def team_names():
+    try:
+        t = json.load(open(os.path.join(DATA, "teams.json"), encoding="utf-8"))
+        return {f"{lg}:{x['id']}": x["name"] for lg in t for x in t[lg]}
+    except (OSError, ValueError, KeyError):
+        return {}
+
+
+def model_angle(it, preds, qbs):
+    """Our model's win chance for the team's next game, as one plain sentence, or "" when it has none."""
+    lg = it.get("league")
+    qb = next((n for n in qbs if n in it["title"]), None)
+    if qb:
+        lg, p, side = qbs[qb]
+    else:
+        names = team_names()
+        mine = names.get(it["teams"][0])  # the team the story is about comes first
+        hit = next(((p, side) for l2, p in preds if l2 == lg for side in ("home", "away") if p[side] == mine), None)
+        if not hit:
+            return ""
+        p, side = hit
+    other = "away" if side == "home" else "home"
+    pr = p["home_win_prob"] if side == "home" else 1 - p["home_win_prob"]
+    the = "the " if lg == "nfl" else ""
+    team, opp = the + short(p[side], lg), the + short(p[other], lg)
+    if qb:  # the model still has him starting: say so, so nobody reads the number as already counting this news
+        return f"Our model had {team} at {chance(pr)} vs {opp} with {qb.split()[-1]} starting."
+    return f"Our model has {team} at {chance(pr)} vs {opp} this week."
 
 
 def candidates(hours=FRESH_HOURS, now=None):
@@ -88,22 +155,26 @@ def candidates(hours=FRESH_HOURS, now=None):
         items = json.load(open(os.path.join(DATA, "news.json"), encoding="utf-8"))["items"]
     except (OSError, ValueError, KeyError):
         return []
-    out, stars = [], None
-    for it in items:
-        when = dt.datetime.fromisoformat(it["published"].replace("Z", "+00:00"))
-        if now - when > dt.timedelta(hours=hours):
-            continue
-        if stars is None and it.get("league") == "nfl":
-            stars = star_names()
-        k = kind_of(it["title"], stars or ())
-        if it["source"] in SOURCES and k and it.get("teams") and now - when <= dt.timedelta(hours=hours):
-            out.append(it | {"kind": k})
+    fresh = [it for it in items if it["source"] in SOURCES and it.get("teams")
+             and now - dt.datetime.fromisoformat(it["published"].replace("Z", "+00:00")) <= dt.timedelta(hours=hours)]
+    if not fresh:
+        return []
+    preds = predictions()
+    qbs = starting_qbs(preds)
+    stars = star_names() if any(it.get("league") == "nfl" for it in fresh) else []
+    coaches = head_coaches()
+    out = []
+    for it in fresh:
+        k = kind_of(it["title"], stars, qbs, coaches)
+        if k:
+            out.append(it | {"kind": k, "subject": subject(it, [*qbs, *stars, *coaches]), "angle": model_angle(it, preds, qbs)})
     return sorted(out, key=lambda x: x["published"])  # oldest fresh one first: news goes out in the order it broke
 
 
 def text_for(it):
     t = re.sub(r"\s+", " ", it["title"]).strip().rstrip(".")
-    return tweet(f"🚨 {t} (via {it['source']})", "", with_link=False)
+    full = f"🚨 {t} (via {it['source']}) {it.get('angle') or ''}".strip()
+    return tweet(full if x_len(full) <= 280 else f"🚨 {t} (via {it['source']})", "", with_link=False)
 
 
 def main():
@@ -123,9 +194,10 @@ def main():
     if sent_today >= MAX_PER_DAY:
         print(f"Already {sent_today} news posts today; that's the cap.")
         return
-    recent = posted.recent_stats(2)
+    recent = posted.recent_stats(SAME_STORY_DAYS)
     for it in cands:
-        stat = f"news-{it['kind']}-{it['teams'][0]}"  # same team, same kind of story, within 2 days = the same news
+        # the same kind of story about the same player (or team) is the same news, whoever wrote it up and whenever
+        stat = f"news-{it['kind']}-{it['subject']}"
         meta = {"day": "news", "stat": stat, "key": "news:" + it["url"].split("?")[0], "image": None,
                 "text": text_for(it), "skip": False, "reason": ""}
         if stat in recent or posted.repeat(meta):
