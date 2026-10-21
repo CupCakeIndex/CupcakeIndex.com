@@ -20,7 +20,7 @@ const Tour = (() => {
     { view: "standings", sel: "#view-standings .card", title: "Standings and brackets", text: "Conference standings, the playoff picture, and a bracket you can fill out yourself." },
     { view: "stats", sel: "#view-stats .subtabs", title: "Stats", text: "Leaders in every category, plus Frauds (players way under their projections), Projected and the injury report." },
     { view: "player", arg: "3139477", only: "nfl", sel: "#cc-box", title: "Player pages", text: "Tap any player for his season pace, stats by year and charts of every pass, run or kick. Drag the squares over Stats by year to pick seasons; on a phone, pinch to zoom." },
-    { view: "stats", params: { show: "visualize" }, sel: "#vz-preset", title: "Make your own charts", text: "Stats > Visualize: pick a preset or build any chart for any team or player, or just type it: \"sacks vs pressures\" makes a scatter plot. Download it and win the argument." },
+    { view: "stats", params: { show: "visualize" }, sel: "#vz-q", title: "Make your own charts", text: "Stats > Visualize: ask in plain words, like \"who gets the targets on Washington\" or \"sacks vs pressures\". Related charts show up under each one, and Advanced (top right) has every control. Download it and win the argument." },
     { view: "picks", sel: ".pk-grid", title: "Pick'em", text: "Pick every game before Saturday night and keep a season record." },
     { view: "picks", sel: "#view-picks .subtabs", title: "Leaderboard and badges", text: "See where you rank. Pick every game, lock in on time and go perfect for the 🏅 Perfect Pick'em badge." },
     { view: "games", sel: "#view-games .card", title: "Games", text: "A new player to guess every day, and more ways to play." },
