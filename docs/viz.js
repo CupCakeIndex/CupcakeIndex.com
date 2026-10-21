@@ -37,6 +37,55 @@ const Viz = (() => {
   const famSum = (S, pre, ks) => ks.reduce((a, k) => a + (S[`${pre}${k}`] || 0), 0);
   // by the unit that committed it (from the play-by-play: who had the ball, and kicking plays)
   const PEN_SIDE = [["o", "the offense"], ["d", "the defense"], ["s", "special teams"]];
+  // run direction (src/deep_stats.py RUN_DIRS): designed runs by gap, scrambles left out
+  const RUN_DIRS = [["le", "left end"], ["lt", "left tackle"], ["lg", "left guard"], ["m", "middle"], ["rg", "right guard"], ["rt", "right tackle"], ["re", "right end"]];
+  const RUN_SIDES = [["l", "left", ["le", "lt", "lg"]], ["m", "middle", ["m"]], ["r", "right", ["rg", "rt", "re"]]];
+  const runDirStats = (who) => {
+    const p = who === "teams" ? "t" : "", he = who === "teams" ? "they run" : "he runs", pos = who === "teams" ? undefined : "RB";
+    const all = (S) => RUN_DIRS.reduce((a, [k]) => a + (S[`rd_${k}`] || 0), 0), o = { unit: "designed runs", need: ["rd_m"], pos, lg: "nfl" };
+    return [
+      [`${p}run_dir_gap`, `Where ${he}: all 7 gaps`, all, { ...o, count: 1, split: RUN_DIRS.map(([k, l]) => [l[0].toUpperCase() + l.slice(1), (S) => S[`rd_${k}`]]) }],
+      [`${p}run_dir_side`, `Where ${he}: left / middle / right`, all, { ...o, count: 1, split: RUN_SIDES.map(([, l, ks]) => [l[0].toUpperCase() + l.slice(1), (S) => ks.reduce((a, k) => a + S[`rd_${k}`], 0)]) }],
+      ...RUN_DIRS.map(([k, l]) => [`${p}run_pct_${k}`, `% of runs: ${l}`, (S) => div(100 * S[`rd_${k}`], all(S)), { ...o, den: all, pct: 1 }]),
+      ...RUN_DIRS.map(([k, l]) => [`${p}run_ypc_${k}`, `Yards per carry: ${l}`, (S) => div(S[`rdy_${k}`], S[`rd_${k}`]), { ...o, den: (S) => S[`rd_${k}`], d: 2, unit: `runs ${l === "middle" ? "up the middle" : `off ${l}`}` }]),
+    ];
+  };
+  // field goals by distance, extra points, punting (nflverse weekly stats, src/viz_data.py NV_EXTRA); mx_ = season high
+  const FG_RANGES = [["u30", "under 30 yards", ["0_19", "20_29"]], ["30s", "30-39 yards", ["30_39"]], ["40s", "40-49 yards", ["40_49"]], ["50p", "50+ yards", ["50_59", "60_"]]];
+  const kickStats = (who) => {
+    const p = who === "teams" ? "t" : "", o = { pos: who === "teams" ? undefined : "K", lg: "nfl" };
+    const fs = (S, pre, bins) => bins.reduce((a, b) => a + (S[`${pre}${b}`] || 0), 0);
+    return [
+      ...FG_RANGES.map(([k, l, bins]) => [`${p}fg_pct_${k}`, `Field goal % from ${l}`, (S) => div(100 * fs(S, "fgm_", bins), fs(S, "fga_", bins)), { ...o, den: (S) => fs(S, "fga_", bins), pct: 1, unit: `tries from ${l}`, need: ["fga_50_59"] }]),
+      [`${p}fg_50`, "Field goals made from 50+", (S) => fs(S, "fgm_", ["50_59", "60_"]), { ...o, count: 1, need: ["fga_50_59"] }],
+      [`${p}fg_long`, "Longest field goal (yards)", (S) => S.mx_fg_long || null, { ...o, noShare: 1, need: ["mx_fg_long"] }],
+      [`${p}gwfg`, "Game-winning field goals", (S) => S.gwfg_made, { ...o, count: 1, need: ["gwfg_att"] }],
+      [`${p}xp_pct`, "Extra point %", (S) => div(100 * S.pat_made, S.pat_att), { ...o, den: (S) => S.pat_att, pct: 1, unit: "extra point tries", need: ["pat_att"] }],
+      [`${p}xp_miss`, "Extra points missed", (S) => S.pat_att - S.pat_made, { ...o, count: 1, low: 1, need: ["pat_att"] }],
+      [`${p}punts`, "Punts", (S) => S.pt_att, { ...o, count: 1, need: ["pt_att"] }],
+      [`${p}punt_avg`, "Punting average (gross)", (S) => div(S.pt_yds, S.pt_att), { ...o, den: (S) => S.pt_att, d: 1, unit: "punts", need: ["pt_att"] }],
+      [`${p}punt_net`, "Net punting average", (S) => div(S.pt_net, S.pt_att), { ...o, den: (S) => S.pt_att, d: 1, unit: "punts", need: ["pt_net"] }],
+      [`${p}punt_in20`, "Punts inside the 20", (S) => S.pt_in20, { ...o, count: 1, need: ["pt_att"] }],
+      [`${p}punt_in20_pct`, "Inside-the-20 % of punts", (S) => div(100 * S.pt_in20, S.pt_att), { ...o, den: (S) => S.pt_att, pct: 1, unit: "punts", need: ["pt_att"] }],
+      [`${p}punt_tb`, "Punt touchbacks", (S) => S.pt_tb, { ...o, count: 1, low: 1, need: ["pt_att"] }],
+      [`${p}punt_long`, "Longest punt (yards)", (S) => S.mx_pt_long || null, { ...o, noShare: 1, need: ["mx_pt_long"] }],
+      [`${p}punt_blk`, "Punts blocked", (S) => S.pt_blk, { ...o, count: 1, low: 1, need: ["pt_att"] }],
+    ];
+  };
+  const returnStats = (who) => {
+    const p = who === "teams" ? "t" : "", o = { lg: "nfl" };
+    return [
+      [`${p}kr_avg`, "Kick return average", (S) => div(S.kr_yds, S.kr), { ...o, den: (S) => S.kr, d: 1, unit: "kick returns", need: ["kr"] }],
+      [`${p}kr_yds`, "Kick return yards", (S) => S.kr_yds, { ...o, count: 1, need: ["kr"] }],
+      [`${p}kr`, "Kick returns", (S) => S.kr, { ...o, count: 1, need: ["kr"] }],
+      [`${p}pr_avg`, "Punt return average", (S) => div(S.pr_yds, S.pr), { ...o, den: (S) => S.pr, d: 1, unit: "punt returns", need: ["pr"] }],
+      [`${p}pr_yds`, "Punt return yards", (S) => S.pr_yds, { ...o, count: 1, need: ["pr"] }],
+      [`${p}pr`, "Punt returns", (S) => S.pr, { ...o, count: 1, need: ["pr"] }],
+      [`${p}ret_yds`, "Return yards (kicks + punts)", (S) => S.kr_yds + S.pr_yds, { ...o, count: 1, need: ["kr"] }],
+      [`${p}ret_td`, "Kick and punt return TDs", (S) => S.ret_td, { ...o, count: 1, need: ["ret_td"] }],
+      [`${p}st_td`, "Special teams TDs (returns, blocked kicks...)", (S) => S.st_td, { ...o, count: 1, need: ["st_td"] }],
+    ];
+  };
   const T = [ // teams
     ["Scoring", [
       ["pts", "Points scored", (S) => S.pts, { count: 1 }],
@@ -159,6 +208,54 @@ const Viz = (() => {
       ["team_drops", "Drops (dropped passes)", (S) => S.drops, { count: 1, low: 1, need: ["drops"] }],
       ["team_drop_pct", "Drop % (drops per pass attempt)", (S) => div(100 * S.drops, S.att), { den: (S) => S.att, pct: 1, low: 1, unit: "pass attempts", need: ["drops"] }],
       ["team_btk", "Broken tackles (runs + catches)", (S) => S.rush_btk + S.rec_btk, { count: 1, need: ["rush_btk"] }],
+    ]],
+    // NFL play-by-play (src/deep_stats.py TCOLS) and nflverse's weekly team stats (src/viz_data.py NV_EXTRA)
+    ["4th downs", [
+      ["go4_rate", "Went for it on 4th down (% of 4th downs)", (S) => div(100 * S.go4_att, S.fd4), { den: (S) => S.fd4, pct: 1, unit: "4th downs", need: ["fd4"] }],
+      ["go4_att", "4th-down tries (went for it)", (S) => S.go4_att, { count: 1, need: ["fd4"] }],
+      ["go4_pct", "4th-down conversion %", (S) => div(100 * S.go4_conv, S.go4_att), { den: (S) => S.go4_att, pct: 1, unit: "4th-down tries", need: ["fd4"] }],
+      ["go4_conv", "4th-down conversions", (S) => S.go4_conv, { count: 1, need: ["fd4"] }],
+      ["dgo4_stop", "4th-down stop % (defense)", (S) => div(100 * (S.dgo4_att - S.dgo4_conv), S.dgo4_att), { den: (S) => S.dgo4_att, pct: 1, unit: "4th-down tries against", need: ["fd4"] }],
+    ]],
+    ["Drives", [
+      ["pts_drive", "Points per drive", (S) => div(S.pts, S.drives), { den: (S) => S.drives, d: 2, unit: "drives", need: ["drives"] }],
+      ["drive_score_pct", "Scoring drive % (TD or FG)", (S) => div(100 * S.drive_scores, S.drives), { den: (S) => S.drives, pct: 1, unit: "drives", need: ["drives"] }],
+      ["drive_start", "Average drive start (own yard line)", (S) => div(S.drive_start, S.drives), { den: (S) => S.drives, d: 1, unit: "drives", need: ["drives"] }],
+      ["drive_plays", "Plays per drive", (S) => div(S.drive_plays, S.drives), { den: (S) => S.drives, d: 1, unit: "drives", need: ["drives"] }],
+      ["drive_mins", "Minutes per drive", (S) => div(S.drive_secs / 60, S.drives), { den: (S) => S.drives, d: 2, unit: "drives", need: ["drives"] }],
+      ["top", "Time of possession (minutes)", (S) => S.drive_secs / 60, { count: 1, d: 1, need: ["drives"] }],
+      ["drives", "Drives", (S) => S.drives, { count: 1, need: ["drives"] }],
+    ]],
+    ["Play style", [
+      ["proe", "Pass rate over expected (+ = passes more than the situation calls for)", (S) => div(S.proe_sum, S.proe_n), { den: (S) => S.proe_n, d: 1, fmt: "+", unit: "plays", need: ["proe_n"] }],
+      ["shotgun_pct", "Shotgun % (of runs and passes)", (S) => div(100 * S.sg, S.o_plays), { den: (S) => S.o_plays, pct: 1, unit: "plays", need: ["o_plays"] }],
+      ["nohuddle_pct", "No-huddle %", (S) => div(100 * S.nh, S.o_plays), { den: (S) => S.o_plays, pct: 1, unit: "plays", need: ["o_plays"] }],
+      ["team_cpoe", "Completion % over expected (CPOE)", (S) => div(S.cpoe_sum, S.cpoe_n), { den: (S) => S.cpoe_n, d: 1, fmt: "+", unit: "throws", need: ["cpoe_n"] }],
+      ["team_scr", "QB scrambles", (S) => S.scr, { count: 1, need: ["o_plays"] }],
+      ["team_scr_yds", "Scramble yards", (S) => S.scr_yds, { count: 1, need: ["o_plays"] }],
+      ["team_two_pct", "Two-point conversion %", (S) => div(100 * S.two_conv, S.two_att), { den: (S) => S.two_att, pct: 1, unit: "two-point tries", need: ["two_att"] }],
+      ["team_two_att", "Two-point tries", (S) => S.two_att, { count: 1, need: ["two_att"] }],
+    ]],
+    ["Big plays", [
+      ["team_rush_20", "Runs of 20+ yards", (S) => S.rush_20, { count: 1, need: ["o_plays"] }],
+      ["team_rush_40", "Runs of 40+ yards", (S) => S.rush_40, { count: 1, need: ["o_plays"] }],
+      ["team_pass_20", "Completions of 20+ yards", (S) => S.pass_20, { count: 1, need: ["o_plays"] }],
+      ["team_pass_40", "Completions of 40+ yards", (S) => S.pass_40, { count: 1, need: ["o_plays"] }],
+      ["team_big_rate", "Big-play rate (20+ yard plays per 100 plays)", (S) => div(100 * (S.rush_20 + S.pass_20), S.o_plays), { den: (S) => S.o_plays, d: 1, unit: "plays", need: ["o_plays"] }],
+    ]],
+    ["Run direction", runDirStats("teams")],
+    ["Kicking and punting (team)", kickStats("teams")],
+    ["Returns (team)", returnStats("teams")],
+    ["Fumbles and defensive scores (team)", [
+      ["team_fum", "Fumbles (all, lost or not)", (S) => S.fum, { count: 1, low: 1, need: ["fum"] }],
+      ["team_fum_lost", "Fumbles lost", (S) => S.fum_lost_all, { count: 1, low: 1, need: ["fum"] }],
+      ["team_ff", "Forced fumbles", (S) => S.def_ff, { count: 1, need: ["def_ff"] }],
+      ["team_def_td", "Defensive touchdowns", (S) => S.def_td, { count: 1, need: ["def_td"] }],
+      ["team_int_yds", "Interception return yards", (S) => S.int_yds, { count: 1, need: ["int_yds"] }],
+      ["team_fr_yds", "Fumble return yards", (S) => S.fr_yds, { count: 1, need: ["fr_yds"] }],
+      ["team_safeties", "Safeties", (S) => S.safeties, { count: 1, need: ["safeties"] }],
+      ["team_sack_yds", "Sack yards (defense)", (S) => S.sack_yds, { count: 1, need: ["sack_yds"] }],
+      ["team_sack_yds_lost", "Yards lost to sacks (offense)", (S) => S.sack_yds_lost, { count: 1, low: 1, need: ["sack_yds_lost"] }],
     ]],
   ];
   const TX = ["run_stop", "run_tkl", "run_tkl_yds", "stuff", "sy_stop", "third_stop", "pressure", "drops", "rush_btk", "rec_btk"]; // player columns a team's total is added up from
@@ -391,6 +488,47 @@ const Viz = (() => {
     ]],
     ["Penalty yards (called on him)", penYds("pny_", PEN.map(([k]) => k).filter((k) => !["dog", "tmm"].includes(k)))
       .map(([k, l, fn]) => [`peny_${k}`, l, fn, { count: 1, low: 1, need: ["pny_fs"], vol: ["snaps played", 200] }])],
+    // CPOE = how many more of his throws were caught than nflverse's model expected (2006+); WPA = how much his plays moved
+    // his team's chance of winning (the passer, runner and target each get the play's)
+    ["Accuracy and clutch (CPOE, win probability)", [
+      ["cpoe", "Completion % over expected (CPOE)", (S) => div(S.cpoe_sum, S.cpoe_n), { den: (S) => S.cpoe_n, d: 1, fmt: "+", unit: "throws", pos: "QB", need: ["cpoe_n"] }],
+      ["wpa", "Win probability added (total, in % points)", (S) => 100 * S.wpa, { count: 1, d: 1, fmt: "+", need: ["wpa"] }],
+      ["wpa_play", "Win probability added per play (% points)", (S) => div(100 * S.wpa, S.att + S.sacked + S.carries + S.targets), { den: (S) => S.att + S.sacked + S.carries + S.targets, d: 2, fmt: "+", unit: "plays", need: ["wpa"] }],
+      ["pass_20", "Completions of 20+ yards (QB)", (S) => S.pass_20, { count: 1, pos: "QB", need: ["pass_20"] }],
+      ["pass_40", "Completions of 40+ yards (QB)", (S) => S.pass_40, { count: 1, pos: "QB", need: ["pass_20"] }],
+      ["pass_fd", "Passing first downs", (S) => S.pass_fd, { count: 1, pos: "QB", need: ["pass_fd"] }],
+    ]],
+    ["4th downs (players)", [
+      ["fourth_att", "4th-down tries (he threw or ran it)", (S) => S.fourth_att, { count: 1, need: ["fourth_att"] }],
+      ["fourth_conv", "4th-down conversions", (S) => S.fourth_conv, { count: 1, need: ["fourth_att"] }],
+      ["fourth_pct", "4th-down conversion %", (S) => div(100 * S.fourth_conv, S.fourth_att), { den: (S) => S.fourth_att, pct: 1, unit: "4th-down tries", need: ["fourth_att"] }],
+    ]],
+    ["Big plays and first downs", [
+      ["rush_20", "Runs of 20+ yards", (S) => S.rush_20, { count: 1, pos: "RB", need: ["rush_20"] }],
+      ["rush_40", "Runs of 40+ yards", (S) => S.rush_40, { count: 1, pos: "RB", need: ["rush_20"] }],
+      ["rec_40", "Catches of 40+ yards", (S) => S.rec_40, { count: 1, pos: "WR", need: ["rec_40"] }],
+      ["rec_fd", "Receiving first downs", (S) => S.rec_fd, { count: 1, pos: "WR", need: ["rec_fd"] }],
+      ["rec_fd_tgt", "First downs per target", (S) => div(S.rec_fd, S.targets), { den: (S) => S.targets, d: 2, unit: "targets", pos: "WR", need: ["rec_fd"] }],
+      ["rush_fd", "Rushing first downs", (S) => S.rush_fd, { count: 1, pos: "RB", need: ["rush_fd"] }],
+      ["tot_fd", "First downs (rushing + receiving)", (S) => S.rush_fd + S.rec_fd, { count: 1, need: ["rec_fd"] }],
+      ["two_pt", "Two-point conversions", (S) => S.two_pt, { count: 1, need: ["two_pt"] }],
+    ]],
+    ["Scrambles and run direction", [
+      ["scr", "QB scrambles", (S) => S.scr, { count: 1, pos: "QB", need: ["scr"] }],
+      ["scr_yds", "Scramble yards", (S) => S.scr_yds, { count: 1, pos: "QB", need: ["scr"] }],
+      ...runDirStats("players"),
+    ]],
+    ["Kicking and punting", kickStats("players")],
+    ["Kick and punt returns", returnStats("players")],
+    ["Fumbles and defensive scores", [
+      ["fum", "Fumbles (all, lost or not)", (S) => S.fum, { count: 1, low: 1, need: ["fum"], vol: ["touches", 50] }],
+      ["fum_lost_all", "Fumbles lost", (S) => S.fum_lost_all, { count: 1, low: 1, need: ["fum"], vol: ["touches", 50] }],
+      ["def_td", "Defensive touchdowns", (S) => S.def_td, { count: 1, pos: "DEF", need: ["def_td"] }],
+      ["int_yds", "Interception return yards", (S) => S.int_yds, { count: 1, pos: "DEF", need: ["int_yds"] }],
+      ["safeties", "Safeties", (S) => S.safeties, { count: 1, pos: "DEF", need: ["safeties"] }],
+      ["sack_yds", "Sack yards", (S) => S.sack_yds, { count: 1, pos: "DEF", need: ["sack_yds"] }],
+      ["sack_yds_lost", "Yards lost to sacks (QB)", (S) => S.sack_yds_lost, { count: 1, low: 1, pos: "QB", need: ["sack_yds_lost"], vol: ["pass attempts", 100] }],
+    ]],
   ];
   const statsFor = (who, D) => (who === "players" ? P : T).map(([g, list]) => [g, list.filter(([, , , o]) =>
     (!o.lg || o.lg === D.league) && (!o.need || o.need.every((c) => (who === "players" ? D.pcols : D.tcols).includes(c))))]).filter(([, l]) => l.length);
@@ -406,10 +544,11 @@ const Viz = (() => {
     ff: "fumbles", qbr: "rating", comp: "completion", comps: "completion", cmp: "completion", recs: "receptions", tgt: "targets", tgts: "targets",
     looks: "targets", dropped: "drops", drop: "drops", fg: "field", fgs: "field", pts: "points", ppg: "points", rushes: "carries", atts: "attempts",
     explosives: "explosive", picked: "interceptions", interception: "interceptions", pressures: "pressures", btk: "broken", btks: "broken",
-    flags: "penalties", nullified: "erased", wiped: "erased", negated: "erased", erase: "erased", flag: "penalties", flagged: "penalties", penalized: "penalties", holds: "holding", pi: "interference", personal: "personal" };
+    flags: "penalties", nullified: "erased", wiped: "erased", negated: "erased", erase: "erased", flag: "penalties", flagged: "penalties", penalized: "penalties", holds: "holding", pi: "interference", personal: "personal", fourth: "4th" };
   const qStem = (t) => (t.length > 3 && !/ss$/.test(t) ? t.replace(/s$/, "") : t);
   // numbers never name a stat ("drops per 100 targets" = drops per target)
-  const qTok = (s) => norm(s).split(/[\s/(),:;+]+/).filter((t) => t && !["the", "of", "a", "per"].includes(t) && !/^\d+$/.test(t)).map((t) => qStem(QSYN[t] || t));
+  // ...except "40+", which is part of a stat's name (runs of 40+ yards), not a count
+  const qTok = (s) => norm(s).replace(/(\d+)\+/g, " $1plus ").split(/[\s/(),:;+]+/).filter((t) => t && !["the", "of", "a", "per"].includes(t) && !/^\d+$/.test(t)).map((t) => qStem(QSYN[t] || t));
   // Every word any stat's name, unit or group uses. Words outside it (typos, names, "blorp") are skipped instead of sinking the match,
   // so people can type the way they talk and the stat words still find the stat.
   const qVocab = new WeakMap();
@@ -479,6 +618,8 @@ const Viz = (() => {
     where: "", cols: "", quad: "",
     // opp = only games vs "good" (top-half) teams or "soft" ones (cupcakes); last = each one's last N games
     opp: "", last: "",
+    // cond = only games played in these conditions (NFL: weather, roof, field, division games; COND)
+    cond: "",
     mode: "" }; // mode: "" = Simple, "adv" = Advanced (also remembered on this device: "viz-mode")
   let st = { ...DEF };
   const save = () => {
@@ -557,13 +698,16 @@ const Viz = (() => {
   }
   function sum(D, who, w1, w2, byWeek) {
     const cols = who === "players" ? D.pcols : D.tcols, rows = who === "players" ? D.prows : D.trows, out = {};
+    const mx = cols.map((c) => c.startsWith("mx_")); // season highs (longest field goal): the biggest one, not the sum
     const left = who === "players" && st.noexit ? D.pcols.indexOf("left") + 3 : -1; // NFL QBs gone by halftime (hurt, or a blowout)
     // vs good teams / vs cupcakes: who each team played each week
     const oppOf = {};
     if (st.opp) for (const r of D.trows) oppOf[`${r[0]}|${r[1]}`] = r[2];
     const good = st.opp ? goodSet(D) : null;
+    const cond = st.cond && D.gcond ? COND.find(([k]) => k === st.cond)?.[2] : null;
     const keep = (r) => {
       if (r[1] < w1 || r[1] > w2 || (left > 2 && r[left])) return false;
+      if (cond) { const c = D.gcond[`${who === "players" ? r[2] : r[0]}|${r[1]}`]; if (!c || !cond(c)) return false; }
       if (!st.opp) return true;
       const o = who === "players" ? oppOf[`${r[2]}|${r[1]}`] : r[2];
       return o != null && good.has(o) === (st.opp === "good");
@@ -590,13 +734,13 @@ const Viz = (() => {
       o.g++;
       o.team = r[2];
       if (who === "teams") played.add(`${r[0]}|${r[1]}`);
-      cols.forEach((c, i) => { o.S[c] += r[i + 3]; });
+      cols.forEach((c, i) => { o.S[c] = mx[i] ? Math.max(o.S[c], r[i + 3]) : o.S[c] + r[i + 3]; });
       const t = TW[`${r[2]}|${r[1]}`];
       if (t) cols.forEach((c, i) => { o.S["tm_" + c] = (o.S["tm_" + c] || 0) + t[i]; });
       if (who === "teams") o.S.wins = (o.S.wins || 0) + (r[3] > r[4] ? 1 : r[3] === r[4] ? 0.5 : 0); // pts vs opp_pts
       if (byWeek) {
         const w = o.wk[r[1]] || (o.wk[r[1]] = Object.fromEntries(cols.map((c) => [c, 0])));
-        cols.forEach((c, i) => { w[c] += r[i + 3]; });
+        cols.forEach((c, i) => { w[c] = mx[i] ? Math.max(w[c], r[i + 3]) : w[c] + r[i + 3]; });
         if (t) cols.forEach((c, i) => { w["tm_" + c] = (w["tm_" + c] || 0) + t[i]; });
       }
     }
@@ -640,6 +784,11 @@ const Viz = (() => {
   const FINE = { EDGE: "Edge rushers", IDL: "Interior D-line", LB: "Linebackers", CB: "Cornerbacks", S: "Safeties", TE: "Tight ends" };
   const EXP = [["", "Everyone"], ["1", "Rookies"], ["2", "2nd year"], ["3", "3rd year"], ["1-2", "Rookies + 2nd year"], ["4+", "Vets (4+ years)"]];
   const DRAFT = [["", "Any"], ["1", "1st round"], ["2-3", "Rounds 2-3"], ["4-7", "Rounds 4-7"], ["U", "Undrafted"]];
+  // game conditions (NFL, src/viz_data.py gcond): [roof 1 indoors / 2 outdoors, field 1 turf / 2 grass, temp °F, wind mph, division game]
+  const COND = [["", "All games"], ["cold", "Cold (under 40°F)", (c) => c[2] != null && c[2] < 40], ["freezing", "Freezing (32°F or colder)", (c) => c[2] != null && c[2] <= 32],
+    ["hot", "Hot (85°F or warmer)", (c) => c[2] != null && c[2] >= 85], ["windy", "Windy (15+ mph)", (c) => c[3] != null && c[3] >= 15],
+    ["indoors", "Dome or closed roof", (c) => c[0] === 1], ["outdoors", "Outdoors", (c) => c[0] === 2], ["grass", "On grass", (c) => c[1] === 2],
+    ["turf", "On turf", (c) => c[1] === 1], ["div", "Division games", (c) => c[4] === 1], ["nondiv", "Non-division games", (c) => c[4] === 0]];
   const OPP = [["", "Everyone"], ["good", "Vs top-half teams"], ["soft", "Vs cupcakes (bottom half)"]], LAST = [["", "All games"], ["3", "Last 3 games"], ["5", "Last 5 games"]];
   const expOk = (y, e) => y != null && (e === "1-2" ? y >= 1 && y <= 2 : e === "4+" ? y >= 4 : y === +e);
   const draftOk = (dr, f) => { if (!dr) return false; const r = /^R(\d)/.exec(dr)?.[1]; return f === "U" ? !r : f === "1" ? r === "1" : f === "2-3" ? r === "2" || r === "3" : r >= "4"; };
@@ -902,6 +1051,8 @@ const Viz = (() => {
     st.stat = stat[0];
     const ystat = all.find((s) => s[0] === st.y) || all.find((s) => s[0] !== stat[0]);
     st.y = ystat[0];
+    if (!D.gcond) st.cond = "";
+    const condTxt = st.cond ? COND.find(([k]) => k === st.cond)?.[1] || "" : "";
     const maxWk = Math.max(...D.trows.map((r) => r[1]), 1);
     const w1 = Math.max(1, +st.wk1 || 1), w2 = Math.min(+st.wk2 || 99, 99);
     const meta = (k) => who === "players" ? D.pmeta[k] || Ds.find((x) => x.pmeta[k])?.pmeta[k] : D.teams[k] || Ds.find((x) => x.teams[k])?.teams[k];
@@ -1286,12 +1437,13 @@ const Viz = (() => {
       note = "100 = the best among everyone listed, 0 = the worst. Lower-is-better stats are flipped.";
     }
     if (per === "share" && stat[3].count) note += ` Share of team = his part of his team's total in the games he played.`;
+    if (condTxt) note += " Conditions come from nflverse's game list (kickoff temperature and wind; domes have none, so the weather choices leave them out).";
     if (st.opp) note += " Top half = the top half of our power ratings that season; cupcakes = the bottom half and anyone unranked.";
     const whereBox = `<label class="vz-wide">Filter <small class="muted">e.g. run stops > 20 and sacks >= 3, or QB, EPA per dropback over .1</small><input id="vz-where" type="search" maxlength="200" placeholder="Type conditions… (and / or, > < >= <=)" value="${esc(st.where)}" autocomplete="off" spellcheck="false">
         ${W.bad.length ? `<small class="vz-wbad">Couldn't read ${W.bad.map((b) => `“${esc(b)}”`).join(", ")}. Try a stat, a comparison and a number (“tackles >= 30”), a position, a team or “rookies”.</small>` : whereRead ? `<small class="muted">Showing ${who} where ${esc(whereRead)}.</small>` : ""}</label>`;
     const autoTitle = title;
     if (st.ttl) title = st.ttl; // Style > Your title
-    const autoSub = `${lgTxt} · ${seasonTxt} · ${weeksTxt}${st.group ? ` · ${st.group}` : ""}${st.team ? ` · ${tm(st.team)[0]}` : ""}${st.role ? ` · ${st.role}s` : st.pos ? ` · ${st.pos === "DEF" ? "Defense" : FINE[st.pos] || st.pos}` : ""}${who === "players" && st.exp ? ` · ${EXP.find(([k]) => k === st.exp)?.[1]}` : ""}${who === "players" && st.draft ? ` · ${st.draft === "U" ? "Undrafted" : `Drafted: ${DRAFT.find(([k]) => k === st.draft)?.[1]}`}` : ""}${whereRead && st.type !== "table" ? ` · where ${whereRead}` : ""}${st.opp ? ` · ${OPP.find(([k]) => k === st.opp)[1].toLowerCase()}` : ""}${+st.last ? ` · last ${st.last} games` : ""}`;
+    const autoSub = `${lgTxt} · ${seasonTxt} · ${weeksTxt}${st.group ? ` · ${st.group}` : ""}${st.team ? ` · ${tm(st.team)[0]}` : ""}${st.role ? ` · ${st.role}s` : st.pos ? ` · ${st.pos === "DEF" ? "Defense" : FINE[st.pos] || st.pos}` : ""}${who === "players" && st.exp ? ` · ${EXP.find(([k]) => k === st.exp)?.[1]}` : ""}${who === "players" && st.draft ? ` · ${st.draft === "U" ? "Undrafted" : `Drafted: ${DRAFT.find(([k]) => k === st.draft)?.[1]}`}` : ""}${whereRead && st.type !== "table" ? ` · where ${whereRead}` : ""}${st.opp ? ` · ${OPP.find(([k]) => k === st.opp)[1].toLowerCase()}` : ""}${+st.last ? ` · last ${st.last} games` : ""}${condTxt ? ` · ${lc(condTxt)}` : ""}`;
     const sub = st.subt || autoSub;
     const src = league === "nfl" ? "nflverse play-by-play (EPA)" : "CollegeFootballData.com (box scores; PPA = college EPA, garbage time left out)";
     const seasonOnly = [stat, ystat].some((s) => s[3].season) && (w1 > 1 || w2 < 99);
@@ -1302,7 +1454,7 @@ const Viz = (() => {
     const shownPos = st.role ? `${st.role}s` : st.pos ? (st.pos === "DEF" ? "Defense" : FINE[st.pos] || (st.pos === "WR" ? "WRs and TEs" : `${st.pos}s`)) : "";
     const readout = [`${stat[1]}${st.type === "scatter" ? ` vs ${lc(ystat[1])}` : st.type === "pie" ? "" : perTxt(stat)}`,
       who === "players" ? [st.team ? tm(st.team)[0] : "", shownPos || "players"].filter(Boolean).join(" ") : st.group ? `${st.group} teams` : "Teams",
-      seasonTxt, ...(st.opp ? [OPP.find(([k]) => k === st.opp)?.[1]] : []), ...(+st.last ? [`last ${st.last} games`] : [])];
+      seasonTxt, ...(st.opp ? [OPP.find(([k]) => k === st.opp)?.[1]] : []), ...(+st.last ? [`last ${st.last} games`] : []), ...(condTxt ? [condTxt] : [])];
     // filters that are on, each with an ✕ to take it off
     const chips = [
       ...(st.team && who === "players" ? [[`Team: ${tm(st.team)[0]}`, { team: "" }]] : []),
@@ -1312,6 +1464,7 @@ const Viz = (() => {
       ...(st.draft && who === "players" ? [[st.draft === "U" ? "Undrafted" : `Drafted: ${DRAFT.find(([k]) => k === st.draft)?.[1]}`, { draft: "" }]] : []),
       ...(st.opp ? [[OPP.find(([k]) => k === st.opp)?.[1], { opp: "" }]] : []),
       ...(+st.last ? [[`Last ${st.last} games`, { last: "" }]] : []),
+      ...(condTxt ? [[condTxt, { cond: "" }]] : []),
       ...(st.wk1 || st.wk2 ? [[weeksTxt, { wk1: "", wk2: "" }]] : []),
       ...(wkPer ? [[per === "share" ? "Share of team" : "Per 100 snaps", { per: "game" }]] : []),
       ...(whereRead ? [[`Where ${whereRead}`, { where: "" }]] : []),
@@ -1394,6 +1547,7 @@ const Viz = (() => {
         <label>Weeks<span class="vz-pair">${sel("vz-wk1", wkOpts, st.wk1)}<i>to</i>${sel("vz-wk2", wkOpts, st.wk2)}</span></label>
         <label>Against${sel("vz-opp", OPP, st.opp)}</label>
         <label>Games${sel("vz-last", LAST.some(([k]) => k === st.last) ? LAST : [...LAST, [st.last, `Last ${st.last} games`]], st.last)}</label>
+        ${D.gcond ? `<label>Conditions${sel("vz-cond", COND.map(([k, l]) => [k, l]), st.cond)}</label>` : ""}
         ${who === "players" && D.pcols.includes("left") ? `<div class="vz-chks vz-wide"><label title="Games a player left by halftime (usually hurt, sometimes rested in a blowout). QBs: threw or ran in the first half and never after. Everyone else: a regular who played under half his side's snaps."><input type="checkbox" id="vz-noexit"${st.noexit ? " checked" : ""}> Leave out games they left by halftime</label></div>` : ""}
       </div>`)}
       ${step(3, "Who", `<div class="vz-ctl">
@@ -1470,7 +1624,7 @@ const Viz = (() => {
     ["ttl", "subt"].forEach((k) => { const x = document.getElementById("vz-" + k); if (x) x.onchange = () => { st[k] = x.value.trim(); redo(); }; });
     el.querySelectorAll("[data-sty]").forEach((x) => x.onchange = () => { st[x.dataset.sty] = +x.dataset.on ? (x.checked ? "" : "0") : (x.checked ? "1" : ""); redo(); });
     on("vz-stat", "stat"); on("vz-y", "y"); on("vz-wk1", "wk1"); on("vz-wk2", "wk2"); on("vz-top", "top"); on("vz-group", "group"); on("vz-team", "team"); on("vz-pos", "pos"); on("vz-exp", "exp"); on("vz-draft", "draft");
-    on("vz-from", "from", reload); on("vz-to", "to", reload); on("vz-opp", "opp"); on("vz-last", "last");
+    on("vz-from", "from", reload); on("vz-to", "to", reload); on("vz-opp", "opp"); on("vz-last", "last"); on("vz-cond", "cond");
     const nx = document.getElementById("vz-noexit");
     if (nx) nx.onchange = () => { st.noexit = nx.checked ? "1" : ""; redo(); };
     ["logo", "names"].forEach((k) => { const x = document.getElementById("vz-" + k); if (x) x.onchange = () => { st[k] = x.checked ? "" : "0"; redo(); }; });

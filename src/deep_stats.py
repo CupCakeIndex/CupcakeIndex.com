@@ -19,6 +19,8 @@ import requests
 from viz_data import NFLV, RAW, season_now
 
 ZONES = [d + side for d in "sid" for side in "lmr"]
+# run direction: nflverse run_location + run_gap -> left end/tackle/guard, middle, right guard/tackle/end
+RUN_DIRS = ["le", "lt", "lg", "m", "rg", "rt", "re"]
 # accepted penalties by type: [column key, nflverse penalty_type names]. Names have barely changed since 1999 (too many men was "12 On-field").
 PEN_TYPES = [
     ("hold", ["Offensive Holding"]), ("fs", ["False Start"]), ("dpi", ["Defensive Pass Interference"]), ("dog", ["Delay of Game"]),
@@ -49,6 +51,10 @@ XCOLS = [
     # QBs: z_<zone>_att/_cmp/_yds/_td/_int/_epa; receivers: zt_<zone> targets, zc_<zone> catches, zy_ yards, ze_ EPA.
     # Throwaways and spikes have no zone.
     *[f"z_{z}_{c}" for z in ZONES for c in ("att", "cmp", "yds", "td", "int", "epa")], *[f"z{c}_{z}" for z in ZONES for c in "tcye"],
+    # completion % over expected (nflverse cpoe, 2006+: summed, plus the throws it covers), win probability added (passer, runner
+    # and target each get the play's), 4th-down tries, scrambles, big plays, run direction (RUN_DIRS), kick and punt return TDs
+    "cpoe_sum", "cpoe_n", "wpa", "fourth_att", "fourth_conv", "scr", "scr_yds", "rush_20", "rush_40", "pass_20", "pass_40", "rec_40",
+    *[f"rd_{k}" for k in RUN_DIRS], *[f"rdy_{k}" for k in RUN_DIRS], "ret_td",
 ]
 # team pass defense per game (per_game(season, T)): throws by depth, yards after catch, blitzes (FTN)
 TCOLS = ["opp_att", "opp_cmp", "opp_yac", "opp_short_att", "opp_short_cmp", "opp_short_yds", "opp_deep_att", "opp_deep_cmp", "opp_deep_yds",
@@ -60,7 +66,13 @@ TCOLS = ["opp_att", "opp_cmp", "opp_yac", "opp_short_att", "opp_short_cmp", "opp
          # the same in penalty yards: tpy_/tpdy_ by type, tpsy_/tpdsy_ by unit
          *[f"tpy_{k}" for k, _ in PEN_TYPES], *[f"tpdy_{k}" for k, _ in PEN_TYPES], "tpsy_o", "tpsy_d", "tpsy_s", "tpdsy_o", "tpdsy_d", "tpdsy_s",
          # scores wiped out by the scoring team's own penalty ("TOUCHDOWN NULLIFIED by Penalty"): touchdowns, and points (TD 6, FG 3, safety 2)
-         "tp_tdnull", "tp_ptsnull", "tpd_tdnull", "tpd_ptsnull"]
+         "tp_tdnull", "tp_ptsnull", "tpd_tdnull", "tpd_ptsnull",
+         # 4th downs: fd4 = 4th downs that ended in a play (run, pass, punt, field goal), go4_ = went for it, dgo4_ = the opponent
+         # went for it against this defense. Drives (nflverse fixed_drive): count, ones that scored, start (yards from its own goal
+         # line), seconds and plays. proe_ (2006+): pass rate over expected, summed over proe_n plays. o_plays = runs + passes.
+         "fd4", "go4_att", "go4_conv", "dgo4_att", "dgo4_conv", "drives", "drive_scores", "drive_start", "drive_secs", "drive_plays",
+         "o_plays", "sg", "nh", "proe_sum", "proe_n", "cpoe_sum", "cpoe_n", "scr", "scr_yds", "rush_20", "rush_40", "pass_20", "pass_40",
+         *[f"rd_{k}" for k in RUN_DIRS], *[f"rdy_{k}" for k in RUN_DIRS], "two_att", "two_conv", "dtwo_att", "dtwo_conv", "ret_td"]
 
 
 def f(x):
@@ -68,6 +80,17 @@ def f(x):
         return float(x)
     except (TypeError, ValueError):
         return 0.0
+
+
+NA = (None, "", "NA")
+
+
+def own_yard(spot, team, yl100):
+    """'KC 25' -> yards from the offense's own goal line (25 on KC's drive, 75 on the other team's); '50' or 'MID 50' -> 50."""
+    side, _, yd = (spot or "").strip().rpartition(" ")
+    if not yd.isdigit():
+        return 100 - yl100
+    return int(yd) if side in ("", "MID", team) or int(yd) == 50 else 100 - int(yd)
 
 
 def ids(row, *cols):
@@ -146,8 +169,17 @@ def per_game(season, T=None):
         T = {}
     T_ =defaultdict(lambda: defaultdict(float))
     BZ = ftn(season)
+    drives = set()
     for row in pbp(season):
-        if row.get("season_type") != "REG" or row.get("two_point_attempt") == "1":
+        if row.get("season_type") != "REG":
+            continue
+        if row.get("two_point_attempt") == "1":
+            if row.get("play_type") in ("run", "pass") and row.get("posteam") not in NA:
+                ok, w2 = row.get("two_point_conv_result") == "success", int(f(row["week"]))
+                T_[row["posteam"], w2]["two_att"] += 1
+                T_[row["posteam"], w2]["two_conv"] += ok
+                T_[row["defteam"], w2]["dtwo_att"] += 1
+                T_[row["defteam"], w2]["dtwo_conv"] += ok
             continue
         # accepted penalties, on any play (false starts and holds are often "no_play")
         if row.get("penalty") == "1":
@@ -197,6 +229,35 @@ def per_game(season, T=None):
                         T_[other, w_][f"tpd_{pk}"] += 1
                         T_[other, w_][f"tpdy_{pk}"] += f(row.get("penalty_yards"))
         pt = row.get("play_type")
+        if pt in ("kickoff", "punt") and row.get("return_touchdown") == "1":
+            for p in ids(row, "kickoff_returner_player_id", "punt_returner_player_id"):
+                S[p, int(f(row["week"]))]["ret_td"] += 1
+            if row.get("return_team") not in NA:
+                T_[row["return_team"], int(f(row["week"]))]["ret_td"] += 1
+        # drives, from the first offensive play of each one (posteam is the offense on these plays)
+        if row.get("posteam") not in NA and pt in ("run", "pass", "punt", "field_goal", "qb_kneel", "qb_spike") and row.get("fixed_drive") not in NA:
+            dk = (row["game_id"], row["fixed_drive"])
+            if dk not in drives:
+                drives.add(dk)
+                t = T_[row["posteam"], int(f(row["week"]))]
+                t["drives"] += 1
+                t["drive_scores"] += row.get("drive_ended_with_score") == "1"
+                t["drive_start"] += own_yard(row.get("drive_start_yard_line"), row["posteam"], f(row["yardline_100"]))
+                mins, _, secs = (row.get("drive_time_of_possession") or "").partition(":")
+                t["drive_secs"] += f(mins) * 60 + f(secs)
+                t["drive_plays"] += f(row.get("drive_play_count"))
+        if row.get("down") == "4" and pt in ("run", "pass", "punt", "field_goal") and row.get("posteam") not in NA:
+            w4 = int(f(row["week"]))
+            T_[row["posteam"], w4]["fd4"] += 1
+            if pt in ("run", "pass"):
+                conv = row.get("fourth_down_converted") == "1"
+                T_[row["posteam"], w4]["go4_att"] += 1
+                T_[row["posteam"], w4]["go4_conv"] += conv
+                T_[row["defteam"], w4]["dgo4_att"] += 1
+                T_[row["defteam"], w4]["dgo4_conv"] += conv
+                for p in ids(row, "passer_player_id", "rusher_player_id"):
+                    S[p, w4]["fourth_att"] += 1
+                    S[p, w4]["fourth_conv"] += conv
         if pt not in ("run", "pass") or not row.get("down") or row["down"] == "NA":
             continue
         wk = int(f(row["week"]))
@@ -208,6 +269,18 @@ def per_game(season, T=None):
         rz = yl <= 20
         sacked = row.get("sack") == "1"
         run = pt == "run"
+        to = T_[off, wk]
+        to["o_plays"] += 1
+        to["sg"] += row.get("shotgun") == "1"
+        to["nh"] += row.get("no_huddle") == "1"
+        if row.get("pass_oe") not in NA:
+            to["proe_sum"] += f(row["pass_oe"])
+            to["proe_n"] += 1
+        wpa = f(row.get("wpa"))
+        rdir = None
+        if run and row.get("qb_scramble") != "1" and row.get("run_location") not in NA:
+            loc, gap = row["run_location"][:1], (row.get("run_gap") or "")[:1]
+            rdir = "m" if loc == "m" else loc + gap if gap in ("e", "t", "g") else None
 
         # ---- defense: tacklers on this play
         if not (row.get("interception") == "1" or row.get("fumble_lost") == "1"):  # after a turnover the offense makes the tackles
@@ -252,8 +325,26 @@ def per_game(season, T=None):
 
         # ---- running (designed runs and scrambles; kneels are their own play type)
         if run:
+            ry = f(row["rushing_yards"])
+            to["rush_20"] += ry >= 20
+            to["rush_40"] += ry >= 40
+            if row.get("qb_scramble") == "1":
+                to["scr"] += 1
+                to["scr_yds"] += ry
+            if rdir:
+                to[f"rd_{rdir}"] += 1
+                to[f"rdy_{rdir}"] += ry
             for p in ids(row, "rusher_player_id"):
                 s = S[p, wk]
+                s["wpa"] += wpa
+                s["rush_20"] += ry >= 20
+                s["rush_40"] += ry >= 40
+                if row.get("qb_scramble") == "1":
+                    s["scr"] += 1
+                    s["scr_yds"] += ry
+                if rdir:
+                    s[f"rd_{rdir}"] += 1
+                    s[f"rdy_{rdir}"] += ry
                 s["carries"] += 1
                 s["rush_yds"] += f(row["rushing_yards"])
                 s["rush_succ"] += not lost
@@ -276,6 +367,13 @@ def per_game(season, T=None):
         side = (row.get("pass_location") or "")[:1]
         zone = ("s" if f(row["air_yards"]) < 10 else "i" if not deep else "d") + side             if side in ("l", "m", "r") and row.get("air_yards") not in (None, "", "NA") and not sacked else None
         bz = BZ.get((row["game_id"], str(int(f(row["play_id"])))))
+        py = f(row["passing_yards"]) if row.get("complete_pass") == "1" else 0
+        to["pass_20"] += py >= 20
+        to["pass_40"] += py >= 40
+        cpoe = f(row["cpoe"]) if row.get("cpoe") not in NA and row.get("pass_attempt") == "1" and not sacked else None
+        if cpoe is not None:
+            to["cpoe_sum"] += cpoe
+            to["cpoe_n"] += 1
         t = T_[row["defteam"], wk]
         if row.get("qb_dropback") == "1":
             t["opp_db"] += 1
@@ -295,6 +393,12 @@ def per_game(season, T=None):
                         t[f"opp_{band}_yds"] += f(row["passing_yards"])
         for p in ids(row, "passer_player_id"):
             s = S[p, wk]
+            s["wpa"] += wpa
+            s["pass_20"] += py >= 20
+            s["pass_40"] += py >= 40
+            if cpoe is not None:
+                s["cpoe_sum"] += cpoe
+                s["cpoe_n"] += 1
             s["dropbacks"] += 1
             s["pass_epa"] += epa
             s["sacked"] += sacked
@@ -350,6 +454,8 @@ def per_game(season, T=None):
             s["yac"] += f(row["yards_after_catch"]) if c else 0
             s["rec_epa"] += epa
             s["rec_20"] += c and gain >= 20
+            s["rec_40"] += c and gain >= 40
+            s["wpa"] += wpa
             if deep:
                 s["deep_tgt"] += 1
                 s["deep_rec"] += c

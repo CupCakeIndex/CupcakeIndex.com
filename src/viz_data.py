@@ -110,6 +110,19 @@ PFR_DEF = {"cov_tgt": "def_targets", "cov_cmp": "def_completions_allowed", "cov_
 PFR_PASS = {"qb_pressured": "times_pressured", "qb_blitzed": "times_blitzed", "bad_throws": "passing_bad_throws", "pass_drops": "passing_drops"}
 # ...and its receiving/rushing charting (drops, broken tackles, interceptions on throws to him)
 PFR_REC = {"drops": "receiving_drop", "rec_btk": "receiving_broken_tackles", "rush_btk": "rushing_broken_tackles", "tgt_int": "receiving_int"}
+# kicking, punting, returns, fumbles and defensive scores from nflverse's weekly stats (same names in the team and player files):
+# our column -> the columns added up. mx_ columns are season highs (Visualize keeps the biggest, not the sum).
+FG_BINS = ["0_19", "20_29", "30_39", "40_49", "50_59", "60_"]
+NV_EXTRA = {"pr": ["punt_returns"], "pr_yds": ["punt_return_yards"], "kr": ["kickoff_returns"], "kr_yds": ["kickoff_return_yards"],
+            "st_td": ["special_teams_tds"], "fum": ["fumbles_total"], "fum_lost_all": ["fumbles_lost_total"], "def_ff": ["def_fumbles_forced"],
+            "fr_yds": ["fumble_recovery_yards_opp"], "int_yds": ["def_interception_yards"], "def_td": ["def_tds"], "safeties": ["def_safeties"],
+            "sack_yds": ["def_sack_yards"], "sack_yds_lost": ["sack_yards_lost"],
+            "two_pt": ["passing_2pt_conversions", "rushing_2pt_conversions", "receiving_2pt_conversions"],
+            "rec_fd": ["receiving_first_downs"], "rush_fd": ["rushing_first_downs"], "pass_fd": ["passing_first_downs"],
+            **{f"fgm_{b}": [f"fg_made_{b}"] for b in FG_BINS}, **{f"fga_{b}": [f"fg_made_{b}", f"fg_missed_{b}"] for b in FG_BINS},
+            "fg_blk": ["fg_blocked"], "mx_fg_long": ["fg_long"], "pat_made": ["pat_made"], "pat_att": ["pat_att"],
+            "gwfg_made": ["gwfg_made"], "gwfg_att": ["gwfg_att"], "pt_att": ["pt_att"], "pt_yds": ["pt_yards"], "pt_net": ["pt_net_yards"],
+            "mx_pt_long": ["pt_long"], "pt_in20": ["pt_inside_20"], "pt_tb": ["pt_touchback"], "pt_blk": ["pt_blocked"], "pt_ret_yds": ["pt_return_yards"]}
 OL_POS = ("T", "G", "C", "OT", "OG", "OL")
 OLD = {"SD": "LAC", "STL": "LA", "OAK": "LV"}  # moved teams: old play-by-play abbreviation -> today's
 
@@ -171,7 +184,7 @@ def nfl_teams(season):
                       f(r, "def_sacks"), f(r, "def_interceptions"), f(r, "fumble_recovery_opp"), f(r, "penalties"), f(r, "penalty_yards"),
                       f(o, "attempts") + f(o, "carries") + f(o, "sacks_suffered"), f(o, "passing_yards"), f(o, "rushing_yards"),
                       round(f(o, "passing_epa") + f(o, "rushing_epa"), 2), f(o, "passing_first_downs") + f(o, "rushing_first_downs"),
-                      f(r, "fg_made"), f(r, "fg_att")])
+                      f(r, "fg_made"), f(r, "fg_att")] + [abs(sum(f(r, c) for c in cs)) for cs in NV_EXTRA.values()])
     # team pass defense from play-by-play (throws by depth, YAC allowed, blitz rate), in the same pass as the player cuts
     T = {}
     try:
@@ -183,7 +196,19 @@ def nfl_teams(season):
     for row in trows:
         x = tk.get((row[0], row[1]), {})
         row += [x.get(c, 0) for c in deep_stats.TCOLS]
-    return trows, tmeta, key, deep
+    # game conditions for Visualize's "Games" filter: "team|week" -> [roof (1 indoors, 2 outdoors, 0 unknown),
+    # field (1 turf, 2 grass, 0 unknown), temperature °F, wind mph (None when unknown or indoors), division game (1/0)]
+    gcond = {}
+    for g in games:
+        if g["game_type"] != "REG":
+            continue
+        roof = 1 if g["roof"] in ("dome", "closed") else 2 if g["roof"] in ("outdoors", "open") else 0
+        turf = 0 if not g["surface"].strip() else 2 if g["surface"].strip() == "grass" else 1
+        c = [roof, turf, int(n(g["temp"])) if g["temp"] not in ("", "NA") else None, int(n(g["wind"])) if g["wind"] not in ("", "NA") else None,
+             1 if g["div_game"] == "1" else 0]
+        for tm in (g["home_team"], g["away_team"]):
+            gcond[f"{key.get(tm, tm)}|{int(g['week'])}"] = c
+    return trows, tmeta, key, deep, gcond
 
 
 def nfl_history(season):
@@ -197,7 +222,7 @@ def nfl_history(season):
     out = ROOT / "analyst" / "data" / "hist"
     out.mkdir(parents=True, exist_ok=True)
     f = out / f"nfl_{season}.json"
-    f.write_text(json.dumps({"league": "nfl", "season": season, "teams": tmeta, "tcols": TEAM_COLS_NFL + deep_stats.TCOLS, "trows": trows,
+    f.write_text(json.dumps({"league": "nfl", "season": season, "teams": tmeta, "tcols": TEAM_COLS_NFL + list(NV_EXTRA) + deep_stats.TCOLS, "trows": trows,
                              "pcols": [], "pmeta": {}, "prows": []}, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
     print(f"  {f.name}: {len(trows)} team games, {f.stat().st_size // 1024} KB")
 
@@ -210,11 +235,11 @@ def nfl_team_only(season):
     t = nfl_teams(season)
     if not t:
         return
-    trows, tmeta = t[0], t[1]
-    cols = TEAM_COLS_NFL + deep_stats.TCOLS
+    trows, tmeta, gcond = t[0], t[1], t[4]
+    cols = TEAM_COLS_NFL + list(NV_EXTRA) + deep_stats.TCOLS
     keep = [i for i, c in enumerate(cols) if c in TEAM_COLS_NFL or any(r[i + 3] for r in trows)]
     trows = [r[:3] + [r[i + 3] for i in keep] for r in trows]
-    write("nfl", season, {"teams": tmeta, "tcols": [cols[i] for i in keep], "trows": trows, "pcols": [], "pmeta": {}, "prows": []})
+    write("nfl", season, {"teams": tmeta, "tcols": [cols[i] for i in keep], "trows": trows, "pcols": [], "pmeta": {}, "prows": [], "gcond": gcond})
 
 
 def nfl(season):
@@ -222,7 +247,7 @@ def nfl(season):
     t = nfl_teams(season)
     if not t:
         return
-    trows, tmeta, key, deep = t
+    trows, tmeta, key, deep, gcond = t
 
     try:
         pl = nflverse_csv(f"{NFLV}/stats_player/stats_player_week_{season}.csv", f"stats_player_week_{season}.csv")
@@ -312,13 +337,20 @@ def nfl(season):
                 pfr.setdefault((pid, int(r["week"])), {}).update({c: n(r.get(src)) for c, src in PFR_REC.items() if n(r.get(src))})
     except requests.HTTPError as e:
         print(f"  ! PFR receiving charting unavailable ({e})")
+    # kicking, punting, returns, fumbles (NV_EXTRA) from the same weekly player stats
+    for r in pl:
+        if r["season_type"] == "REG":
+            x = {c: abs(sum(n(r.get(k)) for k in cs)) for c, cs in NV_EXTRA.items()}
+            x = {c: v for c, v in x.items() if v}
+            if x:
+                pfr.setdefault((espn.get(r["player_id"]) or r["player_id"], int(r["week"])), {}).update(x)
     # team missed tackles = the sum of its defenders' (PFR charting)
     team_miss = defaultdict(int)
     for row in prows:
         team_miss[row[2], row[1]] += pfr.get((row[0], row[1]), {}).get("miss_tkl", 0)
     for row in trows:
         row.append(team_miss.get((row[0], row[1]), 0))
-    xcols = deep_stats.XCOLS + list(PFR_DEF) + list(PFR_PASS) + list(PFR_REC)
+    xcols = deep_stats.XCOLS + list(PFR_DEF) + list(PFR_PASS) + list(PFR_REC) + list(NV_EXTRA)
     xi = {c: i for i, c in enumerate(xcols)}
     for row in prows:
         x = {**deep.get((gsis[row[0]], row[1]), {}), **pfr.get((row[0], row[1]), {})}
@@ -328,8 +360,8 @@ def nfl(season):
         p = pl_csv.get(gsis[pid])
         if p:
             m += deep_stats.extra(p, season)
-    write("nfl", season, {"teams": tmeta, "tcols": TEAM_COLS_NFL + deep_stats.TCOLS + ["miss_tkl"], "trows": trows, "pcols": PLAYER_COLS_NFL, "pmeta": pmeta, "prows": prows,
-                          "xcols": xcols if deep or pfr else []})
+    write("nfl", season, {"teams": tmeta, "tcols": TEAM_COLS_NFL + list(NV_EXTRA) + deep_stats.TCOLS + ["miss_tkl"], "trows": trows, "pcols": PLAYER_COLS_NFL, "pmeta": pmeta, "prows": prows,
+                          "xcols": xcols if deep or pfr else [], "gcond": gcond})
 
 
 # ------------------------------------------------------------------ college (CFBD)
