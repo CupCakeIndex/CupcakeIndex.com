@@ -19,6 +19,18 @@ import requests
 from viz_data import NFLV, RAW, season_now
 
 ZONES = [d + side for d in "sid" for side in "lmr"]
+# accepted penalties by type: [column key, nflverse penalty_type names]. Names have barely changed since 1999 (too many men was "12 On-field").
+PEN_TYPES = [
+    ("hold", ["Offensive Holding"]), ("fs", ["False Start"]), ("dpi", ["Defensive Pass Interference"]), ("dog", ["Delay of Game"]),
+    ("dhold", ["Defensive Holding"]), ("ur", ["Unnecessary Roughness", "Personal Foul"]), ("offside", ["Defensive Offside"]),
+    ("rtp", ["Roughing the Passer"]), ("fm", ["Face Mask", "Face Mask (15 Yards)", "Face Mask (5 Yards)"]), ("form", ["Illegal Formation"]),
+    ("nzi", ["Neutral Zone Infraction"]), ("ibw", ["Illegal Block Above the Waist"]), ("iuh", ["Illegal Use of Hands"]),
+    ("icon", ["Illegal Contact"]), ("shift", ["Illegal Shift", "Illegal Motion"]), ("opi", ["Offensive Pass Interference"]),
+    ("idp", ["Ineligible Downfield Pass"]), ("enc", ["Encroachment"]), ("ig", ["Intentional Grounding"]),
+    ("unsp", ["Unsportsmanlike Conduct"]), ("taunt", ["Taunting"]), ("hc", ["Horse Collar Tackle"]),
+    ("tmm", ["Defensive Too Many Men on Field", "Offensive Too Many Men on Field", "Defensive 12 On-field", "Offensive 12 On-field", "Illegal Substitution"]),
+]
+PEN_OF = {name: k for k, names in PEN_TYPES for name in names}
 XCOLS = [
     # defense (tackles, sacks, TFL, hits, PD, INTs are already in the chart data)
     "run_tkl", "run_stop", "run_tkl_yds", "stuff", "sy_tkl", "sy_stop", "pass_tkl", "pass_stop", "third_stop", "rz_stop",
@@ -32,7 +44,7 @@ XCOLS = [
     # vs the blitz (FTN charting, 2022+): ftn_db = his charted dropbacks, bz_ = dropbacks where 5+ rushed or a DB/LB blitzed
     "ftn_db", "bz_db", "bz_att", "bz_cmp", "bz_yds", "bz_td", "bz_int", "bz_sk", "bz_epa",
     # accepted penalties on him (offensive linemen too)
-    "pen", "pen_yds",
+    "pen", "pen_yds", *[f"pn_{k}" for k, _ in PEN_TYPES],
     # where the ball went (nflverse air yards + pass_location): zone = depth s/i/d (under 10 air yards, 10-19, 20+) + side l/m/r.
     # QBs: z_<zone>_att/_cmp/_yds/_td/_int/_epa; receivers: zt_<zone> targets, zc_<zone> catches, zy_ yards, ze_ EPA.
     # Throwaways and spikes have no zone.
@@ -40,7 +52,9 @@ XCOLS = [
 ]
 # team pass defense per game (per_game(season, T)): throws by depth, yards after catch, blitzes (FTN)
 TCOLS = ["opp_att", "opp_cmp", "opp_yac", "opp_short_att", "opp_short_cmp", "opp_short_yds", "opp_deep_att", "opp_deep_cmp", "opp_deep_yds",
-         "opp_db", "ftn_db", "blitz_db"]
+         "opp_db", "ftn_db", "blitz_db",
+         # accepted penalties by type: tp_ = the team committed it, tpd_ = the team drew it (the other team committed it)
+         *[f"tp_{k}" for k, _ in PEN_TYPES], *[f"tpd_{k}" for k, _ in PEN_TYPES]]
 
 
 def f(x):
@@ -130,12 +144,23 @@ def per_game(season, T=None):
         if row.get("season_type") != "REG" or row.get("two_point_attempt") == "1":
             continue
         # accepted penalties, on any play (false starts and holds are often "no_play")
-        if row.get("penalty") == "1" and row.get("penalty_player_id") not in (None, "", "NA"):
+        if row.get("penalty") == "1":
             d = (row.get("desc") or "").lower()
             if "declined" not in d and "offsetting" not in d:
-                s = S[row["penalty_player_id"], int(f(row["week"]))]
-                s["pen"] += 1
-                s["pen_yds"] += f(row.get("penalty_yards"))
+                pk, w_ = PEN_OF.get(row.get("penalty_type")), int(f(row["week"]))
+                if row.get("penalty_player_id") not in (None, "", "NA"):
+                    s = S[row["penalty_player_id"], w_]
+                    s["pen"] += 1
+                    s["pen_yds"] += f(row.get("penalty_yards"))
+                    if pk:
+                        s[f"pn_{pk}"] += 1
+                # team ones too (delay of game, too many men have no player)
+                pt_ = row.get("penalty_team")
+                if pk and pt_ not in (None, "", "NA"):
+                    T_[pt_, w_][f"tp_{pk}"] += 1
+                    other = row["defteam"] if pt_ == row.get("posteam") else row.get("posteam")
+                    if other not in (None, "", "NA"):
+                        T_[other, w_][f"tpd_{pk}"] += 1
         pt = row.get("play_type")
         if pt not in ("run", "pass") or not row.get("down") or row["down"] == "NA":
             continue
