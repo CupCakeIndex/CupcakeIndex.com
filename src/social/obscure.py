@@ -1138,8 +1138,8 @@ def card_classic(f, theme):
 
 
 # ------------------------------------------------------------------ driver
-def make(key, out, theme=None):
-    f = STATS[key]()
+def make(key, out, theme=None, f=None):
+    f = f or STATS[key]()
     if not f:
         return None
     theme = theme or random.choice(LOOKS)  # the card look
@@ -1157,6 +1157,66 @@ def make(key, out, theme=None):
     with open(os.path.join(out, f"obscure-{key}.json"), "w", encoding="utf-8") as fh:
         json.dump(meta, fh, indent=1, ensure_ascii=False)
     return meta
+
+
+MIN_RELEVANCE = 2.0  # below this, the scheduled slot posts nothing (Terry: fewer cards, only ones people care about)
+
+
+def news_text(hours=48):
+    """The last two days of headlines and summaries, lowercased, by league."""
+    try:
+        items = json.load(open(os.path.join(ROOT, "docs", "data", "news.json"), encoding="utf-8"))["items"]
+    except (OSError, ValueError, KeyError):
+        return {}
+    cut = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=hours)).isoformat()
+    out = {}
+    for it in items:
+        if it.get("published", "") >= cut:
+            out[it.get("league", "")] = out.get(it.get("league", ""), "") + " " + (it["title"] + " " + (it.get("summary") or "")).lower()
+    return out
+
+
+def relevance(key, f, news, recent):
+    """How much people will care about this card right now; the scheduled runs post the highest one.
+    news: news_text(); recent: the last week's posted texts, lowercased."""
+    import cupcake_stats
+    import handles
+    lg, rows = f["league"], f["rows"]
+    lead, v0 = rows[0][0], rows[0][1]
+    name = (lead.get("name") or "").lower()
+    team_name = lead["team"] if f["kind"] != "player" else handles.ABBR.get(lead["team"], lead["team"]) if lg == "nfl" else lead["team"]
+    _, by, _ = teams(lg)
+    s = cupcake_stats.big_name(by.get(team_name) or (lead if f["kind"] != "player" else None), lg)  # ~0.4 to ~3
+    said = news.get(lg, "")
+    if name and name in said:
+        s += 1.5  # the player is in the news
+    elif team_name.lower() in said or (lg == "nfl" and f" {team_name.split()[-1].lower()} " in said):
+        s += 0.75
+    if any(w in key for w in ("vs_vegas", "upset", "weekly_", "injuries")):
+        s += 0.5  # about this week's games
+    vals = [abs(v) for _, v, _ in rows if isinstance(v, (int, float))]
+    if len(vals) > 1 and vals[1] and vals[0] / vals[1] >= 1.25:
+        s += 0.5  # a clear leader reads better than a pileup
+    if (name and name in recent) or team_name.lower() in recent:
+        s -= 1.5  # posted about them this week already
+    return round(s, 2)
+
+
+def by_relevance(keys):
+    """[(score, key, fact)] for the stats that have data, best first."""
+    news = news_text()
+    recent = " ".join(p.get("text", "") for p in posted.load()
+                      if p.get("date", "") >= (dt.date.today() - dt.timedelta(days=7)).isoformat()).lower()
+    out = []
+    for k in keys:
+        try:
+            f = STATS[k]()
+        except Exception as e:  # one broken data source shouldn't stop the post
+            print(f"[{k}] failed: {e!r}")
+            continue
+        if f:
+            out.append((relevance(k, f, news, recent), k, f))
+    return sorted(out, key=lambda x: -x[0])
 
 
 def rotation(now=None):
@@ -1187,6 +1247,7 @@ def main():
              "random-obscure": [k for k in rot if not k.startswith("hot_")]}  # old name for random-stat
     if a.stat not in STATS and a.stat not in pools and a.stat != "rotate":
         sys.exit(f"Unknown stat '{a.stat}'. Run with --list to see them.")
+    facts = {}  # facts already computed while ranking (rotate)
     if a.all:
         keys = list(STATS)
     elif a.stat == "rotate":
@@ -1194,6 +1255,18 @@ def main():
         # doesn't get posted again on the next run (that's how repeats happened)
         recent = posted.recent_stats(14)
         keys = [k for k in rotation() if k not in recent] or rotation()
+        # then most relevant first, and only the ones worth posting (Terry: "prioritized based on relevance")
+        scored = by_relevance(keys)
+        for sc, k, _ in scored[:8]:
+            print(f"  relevance {sc:5.2f}  {k}")
+        facts = {k: f for sc, k, f in scored if sc >= MIN_RELEVANCE}
+        keys = [k for sc, k, f in scored if sc >= MIN_RELEVANCE]
+        if not keys:
+            print(f"Nothing relevant enough to post this time (best: {scored[0][0] if scored else 0} < {MIN_RELEVANCE}).")
+            os.makedirs(a.out, exist_ok=True)
+            with open(os.path.join(a.out, "today.json"), "w", encoding="utf-8") as fh:
+                json.dump({"text": "", "skip": True, "reason": "no stat was relevant enough", "image": None}, fh)
+            return
     elif a.stat in pools:
         keys = random.sample(pools[a.stat], len(pools[a.stat]))
     else:
@@ -1201,7 +1274,7 @@ def main():
     m = None
     for key in keys:
         try:
-            m = make(key, a.out, None if a.theme == "random" else a.theme)
+            m = make(key, a.out, None if a.theme == "random" else a.theme, facts.get(key))
         except Exception as e:  # one broken data source shouldn't stop the post
             print(f"[{key}] failed: {e!r}")
             m = None
