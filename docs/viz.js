@@ -107,8 +107,13 @@ const Viz = (() => {
       ["third_stop", "3rd/4th-down stops", (S) => S.third_stop, { count: 1, need: ["third_stop"] }],
       ["pressure", "Pressures (sacks, hits, hurries)", (S) => S.pressure, { count: 1, need: ["pressure"] }],
     ]],
+    ["Drops and broken tackles (players added up)", [
+      ["team_drops", "Drops (dropped passes)", (S) => S.drops, { count: 1, low: 1, need: ["drops"] }],
+      ["team_drop_pct", "Drop % (drops per pass attempt)", (S) => div(100 * S.drops, S.att), { den: (S) => S.att, pct: 1, low: 1, unit: "pass attempts", need: ["drops"] }],
+      ["team_btk", "Broken tackles (runs + catches)", (S) => S.rush_btk + S.rec_btk, { count: 1, need: ["rush_btk"] }],
+    ]],
   ];
-  const TX = ["run_stop", "run_tkl", "run_tkl_yds", "stuff", "sy_stop", "third_stop", "pressure"]; // player columns a team's total is added up from
+  const TX = ["run_stop", "run_tkl", "run_tkl_yds", "stuff", "sy_stop", "third_stop", "pressure", "drops", "rush_btk", "rec_btk"]; // player columns a team's total is added up from
   // where the ball went (src/deep_stats.py): zone = depth s/i/d (under 10 air yards, 10-19, 20+) + side l/m/r. QBs have
   // z_<zone>_att/_cmp/_yds, receivers zt_<zone> (targets) and zc_<zone> (catches). A "split" stat is a breakdown, not one number:
   // a bar chart stacks it (one 100% bar per player), a pie shows one player's slices; anywhere else it's the total.
@@ -295,6 +300,18 @@ const Viz = (() => {
       ["rz_td_pct", "Red-zone TD % (QB)", (S) => div(100 * S.rz_pass_td, S.rz_att), { den: (S) => S.rz_att, pct: 1, unit: "red-zone throws", need: ["rz_att"] }],
       ["hit_pct", "Hit or sacked % (QB)", (S) => div(100 * S.hit, S.dropbacks), { den: (S) => S.dropbacks, pct: 1, low: 1, unit: "dropbacks", need: ["hit"] }],
     ]],
+    // drops, broken tackles and interceptions on throws to him: Pro Football Reference's charting (nflverse pfr_advstats), 2022 on
+    ["Drops and broken tackles", [
+      ["drops", "Drops", (S) => S.drops, { count: 1, low: 1, pos: "WR", need: ["drops"] }],
+      ["drop_pct", "Drop % (drops per target)", (S) => div(100 * S.drops, S.targets), { den: (S) => S.targets, pct: 1, low: 1, unit: "targets", pos: "WR", need: ["drops"] }],
+      ["tgt_int", "Interceptions on throws to him", (S) => S.tgt_int, { count: 1, low: 1, pos: "WR", need: ["drops"] }],
+      ["btk", "Broken tackles (runs + catches)", (S) => S.rush_btk + S.rec_btk, { count: 1, need: ["drops"] }],
+      ["rush_btk", "Broken tackles on runs", (S) => S.rush_btk, { count: 1, pos: "RB", need: ["drops"] }],
+      ["rec_btk", "Broken tackles after the catch", (S) => S.rec_btk, { count: 1, pos: "WR", need: ["drops"] }],
+      ["btk_rate", "Broken tackles per 100 touches", (S) => div(100 * (S.rush_btk + S.rec_btk), S.carries + S.rec), { den: (S) => S.carries + S.rec, d: 1, unit: "touches", need: ["drops"] }],
+      ["pass_drops", "Passes his receivers dropped (QB)", (S) => S.pass_drops, { count: 1, pos: "QB", need: ["pass_drops"] }],
+      ["adj_cmp", "Drop-adjusted completion % (QB, drops counted as catches)", (S) => div(100 * (S.cmp + S.pass_drops), S.att), { den: (S) => S.att, pct: 1, pos: "QB", need: ["pass_drops"] }],
+    ]],
     // pressures and bad throws: PFR's passing charting; blitzes: FTN's charting (5+ rushers or a DB/LB blitzing), both via nflverse
     ["Deep cuts: QB under pressure and vs the blitz", [
       ["pressured_pct", "Pressured % of dropbacks", (S) => div(100 * S.qb_pressured, S.dropbacks), { den: (S) => S.dropbacks, pct: 1, low: 1, unit: "dropbacks", need: ["qb_pressured"] }],
@@ -326,7 +343,12 @@ const Viz = (() => {
   const norm = (x) => x.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[.'’-]/g, "").toLowerCase();
   const QSYN = { def: "defense", defensive: "defense", defence: "defense", ints: "interceptions", int: "interceptions", picks: "interceptions",
     td: "tds", touchdown: "tds", touchdowns: "tds", yds: "yards", yd: "yards", yard: "yards", pct: "%", percent: "%", percentage: "%",
-    catches: "receptions", passing: "pass", rushing: "rush", running: "run", receiving: "rec", tackle: "tackles", sacks: "sack" };
+    catches: "receptions", passing: "pass", rushing: "rush", running: "run", receiving: "rec", tackle: "tackles", sacks: "sack",
+    // football shorthand people type ("pbus", "tfls", "qbr")
+    pbu: "defended", pbus: "defended", pd: "defended", pds: "defended", breakups: "defended", breakup: "defended", tfl: "loss", tfls: "loss",
+    ff: "fumbles", qbr: "rating", comp: "completion", comps: "completion", cmp: "completion", recs: "receptions", tgt: "targets", tgts: "targets",
+    looks: "targets", dropped: "drops", drop: "drops", fg: "field", fgs: "field", pts: "points", ppg: "points", rushes: "carries", atts: "attempts",
+    explosives: "explosive", picked: "interceptions", interception: "interceptions", hurries: "pressures", pressures: "pressures", btk: "broken", btks: "broken" };
   const qStem = (t) => (t.length > 3 && !/ss$/.test(t) ? t.replace(/s$/, "") : t);
   const qTok = (s) => norm(s).split(/[\s/()]+/).filter((t) => t && !["the", "of", "a", "per"].includes(t)).map((t) => qStem(QSYN[t] || t));
   const bestStats = (side, groups) => {
@@ -647,6 +669,8 @@ const Viz = (() => {
       ["Yards per attempt on intermediate throws (10-19)", P_({ type: "bar", stat: "qb_ypa_i", pos: "QB", top: "15" })],
       ["Over the middle: how often vs how well (EPA per throw)", P_({ type: "scatter", stat: "qb_pct_m", y: "qb_epa_m", pos: "QB", top: "all", quad: "Picky but good|Middle masters|Stays away|Forces it" })],
       ["Passer rating over the middle", P_({ type: "bar", stat: "qb_rate_m", pos: "QB", top: "15" })],
+      ["Hurt by drops: passes his receivers dropped", P_({ type: "bar", stat: "pass_drops", per: "total", pos: "QB", top: "15" })],
+      ["Drop-adjusted completion %", P_({ type: "bar", stat: "adj_cmp", pos: "QB", top: "15" })],
       ["EPA per throw on deep balls (20+ air yards)", P_({ type: "bar", stat: "qb_epa_d", pos: "QB", top: "15" })],
       ["Passer rating: left vs right", P_({ type: "scatter", stat: "qb_rate_l", y: "qb_rate_r", pos: "QB", top: "all" })],
       ["QBs vs top-half defenses (EPA per dropback)", P_({ type: "bar", stat: "epa_db", pos: "QB", top: "15", opp: "good" })],
@@ -668,6 +692,9 @@ const Viz = (() => {
       ["Deep target share (% of targets 20+ air yards)", P_({ type: "bar", stat: "rec_pct_d", pos: "WR", top: "15" })],
       ["Catch % on deep targets", P_({ type: "bar", stat: "rec_cmp_d", pos: "WR", top: "15" })],
       ["Red-zone targets", P_({ type: "bar", stat: "rz_tgt", per: "total", top: "15" })],
+      ["Most drops", P_({ type: "bar", stat: "drops", per: "total", pos: "WR", order: "worst", top: "15" })],
+      ["Drop % (drops per target)", P_({ type: "bar", stat: "drop_pct", pos: "WR", order: "worst", top: "15" })],
+      ["Broken tackles leaders", P_({ type: "bar", stat: "btk", per: "total", top: "15" })],
       ["Target share leaders", P_({ type: "bar", stat: "tgt_share", pos: "WR", top: "15" })],
       ["Target share, last 3 games (who's trending up)", P_({ type: "bar", stat: "tgt_share", pos: "WR", top: "15", last: "3" })],
       ["WOPR (target share + air-yards share)", P_({ type: "bar", stat: "wopr", pos: "WR", top: "15" })],
@@ -1467,7 +1494,11 @@ const Viz = (() => {
       let t = league === "cfb" ? lower.replace(/ targets? /g, " catches ") : lower;
       const o = {};
       const take = (re, f) => { const m = t.match(re); if (!m) return false; t = t.replace(re, " "); f(m); return true; };
-      take(/ (19|20)(\d\d) /, (m) => { o.from = o.to = m[1] + m[2]; });
+      // seasons: "all time" / "ever" / "career" = every season we have, "since 2023", "2023 to 2025", or one season
+      take(/ (all ?time|ever|career|all seasons|in history|history) /, () => { o.from = "first"; })
+        || take(/ (since|from) ((19|20)\d\d) /, (m) => { o.from = m[2]; })
+        || take(/ ((19|20)\d\d) (to|through|thru) ((19|20)\d\d) /, (m) => { o.from = m[1]; o.to = m[4]; })
+        || take(/ (19|20)(\d\d) /, (m) => { o.from = o.to = m[1] + m[2]; });
       take(/ (in |over )?(the |his |their )?last (\d+|two|three|four|five|six) (games?|weeks?) /, (m) => { o.last = String({ two: 2, three: 3, four: 4, five: 5, six: 6 }[m[3]] || Math.max(1, Math.min(17, +m[3] || 3))); });
       take(/ (vs|against|versus|on|over) (the )?(good|winning|tophalf|top half|top|ranked|playoff|strong|best) ((teams?|defenses?|offenses?|opponents?) )?/, () => { o.opp = "good"; })
         || take(/ (vs|against|versus|on|over) (the )?(cupcakes?|bad|weak|bottomhalf|bottom half|losing|worst) ((teams?|defenses?|offenses?|opponents?) )?/, () => { o.opp = "soft"; })
@@ -1477,7 +1508,8 @@ const Viz = (() => {
       const said = / share /.test(t); // "carry share": a share stat by that name beats "carries, as a share"
       take(/ (who gets|share|distribution|split|breakdown|usage) /, () => { o.per = "share"; });
       take(/ per (100 )?snaps? /, () => { o.per = "snap"; }) || take(/ per game /, () => { o.per = "game"; }) || take(/ (in )?totals? /, () => { o.per = "total"; });
-      take(/ (worst|fewest|least|lowest|bottom) /, () => { o.order = "worst"; });
+      // "most drops" = the most first, even though fewer drops is better; "fewest", "lowest" = the least first; "worst" = the worst first
+      const dir = take(/ (most|highest|biggest|leads?|leaders?) /, () => {}) ? "most" : take(/ (fewest|least|lowest) /, () => {}) ? "few" : take(/ (worst|bottom) /, () => {}) ? "worst" : "";
       take(/ rookies? /, () => { o.exp = "1"; }); take(/ undrafted /, () => { o.draft = "U"; });
       let ball = take(/ (the )?(ball|rock|touches) /, () => {});
       take(/ running backs? /, () => { o.pos = "RB"; });
@@ -1490,7 +1522,7 @@ const Viz = (() => {
       const rest = t.split(" ").filter((w) => w && !ASK_FILL.has(w)).join(" ");
       if (/ (vs|versus|and|x) /.test(` ${rest} `)) return null; // two stats: the scatter suggestions handle it
       const wantP = o.pos || o.exp || o.draft || o.per === "share" || o.per === "snap" || / (players?|guys|receivers?|qbs?|backs?|rookies?) /.test(lower);
-      const wantT = !wantP && / (teams|offenses?|defenses?) /.test(lower);
+      const wantT = !wantP && / (teams?|offenses?|defenses?) /.test(lower);
       const P1 = rest ? qBest(rest, "players")[0] : null, T1 = rest ? qBest(rest, "teams")[0] : null;
       // a team named with no player words ("chiefs points per game") means the team, unless the player stat fits clearly better
       const w = wantT ? "teams" : wantP ? "players" : (T1?.[1] || 0) > (P1?.[1] || 0) + (o.team ? -0.01 : 0.05) ? "teams" : P1 || ball ? "players" : T1 ? "teams" : null;
@@ -1500,6 +1532,11 @@ const Viz = (() => {
       if (!s && ball && w === "players") s = statsFor("players", have).flatMap(([, l]) => l).find((x) => x[0] === "touches");
       if (!s || (!Object.keys(o).length && !ball && rest === lower.trim())) return null; // nothing beyond a plain stat name: the stat itself is listed
       const patch = { ...o, who: w, stat: s[0] };
+      if (patch.from === "first") { patch.from = String(w === "players" ? Math.max(idx.players?.[league] || 0, (idx[league] || [])[0]) : (idx[league] || [])[0]); patch.to = String((idx[league] || []).at(-1)); }
+      if (patch.from && !patch.to) patch.to = String((idx[league] || []).at(-1));
+      // "most drops" = season totals, not one big game
+      if (!patch.per && s[3].count && patch.type !== "line") patch.per = "total";
+      if (dir === "worst" || (dir === "most" && s[3].low) || (dir === "few" && !s[3].low)) patch.order = "worst";
       if (patch.per === "share" && !(s[3].count && w === "players")) delete patch.per;
       if (w === "teams" && patch.team) { patch.pick = patch.team; delete patch.team; }
       if (w === "teams") { delete patch.pos; delete patch.exp; delete patch.draft; }
@@ -1507,8 +1544,9 @@ const Viz = (() => {
       const label = [`${s[1]}${patch.per === "share" ? " (share of team)" : patch.per === "snap" ? " per 100 snaps" : ""}`,
         patch.team ? `${D.teams[patch.team][0]} players` : patch.pick ? `highlight ${D.teams[patch.pick][0]}` : patch.pos ? posOpts.find(([k]) => k === patch.pos)?.[1] : "",
         patch.exp ? "rookies" : "", patch.draft ? "undrafted" : "", patch.opp ? OPP.find(([k]) => k === patch.opp)[1].toLowerCase() : "",
-        patch.last ? `last ${patch.last} games` : "", patch.type === "line" ? "week by week" : patch.type ? `${patch.type} chart` : "", patch.from || ""].filter(Boolean).join(" · ");
-      return [label, "Your question", "", () => { st = { ...DEF, from: patch.from || st.from, to: patch.to || st.to, mode: st.mode, ...patch }; reload(); }];
+        patch.last ? `last ${patch.last} games` : "", patch.type === "line" ? "week by week" : patch.type ? `${patch.type} chart` : "", patch.order === "worst" ? (s[3].low ? "most first" : "lowest first") : "", patch.from ? (patch.from === patch.to ? patch.from : `${patch.from}–${patch.to}`) : ""].filter(Boolean).join(" · ");
+      const note = o.from === "first" && w === "players" && idx.players?.[league] > (idx[league] || [])[0] ? ` (player stats start in ${idx.players[league]})` : "";
+      return [label + note, "Your question", "", () => { st = { ...DEF, from: patch.from || st.from, to: patch.to || st.to, mode: st.mode, ...patch }; reload(); }];
     };
     const EXAMPLES = league === "nfl"
       ? ["who gets the targets on Washington", "QBs vs cupcakes EPA per dropback", "carry share last 3 games", "rookies tackles", "sacks vs pressures", "passer rating over the middle"]
@@ -1555,6 +1593,19 @@ const Viz = (() => {
       // a single item named by everything typed comes first, then the two-stat scatters, then looser single matches
       const asked = ask(raw);
       qHits = [...(asked ? [asked] : []), ...one.filter((x) => x[1] < 2).map((x) => x[0]), ...(pair?.hits || []), ...one.filter((x) => x[1] === 2).map((x) => x[0])];
+      // nothing at all: drop one word at a time and offer what the rest of the question finds
+      if (!qHits.length && words.length > 1) {
+        const seen = new Set();
+        for (let i = 0; i < words.length && qHits.length < 3; i++) {
+          const near = ask(raw.split(/\s+/).filter((_, j) => j !== i).join(" "));
+          if (near && !seen.has(near[0])) { seen.add(near[0]); qHits.push([near[0], "Closest match", "", near[3]]); }
+        }
+        // still nothing: any stat or preset named by one of the words ("jsn blorp drops" finds Drops)
+        for (const w of words.filter((x) => x.length > 2 && !ASK_FILL.has(x))) for (const it of qItems()) {
+          if (qHits.length >= 3) break;
+          if (norm(it[0]).split(/\s+/).some((x) => x.startsWith(w) || x.startsWith(QSYN[w] || "~")) && !seen.has(it[0])) { seen.add(it[0]); qHits.push([it[0], "Closest match", "", it[3]]); }
+        }
+      }
       qCur = -1;
       qs.innerHTML = (cfbT ? `<p class="muted">College stats don't track targets, so these use catches.</p>` : "") + (pair?.note ? `<p class="muted">${esc(pair.note)}</p>` : "") + qHits.map((it, i) => `<button type="button" data-i="${i}">${esc(it[0])} <small>${esc(it[1])}</small></button>`).join("")
         || `<p class="muted">Nothing matches “${esc(raw)}”. To compare two stats, put “and” or “vs” between them.</p>`;

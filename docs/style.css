@@ -2957,7 +2957,10 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .vz-side { position: sticky; top: 8px; max-height: calc(100vh - 16px); overflow-y: auto; }
 .vz-main { min-width: 0; }
 .vz-steps { display: flex; flex-direction: column; gap: 10px; }
-.vz-simple .vz-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+/* Simple mode on wide screens: steps 1-2 in the left column, 3-4 in the right, each stacked tight (no gap under a short box) */
+.vz-simple .vz-steps { display: block; columns: 2; column-gap: 10px; }
+.vz-simple .vz-step { break-inside: avoid; margin-bottom: 10px; }
+.vz-simple .vz-step[data-n="2"] { break-after: column; }
 .vz-step { border: 1px solid var(--line); border-radius: 10px; background: var(--bg); min-width: 0; }
 .vz-sh { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 0; background: none; color: var(--ink); font: inherit; cursor: pointer; text-align: left; }
 .vz-sh small { margin-left: auto; color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; }
@@ -2991,7 +2994,8 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
   .vz-top { grid-template-columns: minmax(0, 1fr); }
   .vz-top .vz-presets { flex-wrap: wrap; }
   .vz-top .vz-presets > label { min-width: 0; }
-  .vz-simple .vz-steps { display: flex; }
+  .vz-simple .vz-steps { display: flex; columns: auto; }
+  .vz-simple .vz-step { margin-bottom: 0; }
   .vz-steptabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 0 0 8px; }
   .vz-steptabs button { border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 99px; padding: 7px 4px; font: inherit; font-size: 12px; font-weight: 700; white-space: nowrap; cursor: pointer; }
   .vz-steptabs button.on { background: var(--accent-fill, var(--accent)); border-color: var(--accent); color: var(--on-accent, #fff); }

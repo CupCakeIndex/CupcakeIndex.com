@@ -108,6 +108,8 @@ PFR_DEF = {"cov_tgt": "def_targets", "cov_cmp": "def_completions_allowed", "cov_
            "hurry": "def_times_hurried", "pressure": "def_pressures", "miss_tkl": "def_missed_tackles", "pfr_tkl": "def_tackles_combined"}
 # ...and its passing charting (how often a QB was pressured, bad throws, drops): our column -> theirs
 PFR_PASS = {"qb_pressured": "times_pressured", "qb_blitzed": "times_blitzed", "bad_throws": "passing_bad_throws", "pass_drops": "passing_drops"}
+# ...and its receiving/rushing charting (drops, broken tackles, interceptions on throws to him)
+PFR_REC = {"drops": "receiving_drop", "rec_btk": "receiving_broken_tackles", "rush_btk": "rushing_broken_tackles", "tgt_int": "receiving_int"}
 OL_POS = ("T", "G", "C", "OT", "OG", "OL")
 OLD = {"SD": "LAC", "STL": "LA", "OAK": "LV"}  # moved teams: old play-by-play abbreviation -> today's
 
@@ -303,13 +305,20 @@ def nfl(season):
                 pfr.setdefault((pid, int(r["week"])), {}).update({c: n(r.get(src)) for c, src in PFR_PASS.items() if n(r.get(src))})
     except requests.HTTPError as e:
         print(f"  ! PFR passing charting unavailable ({e})")
+    try:
+        for r in nflverse_csv(f"{NFLV}/pfr_advstats/advstats_week_rec_{season}.csv", f"advstats_week_rec_{season}.csv"):
+            pid = ids.get(r["pfr_player_id"])
+            if pid and r.get("game_type", "REG") == "REG":
+                pfr.setdefault((pid, int(r["week"])), {}).update({c: n(r.get(src)) for c, src in PFR_REC.items() if n(r.get(src))})
+    except requests.HTTPError as e:
+        print(f"  ! PFR receiving charting unavailable ({e})")
     # team missed tackles = the sum of its defenders' (PFR charting)
     team_miss = defaultdict(int)
     for row in prows:
         team_miss[row[2], row[1]] += pfr.get((row[0], row[1]), {}).get("miss_tkl", 0)
     for row in trows:
         row.append(team_miss.get((row[0], row[1]), 0))
-    xcols = deep_stats.XCOLS + list(PFR_DEF) + list(PFR_PASS)
+    xcols = deep_stats.XCOLS + list(PFR_DEF) + list(PFR_PASS) + list(PFR_REC)
     xi = {c: i for i, c in enumerate(xcols)}
     for row in prows:
         x = {**deep.get((gsis[row[0]], row[1]), {}), **pfr.get((row[0], row[1]), {})}
