@@ -577,7 +577,22 @@ const Viz = (() => {
     if (!qVocab.has(groups)) qVocab.set(groups, new Set(groups.flatMap(([g, l]) => [...qTok(g), ...l.flatMap((x) => [...qTok(x[1]), ...qTok(x[0].replace(/_/g, " ")), ...qTok(x[3].unit || "")])])));
     return qVocab.get(groups);
   };
+  // the defense's side of a stat, said the way people say it: "opponent points scored", "points against", "yards given up",
+  // "sacks surrendered" = Points / Yards / Sacks allowed. "Opponent" alone ("opponent points") also counts toward "allowed";
+  // with "scored" or "gained" it IS allowed, so those words stop pulling toward the offense's stat.
+  const OPP_W = new Set(["opponent", "opposing", "opp"]);
+  const qAllowed = (side) => {
+    let x = ` ${norm(side)} `.replace(/ (given up|gave up|give up|gives up|giving up|surrendered|surrenders|conceded|concedes|yielded|yields|against) /g, " allowed ");
+    if (/ (opponents?|opposing|opps?)'?s? /.test(x) && / (scored|scores|gained|gains|got|had|made) /.test(x)) x = x.replace(/ (opponents?|opposing|opps?)'?s? /g, " ").replace(/ (scored|scores|gained|gains|got|had|made) /g, " allowed ");
+    // "opponent rushing yards" = allowed too, except the stats that are about the opponent by name (points erased by his own penalties)
+    else if (!/ (erased|nullified|wiped|negated|erase|weight|weighted|weighting|penalties|penalty|flags?) /.test(x)) x = x.replace(/ (opponents?|opposing)'?s? /g, " allowed ");
+    if (/ allowed /.test(x)) x = x.replace(/ (scored|gained) /g, " ");
+    // the offense's side: "points for", "yards gained" = Points scored, Total yards
+    else x = x.replace(/ (points|pts) for /g, " points scored ").replace(/ (yards|yds) gained /g, " total yards ");
+    return x.trim();
+  };
   const bestStats = (side, groups) => {
+    side = qAllowed(side);
     const voc = vocabOf(groups), all = qTok(side);
     const ws = all.filter((t) => voc.has(t) || (t.length > 2 && [...voc].some((v) => v.startsWith(t))));
     if (!ws.length) return [];
@@ -588,7 +603,7 @@ const Viz = (() => {
       const hl = norm(`${x[1]} ${x[0].replace(/_/g, " ")}`), hg = norm(g), hw = new Set(qTok(x[1])), hu = new Set(qTok(x[3].unit || ""));
       // name words you didn't type (outside the brackets) cost a little: "tackles" is Tackles before Horse-collar tackles
       const extra = qTok(x[1].replace(/\(.*?\)/g, " ")).filter((t) => !asked.has(t)).length * 0.03;
-      return [x, ws.reduce((n, t) => n + (hw.has(t) ? 1 : hu.has(t) ? 0.9 : hl.includes(t) ? 0.8 : hg.includes(t) ? 0.5 : 0), 0) / ws.length - hl.length / 1e4 - skip - extra];
+      return [x, ws.reduce((n, t) => n + (hw.has(t) || (OPP_W.has(t) && hw.has("allowed")) ? 1 : hu.has(t) ? 0.9 : hl.includes(t) ? 0.8 : hg.includes(t) ? 0.5 : 0), 0) / ws.length - hl.length / 1e4 - skip - extra];
     })).filter((s) => s[1] >= 0.65).sort((a, b) => b[1] - a[1]);
   };
   // the Filter box: "run stops > 20 and sacks >= 3", "QB, EPA per dropback over .1", "rookies and tackles at least 30 or sacks > 5".
@@ -2136,7 +2151,7 @@ const Viz = (() => {
       const named = said && w === "players" && rest ? qBest(rest + " share", "players")[0] : null;
       if (named && /share/i.test(named[0][1]) && named[1] >= 0.9) { s = named[0]; delete o.per; }
       if (!s && ball && w === "players") s = statsFor("players", have).flatMap(([, l]) => l).find((x) => x[0] === "touches");
-      if (!s || (!plain && !Object.keys(o).length && !ball && rest === lower.trim())) return null; // nothing beyond a plain stat name: the stat itself is listed
+      if (!s || (!plain && !Object.keys(o).length && !ball && rest === lower.trim() && qAllowed(rest) === rest)) return null; // nothing beyond a plain stat name: the stat itself is listed
       const patch = { ...o, who: w, stat: s[0] };
       if (patch.from === "first") { patch.from = String(w === "players" ? Math.max(idx.players?.[league] || 0, (idx[league] || [])[0]) : (idx[league] || [])[0]); patch.to = String((idx[league] || []).at(-1)); }
       if (patch.from && !patch.to) patch.to = String((idx[league] || []).at(-1));
@@ -2159,7 +2174,7 @@ const Viz = (() => {
         patch.last ? `last ${patch.last} games` : "", patch.scope === "league" ? `${league === "nfl" ? "NFL" : "FBS"}-wide by season` : patch.type === "line" ? "week by week" : patch.type ? `${patch.type} chart` : "", patch.order === "worst" ? (s[3].low ? "most first" : "lowest first") : "", patch.where ? `${patch.where.replace(" >=", "")}+` : "", patch.from ? (patch.from === patch.to ? patch.from : `${patch.from}–${patch.to}`) : ""].filter(Boolean).join(" · ");
       const note = o.from === "first" && w === "players" && idx.players?.[league] > (idx[league] || [])[0] ? ` (player stats start in ${idx.players[league]})` : "";
       // some words matched no stat at all ("punt return yards"): it's a guess, so say so
-      const voc = vocabOf(statsFor(w, have)), unknown = qTok(rest).filter((x) => /^[a-z]{3,}$/.test(x) && !ASK_SKIP.has(x) && !voc.has(x) && ![...voc].some((v) => v.startsWith(x)));
+      const voc = vocabOf(statsFor(w, have)), unknown = qTok(qAllowed(rest)).filter((x) => /^[a-z]{3,}$/.test(x) && !ASK_SKIP.has(x) && !voc.has(x) && ![...voc].some((v) => v.startsWith(x)));
       return [label + note, unknown.length ? `Closest match (no stat for “${unknown.join(" ")}”)` : "Your question", "", () => { st = { ...DEF, from: patch.from || st.from, to: patch.to || st.to, mode: st.mode, ...patch }; reload(); }];
     };
     const EXAMPLES = league === "nfl"
@@ -2176,7 +2191,9 @@ const Viz = (() => {
           const s1 = p.groups.flat().find((c) => c.k === "stat"); if (s1) { st.stat = s1.s[0]; st.order = s1.op === "<" || s1.op === "≤" ? "worst" : "best"; }
           redo(); }]], note: "" };
       }
-      const parts =q.split(/\s+(?:and|vs\.?|versus|against|x)\s+|\s*(?:&|,)\s*/i).map((s) => s.trim()).filter(Boolean);
+      const cut2 = (re) => q.split(re).map((s) => s.trim()).filter(Boolean);
+      let parts = cut2(/\s+(?:and|vs\.?|versus|x)\s+|\s*(?:&|,)\s*/i);
+      if (parts.length !== 2) parts = cut2(/\s+(?:and|vs\.?|versus|against|x)\s+|\s*(?:&|,)\s*/i);
       if (parts.length !== 2) return null;
       const out = [], miss = {};
       for (const w of st.who === "teams" ? ["teams", "players"] : ["players", "teams"]) {
