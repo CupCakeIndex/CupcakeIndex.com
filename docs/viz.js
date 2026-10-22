@@ -696,11 +696,82 @@ const Viz = (() => {
       if (path.startsWith("/i/")) LOGOS[`${lg}:${x.id}`] = `https://a.espncdn.com/combiner/i?img=${path}&w=160&h=160`;
     }
   }
-  // Witty quadrant names for a scatter nobody named (qa "0" turns them off). Axes flip when lower is better, so top right
-  // is always better at both: top left, bottom right, bottom left, top right. The same pair of stats always gets the same set.
-  const AUTOQ = ["Sidekicks|Final bosses|Tutorial level|Henchmen", "All bark|Bullies|Bullied|All bite", "Show ponies|Big dogs|Lunch money|Workhorses",
-    "Half a résumé|Main characters|Cupcake country|Other half", "Pick a lane|No notes|Send help|Other lane", "Smoke|Fire|Ashes|Mirrors"];
-  const autoQuad = (a, b) => AUTOQ[[...a + "|" + b].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % AUTOQ.length];
+  // Witty quadrant names for a scatter nobody named (qa "0" turns them off), built from what each axis means: every stat
+  // family has a word for a lot of it and a word for a little (first match wins). Axes flip when lower is better, so the
+  // right/top word is the low word for those. No word for a stat, or the same word on both axes: no names (better than wrong ones).
+  const QW = [
+    [/wopr/, "Featured", "Decoy"],
+    [/passes his receivers dropped/, "Snakebit", "Spoiled"],
+    [/opponent .*erased/, "Blessed", "Cursed"],
+    [/erased/, "Sloppy", "Clean"],
+    [/penalt|holding|face mask|illegal|ineligible|taunting|pre-snap|interference|foul|unsportsmanlike/, "Flag-happy", "Disciplined"],
+    [/(pressure|sack|qb hit) % with him|sacks with him/, "Leaky", "Sturdy"],
+    [/allowed in coverage|allowed per target|passer rating allowed/, "Torched", "Lockdown"],
+    [/coverage success/, "Lockdown", "Torched"],
+    [/targets in coverage/, "Picked on", "Avoided"],
+    [/sacks allowed|times sacked|sack rate allowed|sack % \(sacks per|yards lost to sacks|hit or sacked|pressured/, "Battered", "Upright"],
+    [/vs the blitz/, "Blitz-proof", "Rattled"],
+    [/blitzed %/, "Blitzed", "Unbothered"],
+    [/blitz rate/, "Blitz-happy", "Patient"],
+    [/^sacks|pressure|qb hit|drive-killing|^sack yards/, "Menacing", "Harmless"],
+    [/stop|stuffs \(|tackles for loss|havoc/, "Stonewalling", "Porous"],
+    [/avg gain on/, "Porous", "Stonewalling"],
+    [/margin/, "Dominant", "Outclassed"],
+    [/allowed/, "Leaky", "Stingy"],
+    [/missed tackle/, "Whiffing", "Sure-tackling"],
+    [/broken tackle/, "Slippery", "Huggable"],
+    [/drop-adjusted/, "Slinging", "Misfiring"],
+    [/\bdrops?\b|dropped/, "Butterfingered", "Sure-handed"],
+    [/bad throw/, "Scattershot", "Precise"],
+    [/clutch|win probability/, "Clutch", "Shaky"],
+    [/interception return|fumble return|defensive touchdowns|safeties/, "Opportunistic", "Quiet"],
+    [/takeaway|forced fumble|^interceptions$|passes defended|ball production|turnover margin/, "Thieving", "Polite"],
+    [/giveaway|interceptions thrown|\bint %|interception rate|interceptions on throws|fumbles/, "Charitable", "Careful"],
+    [/extra points missed/, "Wide right", "Automatic"],
+    [/punt touchbacks|punts blocked/, "Shanking", "Booming"],
+    [/kick return|punt return|return yards|return tds|special teams td/, "Electric", "Fair-catching"],
+    [/field goal tries/, "Settling", "Finishing"],
+    [/field goal|extra point/, "Automatic", "Wide right"],
+    [/^punts$/, "Punt-happy", "Punt-shy"],
+    [/punt/, "Booming", "Shanking"],
+    [/went for it|4th-down tries|two-point tries/, "Gutsy", "Timid"],
+    [/4th-down conv|two-point conv|third-down|3rd.4th-down conv|3rd-down conv|short-yardage conversion|first downs per target/, "Chain-moving", "Stalling"],
+    [/pass rate|shotgun/, "Pass-happy", "Run-first"],
+    [/run rate/, "Run-first", "Pass-happy"],
+    [/no-huddle/, "Hurried", "Huddled"],
+    [/time of possession|minutes per drive|plays per drive/, "Grinding", "Quick-strike"],
+    [/drive start/, "Short-field", "Long-field"],
+    [/stuffed %/, "Stuffed", "Mauling"],
+    [/racr/, "Dangerous", "Blanketed"],
+    [/adot|depth of target|air yards|air-yards/, "Deep threat", "Underneath"],
+    [/scramble/, "Scrambly", "Pocket-bound"],
+    [/heisman/, "Heisman-ish", "Anonymous"],
+    [/cupcake/, "Padded", "Legit"],
+    [/seasons as/, "Grizzled", "Fresh"],
+    [/win %|résumé|coach|power rating/, "Winning", "Losing"],
+    [/total epa|total ppa/, "Rolling", "Sputtering"],
+    [/pass attempts/, "Busy", "Rested"],
+    [/td rate/, "Scoring", "Scoreless"],
+    [/schedule strength/, "Battle-tested", "Coddled"],
+    [/fantasy/, "Fantasy gold", "Waiver wire"],
+    [/td rate|td %|td-to-int/, "Slinging", "Misfiring"],
+    [/rushing \+ receiving|scrimmage yards|total tds|total yards \(passing|first downs \(rushing/, "Explosive", "Sleepy"],
+    [/touches|snaps|share|carries|wopr|^targets|red-zone targets|goal-line/, "Featured", "Decoy"],
+    [/rush|run|carry/, "Mauling", "Stuffed"],
+    [/pass|dropback|completion|passer rating|yards per attempt|deep ball|cpoe/, "Slinging", "Misfiring"],
+    [/receiv|catch|reception|target|deep catch|big plays/, "Dangerous", "Blanketed"],
+    [/epa|ppa|success rate|per play|per drive|scoring drive|efficiency|big-play rate/, "Rolling", "Sputtering"],
+    [/points|yards|first downs|touchdown|tds/, "Explosive", "Sleepy"],
+    [/our ranking/, "Overlooked", "Top dogs"],
+    [/^tackles$/, "Everywhere", "Invisible"],
+  ];
+  const qWord = (s) => { const t = s[1].toLowerCase(), m = QW.find(([re]) => re.test(t)); return m && (s[3]?.low ? [m[2], m[1]] : [m[1], m[2]]); }; // [right/top, left/bottom]
+  const autoQuad = (sx, sy) => {
+    const x = qWord(sx), y = qWord(sy);
+    if (!x || !y || x.some((w) => y.includes(w))) return "";
+    const cap = (t) => t[0].toUpperCase() + t.slice(1), lc = (t) => t.toLowerCase();
+    return [`${y[0]} but ${lc(x[1])}`, `${x[0]} & ${lc(y[0])}`, `${x[1]} & ${lc(y[1])}`, `${x[0]} but ${lc(y[1])}`].map(cap).join("|");
+  };
 
   function logoImg(key, redraw) {
     const u = LOGOS?.[key];
@@ -1513,9 +1584,12 @@ const Viz = (() => {
           ctx.beginPath(); ctx.moveTo(x.getPixelForValue(mx), a.top); ctx.lineTo(x.getPixelForValue(mx), a.bottom); ctx.moveTo(a.left, y.getPixelForValue(my)); ctx.lineTo(a.right, y.getPixelForValue(my)); ctx.stroke();
           ctx.setLineDash([]);
           // your quadrant names (Style and picture), in the corners: on screen, so "top right" is top right even on a flipped axis
-          const Q = (st.quad || (st.qa === "0" ? "" : autoQuad(stat[0], ystat[0]))).split("|");
+          const Q = (st.quad || (st.qa === "0" ? "" : autoQuad(stat, ystat))).split("|");
           if (Q.some(Boolean)) {
             ctx.font = `bold ${px(12)}px JetBrains Mono`; ctx.fillStyle = hi; ctx.globalAlpha = 0.8;
+            // shrink the names when two corners would run into each other (phones)
+            const wq = (i) => (Q[i] ? ctx.measureText(Q[i].toUpperCase()).width : 0), need = Math.max(wq(0) + wq(1), wq(2) + wq(3)) + 28, room = a.right - a.left;
+            if (need > room) ctx.font = `bold ${Math.max(7, Math.floor(px(12) * room / need))}px JetBrains Mono`;
             [[0, a.left + 8, a.top + 6, "left", "top"], [1, a.right - 8, a.top + 6, "right", "top"], [2, a.left + 8, a.bottom - 6, "left", "bottom"], [3, a.right - 8, a.bottom - 6, "right", "bottom"]]
               .forEach(([i, x0, y0, al, bl]) => { if (Q[i]) { ctx.textAlign = al; ctx.textBaseline = bl; ctx.fillText(Q[i].toUpperCase(), x0, y0); } });
             ctx.globalAlpha = 1; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
@@ -1746,7 +1820,7 @@ const Viz = (() => {
         <label>Colors${sel("vz-scheme", Object.entries(SCHEMES).map(([k, x]) => [k, x[0]]), st.scheme)}</label>
         <label class="vz-wide">Your title<input id="vz-ttl" maxlength="80" placeholder="${esc(autoTitle)}" value="${esc(st.ttl)}" spellcheck="true"></label>
         <label class="vz-wide">Your subtitle<input id="vz-subt" maxlength="100" placeholder="${esc(autoSub)}" value="${esc(st.subt)}" spellcheck="true"></label>
-        ${st.type === "scatter" ? `<fieldset class="vz-wide vz-quad"><legend>Name the quadrants <small class="muted">(split by the dashed average lines)</small></legend>${["Top left", "Top right", "Bottom left", "Bottom right"].map((l, i) => `<label>${l}<input data-quad="${i}" maxlength="24" placeholder="${esc(st.qa === "0" ? ["e.g. Lucky", "e.g. Elite", "e.g. Bad", "e.g. Unlucky"][i] : autoQuad(stat[0], ystat[0]).split("|")[i])}" value="${esc((st.quad || "").split("|")[i] || "")}" spellcheck="true"></label>`).join("")}<label class="vz-chk"><input type="checkbox" id="vz-qa"${st.qa !== "0" ? " checked" : ""}> Witty names when blank</label></fieldset>` : ""}
+        ${st.type === "scatter" ? `<fieldset class="vz-wide vz-quad"><legend>Name the quadrants <small class="muted">(split by the dashed average lines)</small></legend>${["Top left", "Top right", "Bottom left", "Bottom right"].map((l, i) => `<label>${l}<input data-quad="${i}" maxlength="24" placeholder="${esc(st.qa === "0" ? ["e.g. Lucky", "e.g. Elite", "e.g. Bad", "e.g. Unlucky"][i] : (autoQuad(stat, ystat) || "|||").split("|")[i] || ["e.g. Lucky", "e.g. Elite", "e.g. Bad", "e.g. Unlucky"][i])}" value="${esc((st.quad || "").split("|")[i] || "")}" spellcheck="true"></label>`).join("")}<label class="vz-chk"><input type="checkbox" id="vz-qa"${st.qa !== "0" ? " checked" : ""}> Witty names when blank</label></fieldset>` : ""}
         <label>Picture background${seg("vz-bg", [["", "Dark"], ["light", "Light"], ["clear", "See-through"]], st.bg)}</label>
         <label>Picture size${sel("vz-size", [["", "Like the screen"], ["x", "X post (16:9)"], ["sq", "Square"], ["story", "Phone story (9:16)"]], st.size)}</label>
         <div class="vz-chks vz-wide">${[["nums", "Numbers on bars", 1], ["grid", "Gridlines", 1], ["curve", "Smooth lines", 1], ["round", "Rounded bars", 0], ["big", "Bigger text", 0]]
