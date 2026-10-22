@@ -108,6 +108,8 @@ select { font: 13px var(--mono); background: var(--bg); color: var(--fg); border
       <label class="note"><input type="checkbox" id="deep"> Think harder (slower)</label>
       <label class="note"><input type="checkbox" id="sarcasm"> Sarcasm</label>
       <label class="note"><input type="checkbox" id="humor"> Humor</label>
+      <label class="note"><input type="checkbox" id="short"> Short</label>
+      <label class="note"><input type="checkbox" id="long"> Long</label>
     </div>
     <div class="log" id="log" aria-live="polite"></div>
     <p class="err" id="err" hidden></p>
@@ -825,7 +827,7 @@ setMode(store.get("analyst-mode"));
 
 // reply tone: Sarcasm / Humor switches (remembered on this device). They change the two reply drafts only;
 // the verdict, claims and numbers always stay straight.
-for (const id of ["sarcasm", "humor"]) {
+for (const id of ["sarcasm", "humor", "short", "long"]) {
   $(id).checked = !!store.get("analyst-" + id);
   $(id).onchange = () => store.set("analyst-" + id, $(id).checked);
 }
@@ -857,11 +859,14 @@ const SHAPES = {
 const LENGTHS = { short: "a short burn, under 120 characters (one number, one line)", normal: "a normal reply, about 150-280 characters", long: "a longer reply, 280-500 characters, only because it carries two or three numbers that need the room" };
 function pickShapes() {
   const last = store.get("analyst-shapes") || [];
-  const pool = Object.keys(SHAPES).filter((k) => !last.includes(k)).sort(() => Math.random() - 0.5);
+  // Short / Long boxes (remembered on this device): both drafts short, both long, or one of each when both are ticked
+  const s = $("short").checked, l = $("long").checked;
+  const want = s && l ? (Math.random() < 0.5 ? ["short", "long"] : ["long", "short"]) : s ? ["short", "short"] : l ? ["long", "long"] : null;
+  const pool = Object.keys(SHAPES).filter((k) => !last.includes(k) && !(k === "drop" && l)).sort(() => Math.random() - 0.5);
   // length too, so the drafts don't all land near 280: a short burn, a normal reply, or a long one with room for the numbers
   const len = () => { const r = Math.random(); return r < 0.35 ? "short" : r < 0.8 ? "normal" : "long"; };
-  const L = (k) => (k === "drop" ? "short" : len()); // the one-line stat drop is short by nature
-  return { agree: pool[0], pushback: pool[1], agree_len: L(pool[0]), pushback_len: L(pool[1]) };
+  const L = (k, i) => (want ? want[i] : k === "drop" ? "short" : len()); // the one-line stat drop is short by nature
+  return { agree: pool[0], pushback: pool[1], agree_len: L(pool[0], 0), pushback_len: L(pool[1], 1), forced: !!want };
 }
 // the last 30 reply drafts (this device). Old checks saved before this list existed are folded in once.
 function replyBank() {
@@ -924,7 +929,7 @@ function varietyRule(shapes) {
   return `REPLY SHAPES (the page picked these; follow them, don't swap them):
 - "agree" draft: ${SHAPES[shapes.agree]}
 - "pushback" draft: ${SHAPES[shapes.pushback]}
-Length: "agree" ${LENGTHS[shapes.agree_len || "normal"]}; "pushback" ${LENGTHS[shapes.pushback_len || "normal"]}. These are targets, not quotas: if a short burn lands harder than the target, go short, and if the receipts truly need more room, go long. Never pad a reply to fill space.`
+Length: "agree" ${LENGTHS[shapes.agree_len || "normal"]}; "pushback" ${LENGTHS[shapes.pushback_len || "normal"]}. ${shapes.forced ? "Terry picked these lengths for this check; stick to them." : "These are targets, not quotas: if a short burn lands harder than the target, go short, and if the receipts truly need more room, go long."} Never pad a reply to fill space.`
     + (bad.length ? `\nBANNED PHRASES (Terry's recent replies already used each of these more than once; don't use any of them or a close variant):\n${bad.join(" | ")}` : "")
     + (used.length ? `\nSTATS THE LAST FEW CHECKS LEANED ON: ${used.join(", ")}. Lead with something else this time when another stat can make the point; use these only when the take is about them.` : "");
 }
