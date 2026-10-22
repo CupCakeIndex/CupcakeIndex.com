@@ -570,11 +570,252 @@ const Viz = (() => {
   // numbers never name a stat ("drops per 100 targets" = drops per target)
   // ...except "40+", which is part of a stat's name (runs of 40+ yards), not a count
   const qTok = (s) => norm(s).replace(/(\d+)\+/g, " $1plus ").split(/[\s/(),:;+]+/).filter((t) => t && !["the", "of", "a", "per"].includes(t) && !/^\d+$/.test(t)).map((t) => qStem(QSYN[t] || t));
-  // Every word any stat's name, unit or group uses. Words outside it (typos, names, "blorp") are skipped instead of sinking the match,
+  // Other ways people say each stat ("ppg", "points against", "pick six", "how often they blitz"), so the search finds the stat
+  // whatever they call it. Each phrase scores like the stat's own name (a hair less, so the real name wins a tie), and its words
+  // count as stat words. Keyed by stat id; ids shared by teams and players (pass_yds, def_sacks) use one list.
+  const QALIAS = {
+    pts: "points|points for|points per game|ppg|scoring|scoring offense|offense points|team points|how many points they score",
+    opp_pts: "points against|points given up|opponent points|opponent points scored|scoring defense|points conceded|ppg allowed|defense points",
+    margin: "point differential|point diff|scoring margin|net points|plus minus|margin of victory|mov|points for minus against",
+    yds: "total offense|offense yards|yards gained|yards per game|ypg|offensive yards",
+    ypp: "ypp|yards a play|yards per snap|offense yards per play",
+    pass_yds: "passing offense|pass offense|throwing yards|pass yards|air attack|passing yards per game",
+    rush_yds: "rushing offense|run offense|ground game|ground yards|running yards|run game|rush yards",
+    ypa: "ypa|yards per throw|yards per pass|yards per pass attempt",
+    ypc: "ypc|yards per rush|yards per run|rushing average|yards per attempt rushing",
+    cmp_pct: "completion percentage|completion rate|comp pct|accuracy",
+    pass_td: "passing touchdowns|touchdown passes|td passes|throwing touchdowns",
+    rush_td: "rushing touchdowns|running touchdowns|ground touchdowns",
+    first_downs: "1st downs|moving the chains",
+    third: "third down conversion|third down rate|third down efficiency|3rd down %|money down",
+    giveaways: "turnovers committed|ball security|giveaway",
+    sacked: "times sacked|sacks taken|sacks given up|got sacked|pass protection|sacks against",
+    pts_play: "points per snap|scoring per play",
+    pass_rate: "how often they pass|pass heavy|passing rate|pass percentage|pass play %",
+    run_rate: "how often they run|run heavy|rushing rate|run percentage|run play %",
+    int_rate: "interception percentage|pick rate|int rate",
+    sack_rate_off: "sack rate|sack percentage|sacks per dropback",
+    opp_yds: "total defense|yards given up|defense yards|yards against|ypg allowed",
+    opp_pass_yds: "pass defense|passing defense|pass yards against|passing yards given up",
+    opp_rush_yds: "run defense|rush defense|rushing defense|rushing yards against|run yards given up",
+    yds_margin: "yard differential|yardage differential|net yards|yards margin",
+    ypp_allowed: "yards per play against|defensive yards per play",
+    opp_pts_play: "points per play against",
+    def_sacks: "team sacks|sack total|qb takedowns|pass rush|sacks made",
+    def_int: "picks|ints|defensive interceptions|picks made",
+    takeaways: "turnovers forced|forced turnovers|defensive turnovers",
+    to_margin: "turnover differential|turnover diff|turnover plus minus|takeaway giveaway",
+    tfl: "tfl|negative plays|backfield tackles",
+    short_ypt: "short pass defense|screens allowed",
+    deep_cmp_allowed: "deep pass defense|deep balls allowed|bombs allowed",
+    deep_yds_allowed: "deep yards given up|deep pass defense|bombs allowed",
+    opp_cmp_pct: "completion percentage against|opponent completion|pass coverage",
+    yac_allowed: "yards after catch against|tackling after the catch",
+    blitz_rate: "how often they blitz|blitz %|blitz percentage|blitzing|blitzes",
+    team_miss_tkl: "bad tackling|whiffs|missed tackle",
+    pen: "flags|flagged|penalty count|infractions|discipline",
+    pen_yds: "penalty yardage|flag yards|yards penalized",
+    fg_pct: "kicking|field goal percentage|fg %|kicker accuracy",
+    win_pct: "wins|record|win percentage|winning percentage|win rate",
+    ci_rating: "rating|team rating|strength|best team|team strength",
+    ci_rank: "ranking|rank|power rankings|ranked",
+    ci_sos: "strength of schedule|sos|schedule|schedule difficulty|hardest schedule|toughest schedule",
+    ci_cupcake: "cupcake|padded schedule|easy schedule|weak schedule|softest schedule",
+    ci_resume: "resume|quality wins",
+    ci_eff: "efficiency|team efficiency",
+    co_score: "coach rating|coaching|best coach|coaches",
+    co_pct: "coach record|coach win percentage|career record",
+    co_good: "coach vs winning teams|big game coach",
+    co_woe: "coach overachieving|wins above expected",
+    co_yrs: "coach experience|years coaching|coach tenure",
+    co_edge: "coaching advantage|coach boost",
+    epa_play: "epa|offensive epa|offense efficiency|expected points added",
+    def_epa_play: "defensive epa|defense efficiency|defensive efficiency|epa against",
+    net_epa: "epa differential|overall epa|epa margin",
+    pass_epa_play: "passing epa|pass efficiency",
+    rush_epa_play: "rushing epa|run efficiency|epa per run|epa per carry",
+    succ: "offensive success|success %",
+    def_succ: "defensive success rate|success rate against",
+    epa_total: "epa total|cumulative epa|season epa",
+    run_stop: "run stuffs|run defense plays",
+    stop_pct: "run stop rate|stop rate",
+    stuff: "stuffs|tackles at the line|stuffed runs",
+    sy_stop: "goal line stands|short yardage stops|third and short stops",
+    third_stop: "third down stops|drive stops|fourth down stops",
+    pressure: "pressures|qb pressure|hurries|hits and hurries|pass rush pressure",
+    tpen_ptsnull: "points lost to penalties|penalties that cost points|points wiped out by flags|negated points",
+    tpen_tdnull: "touchdowns called back|tds called back|touchdowns wiped out by flags",
+    tpend_ptsnull: "opponent points wiped out|points saved by opponent penalties",
+    tpend_tdnull: "opponent touchdowns called back",
+    team_drops: "dropped balls|butterfingers",
+    team_drop_pct: "drop rate|drop percentage",
+    team_btk: "tackles broken|missed tackles forced|elusiveness",
+    go4_rate: "going for it|go for it rate|fourth down aggressiveness|fourth down decisions",
+    go4_att: "fourth down attempts|4th down attempts|going for it",
+    go4_pct: "fourth down conversion|fourth down success|4th down success",
+    go4_conv: "fourth down conversions",
+    dgo4_stop: "fourth down stops|fourth down defense",
+    pts_drive: "points per possession|scoring per drive",
+    drive_score_pct: "scoring percentage|drives that score|scoring rate",
+    drive_start: "field position|starting field position",
+    drive_plays: "drive length|long drives",
+    drive_mins: "drive time|time per drive",
+    top: "top|ball control|possession time|time of possession",
+    drives: "possessions|number of drives",
+    proe: "proe|pass happy|aggressive passing",
+    shotgun_pct: "shotgun|shotgun rate|under center",
+    nohuddle_pct: "no huddle|tempo|hurry up|up tempo",
+    team_cpoe: "cpoe|completion over expected|accuracy over expected",
+    cpoe: "cpoe|completion over expected|accuracy over expected",
+    team_scr: "scrambles|qb runs",
+    team_scr_yds: "scramble yardage|qb scramble yards",
+    team_two_pct: "two point conversion rate|2 point %|2pt %",
+    team_two_att: "two point attempts|2pt tries|2 point tries",
+    team_rush_20: "long runs|big runs|chunk runs|breakaway runs",
+    team_rush_40: "long runs|home run runs|breakaway runs",
+    team_pass_20: "big pass plays|deep completions|explosive passes|chunk passes|long completions",
+    team_pass_40: "long completions|bombs|deep shots completed",
+    team_big_rate: "explosive play rate|chunk play rate|explosiveness|big plays",
+    team_fum: "fumble",
+    team_fum_lost: "lost fumbles",
+    team_ff: "strips|ff|forced fumble",
+    team_def_td: "pick sixes|pick six|defensive scores|return touchdowns",
+    team_int_yds: "pick return yards",
+    team_sack_yds: "sack yardage",
+    team_sack_yds_lost: "yards lost on sacks|sack yards lost",
+    int: "picks thrown|ints thrown|interceptions|picks|ints",
+    rating: "qb rating|quarterback rating|nfl rating",
+    eff: "ncaa rating|qb efficiency rating|pass efficiency rating",
+    att: "throws|passes thrown|attempts|pass attempts",
+    td_pct: "touchdown percentage|td rate",
+    int_pct: "interception percentage|pick percentage|int rate",
+    td_int: "td int ratio|touchdown to interception|td to int",
+    sack_pct: "sack rate|sacked percentage",
+    tot_yds: "total offense|dual threat yards",
+    tot_td: "total touchdowns|responsible for touchdowns|total tds",
+    carries: "rushing attempts|rushes|runs|rush attempts|totes|workload",
+    rec: "catches|grabs",
+    targets: "looks|times targeted|passes thrown to him",
+    rec_yds: "catch yards|yards receiving",
+    rec_td: "receiving touchdowns|touchdown catches|td catches",
+    ypr: "yards per reception|ypr",
+    catch_pct: "catch percentage|reliable hands",
+    yac: "yac|after the catch",
+    air_yds: "intended air yards",
+    scrim: "yards from scrimmage|total yards|all purpose yards|offensive yards",
+    tds: "touchdowns|tds|scores|total touchdowns",
+    ppr: "fantasy|fantasy points|ppr|fantasy football",
+    tgt_share: "share of targets|targets share",
+    air_share: "air yards share",
+    wopr: "weighted opportunity|opportunity rating",
+    rec_share: "reception share",
+    carry_share: "rush share|backfield share|carries share|workload share",
+    yds_share: "yard share|yards share",
+    td_share: "touchdown share",
+    touches: "opportunities|workload|usage",
+    td_rate: "touchdown rate|touchdowns per touch",
+    adot: "target depth|how deep|depth of target",
+    yds_tgt: "yards per look",
+    yac_rec: "yac per catch|yards after catch per reception",
+    ppr_touch: "fantasy points per touch|fantasy efficiency",
+    snaps: "snap count|playing time|snap counts",
+    off_snaps: "snap count|playing time|snap counts",
+    tackles: "total tackles",
+    qb_hits: "hits on the qb|hurries",
+    pd: "pass breakups|pbu|pass deflections|deflections|breakups",
+    havoc: "disruptive plays|chaos plays|splash plays",
+    fg_att: "field goal attempts|kicks attempted",
+    fg_made: "made field goals|fgs",
+    heisman: "heisman race|heisman favorite|heisman ranking|heisman chance",
+    heis_prod: "heisman production|adjusted production",
+    heis_raw: "raw production",
+    heis_cup: "stat padding|padded stats|inflated stats|padding",
+    epa_db: "qb epa|passing epa|qb efficiency",
+    epa_rush: "rushing epa|epa per carry|run efficiency",
+    epa_tgt: "receiving epa|receiver efficiency",
+    ppa_total: "ppa|predicted points added",
+    ppa_play: "ppa per play|college epa per play",
+    run_stop_rate: "run stop rate",
+    sack_rate: "sacks per snap|pass rush rate",
+    third_sacks: "big sacks|clutch sacks|third down sacks",
+    heat: "qb pressure|sacks and hits",
+    ball: "ball skills|playmaking|picks and pbus",
+    rz_stop: "red zone defense",
+    dtakeaways: "turnovers forced|turnovers caused",
+    cov_rating: "coverage rating|passer rating against|qb rating allowed|shutdown corner",
+    cov_win: "lockdown|coverage win rate",
+    cov_ypt: "yards per target allowed|yards per coverage target",
+    cov_tgt: "times targeted in coverage|targets against",
+    cov_yds: "yards given up in coverage",
+    cov_td: "touchdowns given up|tds allowed|touchdowns allowed",
+    miss_tkl: "whiffs|bad tackling",
+    miss_pct: "missed tackle rate|whiff rate",
+    rush_succ_pct: "rushing success rate|efficient runs",
+    stuffed_pct: "stuffed rate|runs stuffed|negative runs",
+    rush_10: "chunk runs|10 yard runs|big runs",
+    sy_conv_pct: "short yardage|third and short|fourth and short",
+    gl_carries: "goal line carries|goal line work|carries inside the 5|goal line touches",
+    deep_rec: "deep balls caught|deep threat|bombs",
+    deep_catch_pct: "deep ball catch rate",
+    rec_20: "big catches|explosive catches|chunk catches|20 yard catches",
+    third_conv: "third down catches|clutch catches|money down catches",
+    third_rate: "third down catch rate",
+    rz_tgt: "red zone looks|targets in the red zone",
+    deep_cmp_pct: "deep ball accuracy|deep completion|deep passing",
+    third_db_pct: "third down passing|third down conversion",
+    clutch: "fourth quarter|crunch time|late and close|clutch qb",
+    rz_td_pct: "red zone efficiency|red zone touchdowns|red zone td rate",
+    hit_pct: "hits taken|qb hit rate|how often hit",
+    drops: "dropped passes|butterfingers|bad hands",
+    drop_pct: "drop rate",
+    tgt_int: "picks when targeted|interceptions when targeted",
+    btk: "tackles broken|missed tackles forced|elusiveness",
+    btk_rate: "elusiveness rate|broken tackle rate",
+    pass_drops: "drops on his throws|receivers dropped",
+    adj_cmp: "adjusted completion|accuracy adjusted",
+    pressured_pct: "pressure rate|under pressure|how often pressured",
+    qb_pressured: "pressures faced|times under pressure",
+    bz_rate: "how often blitzed|blitzed",
+    bz_cmp_pct: "completion percentage against the blitz|when blitzed",
+    bz_rating: "rating against the blitz|when blitzed",
+    bz_epa: "epa against the blitz|when blitzed",
+    bad_throw_pct: "bad throws|inaccurate throws|off target|inaccuracy",
+    pen_rate: "penalty rate|flags per snap",
+    ol_pr_pct: "pass blocking|pressure allowed|o line|offensive line",
+    ol_sk_pct: "sacks allowed by lineman|pass protection",
+    ol_ypc: "run blocking|o line run blocking",
+    ol_repa: "run blocking epa",
+    pen_by_type: "penalty types|what penalties|kinds of penalties",
+    pen_by_group: "penalty groups",
+    pen_ptsnull: "points lost to his penalties",
+    pen_tdnull: "touchdowns called back|tds called back",
+    wpa: "wpa|win probability|game changing plays",
+    wpa_play: "wpa per play",
+    pass_20: "big pass plays|deep completions|chunk passes",
+    pass_40: "long completions|bombs",
+    pass_fd: "first down throws",
+    fourth_att: "fourth down attempts",
+    fourth_pct: "fourth down success",
+    rush_20: "long runs|big runs|breakaway runs",
+    rush_40: "long runs|home run runs|breakaway runs",
+    rec_40: "long catches|40 yard catches",
+    rec_fd: "first down catches|chain movers",
+    rush_fd: "first down runs",
+    two_pt: "two point|2pt|2 point conversions",
+    scr: "scrambles|qb runs",
+    fum: "fumble",
+    fum_lost_all: "lost fumbles",
+    def_td: "pick sixes|pick six|defensive scores|return touchdowns",
+    int_yds: "pick return yards",
+    sack_yds_lost: "yards lost on sacks|sack yards lost",
+  };
+  const qAliasTok = {}; // stat id -> [[tokens set, joined text], ...]
+  const aliasesOf = (id) => qAliasTok[id] ||= (QALIAS[id] || "").split("|").filter(Boolean).map((a) => { const t = qTok(a); return [new Set(t), t.join(" ")]; });
+  // Every word any stat's name, unit or group uses (and its other names). Words outside it (typos, names, "blorp") are skipped instead of sinking the match,
   // so people can type the way they talk and the stat words still find the stat.
   const qVocab = new WeakMap();
   const vocabOf = (groups) => {
-    if (!qVocab.has(groups)) qVocab.set(groups, new Set(groups.flatMap(([g, l]) => [...qTok(g), ...l.flatMap((x) => [...qTok(x[1]), ...qTok(x[0].replace(/_/g, " ")), ...qTok(x[3].unit || "")])])));
+    if (!qVocab.has(groups)) qVocab.set(groups, new Set(groups.flatMap(([g, l]) => [...qTok(g), ...l.flatMap((x) => [...qTok(x[1]), ...qTok(x[0].replace(/_/g, " ")), ...qTok(x[3].unit || ""), ...aliasesOf(x[0]).flatMap(([a]) => [...a])])])));
     return qVocab.get(groups);
   };
   // the defense's side of a stat, said the way people say it: "opponent points scored", "points against", "yards given up",
@@ -582,7 +823,7 @@ const Viz = (() => {
   // with "scored" or "gained" it IS allowed, so those words stop pulling toward the offense's stat.
   const OPP_W = new Set(["opponent", "opposing", "opp"]);
   const qAllowed = (side) => {
-    let x = ` ${norm(side)} `.replace(/ (given up|gave up|give up|gives up|giving up|surrendered|surrenders|conceded|concedes|yielded|yields|against) /g, " allowed ");
+    let x = ` ${norm(side)} `.replace(/ (given up|gave up|give up|gives up|giving up|surrendered|surrenders|conceded|concedes|yielded|yields) /g, " allowed ").replace(/ against (?!(the |a )?(blitz|pressure|man|zone|cupcakes?|good|top|ranked|winning|bad|weak|losing|playoff|strong|best|worst) )/g, " allowed ");
     if (/ (opponents?|opposing|opps?)'?s? /.test(x) && / (scored|scores|gained|gains|got|had|made) /.test(x)) x = x.replace(/ (opponents?|opposing|opps?)'?s? /g, " ").replace(/ (scored|scores|gained|gains|got|had|made) /g, " allowed ");
     // "opponent rushing yards" = allowed too, except the stats that are about the opponent by name (points erased by his own penalties)
     else if (!/ (erased|nullified|wiped|negated|erase|weight|weighted|weighting|penalties|penalty|flags?) /.test(x)) x = x.replace(/ (opponents?|opposing)'?s? /g, " allowed ");
@@ -603,7 +844,10 @@ const Viz = (() => {
       const hl = norm(`${x[1]} ${x[0].replace(/_/g, " ")}`), hg = norm(g), hw = new Set(qTok(x[1])), hu = new Set(qTok(x[3].unit || ""));
       // name words you didn't type (outside the brackets) cost a little: "tackles" is Tackles before Horse-collar tackles
       const extra = qTok(x[1].replace(/\(.*?\)/g, " ")).filter((t) => !asked.has(t)).length * 0.03;
-      return [x, ws.reduce((n, t) => n + (hw.has(t) || (OPP_W.has(t) && hw.has("allowed")) ? 1 : hu.has(t) ? 0.9 : hl.includes(t) ? 0.8 : hg.includes(t) ? 0.5 : 0), 0) / ws.length - hl.length / 1e4 - skip - extra];
+      const own = ws.reduce((n, t) => n + (hw.has(t) || (OPP_W.has(t) && hw.has("allowed")) ? 1 : hu.has(t) ? 0.9 : hl.includes(t) ? 0.8 : hg.includes(t) ? 0.5 : 0), 0) / ws.length - extra;
+      // its other names: exactly what you typed wins outright ("ppg"), then whole words, then parts of words; words in the phrase you didn't type cost the same as above
+      const alt = Math.max(-1, ...aliasesOf(x[0]).map(([a, at]) => at === all.join(" ") ? 1.03 : ws.reduce((n, t) => n + (a.has(t) ? 1 : at.includes(t) ? 0.8 : 0), 0) / ws.length - [...a].filter((t) => !asked.has(t)).length * 0.03 - 0.02));
+      return [x, Math.max(own, alt) - hl.length / 1e4 - skip, alt > own]; // [stat, score, found by another name]
     })).filter((s) => s[1] >= 0.65).sort((a, b) => b[1] - a[1]);
   };
   // the Filter box: "run stops > 20 and sacks >= 3", "QB, EPA per dropback over .1", "rookies and tackles at least 30 or sacks > 5".
@@ -2063,7 +2307,7 @@ const Viz = (() => {
     const qItems = () => [
       ...PRESETS[league].filter(Array.isArray).map(([l, o]) => [l, "Preset", "chart idea", () => { st = { ...DEF, from: st.from, to: st.to, mode: st.mode, ...o }; reload(); }]),
       ...(mine()[league] || []).map((m) => [m.name, "My chart", "mine saved portfolio", () => { st = { ...DEF, from: st.from, to: st.to, mode: st.mode, ...m.st }; reload(); }]),
-      ...["players", "teams"].flatMap((w) => statsFor(w, have).flatMap(([g, l]) => l.map((x) => [x[1], `${w === "players" ? "Player" : "Team"} stat · ${g}`, `${g} ${x[0]}`,
+      ...["players", "teams"].flatMap((w) => statsFor(w, have).flatMap(([g, l]) => l.map((x) => [x[1], `${w === "players" ? "Player" : "Team"} stat · ${g}`, `${g} ${x[0]} ${(QALIAS[x[0]] || "").replace(/\|/g, " ")}`,
         () => { setWho(w); if (st.type === "radar" || st.type === "pie" && !x[3].count) st.type = "bar"; st.stat = x[0]; st.min = ""; redo(); }]))),
       ...posOpts.filter(([k]) => k).map(([k, l]) => [l, "Position", `${k} position players`, () => { setWho("players"); st.pos = k; st.role = ""; st.min = ""; redo(); }]),
       ...(D.xcols?.length ? EXP.filter(([k]) => k).map(([k, l]) => [l, "Experience", "years experience rookie", () => { setWho("players"); st.exp = k; redo(); }]) : []),
@@ -2085,7 +2329,7 @@ const Viz = (() => {
     const ASK_FILL = new Set(["who", "whos", "what", "whats", "which", "gets", "get", "getting", "got", "the", "on", "for", "in", "of", "a", "an", "is", "are",
       "has", "have", "had", "does", "do", "did", "most", "more", "much", "many", "team", "teams", "players", "player", "guys", "me", "show", "chart", "graph",
       "at", "to", "with", "by", "best", "top", "leaders", "leader", "lead", "leads", "led", "highest", "this", "season", "year", "so", "far", "their", "his",
-      "how", "there", "than", "like", "look", "looks", "compare", "comparing", "all", "every", "league", "nfl", "college", "cfb", "ncaa", "fbs", "my", "our"]);
+      "how", "there", "than", "like", "look", "compare", "comparing", "all", "every", "league", "nfl", "college", "cfb", "ncaa", "fbs", "my", "our"]);
     const ASK_POS = Object.entries(POS_WORDS).filter(([w]) => !["running", "back", "backs", "k", "s", "def", "defense", "edge"].includes(w) && posOpts.some(([k]) => k === POS_WORDS[w]))
       .map(([w, p]) => [" " + norm(w) + " ", p]).sort((a, b) => b[0].length - a[0].length);
     const CITY = {};
@@ -2115,7 +2359,7 @@ const Viz = (() => {
       take(/ pie( chart)? /, () => { o.type = "pie"; }) || take(/ (table|spreadsheet) /, () => { o.type = "table"; o.per = "total"; });
       const said = / share /.test(t); // "carry share": a share stat by that name beats "carries, as a share"
       take(/ (who gets|share|distribution|split|breakdown|usage) /, () => { o.per = "share"; });
-      take(/ per (100 )?snaps? /, () => { o.per = "snap"; }) || take(/ per game /, () => { o.per = "game"; }) || take(/ (in )?totals? /, () => { o.per = "total"; });
+      take(/ per (100 )?snaps? /, () => { o.per = "snap"; }) || take(/ per game /, () => { o.per = "game"; }) || take(/ (in )?totals? $/, () => { o.per = "total"; }); // "sacks in total", not "total defense"
       // "most drops" = the most first, even though fewer drops is better; "fewest", "lowest" = the least first; "worst" = the worst first
       const dir = take(/ (most|highest|biggest|leads?|leaders?) /, () => {}) ? "most" : take(/ (fewest|least|lowest) /, () => {}) ? "few" : take(/ (worst|bottom) /, () => {}) ? "worst" : "";
       take(/ rookies? /, () => { o.exp = "1"; }); take(/ undrafted /, () => { o.draft = "U"; });
@@ -2148,10 +2392,11 @@ const Viz = (() => {
       // a team named with no player words ("chiefs points per game") means the team, unless the player stat fits clearly better
       const w = wantT ? "teams" : wantP ? "players" : (T1?.[1] || 0) > (P1?.[1] || 0) + (o.team ? -0.01 : 0.05) ? "teams" : P1 || ball ? "players" : T1 ? "teams" : null;
       let s = (w === "players" ? P1 : T1)?.[0];
+      const byAlias = (w === "players" ? P1 : T1)?.[2]; // "ppg", "pick six": the list only has stat names, so this answer has to show
       const named = said && w === "players" && rest ? qBest(rest + " share", "players")[0] : null;
       if (named && /share/i.test(named[0][1]) && named[1] >= 0.9) { s = named[0]; delete o.per; }
       if (!s && ball && w === "players") s = statsFor("players", have).flatMap(([, l]) => l).find((x) => x[0] === "touches");
-      if (!s || (!plain && !Object.keys(o).length && !ball && rest === lower.trim() && qAllowed(rest) === rest)) return null; // nothing beyond a plain stat name: the stat itself is listed
+      if (!s || (!plain && !Object.keys(o).length && !ball && rest === lower.trim() && qAllowed(rest) === rest && !byAlias)) return null; // nothing beyond a plain stat name: the stat itself is listed
       const patch = { ...o, who: w, stat: s[0] };
       if (patch.from === "first") { patch.from = String(w === "players" ? Math.max(idx.players?.[league] || 0, (idx[league] || [])[0]) : (idx[league] || [])[0]); patch.to = String((idx[league] || []).at(-1)); }
       if (patch.from && !patch.to) patch.to = String((idx[league] || []).at(-1));
