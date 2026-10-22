@@ -825,7 +825,7 @@ Reply with ONLY one JSON object, no other text:
 data_requests: one entry for every claim you marked cant_check because our DATA lacks something (not for opinions or things no stat can settle), plus "data_issue" entries when a tool result looks wrong or incomplete (e.g. a starter showing 1 game or very few snaps). Empty list if nothing was missing.
 
 Charts: one to post with each reply. "agree" shows the numbers that back the take, "pushback" the numbers that cut against it (a different stat or framing, not the same chart twice). Use null only when nothing you pulled can make that side's point. CHART = {"type": "bar" | "line" | "scatter" | "pie" | "radar", "title": "short title", "unit": "what the numbers are", "lower_is_better": false, "source": "weeks/season covered, short", ...the fields for its type}. Pick the type that makes the point best and don't default to bar: when a take is about two qualities (good offense but bad defense, volume vs efficiency, record vs schedule or cupcake score, health vs record) use a scatter from scatter_data; a trend over weeks is a line; a profile is a radar. The two charts should usually be different types. Use only numbers you actually pulled, and highlight the player or team in the take (highlight: true):
-- bar (a ranking or comparison): "items": [{"label": "Giants", "value": 0.8, "highlight": true}], 4-12 items, sorted.
+- bar (a ranking or comparison): "items": [{"label": "Giants", "value": 0.8, "highlight": true}], 4-12 items, sorted. For a ranking (most, worst, top, best), give each team or player its "rank" in the full list (1 = first): the chart then shows the places and marks any skipped ones. Show a contiguous top N; if you add someone from outside it (the team in the take), give everyone a rank so the gap shows. Never title a chart "most X" and silently skip places; a reference row like the league average has no rank.
 - line (a trend week by week or season by season; use player_stats by_week or team_stats games): "x_labels": ["Wk 1", "Wk 2", ...], "series": [{"name": "Daniels", "values": [0.12, -0.05, null, ...], "highlight": true}], 1-6 series, values line up with x_labels (null = no game), optional "x_label"/"y_label".
 - scatter (two stats against each other, e.g. EPA per play vs points per game for every team): "points": [{"label": "WAS", "x": 0.05, "y": 24.1, "highlight": true}], 8-32 points, plus "x_label" and "y_label".
 - pie (shares of one whole, e.g. where a team's yards or touchdowns came from): "items" as for bar, 2-8 positive values.
@@ -1202,7 +1202,7 @@ function normChart(c) {
   if (!c || typeof c !== "object") return null;
   const num = (v) => v != null && v !== "" && isFinite(+v);
   let type = TYPES.includes(c.type) ? c.type : c.points ? "scatter" : c.axes ? "radar" : c.series ? "line" : "bar";
-  const items = (c.items || c.bars || []).filter((b) => b && num(b.value)).map((b) => ({ label: String(b.label ?? ""), value: +b.value, highlight: !!b.highlight }));
+  const items = (c.items || c.bars || []).filter((b) => b && num(b.value)).map((b) => ({ label: String(b.label ?? ""), value: +b.value, highlight: !!b.highlight, rank: num(b.rank) ? Math.round(+b.rank) : null }));
   const series = (c.series || []).filter((s) => s && Array.isArray(s.values)).slice(0, 7).map((s) => ({ name: String(s.name ?? ""), highlight: !!s.highlight, values: s.values.map((v) => (num(v) ? +v : null)) }));
   const out = { ...c, type, items: items.slice(0, type === "pie" ? 12 : 16), series };
   if (type === "bar") return items.length >= 2 ? out : null;
@@ -1233,8 +1233,21 @@ function chartSvg(c) {
 }
 
 function barBody(c, top, W) {
-  const it = c.items, rowH = 52, n = it.length, L = 40, R = 40;
-  const labelSize = 22, valSize = 20;
+  // ranked bars carry their place in the full list ("6. SF"); where places are skipped, a gap row says how many aren't
+  // shown, so 1-5 then the 12th team never reads as 1-6
+  const ranked = c.items.some((b) => b.rank), it = c.items.map((b) => ({ ...b, label: ranked && b.rank ? `${b.rank}. ${b.label}` : b.label }));
+  const rowH = 52, gapH = 34, L = 40, R = 40, ys = [];
+  let yy0 = 0, prev = null, gaps = "";
+  for (const b of it) {
+    if (ranked && b.rank && prev && b.rank > prev + 1) {
+      const k = b.rank - prev - 1;
+      gaps += T(L, top + yy0 + gapH / 2 + 7, `... ${k} not shown (${prev + 1}${k > 1 ? `-${b.rank - 1}` : ""})`, { size: 18, fill: C.dim });
+      yy0 += gapH;
+    }
+    if (b.rank) prev = b.rank;
+    ys.push(yy0); yy0 += rowH;
+  }
+  const n = it.length, labelSize = 22, valSize = 20;
   const maxLabel = Math.min(26, Math.max(...it.map((b) => b.label.length)));
   const labelW = tw("x".repeat(maxLabel), labelSize);
   const neg = it.filter((b) => b.value < 0), pos = it.filter((b) => b.value >= 0);
@@ -1243,15 +1256,15 @@ function barBody(c, top, W) {
   const x0 = L + labelW + 24 + negW, x1 = W - R - posW;
   const vals = it.map((b) => b.value), lo = Math.min(0, ...vals), hi = Math.max(0, ...vals), span = hi - lo || 1;
   const X = (v) => x0 + ((v - lo) / span) * (x1 - x0);
-  let s = lo < 0 ? `<line x1="${X(0)}" x2="${X(0)}" y1="${top - 6}" y2="${top + n * rowH}" stroke="${C.grid}" stroke-width="2"/>` : "";
+  let s = (lo < 0 ? `<line x1="${X(0)}" x2="${X(0)}" y1="${top - 6}" y2="${top + yy0}" stroke="${C.grid}" stroke-width="2"/>` : "") + gaps;
   it.forEach((b, i) => {
-    const yy = top + i * rowH, a = X(Math.min(0, b.value)), w = Math.max(2, Math.abs(X(b.value) - X(0))), mid = yy + rowH / 2 + 7;
+    const yy = top + ys[i], a = X(Math.min(0, b.value)), w = Math.max(2, Math.abs(X(b.value) - X(0))), mid = yy + rowH / 2 + 7;
     s += T(L + labelW, mid, fit(b.label, 26), { size: labelSize, anchor: "end", fill: b.highlight ? C.ink : C.soft, weight: b.highlight ? 800 : 400 });
     s += `<rect x="${a}" y="${yy + 9}" width="${w}" height="${rowH - 18}" rx="3" fill="${b.highlight ? C.hi : C.bar}"/>`;
     s += b.value < 0 ? T(a - 10, mid, fmtv(b.value), { size: valSize, anchor: "end", weight: 600, fill: b.highlight ? C.hi : C.soft })
       : T(a + w + 10, mid, fmtv(b.value), { size: valSize, weight: 600, fill: b.highlight ? C.hi : C.soft });
   });
-  return { body: s, h: n * rowH };
+  return { body: s, h: yy0 };
 }
 
 // shared x/y frame for line and scatter
