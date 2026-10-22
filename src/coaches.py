@@ -282,7 +282,7 @@ def build(lg, rows, current, fbs=None, edge=None):
         c["sea"] = list(sea.values())
         if name in active and (name, tm) in hs_x:
             x = hs_x[(name, tm)]
-            p = hot_seat.prob(hs_model, x)
+            p = hot_seat.grace(hot_seat.prob(hs_model, x), x)
             this = next((r for r in c["sea"] if r[0] == now and r[1] == tm), [0, 0, 0, 0, 0])
             c["hs"] = {"p": round(p, 3), "lab": hot_seat.band(p), "why": hot_seat.why(x, p, this[2:5])}
         out.append(c)

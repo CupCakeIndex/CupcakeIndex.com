@@ -13,6 +13,10 @@ This season's numbers so far stand in for the full season.
 
 Labels: Safe under 15%, Teetering 15-35%, Hot seat 35%+.
 
+Grace period (Terry, 2026-10-22: "the first two years they shouldn't be judged as strictly"): a coach in year 1 of
+the job shows 60% of the model's chance, year 2 shows 80%. History says owners and schools do fire some new coaches
+after a disaster, so a winless debut can still teeter, but a so-so first year reads as safe.
+
     python src/hot_seat.py      # leave-one-season-out test of both leagues
 """
 from collections import defaultdict
@@ -20,7 +24,8 @@ from collections import defaultdict
 import numpy as np
 
 BANDS = [(0.35, "hot"), (0.15, "teeter"), (0.0, "safe")]
-FULL = {"nfl": 17, "cfb": 12}  # regular-season games: this season so far is filled out to a full season
+FULL = {"nfl": 17, "cfb": 12}
+GRACE = {1: 0.6, 2: 0.8}  # years in the job -> share of the model's chance we show  # regular-season games: this season so far is filled out to a full season
 
 
 def seasons(rows):
@@ -109,6 +114,11 @@ def prob(model, x):
     return float(1 / (1 + np.exp(-z @ w)))
 
 
+def grace(p, x):
+    """The chance we show: the model's, eased for a coach in his first two years (see GRACE)."""
+    return p * GRACE.get(round(x[4] * 10), 1.0)
+
+
 def band(p):
     return next(lab for cut, lab in BANDS if p >= cut)
 
@@ -132,12 +142,14 @@ def why(x, p, rec):
     elif track >= 0.05:
         good.append("A strong track record here the last few years")
     if new:
-        good.append("Year 1 or 2 in the job (schools rarely fire coaches that early)")
+        good.append(f"Year {round(ten * 10)} in the job: new coaches get time, so this year counts less")
+        if p >= 0.15 and not bad:
+            bad.append(f"{now} so far, a rough start even for a new coach")
     if pct >= 0.7:
         good.append("On pace for a big season")
     if not bad and not good:
         good.append(f"{now} this season, about what we expected")
-    if p >= 0.15 and not bad:
+    if p >= 0.15 and not bad and not new:
         bad.append(f"Year {round(ten * 10)}{'+' if ten >= 1 else ''} in the job, when the record has to show it")
     return (bad + good if p >= 0.15 else good + bad)[:3]
 
