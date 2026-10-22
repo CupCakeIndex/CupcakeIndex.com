@@ -131,8 +131,13 @@ const News = (() => {
       <div class="nw-list">${rows.map((it) => card(it, true)).join("")}</div>
       <p class="note">Links go to the publisher.</p></div>`;
   }
+  // how many headlines mention a team (0 if none), for the team page hub's News button
+  async function countFor(lg, id) {
+    try { await load(); } catch { return 0; }
+    return D.items.filter((it) => it.teams?.includes(`${lg}:${id}`)).length;
+  }
   // "more ›" on a team page (and its hub's News link) opens the News tab filtered to that team
   document.addEventListener("click", (e) => { const a = e.target.closest(".nw-team [data-q], .th-links [data-q]"); if (a) { st.q = (a.dataset.nwteam && D?.teams?.[a.dataset.nwteam]?.name) || a.dataset.q; st.source = ""; st.shown = PAGE; } });
 
-  return { render, forTeam };
+  return { render, forTeam, countFor };
 })();
