@@ -23,8 +23,35 @@ const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", rece
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
 const RANK_VIEWS = new Set(["rankings", "schedules", "resume"]);
 const VIEWS = new Set(["rankings", "picks", "schedules", "resume", "shame", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "trades", "daily", "hilo", "fantasy", "news", "takes", "coaches", "coach", "admin", "breakdown", "games", "settings", "privacy"]);
-// Sub-pages that light up a parent tab in the nav (the Daily player game lives under Games)
-const NAV_PARENT = { daily: "games", hilo: "games", breakdown: "rankings", coach: "coaches" };
+// The 5 tabs and the pages inside each, shown as a row of pills under the nav (the group bar). An item is
+// [view, label, params, league]: params pick a page that shares a view (Stats ?show=visualize), league hides it in the
+// other league. "also" = pages with no pill of their own that still light up the tab (a game's box score -> Scores).
+const GROUPS = [
+  { tab: "rankings", items: [["rankings", "Rankings"], ["resume", "Résumé Check"], ["schedules", "Schedules"], ["shame", "Hall of Shame"], ["coaches", "Coaches"], ["compare", "Compare", null, "cfb"]], also: ["breakdown", "coach"] },
+  { tab: "scores", items: [["scores", "Scores"], ["standings", "Standings"], ["standings", "Playoff picture", { show: "playoff" }]], also: ["game"] },
+  { tab: "stats", items: [["stats", "Leaders"], ["stats", "Visualize", { show: "visualize" }], ["stats", "Injuries", { show: "injuries" }], ["fantasy", "Fantasy", null, "nfl"], ["stats", "Projected", { show: "projected" }], ["stats", "Frauds", { show: "frauds" }, "nfl"]] },
+  { tab: "play", items: [["picks", "Pick'em"], ["daily", "Daily player"], ["hilo", "Higher or Lower"], ["picks", "Leaderboard", { board: 1 }]], also: ["games"] },
+  { tab: "news", items: [["news", "Headlines"], ["takes", "Takes"], ["trades", "Trade watch", null, "nfl"], ["freeagents", "Free agents", null, "nfl"], ["trades", "Portal watch", null, "cfb"]] },
+];
+// the page's pill: same view, and its params match (the plain pill, e.g. Leaders, takes any page no other pill claims)
+function groupItem(g, r) {
+  const mine = g.items.filter(([v, , , lg]) => v === r.view && (!lg || lg === league));
+  const hit = (p) => Object.entries(p || {}).every(([k, v]) => r.params.get(k) === String(v));
+  return mine.find(([, , p]) => p && hit(p)) || mine.find(([, , p]) => !p);
+}
+function groupOf(view) { return GROUPS.find((g) => g.items.some(([v]) => v === view) || (g.also || []).includes(view)); }
+function renderGroupBar(r) {
+  const g = groupOf(r.view), bar = $("#group-bar");
+  bar.classList.toggle("hidden", !g);
+  if (!g) return (bar.innerHTML = "");
+  const on = groupItem(g, r);
+  bar.innerHTML = g.items.filter(([, , , lg]) => !lg || lg === league)
+    .map((it) => `<a class="subtab${it === on ? " on" : ""}" href="${link(it[0], null, it[2] || {})}">${esc(it[1])}</a>`).join("");
+  // phones: the row scrolls sideways, so center this page's pill (never scrolls the page); again once the font has loaded
+  const center = () => { const a = bar.querySelector(".on"); if (a) bar.scrollLeft = a.offsetLeft - (bar.clientWidth - a.offsetWidth) / 2; };
+  center();
+  document.fonts?.ready.then(center);
+}
 
 // ------------------------------------------------------------------ forgiving name search
 // Lowercase, strip accents/punctuation ("D.J." -> "dj", "Smith-Njigba" -> "smith njigba"), drop jr/sr/ii/iii.
@@ -126,7 +153,8 @@ async function route() {
   if (lg !== league || !LG) setLeague(lg);
   Live.stop();
   document.querySelectorAll(".view").forEach((s) => s.classList.toggle("hidden", s.id !== "view-" + r.view));
-  setNavActive(NAV_PARENT[r.view] || r.view);
+  setNavActive(groupOf(r.view)?.tab || r.view);
+  renderGroupBar(r);
   $("#gear").classList.toggle("active", r.view === "settings");
   document.querySelectorAll(".rank-ctl").forEach((el) => el.classList.toggle("hidden", !RANK_VIEWS.has(r.view)));
   $("#rank-bar")?.classList.toggle("hidden", !RANK_VIEWS.has(r.view));
@@ -190,8 +218,7 @@ async function route() {
 // Note: unknown routes (#/fantasy, #/news until those pages exist) fall back to rankings.
 const phoneNav = window.matchMedia("(max-width: 640px)");
 function setNavActive(view) {
-  const tab = { freeagents: "trades" }[view] || view; // pages that live under another tab (Trades: Trade watch + Free agents)
-  document.querySelectorAll("#nav [data-view]").forEach((a) => a.classList.toggle("active", a.dataset.view === tab));
+  document.querySelectorAll("#nav [data-view]").forEach((a) => a.classList.toggle("active", a.dataset.view === view));
   const inMenu = [...document.querySelectorAll("#more-menu .mm-item.active")]
     .find((a) => phoneNav.matches || !a.closest(".nav-narrow"));
   $("#more-btn").classList.toggle("active", !!inMenu);
@@ -207,7 +234,7 @@ function initNav() {
   $("#more-menu").onclick = (e) => { if (e.target.closest("a")) setMoreOpen(false); };
   document.addEventListener("pointerdown", (e) => { if (!e.target.closest(".nav-more")) setMoreOpen(false); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") setMoreOpen(false); });
-  phoneNav.addEventListener("change", () => setNavActive(NAV_PARENT[parseHash().view] || parseHash().view));
+  phoneNav.addEventListener("change", () => setNavActive(groupOf(parseHash().view)?.tab || parseHash().view));
 }
 
 // ------------------------------------------------------------------ games hub
@@ -234,7 +261,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "418"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "419"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -391,7 +418,8 @@ function setLeague(l) {
   document.body.dataset.league = l;
   $("#profile").innerHTML = `<option value="">All schedule profiles</option>` + Object.entries(profs()).map(([k, p]) => `<option value="${k}">${p.name}</option>`).join("");
   $("#league-tag").textContent = LEAGUE_NAME[l] || l;
-  document.querySelectorAll("#nav [data-view]").forEach((a) => (a.href = link(a.dataset.view)));
+  // a tab opens the first page in its group (Play -> Pick'em); More menu items are pages themselves
+  document.querySelectorAll("#nav [data-view]").forEach((a) => (a.href = link(GROUPS.find((g) => g.tab === a.dataset.view)?.items[0][0] || a.dataset.view)));
   $("#notes-link").href = link("updates");
   weights = loadWeights(l);
   reverse = false;

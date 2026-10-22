@@ -2665,9 +2665,7 @@ const Live = (() => {
   // Every week ESPN's fantasy feed sets a projection ("line") for each player: passing yards, TDs, catches...
   // A player's fraud score compares what they actually did with their lines in the games they played,
   // stat by stat for their position, as a weighted % below expectation. Over-achievers are the same list flipped.
-  const stSubStats = (on) => `<div class="subtabs">` + [["leaders", "Leaders", {}], ["frauds", "Frauds", { show: "frauds" }], ["projected", "Projected", { show: "projected" }], ["injuries", "Injuries", { show: "injuries" }], ["visualize", "Visualize", { show: "visualize" }]]
-    .filter(([k]) => k !== "frauds" || league === "nfl") // Frauds need ESPN's NFL projections: no pill in college
-    .map(([k, l, q]) => `<a class="subtab${k === on ? " on" : ""}" href="${link("stats", null, q)}">${l}</a>`).join("") + `</div>`;
+  const stSubStats = (on) => ""; // Leaders, Visualize, Injuries... are pills in the group bar (app.js GROUPS)
   const FR_POS = { 1: "QB", 2: "RB", 3: "WR", 4: "TE" };
   // [label, ESPN fantasy stat ids (summed), weight, minimum expected per game to count, higher is worse]
   // ids: 3 pass yds, 4 pass TD, 20 INT, 24 rush yds, 25 rush TD, 42 rec yds, 43 rec TD, 53 receptions, 210 games played
@@ -4115,8 +4113,7 @@ const Live = (() => {
   // ---------------------------------------------------------------- playoff picture (a sub-view of Standings)
   // CFB: a 12-team CFP field projected from our rankings. NFL: ESPN's seeds if the season ended today.
   // Past the first round, each game goes to our model's favorite (ratings + home field, same math as src/model.py).
-  const stSub = (on) => `<div class="subtabs st-sub"><a class="subtab${on ? "" : " on"}" href="${link("standings")}">Standings</a>`
-    + `<a class="subtab${on ? " on" : ""}" href="${link("standings", null, { show: "playoff" })}">Playoff picture</a></div>`;
+  const stSub = (on) => ""; // Standings / Playoff picture are pills in the group bar (app.js GROUPS)
   const GAME = { cfb: { hfa: 2.5, scale: 1.2, sigma: 15 }, nfl: { hfa: 1.5, scale: 1, sigma: 13.5 } }; // mirrors src/config.yaml
   // Normal CDF (Abramowitz-Stegun erf approximation), for win probabilities
   function phi(z) {
@@ -5202,9 +5199,8 @@ const Live = (() => {
       <div class="cd-time">${box(d, d === 1 ? "day" : "days")}${dayOnly ? "" : box(h, "hrs") + box(m, "min") + box(sec, "sec")}</div>
       <div class="cd-sub muted">${esc(sub)}</div>`;
   }
-  // the Trades tab: Trade watch and Free agents
-  const trSub = (on) => `<div class="subtabs">` + [["trades", "Trade watch"], ["freeagents", "Free agents"]]
-    .map(([k, l]) => `<a class="subtab${k === on ? " on" : ""}" href="${link(k)}">${l}</a>`).join("") + `</div>`;
+  // News > Trade watch and Free agents (college: Portal watch)
+  const trSub = (on) => ""; // Trade watch / Free agents are pills in the group bar (app.js GROUPS)
   let twPos = "", twTeam = "";
   // One player's "why he might be traded" page (#/trades/ID): the chance, each reason in plain words, the headlines, the
   // teams he fits. His name goes on to his stats page.

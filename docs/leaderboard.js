@@ -96,7 +96,7 @@ const Leaderboard = (() => {
   // -------- the board (Pick'em > Leaderboard)
   async function render(root, lg) {
     const season = seasonNow(), me = user();
-    const tabs = `<div class="subtabs"><a class="subtab" href="${link("picks")}">My picks</a><a class="subtab on" href="${link("picks", null, { board: 1 })}">Leaderboard</a></div>`;
+    const tabs = "";
     root.innerHTML = tabs + `<div class="card muted">Loading the leaderboard…</div>`;
     let rows = [];
     try {

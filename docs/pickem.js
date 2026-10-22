@@ -268,8 +268,7 @@ const Pickem = (() => {
     };
     const toggle = lg === "cfb" ? `<div class="presets pk-show">${[["", "Top 25 games"], ["1", "All FBS games"]].map(([v, t]) =>
       `<button data-show="${v}" class="${!v === !cur.all ? "on" : ""}">${t}</button>`).join("")}</div>` : "";
-    root.innerHTML = `<div class="subtabs"><a class="subtab on" href="${link("picks")}">My picks</a><a class="subtab" href="${link("picks", null, { board: 1 })}">Leaderboard</a></div>
-      <div class="card pk-card">
+    root.innerHTML = `      <div class="card pk-card">
       <h2>Pick'em · ${esc(weekName())} <span class="muted">${esc(LEAGUE_NAME[lg] || lg)}</span></h2>
       ${cur.mine ? seasonPanel() : `<div class="pk-season muted">These are a friend's picks from a shared link. Make your own picks to start your record.</div>`}
       <p class="pk-status">${status}</p>
