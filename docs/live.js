@@ -5144,7 +5144,46 @@ const Live = (() => {
   const trSub = (on) => `<div class="subtabs">` + [["trades", "Trade watch"], ["freeagents", "Free agents"]]
     .map(([k, l]) => `<a class="subtab${k === on ? " on" : ""}" href="${link(k)}">${l}</a>`).join("") + `</div>`;
   let twPos = "", twTeam = "";
-  async function trades() {
+  // One player's "why he might be traded" page (#/trades/ID): the chance, each reason in plain words, the headlines, the
+  // teams he fits. His name goes on to his stats page.
+  function tradeWhy(D, pid, { abOf, tlogo, money }) {
+    const p = D.players.find((x) => String(x.id) === String(pid));
+    const back = `<a class="tw-back" href="${link("trades")}">← Trade watch</a>`;
+    if (!p) { view("trades").innerHTML = trSub("trades") + `<div class="card">${back}<p>He isn't on our trade list right now (it changes every few hours as the news moves). <a href="${link("player", pid)}">See his stats →</a></p></div>`; return; }
+    const ab = abOf(p.team), T = D.teams[ab] || {}, short = (T.name || ab).split(" ").pop(), P = p.parts || {};
+    const pct = Math.round(100 * (T.p || 0)), age = p.age ? Math.floor(p.age) : null;
+    // each reason: [label, 0-1 (1 = pushes toward a trade), what it means for him]
+    const reasons = [
+      ["Trade talk", Math.min(1, (P.talk || 0) / 1.6), p.talk ? `${p.talk} trade headline${p.talk > 1 ? "s" : ""} named him in the last 2 weeks. People are discussing it, which is the best public sign a deal is being worked on.` : "No trade headlines about him in the last 2 weeks."],
+      ["His team is selling", P.seller ?? 0, pct < 45 ? `The ${short} are ${T.record} with a ${pct}% playoff chance in our simulations. Teams out of the race trade veterans for picks.` : `The ${short} are ${T.record} with a ${pct}% playoff chance. Contenders rarely sell, so only the trade talk has him here.`],
+      ["Contract", P.contract ?? 0.5, p.through === D.season ? `His deal ends after this season (${money(p.salary)} this year). Teams move players rather than lose them for nothing.` : p.through ? `Signed through ${p.through} (${money(p.salary)} this year). Longer deals get moved less often.` : "We couldn't find his contract."],
+      ["Age", P.age ?? 0.5, age == null ? "We don't have his birth date." : age >= 30 ? `${age}: a veteran, the kind rebuilding teams move.` : age >= 28 ? `${age}: near the age rebuilding teams start moving players.` : `${age}: rebuilding teams usually keep players this young.`],
+      ["Role", P.role ?? 0, `Plays ${Math.round(100 * p.share)}% of his side's snaps, so a contender would get a real contributor.`],
+      ["Worth to a contender", P.worth ?? 0.6, p.salary >= 10e6 ? "Paid like a starter, a sign teams value him." : "A modest salary: cheap to add, but less of a difference-maker."],
+      ["Position", P.position ?? 1, p.pos === "QB" ? "QBs rarely move mid-season (a new team has to learn him fast)." : p.pos === "RB" ? "Running backs move mid-season less than most positions." : `${p.pos}s get moved mid-season as often as anyone.`],
+    ];
+    const meter = (v) => `<span class="tw-meter"><i style="width:${Math.round(100 * Math.max(0, Math.min(1, v)))}%"></i></span>`;
+    const tier = `<span class="tw-tier tw-${p.tier === "Likely" ? "hi" : p.tier === "Possible" ? "md" : "lo"}">${esc(p.tier)}</span>`;
+    const rank = D.players.indexOf(p) + 1;
+    view("trades").innerHTML = trSub("trades") + `<div class="card tw-why">
+        ${back}
+        <div class="tw-why-h">
+          <h2><a href="${link("player", p.id)}" title="His stats">${esc(p.name)}</a></h2>
+          <span class="muted">${esc(p.pos)}${age ? ` · ${age}` : ""}</span>
+          <span class="tm">${tlogo(ab)} ${esc(T.name || ab)}</span>
+        </div>
+        <p class="tw-why-sum">${tier} <b>#${rank}</b> on our trade list. <a href="${link("player", p.id)}">See his stats →</a></p>
+        <h3 class="tw-h3">Why he might be traded</h3>
+        <div class="tw-reasons">${reasons.map(([l, v, t]) => `<div class="tw-reason"><div class="tw-reason-h"><b>${l}</b>${meter(v)}</div><p>${esc(t)}</p></div>`).join("")}</div>
+        <p class="note">Longer bar = pushes harder toward a trade. Trade talk counts on its own; the other six multiply together, so one long contract or a young age pulls the whole thing down.</p>
+        ${p.fits.length ? `<h3 class="tw-h3">Where he'd fit</h3><ol class="tw-fitlist">${p.fits.map(([f, why], k) =>
+          `<li><span class="tm">${tlogo(f)} <b>${esc(D.teams[f]?.name || f)}</b></span>${k ? "" : ` <span class="tw-front">Frontrunner</span>`}<small class="muted">${esc(why)}</small></li>`).join("")}</ol>` : ""}
+        ${p.stories?.length ? `<h3 class="tw-h3">The headlines</h3><ul class="tw-heads">${p.stories.filter((h) => safeUrl(h[1])).map(([t, u]) =>
+          `<li><a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)}</a></li>`).join("")}</ul>${p.talk > p.stories.length ? `<p class="muted tw-more">…and ${p.talk - p.stories.length} more.</p>` : ""}` : ""}
+      </div>`;
+  }
+
+  async function trades(pid) {
     const my = token;
     if (league !== "nfl") {
       view("trades").innerHTML = `<div class="card">Trade watch is NFL only. <a href="#/trades?league=nfl">See the NFL trade watch →</a></div>`;
@@ -5162,6 +5201,7 @@ const Live = (() => {
     const gone = Date.now() > Date.parse(`${D.deadline}T21:00:00Z`);
     const POS = ["QB", "RB", "WR", "TE", "OL", "EDGE", "IDL", "LB", "CB", "S"];
     if (!D.teams[twTeam]) twTeam = "";
+    if (pid != null) return tradeWhy(D, pid, { abOf, tlogo, money });
     const teamsByName = Object.entries(D.teams).sort((a, b) => a[1].name.localeCompare(b[1].name));
     view("trades").innerHTML = trSub("trades") + `<div class="card tw-cd" id="tw-cd">${countdownHtml()}</div>
       <div class="card">
@@ -5176,7 +5216,7 @@ const Live = (() => {
     const front = (p) => p.fits[0]?.[0];
     const row = (p, i, last) => `<tr>
         <td class="num">${i + 1}</td>
-        <td><a href="${link("player", p.id)}"><b>${esc(p.name)}</b></a> <span class="muted">${esc(p.pos)}${p.age ? ` · ${Math.floor(p.age)}` : ""}</span>${twTeam && front(p) === twTeam ? ` <span class="tw-front" title="${esc(D.teams[twTeam].name)} are his best fit: ${esc(p.fits[0][1])}">Frontrunner</span>` : ""}
+        <td><a href="${link("trades", p.id)}" title="Why he might be traded"><b>${esc(p.name)}</b></a> <span class="muted">${esc(p.pos)}${p.age ? ` · ${Math.floor(p.age)}` : ""}</span>${twTeam && front(p) === twTeam ? ` <span class="tw-front" title="${esc(D.teams[twTeam].name)} are his best fit: ${esc(p.fits[0][1])}">Frontrunner</span>` : ""}
           ${p.story && safeUrl(p.story[1]) ? `<a class="tw-story" href="${esc(p.story[1])}" target="_blank" rel="noopener">${esc(p.story[0])}</a>` : ""}</td>
         <td><span class="tm">${tlogo(abOf(p.team))} ${esc(abOf(p.team))}</span> <small class="muted">${esc(D.teams[abOf(p.team)]?.record || "")} · ${Math.round(100 * (D.teams[abOf(p.team)]?.p || 0))}% playoffs</small></td>
         <td>${p.through ? (p.through === D.season ? `<b class="tw-exp">ends ${p.through}</b>` : `thru ${p.through}`) : "–"} <small class="muted">${money(p.salary)}</small></td>

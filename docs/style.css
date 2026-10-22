@@ -3118,3 +3118,20 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .tw-fit1 { font-weight: 700; }
 .tw-table .tm, .tw-table td > small { vertical-align: middle; }
 .tw-table td > .tm + small { margin-left: 4px; }
+.tw-back { display: inline-block; font-size: 13px; margin-bottom: 10px; }
+.tw-why-h { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.tw-why-h h2 { margin: 0; }
+.tw-why-h h2 a { color: inherit; text-decoration: underline; text-decoration-color: var(--accent, #ff6b2c); text-underline-offset: 4px; }
+.tw-why-sum { margin: 10px 0 4px; }
+.tw-reasons { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+.tw-reason { border: 1px solid var(--line, #333); border-radius: 8px; padding: 10px 12px; }
+.tw-reason-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tw-reason p { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+.tw-meter { flex: 0 0 90px; height: 6px; border-radius: 3px; background: var(--line, #333); overflow: hidden; }
+.tw-meter i { display: block; height: 100%; background: var(--accent, #ff6b2c); }
+.tw-fitlist { margin: 0; padding-left: 20px; }
+.tw-fitlist li { margin: 6px 0; }
+.tw-fitlist small { display: block; margin-top: 2px; }
+.tw-heads { margin: 0; padding-left: 18px; }
+.tw-heads li { margin: 5px 0; font-size: 14px; }
+.tw-more { font-size: 12px; margin: 4px 0 0; }

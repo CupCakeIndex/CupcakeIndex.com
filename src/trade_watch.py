@@ -315,7 +315,11 @@ def main():
                  + (f", {n} headline{'s' if n > 1 else ''} link{'' if n > 1 else 's'} them" if n else ""), n]
                 for _, t, n in sorted(fits, reverse=True)[:3]]
         out.append({**c, "age": round(a, 1) if a else None, "salary": sal, "through": thru, "score": round(score, 4), "why": why, "fits": fits,
-                    "talk": len(talk), "story": list(talk[0]) if talk else None})
+                    "talk": len(talk), "story": list(talk[0]) if talk else None, "stories": [list(h) for h in talk[:8]],
+                    # the pieces of his score, for his "why he might be traded" page (each 0-1; talk is added on top)
+                    "parts": {"seller": round(seller, 2), "contract": cf, "age": af, "role": round(role, 2), "worth": round(worth, 2),
+                              "position": posf, "deal": round(seller * cf * af * role * worth * posf, 3),
+                              "talk": round(0.35 * math.log2(1 + len(talk)) * posf ** 0.5, 3)}})
     out.sort(key=lambda x: -x["score"])
     out = out[:80]
     top = out[0]["score"] if out else 1
