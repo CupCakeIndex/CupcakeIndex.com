@@ -33,6 +33,9 @@ import urllib.request
 
 from PIL import Image, ImageDraw, ImageFont
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from site_rank import site_rank  # noqa: E402  (src/: the website's ranking, shared with the analyst)
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 DATA = os.path.join(ROOT, "docs", "data")
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -174,18 +177,6 @@ BOTTOM = H - 100   # and ends above the footer
 def load(path):
     with open(path, encoding="utf-8") as f:
         return json.load(f)
-
-
-def site_rank(week_json, info):
-    """Re-rank teams the way the website does (app.js composite): the Default weights blend of factor
-    scores, inverted factors counting as 100 - score. Stored as power_rank so every card matches the site."""
-    w, inv = info["default_weights"], {f["key"] for f in info["factors"] if f.get("invert")}
-    total = sum(w.values())
-    val = lambda t, k: 100 - t["scores"].get(k, 50) if k in inv else t["scores"].get(k, 50)
-    comp = lambda t: sum(x * val(t, k) for k, x in w.items()) / total if total else t["scores"]["power"]
-    for i, t in enumerate(sorted(week_json["teams"], key=lambda t: (-comp(t), -t["rating"]))):
-        t["power_rank"] = i + 1
-    return week_json
 
 
 def latest(league):

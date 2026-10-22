@@ -12,6 +12,8 @@ out on purpose (Terry's no-betting rule).
 import json
 import os
 
+from site_rank import site_rank  # the ranking exactly as the website shows it
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "docs", "data")
 OUT = os.path.join(ROOT, "analyst", "data")
@@ -26,6 +28,8 @@ def latest(lg):
 def rankings(lg):
     season, week = latest(lg)
     w = json.load(open(os.path.join(DATA, lg, str(season), f"week_{week}.json"), encoding="utf-8"))
+    site_rank(w, json.load(open(os.path.join(DATA, "index.json"), encoding="utf-8"))["leagues"][lg])  # power_rank = the site's "#"
+    ours = {t["team"]: t["power_rank"] for t in w["teams"]}
     chance = {}
     for p in w.get("predictions", []):  # win chance only: no spreads, no book lines
         hp = p.get("home_win_prob")
@@ -36,7 +40,7 @@ def rankings(lg):
     for t in w["teams"]:
         games = []
         for g in t.get("schedule", []):
-            row = {"wk": g["week"], "opp": g["opp"], "loc": g.get("loc"), "opp_rank": g.get("opp_rank")}
+            row = {"wk": g["week"], "opp": g["opp"], "loc": g.get("loc"), "opp_rank": ours.get(g["opp"], g.get("opp_rank"))}
             if g.get("result"):
                 row.update(res=g["result"], score=g.get("score"), cupcake=bool(g.get("cupcake")) or None, fcs=bool(g.get("fcs")) or None)
             elif (t["team"], g["week"]) in chance:
