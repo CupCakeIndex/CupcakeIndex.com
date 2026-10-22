@@ -3188,3 +3188,17 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .pl-acts .btn, .gm-acts .btn, .tk-x a { text-decoration: none; }
 .tk-x { display: flex; gap: 14px; flex-wrap: wrap; }
 .th-why { margin: 0; padding: 10px 14px 12px; border-top: 1px solid var(--line); font-size: 13px; }
+
+/* team page hub: links to the coach, news, Takes, Trade/Portal watch, schedule profile, charts */
+.th-links { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 14px 12px; border-top: 1px solid var(--line); }
+.th-links .btn { text-decoration: none; font-size: 13px; padding: 6px 12px; }
+.th-links .btn small { color: var(--muted); margin-left: 2px; }
+.th-watch .sc-bar a { margin-left: auto; text-decoration: none; }
+.th-watch-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 14px; }
+.th-watch-list a { display: flex; gap: 6px; align-items: center; text-decoration: none; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.th-watch-list .tw-tier { margin-left: auto; }
+@media (max-width: 600px) {
+  .th-links { display: grid; grid-template-columns: 1fr 1fr; }
+  .th-links .btn { text-align: center; font-size: 12px; padding: 6px 6px; white-space: nowrap; }
+  .th-links #th-coach-link:empty { display: none; }
+}

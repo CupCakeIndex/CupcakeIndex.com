@@ -131,8 +131,8 @@ const News = (() => {
       <div class="nw-list">${rows.map((it) => card(it, true)).join("")}</div>
       <p class="note">Links go to the publisher.</p></div>`;
   }
-  // "more ›" on a team page opens the News tab filtered to that team
-  document.addEventListener("click", (e) => { const a = e.target.closest(".nw-team [data-q]"); if (a) { st.q = a.dataset.q; st.source = ""; st.shown = PAGE; } });
+  // "more ›" on a team page (and its hub's News link) opens the News tab filtered to that team
+  document.addEventListener("click", (e) => { const a = e.target.closest(".nw-team [data-q], .th-links [data-q]"); if (a) { st.q = (a.dataset.nwteam && D?.teams?.[a.dataset.nwteam]?.name) || a.dataset.q; st.source = ""; st.shown = PAGE; } });
 
   return { render, forTeam };
 })();

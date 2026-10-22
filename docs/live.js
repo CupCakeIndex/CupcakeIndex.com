@@ -5057,12 +5057,18 @@ const Live = (() => {
           ${ours ? `<div><small>Why #${ours.rank}?</small><a class="boxlink" href="${link("breakdown", ours.team)}">See the breakdown →</a></div>` : ""}
         </div>
         ${ours?.scores ? `<p class="th-why">${esc(Breakdown.why(ours, [...ranks.byName.values()], lg))}</p>` : ""}
+        <nav class="th-links" aria-label="More about this team"><span id="th-coach-link"></span>
+          <a class="btn" href="${link("news")}" data-q="${esc(T.location || T.displayName || "")}" data-nwteam="${esc(`${lg}:${T.id}`)}">Team news</a>
+          <a class="btn" href="${takes.length || starters.length ? link("team", id, { tab: "takes" }) : link("takes")}">Our Takes</a>
+          <a class="btn" id="th-watch-link" href="${link("trades", null, { team: T.id })}">${nfl ? "Trade watch" : "Portal watch"}</a>
+          ${prof ? `<a class="btn" href="${link("schedules", null, { team: ours.team })}">Schedule profile</a>` : ""}
+          <a class="btn" href="${link("stats", null, { show: "visualize", who: "teams", type: "radar", pick: `${lg}:${T.id}` })}">📈 Chart this team</a></nav>
       </div>
       <div class="th-grid">
         ${facs.length ? `<div class="card"><h3>Factor scores</h3>${facs.map((f) => `<div class="frow" title="${esc(f.help || "")}"><span>${esc(f.label)}</span><span class="bar${f.invert ? " inv" : ""}"><i style="width:${+ours.scores[f.key] || 0}%"></i></span><b class="num">${Math.round(ours.scores[f.key])}</b></div>`).join("")}</div>` : ""}
         ${shown ? `<div class="card th-next"><h3>${next ? "Next game" : "Last game"}</h3><div class="mb-list">${bug(shown)}</div>
           <p class="note">${esc(shown.competitions[0].venue?.fullName || "")}${shown.competitions[0].venue?.fullName && shown.competitions[0].broadcasts?.[0]?.media?.shortName ? " · " : ""}${watch(shown.competitions[0].broadcasts?.[0]?.media?.shortName || "", stateOf(shown))}</p></div>` : ""}
-      </div>${factsCard}`;
+      </div><div id="th-watch"></div>${factsCard}`;
 
     // roster: offense / defense / special teams, each by position (QB, RB, WR, TE, OL... DL, LB, CB, S... K, P, LS)
     // and depth-chart order within a position (NFL), with a small header per position. Or sort by any column.
@@ -5146,6 +5152,18 @@ const Live = (() => {
         : `<p class="muted">No games scheduled. <a href="${link("scores")}">See all scores →</a></p>`}</div>`;
     // the head coach, top right (coaches.js): photo, name and hot seat, linking to his page
     Coaches.forTeam(lg, T.id).then((h) => { const el = my === token && $("#th-coach"); if (el && h) el.outerHTML = h; }).catch(() => {});
+    Coaches.linkFor(lg, T.id).then((c) => { const el = my === token && $("#th-coach-link"); if (el && c) el.outerHTML = `<a class="btn" href="${c.href}" title="${esc(c.name)}">Coach ${esc(c.name.split(" ").slice(-1)[0])}</a>`; }).catch(() => {});
+    // this team's players on our Trade watch (NFL) / Portal watch (college) list, under the hub
+    getJSON(nfl ? "data/nfl/trade_watch.json" : "data/cfb/portal_watch.json").then((W) => {
+      const el = my === token && $("#th-watch");
+      const mine = (W.players || []).filter((p) => String(p.team) === (nfl ? `nfl:${T.id}` : String(T.id)));
+      if (!el || !mine.length) return;
+      const what = nfl ? "Trade watch" : "Portal watch", tierCls = (t) => t === "Announced" || t === "Likely" ? "hi" : t === "Possible" ? "md" : "lo";
+      $("#th-watch-link").innerHTML = `${what} <small>${mine.length}</small>`;
+      el.outerHTML = `<div class="card th-watch"><div class="sc-bar"><h3>On our ${what}</h3><a class="muted" href="${link("trades", null, { team: T.id })}">all ›</a></div>
+        <div class="th-watch-list">${mine.slice(0, 6).map((p) => `<a href="${link("trades", p.id)}" title="${nfl ? "Why he might be traded" : "Why he might transfer"}"><b>${esc(p.name)}</b> <span class="muted">${esc(p.pos)}</span> <span class="tw-tier tw-${tierCls(p.tier)}">${esc(p.tier)}</span></a>`).join("")}</div>
+        <p class="note">${nfl ? "Players we think could be traded" : "Players we think could enter the transfer portal"}, from headlines and our numbers. Tap one for why.</p></div>`;
+    }).catch(() => {});
     // At a glance: charts from the Visualize data (viz.js)
     if (tab === "glance") Viz.glance(lg, T.id, $("#tm-glance")).catch(() => { const el = my === token && $("#tm-glance"); if (el) el.innerHTML = `<p class="muted">Couldn't load the charts. Try again in a minute.</p>`; });
     // latest headlines mentioning this team (news.js), under the schedule
@@ -5263,9 +5281,9 @@ const Live = (() => {
     }).catch(() => {});
   }
 
-  async function trades(pid) {
+  async function trades(pid, params) {
     const my = token;
-    if (league !== "nfl") return portal(pid);
+    if (league !== "nfl") return portal(pid, params);
     view("trades").innerHTML = trSub("trades") + `<div class="card muted">Loading…</div>`;
     let D;
     try { D = await getJSON("data/nfl/trade_watch.json"); } catch (e) { return fail("trades", e); }
@@ -5273,6 +5291,7 @@ const Live = (() => {
     // teams in the file are keyed by abbreviation; players carry the chart key ("nfl:28")
     const byId = Object.fromEntries(Object.entries(D.teams).map(([ab, t]) => [`nfl:${t.id}`, ab]));
     const abOf = (k) => byId[k] || k;
+    if (params?.get("team")) twTeam = byId[`nfl:${params.get("team")}`] || ""; // from a team page
     const tlogo = (ab) => { const t = D.teams[ab]; return t ? img(`https://a.espncdn.com/i/teamlogos/nfl/500/${t.id}.png`, "xs") : ""; };
     const money = (v) => (v ? `$${(v / 1e6).toFixed(v < 1e7 ? 1 : 0)}M` : "–");
     const gone = Date.now() > Date.parse(`${D.deadline}T21:00:00Z`);
@@ -5385,7 +5404,7 @@ const Live = (() => {
           `<li><a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)}</a></li>`).join("")}</ul>` : ""}
       </div>`;
   }
-  async function portal(pid) {
+  async function portal(pid, params) {
     const my = token;
     view("trades").innerHTML = `<div class="card muted">Loading…</div>`;
     let D;
@@ -5393,6 +5412,7 @@ const Live = (() => {
     if (my !== token) return;
     const tlogo = (id) => img(`https://a.espncdn.com/i/teamlogos/ncaa/500/${id}.png`, "xs");
     if (pid != null) return portalWhy(D, pid, tlogo);
+    if (params?.get("team")) pwTeam = params.get("team"); // from a team page
     if (!D.teams[pwTeam]) pwTeam = "";
     const GROUPS = ["QB", "RB", "WR", "TE", "OL", "DL", "LB", "DB"];
     const teamsByName = Object.entries(D.teams).sort((a, b) => a[1].name.localeCompare(b[1].name));

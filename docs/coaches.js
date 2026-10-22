@@ -428,6 +428,14 @@ const Coaches = (() => {
       <span><small>HEAD COACH</small><b>${esc(c.n.split(" ").slice(-1)[0])}</b>${seatChip(c.hs, true)}</span></a>`;
   }
 
+  // the head coach's name and page, for the team page hub's links (null if we don't have him)
+  async function linkFor(lg, teamId) {
+    await load();
+    const t = (T[lg] || []).find((x) => String(x.id) === String(teamId));
+    const c = t && (D[lg]?.coaches || []).find((x) => x.on && x.tm === (lg === "nfl" ? t.abbr : t.name));
+    return c ? { name: c.n, href: link("coach", slug(c.n)) } : null;
+  }
+
   // header search: every coach with a page (head coaches in our data and the coaches in their trees), current head coaches first
   async function search(text, n = 6) {
     await loadTree();
@@ -439,5 +447,5 @@ const Coaches = (() => {
       .map(({ k, p }) => ({ slug: k, name: p.n, pic: pic(p, p.n), tag: p.job ? `Head coach · ${p.job[1]}` : "Coach" }));
   }
 
-  return { render, forSeason, page, forTeam, slug, search };
+  return { render, forSeason, page, forTeam, linkFor, slug, search };
 })();
