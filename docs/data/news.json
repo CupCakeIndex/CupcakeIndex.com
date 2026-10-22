@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-22T04:15:57Z",
+ "updated": "2026-10-22T04:47:55Z",
  "teams": {
   "nfl:22": {
    "name": "Arizona Cardinals",
@@ -21,6 +21,13 @@
    "lg": "nfl",
    "id": "33",
    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/bal.png"
+  },
+  "nfl:2": {
+   "name": "Buffalo Bills",
+   "short": "Bills",
+   "lg": "nfl",
+   "id": "2",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/buf.png"
   },
   "nfl:29": {
    "name": "Carolina Panthers",
@@ -540,13 +547,6 @@
    "id": "254",
    "logo": "https://cdn.collegefootballdata.com/logos/500/254.png"
   },
-  "cfb:238": {
-   "name": "Vanderbilt",
-   "short": "Vanderbilt",
-   "lg": "cfb",
-   "id": "238",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/238.png"
-  },
   "cfb:259": {
    "name": "Virginia Tech",
    "short": "Virginia Tech",
@@ -578,6 +578,29 @@
  },
  "items": [
   {
+   "title": "Alabama Football Suffers Another Major Blow as Ryan Coleman-Williams Ruled Out Against Texas A&M",
+   "url": "https://sports.yahoo.com/articles/alabama-football-suffers-another-major-042001102.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-22T04:20:01Z",
+   "summary": "Sidelined with injury, the Crimson Tide’s leading receiver leaves a struggling offense searchng for rhythm and explosive plays against the Aggies’ aggressive defense during a critical Homecoming…",
+   "image": "",
+   "teams": [
+    "cfb:333",
+    "cfb:245"
+   ]
+  },
+  {
+   "title": "Five Plays: Syracuse Second Quarter",
+   "url": "https://sports.yahoo.com/articles/five-plays-syracuse-second-quarter-035100678.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-22T03:51:00Z",
+   "summary": "The scoreboard started to light up in the second quarter of the Louisville game against Syracuse on Saturday night. Let’s dive into some of the plays that stood out. This is a perfect play against…",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/e9a402897ccd6710fe4a9226c086ba0c.jpg",
+   "teams": []
+  },
+  {
    "title": "Alabama Gets Bad News Ahead of Week 8 Matchup With Texas A&M",
    "url": "https://sports.yahoo.com/articles/alabama-gets-bad-news-ahead-034054235.html",
    "source": "Yahoo Sports",
@@ -600,6 +623,19 @@
    "image": "https://media.zenfs.com/en/heavy_214/8f15e2c31420ef8b4e72639666a3f6cf.jpg",
    "teams": [
     "cfb:2449"
+   ]
+  },
+  {
+   "title": "Virginia Tech football: A look at Clemson by the numbers",
+   "url": "https://sports.yahoo.com/articles/virginia-tech-football-look-clemson-033028480.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-22T03:30:28Z",
+   "summary": "A preview of Clemson by the numbers.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/f8b92d4f908c80c4deca52b81b23a933.jpg",
+   "teams": [
+    "cfb:259",
+    "cfb:228"
    ]
   },
   {
@@ -965,19 +1001,6 @@
    "teams": []
   },
   {
-   "title": "Vanderbilt football injury report vs Kentucky, who's in and out",
-   "url": "https://sports.yahoo.com/articles/vanderbilt-football-injury-report-vs-003737562.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-22T00:37:37Z",
-   "summary": "See Vanderbilt football's SEC injury report against Kentucky, including status of edge Brian Allen Jr.",
-   "image": "",
-   "teams": [
-    "cfb:238",
-    "cfb:96"
-   ]
-  },
-  {
    "title": "5-star WR Jaylen Addai loved his visit back to Miami: 'It was even better than I expected'",
    "url": "https://on3.com/rivals/news/5-star-wr-jaylen-addai-loved-his-visit-back-to-miami-it-was-even-better-than-i-expected/",
    "source": "On3",
@@ -1014,18 +1037,6 @@
    ]
   },
   {
-   "title": "Indiana's Charlie Becker apologizes to Ryan Day for obscene gesture",
-   "url": "https://sports.yahoo.com/articles/indianas-charlie-becker-apologizes-ryan-002835617.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-22T00:28:35Z",
-   "summary": "Emotions got the best of Charlie Becker at the end of last year's Big Ten Championship. He waited nearly a year to make things right in person.",
-   "image": "",
-   "teams": [
-    "cfb:84"
-   ]
-  },
-  {
    "title": "Aaron Glenn’s praise of Frank Reich invites scrutiny",
    "url": "https://sports.yahoo.com/articles/aaron-glenn-praise-frank-reich-002831592.html",
    "source": "Yahoo Sports",
@@ -1036,6 +1047,18 @@
    "teams": [
     "nfl:17",
     "nfl:20"
+   ]
+  },
+  {
+   "title": "Adam Thielen gets candid about the ‘best thing’ J.J. McCarthy can do for Giants",
+   "url": "https://sports.yahoo.com/articles/adam-thielen-gets-candid-best-002449584.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-22T00:24:49Z",
+   "summary": "One of J.J. McCarthy's former teammates is excited for the quarterback's Giants chance.",
+   "image": "https://media.zenfs.com/en/ny_post_sports_articles_389/fe665880cd892c748811bcf3361b8b13.jpg",
+   "teams": [
+    "nfl:19"
    ]
   },
   {
@@ -1062,6 +1085,30 @@
    "teams": [
     "nfl:26",
     "nfl:12"
+   ]
+  },
+  {
+   "title": "Sam Franklin Jr. becomes second Bills player suspended for spitting in same game",
+   "url": "https://sports.yahoo.com/articles/sam-franklin-jr-becomes-second-001331206.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-22T00:13:31Z",
+   "summary": "Bills DB Sam Franklin Jr. faces a one-game suspension for allegedly spitting at a Raider.",
+   "image": "https://media.zenfs.com/en/ny_post_sports_articles_389/7497e3004e9ae181661dcaf21f74f779.jpg",
+   "teams": [
+    "nfl:2"
+   ]
+  },
+  {
+   "title": "Jets get encouraging injury news on Adonai Mitchell, Dylan Parham",
+   "url": "https://sports.yahoo.com/articles/jets-encouraging-injury-news-adonai-001324149.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-22T00:13:24Z",
+   "summary": "Jets receiver Adonai Mitchell and guard Dylan Parham returned to practice Wednesday on a limited basis after missing multiple games with injuries.",
+   "image": "https://media.zenfs.com/en/ny_post_sports_articles_389/116e705881bcf47c3122f20c40f51f77.jpg",
+   "teams": [
+    "nfl:20"
    ]
   },
   {
@@ -1151,6 +1198,31 @@
    ]
   },
   {
+   "title": "Josh Jacobs addresses battery incident ahead of Packers return: ‘Three-second decision can alter your life’",
+   "url": "https://sports.yahoo.com/articles/josh-jacobs-addresses-battery-incident-235845886.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-21T23:58:45Z",
+   "summary": "\"I’m just trying to come back in here and play ball, learn from this mistake and move forward,\" Jacobs said.",
+   "image": "https://media.zenfs.com/en/ny_post_sports_articles_389/2dcb9c5d20782da4b0864703f4d18624.jpg",
+   "teams": [
+    "nfl:9"
+   ]
+  },
+  {
+   "title": "49ers defense gets good injury news as door is left open for Nick Bosa to return against Falcons",
+   "url": "https://sports.yahoo.com/articles/49ers-defense-gets-good-injury-235630432.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-21T23:56:30Z",
+   "summary": "The San Francisco 49ers defense is playing at a high level and is getting healthier. Defensive end Nick Bosa wasn’t scheduled to practice on Wednesday, but could be later this...",
+   "image": "https://media.zenfs.com/en/ny_post_sports_articles_389/cc24f1321af440af8c3f787d5f9c722c.jpg",
+   "teams": [
+    "nfl:25",
+    "nfl:1"
+   ]
+  },
+  {
    "title": "Bears Over Beers: Caleb Williams, Drake Maye Battle For Class Supremacy",
    "url": "https://sports.yahoo.com/articles/bears-over-beers-caleb-williams-234816225.html",
    "source": "Yahoo Sports",
@@ -1226,19 +1298,6 @@
    ]
   },
   {
-   "title": "Ryan Fitzpatrick stands by Bo Nix criticism after win over Seahawks, but walks back 'disrespectful' line",
-   "url": "https://sports.yahoo.com/nfl/article/ryan-fitzpatrick-stands-by-bo-nix-criticism-after-win-over-seahawks-but-walks-back-disrespectful-line-232509290.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-21T23:25:09Z",
-   "summary": "Ryan Fitzpatrick called Bo Nix out after the Broncos beat the Seahawks in overtime on Thursday night.",
-   "image": "",
-   "teams": [
-    "nfl:26",
-    "nfl:7"
-   ]
-  },
-  {
    "title": "Jonathon Cooper: Nobody's perfect, but no excuses; I do hold myself accountable",
    "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/jonathon-cooper-nobodys-perfect-but-no-excuses-i-do-hold-myself-accountable",
    "source": "Pro Football Talk",
@@ -1249,29 +1308,6 @@
    "teams": [
     "nfl:7"
    ]
-  },
-  {
-   "title": "Vikings-Colts First Injury Report",
-   "url": "https://sports.yahoo.com/articles/vikings-colts-first-injury-report-231510226.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-21T23:15:10Z",
-   "summary": "The Minnesota Vikings and Indianapolis Colts released their first injury reports in advance of their Sunday afternoon matchup at U.S. Bank Stadium. Here they are. Minnesota Vikings Indianapolis…",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/27ee09d02ef3d6160b0f877294aa5093.jpg",
-   "teams": [
-    "nfl:11",
-    "nfl:16"
-   ]
-  },
-  {
-   "title": "NFL fines Mike Vrabel, Aaron Glenn, Nick Sirianni $250,000 each for conduct toward officials",
-   "url": "https://sports.yahoo.com/articles/nfl-fines-mike-vrabel-aaron-231048361.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-21T23:10:48Z",
-   "summary": "Fines are currently being held in abeyance, and could be repealed.",
-   "image": "",
-   "teams": []
   },
   {
    "title": "Josh Jacobs: I'm just trying to play ball, learn from this mistake and move forward",
@@ -1320,41 +1356,6 @@
    "image": "https://on3static.com/cdn-cgi/image/height=630,width=1200,quality=90,fit=cover/uploads/dev/assets/cms/2026/10/21174716/2026-10-18T065915Z_219349916_MT1USATODAY30121462_RTRMADP_3_NCAA-FOOTBALL-NEBRASKA-AT-OREGON-1.jpg",
    "teams": [
     "cfb:2483"
-   ]
-  },
-  {
-   "title": "NFL Playoff Picture Week 7: All 4 NFC North teams are in the field for now",
-   "url": "https://sports.yahoo.com/nfl/article/nfl-playoff-picture-week-7-all-4-nfc-north-teams-are-in-the-field-for-now-224354556.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-21T22:43:54Z",
-   "summary": "Here is the current playoff field entering Week 7, listed by divisional seed.",
-   "image": "https://d29szjachogqwa.cloudfront.net/images/user-uploaded/sm-102026-nfl-playoffpicture-week-6_0586.jpg",
-   "teams": []
-  },
-  {
-   "title": "J.J. McCarthy on feeling more ready to start: Experience does wonders",
-   "url": "https://sports.yahoo.com/articles/j-j-mccarthy-feeling-more-223823144.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-21T22:38:23Z",
-   "summary": "McCarthy will make his first start for the Giants this week.",
-   "image": "",
-   "teams": [
-    "nfl:19"
-   ]
-  },
-  {
-   "title": "Josh Jacobs says he's 'remorseful' as he returns to Packers following arrest, ongoing NFL investigation",
-   "url": "https://sports.yahoo.com/nfl/article/josh-jacobs-says-hes-remorseful-as-he-returns-to-packers-following-arrest-ongoing-nfl-investigation-223655120.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-21T22:36:55Z",
-   "summary": "Jacobs is eligible to play in Week 7 against the Lions.",
-   "image": "",
-   "teams": [
-    "nfl:9",
-    "nfl:8"
    ]
   },
   {
@@ -1416,6 +1417,19 @@
    "summary": "Last week saw no shortage of upsets as part of a wild Week 7 slate. It’s now on to Week 8 as college football enters its final stretch, and the announcer schedule is in place for some of the biggest…",
    "image": "https://on3static.com/cdn-cgi/image/height=630,width=1200,quality=90,fit=cover/uploads/dev/assets/cms/2026/10/20153043/TV-coaches-afi.png",
    "teams": []
+  },
+  {
+   "title": "Former Cowboys DB, Broncos scout Cornell Green dies at 86",
+   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/former-cowboys-db-broncos-scout-cornell-green-dies-at-86",
+   "source": "Pro Football Talk",
+   "league": "nfl",
+   "published": "2026-10-21T21:08:52Z",
+   "summary": "The Cowboys announced that former defensive back Cornell Green died Wednesday.",
+   "image": "https://nbcsports.brightspotcdn.com/dims4/default/3b89825/2147483647/strip/false/crop/3000x1688+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2Fe9%2Fb1%2F05516daa44398b8dc3700b9bbef7%2F80288980.jpg",
+   "teams": [
+    "nfl:6",
+    "nfl:7"
+   ]
   },
   {
    "title": "Jameis Winston on losing his starting job: I understand where I am now",
@@ -2006,18 +2020,6 @@
     "nfl:26",
     "nfl:12",
     "nfl:3"
-   ]
-  },
-  {
-   "title": "Maryland names Aazaar Abdul-Rahim as interim head coach",
-   "url": "https://on3.com/news/maryland-names-aazaar-abdul-rahim-as-interim-head-coach/",
-   "source": "On3",
-   "league": "cfb",
-   "published": "2026-10-21T15:53:38Z",
-   "summary": "Maryland has named Aazaar Abdul-Rahim as its interim coach for the remainder of the 2026 season, On3’s Pete Nakos reports. Abdul-Rahim takes over for former head coach Mike Locksley, who was fired…",
-   "image": "https://on3static.com/cdn-cgi/image/height=630,width=1200,quality=90,fit=cover/uploads/dev/assets/cms/2026/10/21105310/Aazaar-Abdul-Rahim.png",
-   "teams": [
-    "cfb:120"
    ]
   },
   {
