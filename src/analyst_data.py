@@ -79,6 +79,43 @@ def nfl_status():
     return {"injury_week": wk, "teams": out}
 
 
+def _load(*path):
+    with open(os.path.join(DATA, *path), encoding="utf-8") as f:
+        return json.load(f)
+
+
+def extras():
+    """The site's other lists, so the page can cite more than yards and EPA: NFL records held by current players,
+    Trade watch, Heisman popularity (the page runs the Heisman model itself) and coaches (score, hot seat, scheme)."""
+    import re
+    out = {}
+    names = {p[1]: p[0] for p in _load("players_nfl.json")}
+    rec = _load("nfl", "records.json")
+    out["records"] = {names.get(pid, pid): rows for pid, rows in rec["players"].items()}
+    tw = _load("nfl", "trade_watch.json")
+    abbr = {t["id"]: a for a, t in tw["teams"].items()}
+    out["trade_watch"] = {"updated": tw["updated"], "deadline": tw["deadline"], "players": [
+        {"name": p["name"], "pos": p["pos"], "team": abbr.get(p["team"].split(":")[-1], p["team"]), "score": p["score"], "tier": p.get("tier"),
+         "why": p.get("why", []), "best_fits": [f[:2] for f in p.get("fits", [])[:3]], "trade_headlines_2wk": p.get("talk", 0),
+         "latest_headline": (p.get("story") or [None])[0]} for p in tw["players"][:40]]}
+    bz = _load("cfb", "heisman_buzz.json")
+    out["heisman_buzz"] = {"season": bz["season"], "views": bz["views"]}
+    prof = _load("coach_profile.json")["coaches"]
+    co = _load("coaches.json")
+    out["coaches"] = {}
+    for lg in ("nfl", "cfb"):
+        for c in co[lg]["coaches"]:
+            if not c.get("on"):
+                continue
+            p = prof.get(re.sub(r"[^a-z0-9]+", "-", c["n"].lower()).strip("-"), {})
+            car, sc = c.get("c", {}), p.get("scheme", {})
+            out["coaches"][f"{lg}:{c['tm']}"] = {"coach": c["n"], "career": f"{car.get('w', 0)}-{car.get('l', 0)}", "years": car.get("yrs"),
+                "coach_score": car.get("score"), "coach_rank": car.get("rk"), "hot_seat": (c.get("hs") or {}).get("lab"), "hot_seat_why": (c.get("hs") or {}).get("why"),
+                "background": (p.get("bg") or {}).get("lab"), "tags": [t[0] for t in sc.get("tags", [])],
+                "tendencies": [[s[1], s[2], s[3], f"{s[5]} of {s[6]}"] for s in sc.get("stats", [])]}
+    return out
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     out = {lg: rankings(lg) for lg in ("nfl", "cfb")}
@@ -99,6 +136,11 @@ def main():
             out["site"][k] = fn()
         except Exception as e:
             print(f"  ! site tab {k} unavailable ({e})")
+    try:
+        out["extra"] = extras()
+    except Exception as e:  # a missing file just means the page's "extras" lookup says it has none
+        print(f"  ! extras unavailable ({e})")
+        out["extra"] = {}
     try:
         out["status"] = {"nfl": nfl_status()}
     except Exception as e:  # nflverse down: the page just says it has no injury/depth data

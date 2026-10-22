@@ -152,7 +152,8 @@ select { font: 13px var(--mono); background: var(--bg); color: var(--fg); border
   </section>
 
   <section class="card" id="hist-wrap">
-    <details><summary>Recent checks on this device</summary><div class="hist" id="hist"></div></details>
+    <details><summary>Recent checks on this device</summary><div class="hist" id="hist"></div>
+      <div class="row"><button type="button" id="hist-copy">Copy my recent checks</button><span class="note" id="hist-note"></span></div></details>
   </section>
 </div>
 
@@ -216,6 +217,29 @@ const RATES = {
   blitz_epa_per_dropback: ["EPA per dropback vs the blitz", ["bz_epa"], ["bz_db"], 1, 3],
   bad_throw_pct: ["bad throw % (PFR)", ["bad_throws"], ["att"], 100, 1],
   pen_per_100_snaps: ["penalties per 100 snaps", ["pen"], ["snaps"], 100, 1],
+  // the deeper cuts (same columns as Stats > Visualize), so a check can reach past yards and EPA
+  cpoe: ["completion % over expected (CPOE)", ["cpoe_sum"], ["cpoe_n"], 1, 1],
+  clutch_epa_per_dropback: ["EPA per dropback in the clutch (4th quarter, one-score game)", ["clutch_epa"], ["clutch_db"], 1, 3],
+  rz_td_pct: ["red zone TD % (passing)", ["rz_pass_td"], ["rz_att"], 100, 1],
+  big_pass_pct: ["20+ yard completions per 100 attempts", ["pass_20"], ["att"], 100, 1],
+  scramble_ypa: ["yards per scramble", ["scr_yds"], ["scr"], 1, 1],
+  rush_10_pct: ["10+ yard runs, % of carries", ["rush_10"], ["carries"], 100, 1],
+  rush_stuffed_pct: ["runs stuffed at or behind the line, %", ["rush_stuffed"], ["carries"], 100, 1],
+  rush_fd_pct: ["first downs per carry, %", ["rush_fd"], ["carries"], 100, 1],
+  short_yardage_conv_pct: ["short-yardage conversion % (3rd/4th and 1-2)", ["sy_conv"], ["sy_carries"], 100, 1],
+  goal_line_td_pct: ["goal-line TD %", ["gl_td"], ["gl_carries"], 100, 1],
+  broken_tackles_per_100_touches: ["broken tackles per 100 touches", ["rush_btk", "rec_btk"], ["carries", "rec"], 100, 1],
+  drop_pct: ["drop % (of targets)", ["drops"], ["targets"], 100, 1],
+  rec_fd_per_target: ["first downs per target, %", ["rec_fd"], ["targets"], 100, 1],
+  third_down_catch_conv_pct: ["3rd-down conversion % when targeted", ["third_conv"], ["third_tgt"], 100, 1],
+  deep_target_share: ["deep targets (20+ air yds), % of targets", ["deep_tgt"], ["targets"], 100, 1],
+  cov_yac_per_catch: ["YAC allowed per catch in coverage", ["cov_yac"], ["cov_cmp"], 1, 1],
+  run_stop_pct: ["run stops, % of his run tackles", ["run_stop"], ["run_tkl"], 100, 1],
+  ol_pressure_pct: ["pressure % with him on the field (OL)", ["ol_pr"], ["ol_db"], 100, 1],
+  ol_sack_pct: ["sack % with him on the field (OL)", ["ol_sk"], ["ol_db"], 100, 1],
+  ol_run_ypc: ["yards per run with him on the field (OL)", ["ol_ryds"], ["ol_run"], 1, 2],
+  fg_50_pct: ["field goal % from 50+", ["fgm_50_59", "fgm_60_"], ["fga_50_59", "fga_60_"], 100, 1],
+  punt_net_avg: ["net yards per punt", ["pt_net"], ["pt_att"], 1, 1],
 };
 // passer rating (NFL formula) from a player's sums; prefix "bz_" = his throws vs the blitz
 function passerRating(S, pre = "") {
@@ -243,10 +267,40 @@ const TEAM_RATES = {
   yac_per_catch_allowed: ["yards after catch allowed per catch", ["opp_yac"], ["opp_cmp"], 1, 2],
   blitz_rate: ["blitz rate, % of dropbacks (FTN charting)", ["blitz_db"], ["ftn_db"], 100, 1],
   missed_tackles_pg: ["missed tackles per game (PFR charting)", ["miss_tkl"], ["games"], 1, 1],
+  proe: ["pass rate over expected (points)", ["proe_sum"], ["proe_n"], 1, 1],
+  team_cpoe: ["completion % over expected (CPOE)", ["cpoe_sum"], ["cpoe_n"], 1, 1],
+  pts_per_drive: ["points per drive", ["pts"], ["drives"], 1, 2], drive_score_pct: ["drives ending in a score, %", ["drive_scores"], ["drives"], 100, 1],
+  plays_per_drive: ["plays per drive", ["drive_plays"], ["drives"], 1, 1],
+  fourth_down_go_conv_pct: ["4th-down conversion % (going for it)", ["go4_conv"], ["go4_att"], 100, 1],
+  fourth_down_tries_pg: ["4th-down tries per game", ["go4_att"], ["games"], 1, 2],
+  opp_fourth_down_conv_pct: ["opponents' 4th-down conversion % (lower is better)", ["dgo4_conv"], ["dgo4_att"], 100, 1],
+  big_pass_rate: ["20+ yard completions per 100 attempts", ["pass_20"], ["att"], 100, 1],
+  big_run_rate: ["20+ yard runs per 100 carries", ["rush_20"], ["carries"], 100, 1],
+  shotgun_pct: ["shotgun, % of plays", ["sg"], ["o_plays"], 100, 1], no_huddle_pct: ["no-huddle, % of plays", ["nh"], ["o_plays"], 100, 1],
+  pen_pg: ["penalties per game", ["pen"], ["games"], 1, 1], pen_yds_pg: ["penalty yards per game", ["pen_yds"], ["games"], 1, 1],
+  two_pt_conv_pct: ["2-point conversion %", ["two_conv"], ["two_att"], 100, 1],
+  team_fg_pct: ["field goal %", ["fg_made"], ["fg_att"], 100, 1],
+  sacks_allowed_pg: ["sacks allowed per game", ["sacked"], ["games"], 1, 2],
+  cfb_rush_epa_per_play: ["rush EPA per play", ["rush_epa"], ["rush_plays"], 1, 3], cfb_pass_epa_per_play: ["pass EPA per play", ["pass_epa"], ["pass_plays"], 1, 3],
 };
 const LOWER_BETTER = new Set(["int", "int_pct", "sacked", "sack_pct", "fum_lost", "opp_pts", "opp_ppg", "def_epa_per_play", "cfb_def_epa_per_play", "cfb_def_success_pct", "opp_pass_yds", "opp_rush_yds", "opp_yds", "opp_epa", "pen", "pen_yds", "cov_cmp_pct_allowed", "cov_yds_per_target", "cov_yds", "cov_td", "missed_tackle_pct", "miss_tkl",
   "pressured_pct", "qb_pressured", "bad_throw_pct", "bad_throws", "pen", "pen_yds", "pen_per_100_snaps", "bz_int", "bz_sk",
-  "short_ypt_allowed", "opp_short_yds", "deep_cmp_pct_allowed", "opp_deep_yds", "opp_deep_cmp", "cmp_pct_allowed", "yac_per_catch_allowed", "opp_yac", "missed_tackles_pg"]);
+  "short_ypt_allowed", "opp_short_yds", "deep_cmp_pct_allowed", "opp_deep_yds", "opp_deep_cmp", "cmp_pct_allowed", "yac_per_catch_allowed", "opp_yac", "missed_tackles_pg",
+  "rush_stuffed_pct", "drop_pct", "drops", "cov_yac_per_catch", "ol_pressure_pct", "ol_sack_pct", "opp_fourth_down_conv_pct", "pen_pg", "pen_yds_pg", "sacks_allowed_pg"]);
+// what each kind of player (or a team) can be judged on, grouped for the stat_menu lookup. Names are leaderboard /
+// scatter_data stats; the point is to give Claude more than yards, touchdowns and EPA to reach for.
+const MENU = {
+  QB: { "Accuracy": ["cmp_pct", "cpoe", "bad_throw_pct", "deep_cmp_pct"], "Efficiency": ["epa_per_dropback", "ypa", "passer_rating", "td_pct", "int_pct"], "Big plays": ["big_pass_pct", "pass_20", "pass_40"], "Situational": ["third_down_conv_pct", "rz_td_pct", "clutch_epa_per_dropback", "wpa"], "Pressure and blitz": ["pressured_pct", "sack_pct", "blitzed_pct", "blitz_cmp_pct", "blitz_ypa", "blitz_epa_per_dropback", "passer_rating_vs_blitz"], "Legs": ["rush_yds", "scr", "scramble_ypa", "rush_fd"], "Ball security": ["int", "fum", "tgt_int"] },
+  RB: { "Efficiency": ["ypc", "rush_epa_per_carry", "rush_success_pct", "rush_fd_pct"], "Explosive": ["rush_10_pct", "rush_20", "rush_40"], "Tough yards": ["broken_tackles_per_100_touches", "rush_btk", "rush_stuffed_pct", "short_yardage_conv_pct", "goal_line_td_pct"], "Receiving": ["rec", "rec_yds", "yds_per_target", "yac_per_rec", "rec_fd_per_target"], "Ball security": ["fum", "fum_lost_all"] },
+  WR: { "Efficiency": ["yds_per_target", "rec_epa_per_target", "catch_pct", "rec_fd_per_target"], "Role": ["targets", "adot", "deep_target_share", "air_yds"], "After the catch": ["yac_per_rec", "rec_btk", "broken_tackles_per_100_touches"], "Hands": ["drop_pct", "drops"], "Situational": ["third_down_catch_conv_pct", "rz_rec_td", "rec_20", "rec_40"] },
+  OL: { "Discipline": ["pen", "pen_per_100_snaps", "pn_hold", "pn_fs"], "His line's results with him on the field": ["ol_pressure_pct", "ol_sack_pct", "ol_run_ypc"], "Workload": ["snaps"] },
+  DEF: { "Pass rush": ["pressure", "def_sacks", "qb_hits", "hurry", "blitz", "third_sacks"], "Run defense": ["run_stop", "run_stop_pct", "stuff", "tfl", "sy_stop"], "Coverage": ["cov_tgt", "cov_cmp_pct_allowed", "cov_yds_per_target", "cov_yac_per_catch", "cov_int", "pd"], "Tackling": ["tackles", "missed_tackle_pct", "miss_tkl"], "Splash": ["def_int", "ff", "def_td", "third_stop", "rz_stop"], "Discipline": ["pen", "pn_dpi", "pn_dhold", "pn_ur"] },
+  K: { "Kicking": ["fg_pct", "fg_50_pct", "mx_fg_long", "gwfg_made", "pat_made"], "Punting": ["punt_net_avg", "pt_in20", "pt_tb"] },
+  TEAMS: { "Scoring": ["ppg", "opp_ppg", "margin_pg", "pts_per_drive", "drive_score_pct"], "Efficiency": ["epa_per_play", "def_epa_per_play", "yds_per_play", "cfb_success_pct", "cfb_def_success_pct", "cfb_rush_epa_per_play", "cfb_pass_epa_per_play"], "Style": ["proe", "shotgun_pct", "no_huddle_pct", "plays_per_drive", "blitz_rate"], "Explosive": ["big_pass_rate", "big_run_rate"], "Situational": ["third_down_pct", "fourth_down_go_conv_pct", "fourth_down_tries_pg", "opp_fourth_down_conv_pct", "two_pt_conv_pct"], "Pass defense": ["cmp_pct_allowed", "short_ypt_allowed", "deep_cmp_pct_allowed", "yac_per_catch_allowed", "sacks_pg"], "Mistakes": ["turnover_margin", "pen_pg", "pen_yds_pg", "sacks_allowed_pg", "missed_tackles_pg"], "Accuracy": ["team_cpoe", "pass_ypa", "ypc"], "Kicking": ["team_fg_pct"] },
+};
+MENU.TE = MENU.WR;
+// the "usual" stats every check reaches for; at least one stat outside these per check
+const USUAL = new Set(["pass_yds", "pass_td", "rush_yds", "rush_td", "rec_yds", "rec_td", "rec", "int", "epa_per_dropback", "epa_per_play", "def_epa_per_play", "rush_epa_per_carry", "rec_epa_per_target", "ppg", "opp_ppg", "record", "rank", "rating", "tackles", "def_sacks", "ypa", "ypc", "cmp_pct"]);
 function rate(sum, def) {
   const add = (keys) => keys.reduce((a, k) => a + (k[0] === "-" ? -(sum[k.slice(1)] || 0) : sum[k] || 0), 0);
   const den = def[2].length ? add(def[2]) : 1;
@@ -279,7 +333,7 @@ function aggPlayers(D, a) { // pid -> {sum, games, teams}
     let o = out.get(r[0]);
     if (!o) out.set(r[0], (o = { sum: {}, games: 0, teams: new Set() }));
     o.games++; o.teams.add(r[2]);
-    for (let i = 0; i < cols.length; i++) { const v = r[i + 3]; if (v) o.sum[cols[i]] = (o.sum[cols[i]] || 0) + v; }
+    for (let i = 0; i < cols.length; i++) { const v = r[i + 3]; if (v) o.sum[cols[i]] = cols[i].startsWith("mx_") ? Math.max(o.sum[cols[i]] || 0, v) : (o.sum[cols[i]] || 0) + v; } // mx_ = season high (longest kick)
   }
   return out;
 }
@@ -290,7 +344,7 @@ function aggTeams(D, a) {
     let o = out.get(r[0]);
     if (!o) out.set(r[0], (o = { sum: { games: 0 }, w: 0, l: 0, t: 0, games: [] }));
     o.sum.games++;
-    D.tcols.forEach((c, i) => { const v = r[i + 3]; if (v) o.sum[c] = (o.sum[c] || 0) + v; });
+    D.tcols.forEach((c, i) => { const v = r[i + 3]; if (v) o.sum[c] = c.startsWith("mx_") ? Math.max(o.sum[c] || 0, v) : (o.sum[c] || 0) + v; });
     const p = r[D.ti.pts], q = r[D.ti.opp_pts];
     p > q ? o.w++ : p < q ? o.l++ : o.t++;
     o.games.push({ wk: r[1], opp: D.teams[r[2]]?.[0] || r[2], score: `${p}-${q}`, res: p > q ? "W" : p < q ? "L" : "T" });
@@ -351,8 +405,12 @@ const TOOLS = [
       if (me.sum.att) rates.passer_rating = passerRating(me.sum);
       if (me.sum.bz_att) rates.passer_rating_vs_blitz = passerRating(me.sum, "bz_");
       // ranks among the same position (players with at least half the games of the busiest one)
-      const KEYS = { QB: ["pass_yds", "pass_td", "int", "cmp_pct", "ypa", "epa_per_dropback", "rush_yds", "sack_pct", "pressured_pct", "blitz_ypa"], OL: ["snaps", "pen", "pen_per_100_snaps"], RB: ["rush_yds", "rush_td", "ypc", "rush_epa_per_carry", "rec_yds", "ppr"], WR: ["rec", "rec_yds", "rec_td", "targets", "yds_per_target", "catch_pct"], TE: ["rec", "rec_yds", "rec_td", "yds_per_target"], K: ["fg_made", "fg_pct"] };
-      const keys = KEYS[grp] || ["tackles", "def_sacks", "tfl", "qb_hits", "pd", "def_int", "pressure", "run_stop"];
+      const KEYS = { QB: ["pass_yds", "pass_td", "int", "cmp_pct", "cpoe", "ypa", "epa_per_dropback", "td_pct", "big_pass_pct", "third_down_conv_pct", "rz_td_pct", "clutch_epa_per_dropback", "rush_yds", "sack_pct", "pressured_pct", "bad_throw_pct", "blitz_ypa"],
+        OL: ["snaps", "pen", "pen_per_100_snaps", "ol_pressure_pct", "ol_sack_pct", "ol_run_ypc"],
+        RB: ["rush_yds", "rush_td", "ypc", "rush_epa_per_carry", "rush_success_pct", "rush_fd_pct", "rush_10_pct", "rush_stuffed_pct", "broken_tackles_per_100_touches", "short_yardage_conv_pct", "rec_yds", "ppr"],
+        WR: ["rec", "rec_yds", "rec_td", "targets", "yds_per_target", "catch_pct", "adot", "yac_per_rec", "drop_pct", "rec_fd_per_target", "third_down_catch_conv_pct"], K: ["fg_made", "fg_pct", "fg_50_pct", "mx_fg_long", "punt_net_avg"] };
+      KEYS.TE = KEYS.WR;
+      const keys = KEYS[grp] || ["tackles", "def_sacks", "tfl", "qb_hits", "pd", "def_int", "pressure", "hurry", "run_stop", "run_stop_pct", "stuff", "missed_tackle_pct", "cov_cmp_pct_allowed", "cov_yds_per_target", "pen"];
       const peers = [...all.entries()].filter(([id]) => posGroup(D.pmeta[id]) === grp || (!grp && true));
       const maxG = Math.max(...peers.map(([, o]) => o.games));
       const ranks = {};
@@ -550,7 +608,95 @@ const TOOLS = [
       return { season: L.season, after_week: L.week, of: L.teams.length, ...t, facts: all.facts[a.league]?.[t.team] || [] };
     },
   },
+  {
+    name: "stat_menu",
+    description: "Every stat we have for a position (QB RB WR TE OL K, or DEF for any defender) or for teams (position TEAMS), in groups with plain labels. Names work in leaderboard and scatter_data. Use it to find the stat that settles the take, beyond yards, touchdowns and EPA.",
+    inputSchema: { type: "object", properties: { position: { type: "string" }, league: { type: "string", enum: ["nfl", "cfb"] } }, required: ["position"] },
+    async execute(a) {
+      await base();
+      const p = String(a.position).toUpperCase(), key = MENU[p] ? p : ["EDGE", "IDL", "LB", "CB", "S", "DL", "DB"].includes(p) ? "DEF" : p === "TEAM" ? "TEAMS" : null;
+      if (!key) throw new Error(`Positions: ${Object.keys(MENU).join(", ")}`);
+      say(`Looking at every ${key === "TEAMS" ? "team" : key} stat we have`);
+      const lg = String(a.league || "nfl"), D = await load(lg, seasons(lg)[0]), team = key === "TEAMS", rates = team ? TEAM_RATES : RATES;
+      const have = (s) => { // only stats this league's data can actually compute
+        const d = rates[s], cols = team ? D.ti : D.pi;
+        if (d) return [...d[1], ...d[2]].every((c) => c === "games" || cols[c.replace(/^-/, "")] != null);
+        return s === "passer_rating" || s === "passer_rating_vs_blitz" ? !!cols.att : cols[s] != null;
+      };
+      const groups = {};
+      for (const [g, list] of Object.entries(MENU[key])) {
+        const ok = list.filter(have).map((s) => ({ stat: s, label: rates[s]?.[0] || s.replace(/_/g, " "), ...(LOWER_BETTER.has(s) ? { lower_is_better: true } : {}) }));
+        if (ok.length) groups[g] = ok;
+      }
+      return { league: lg, for: key, groups, note: (lg === "cfb" ? "College has box-score stats only; the charting groups are NFL. " : "") + "Pick the stat that answers the take; a fresh angle beats the usual yards and EPA." };
+    },
+  },
+  {
+    name: "site_lists",
+    description: "More of our site's lists. 'coach': a team's head coach (coach score and rank, career record, hot seat and why, background, scheme tags, tendencies like pass rate over expected, play action, motion, blitz rate, man coverage, 4th-down aggression, each ranked). 'records': NFL records a player holds (name). 'trade_watch': NFL Trade watch, players most likely to be traded before the deadline, why, best fits (optional name or team). 'heisman': our Heisman race, college, current season (production weighted by opponent, times team success, popularity and position; optional name).",
+    inputSchema: { type: "object", properties: { list: { type: "string", enum: ["coach", "records", "trade_watch", "heisman"] }, league: { type: "string", enum: ["nfl", "cfb"] }, team: { type: "string" }, name: { type: "string" }, top: { type: "integer" } }, required: ["list"] },
+    async execute(a) {
+      const X = (await base()).extra || {}, top = Math.min(Number(a.top) || 10, 25), q = norm(a.name || a.team || "");
+      if (a.list === "coach") {
+        const lg = String(a.league || "nfl"), D = await load(lg, seasons(lg)[0]), k = teamKey(D, a.team || a.name || "");
+        if (!k) throw new Error(`No ${lg} team matching "${a.team}".`);
+        say(`Checking the ${D.teams[k][0]} coach`);
+        const c = X.coaches?.[`${lg}:${lg === "nfl" ? D.teams[k][1] : D.teams[k][0]}`];
+        if (!c) throw new Error("No coach profile for that team.");
+        return { team: D.teams[k][0], ...c, note: "coach_score 0-100 (career results vs what the roster should have done); tendencies: [label, value, unit, rank among current head coaches' teams]." };
+      }
+      if (a.list === "records") {
+        say(`Checking NFL records${a.name ? " for " + a.name : ""}`);
+        const R2 = X.records || {}, hits = Object.entries(R2).filter(([n]) => q && norm(n).includes(q));
+        if (!q) throw new Error("Pass a player name.");
+        return hits.length ? { players: hits.slice(0, 5).map(([n, r]) => ({ name: n, records: r.map(([rec, v, when]) => ({ record: rec, value: v, when })) })) } : { players: [], note: `${a.name} holds no NFL record in our list (the NFL's official individual records via Wikipedia).` };
+      }
+      if (a.list === "trade_watch") {
+        const T = X.trade_watch;
+        if (!T) throw new Error("No Trade watch snapshot in this data.");
+        say("Checking Trade watch");
+        const list = T.players.map((p, i) => ({ rank: i + 1, ...p }));
+        const hit = q ? list.filter((p) => norm(p.name).includes(q) || norm(p.team) === q || p.best_fits.some((f) => norm(f[0]) === q)) : list;
+        return { updated: T.updated, trade_deadline: T.deadline, how: "score 0-100: team's playoff chance, contract, age, role, value and trade headlines in the last 2 weeks.", players: hit.slice(0, top) };
+      }
+      say(`Running our Heisman race${a.name ? " for " + a.name : ""}`);
+      const rows = await heisman();
+      const out = rows.map((r, i) => ({ rank: i + 1, ...r }));
+      return { season: seasons("cfb")[0], how: "score = production per game vs his position (opponent-weighted, 100 = the 10th best) x team success x popularity (Wikipedia views, 30 days) x position (QB 1.1, RB 0.85).",
+        top: out.slice(0, top), ...(q ? { asked: out.filter((r) => norm(r.name).includes(q)).slice(0, 3) } : {}) };
+    },
+  },
 ];
+
+// our Heisman race, the same model as Stats > Visualize "Heisman score" (docs/viz.js heisGame/hzIdx/hzVoters), current season
+async function heisman() {
+  const s = seasons("cfb")[0], D = await load("cfb", s), X = R.extra?.heisman_buzz;
+  const rat = {};
+  if (R.cfb.season === s) for (const t of R.cfb.teams) rat[norm(t.team)] = t.rating;
+  const RT = (k) => rat[norm(D.teams[k]?.[0])];
+  const bz = (pid) => (X?.season === s ? Math.min(1.25, Math.max(0.8, ((X.views[pid] || 8000) / 50000) ** 0.1)) : 1);
+  const opp = {}, won = {}, TG = {};
+  for (const t of D.trows) { opp[`${t[0]}|${t[1]}`] = t[2]; won[`${t[0]}|${t[1]}`] = t[3] > t[4] ? 1 : t[3] === t[4] ? 0.5 : 0; TG[t[0]] = (TG[t[0]] || 0) + 1; }
+  const v = (r, c) => r[D.pi[c]] || 0, P = {};
+  for (const r of D.prows) {
+    const o = opp[`${r[2]}|${r[1]}`], m = o == null ? 1 : RT(o) == null ? 0.5 : Math.min(1.4, Math.max(0.6, 1 + RT(o) / 40));
+    const td = v(r, "rush_td") + v(r, "rec_td"), q = v(r, "pass_yds") + v(r, "rush_yds") + 20 * (v(r, "pass_td") + td) - 45 * v(r, "int"), x = v(r, "rush_yds") + v(r, "rec_yds") + 20 * td;
+    const S = P[r[0]] || (P[r[0]] = { g: 0, team: r[2], hq: 0, ho: 0, w: 0, rt: 0, bz: 0, att: 0, carries: 0, rec: 0 });
+    S.g++; S.team = r[2]; S.hq += q * m; S.ho += x * m; S.w += won[`${r[2]}|${r[1]}`] ?? 0; S.rt += RT(r[2]) ?? -15; S.bz += bz(r[0]);
+    S.att += v(r, "att"); S.carries += v(r, "carries"); S.rec += v(r, "rec");
+  }
+  const pos = (S) => (S.att >= 8 * S.g ? "QB" : S.carries > 0 && S.carries >= 2 * S.rec ? "RB" : "WR");
+  const prod = (S) => (pos(S) === "QB" ? S.hq : S.ho) / S.g;
+  const L = {};
+  for (const S of Object.values(P)) if (S.g >= (TG[S.team] || S.g) / 2) (L[pos(S)] ||= []).push(prod(S));
+  const tenth = {};
+  for (const p in L) tenth[p] = Math.max(1, L[p].sort((x, y) => y - x)[Math.min(9, L[p].length - 1)] || 1);
+  return Object.entries(P).map(([pid, S]) => {
+    const p = pos(S), idx = (100 * prod(S) * Math.sqrt(Math.min(1, S.g / (TG[S.team] || S.g)))) / (tenth[p] || 1);
+    const voters = (0.5 + 0.7 * (S.w / S.g) ** 2) * (1 + S.rt / S.g / 80) * (S.bz / S.g || 1) * ({ QB: 1.1, RB: 0.85 }[p] || 1);
+    return { name: D.pmeta[pid]?.[0], team: D.teams[S.team]?.[0], pos: p, games: S.g, score: Math.round(idx * voters), production_index: Math.round(idx) };
+  }).filter((x) => x.name && isFinite(x.score)).sort((x, y) => y.score - x.score);
+}
 
 // ------------------------------------------------------------------ the prompt
 function rules() {
@@ -561,9 +707,10 @@ Today is ${new Date().toISOString().slice(0, 10)}. Our data: weekly stats for NF
 NFL extras: offensive linemen (snaps, penalties), penalties for every player, QB pressured % and bad throws (PFR charting), QB splits vs the blitz and team blitz rate (FTN charting), team passing allowed by depth (short = 5 air yards or less, deep = 20+) and YAC allowed, team missed tackles. Not in any free source we use: pressures/sacks allowed by individual linemen, pass-rush snaps, a QB's completions when pressured. Charting services (PFF, TruMedia, NGS) define blitzes and pressures differently, so expect small gaps vs their numbers and say so instead of calling the take wrong over a few percent.
 
 How to work:
-1. Pull out each checkable claim. Use the tools to get the real numbers: find_player before player_stats; leaderboard to put a number in context (rank among peers); team_stats and our_rankings for teams, schedules and cupcake padding; team_status for injuries and starters. Our site's own tabs are worth citing because they're ours: site_tab "injuries" (every team's % healthy; use it for any take about a team being banged up, healthy, or excused by injuries), site_tab "frauds"/"over_achievers" (players vs their weekly projections; use it for "overrated", "bust", "breakout", fantasy takes), player_stats season_pace (the Projected tab; use it for "on pace for" takes), and scatter_data (the Visualize scatter: two stats for every team or the top players at a position in one call). In replies you can name them ("our injury tracker has WAS at 55% healthy, worst in the league"); no links. For "worst/best since <year>" claims use leaderboard with season and season_to. Make several calls in one round when you can.
+1. Pull out each checkable claim. Use the tools to get the real numbers: find_player before player_stats; leaderboard to put a number in context (rank among peers); team_stats and our_rankings for teams, schedules and cupcake padding; team_status for injuries and starters. Our site's own tabs are worth citing because they're ours: site_tab "injuries" (every team's % healthy; use it for any take about a team being banged up, healthy, or excused by injuries), site_tab "frauds"/"over_achievers" (players vs their weekly projections; use it for "overrated", "bust", "breakout", fantasy takes), player_stats season_pace (the Projected tab; use it for "on pace for" takes), scatter_data (the Visualize scatter: two stats for every team or the top players at a position in one call), stat_menu (every stat we have for a position or for teams, grouped), and site_lists ("coach": coach score, hot seat and scheme tendencies; "records": NFL records a player holds; "trade_watch"; "heisman": our Heisman race). In replies you can name them ("our injury tracker has WAS at 55% healthy, worst in the league"); no links. For "worst/best since <year>" claims use leaderboard with season and season_to. Make several calls in one round when you can.
 2. Only state numbers that came from a tool result. Never use numbers from memory. If our data can't answer a claim (contracts, career totals before our seasons, play-by-play detail we don't have, other sports), mark that claim "cant_check" and say what's missing.
 Leaderboard stats: any column name (pass_yds, rush_td, tackles, def_sacks, pressure, pen, snaps, pts, opp_pts, opp_short_yds...) or a rate. Player rates: ${Object.keys(RATES).join(", ")}, passer_rating, passer_rating_vs_blitz. Team rates: ${Object.keys(TEAM_RATES).join(", ")}.
+WIDER STATS: call stat_menu for the position (or TEAMS) in the take early, and pick the stat that settles the claim best, not the most familiar one. Every check must use at least one stat outside the usual set (passing/rushing/receiving yards and touchdowns, EPA, completion %, yards per attempt/carry, record, our rank, tackles, sacks) in its claims or a reply, as long as it's relevant. Good reaches: CPOE, success rate, first-down rate, broken tackles, drops, YAC, depth of target, 3rd down, red zone, clutch, vs the blitz, pressure, run stops, coverage, penalties, the O-line's on-field numbers, 4th-down and pass-rate tendencies, coach tendencies, records, Heisman race, Trade watch.
 3. Look for the classic flaws: tiny sample, cherry-picked week range, counting stat vs rate stat, ignoring opponent quality (use our rankings and cupcake data), ignoring games missed, comparing different positions or eras, correlation sold as cause.
 4. No betting content: no spreads, lines, odds or picks. A win chance from our_rankings is fine.
 
@@ -575,6 +722,7 @@ Reply with ONLY one JSON object, no other text:
  "numbers": [{"label": "Daniels EPA/dropback, 2026", "value": "0.12", "note": "14th of 32 QBs"}],
  "charts": {"agree": CHART or null, "pushback": CHART or null},
  "replies": {"agree": "reply that backs the take with a stat", "pushback": "reply that corrects it with a stat"},
+ "stats_used": ["every stat name you cited, as the tools name it (e.g. cpoe, rush_yds, our_rank)"],
  "data_requests": [{"stat": "the stat we'd need, named plainly (e.g. pressures allowed by offensive linemen)", "kind": "missing_stat" | "data_issue", "why": "which claim needed it and what it would have settled", "where_it_might_come_from": "your best guess at a free source (nflverse, Pro Football Reference via nflverse, CollegeFootballData, ESPN) or 'unknown'"}]}
 
 data_requests: one entry for every claim you marked cant_check because our DATA lacks something (not for opinions or things no stat can settle), plus "data_issue" entries when a tool result looks wrong or incomplete (e.g. a starter showing 1 game or very few snaps). Empty list if nothing was missing.
@@ -585,7 +733,7 @@ Charts: one to post with each reply. "agree" shows the numbers that back the tak
 - scatter (two stats against each other, e.g. EPA per play vs points per game for every team): "points": [{"label": "WAS", "x": 0.05, "y": 24.1, "highlight": true}], 8-32 points, plus "x_label" and "y_label".
 - pie (shares of one whole, e.g. where a team's yards or touchdowns came from): "items" as for bar, 2-8 positive values.
 - radar (a profile of 1-3 players or teams on 4-8 stats): "axes": ["EPA/dropback", "YPA", ...], "series": [{"name": "Daniels", "values": [percentiles 0-100 vs his position, from the ranks you pulled], "highlight": true}].
-Keep labels short (team abbreviations or last names). Replies: aim for under 280 characters so the whole reply shows without "Show more" (Terry has X Premium, so up to 600 is allowed when the receipt truly needs it), no links, no hashtags, tone as set in REPLY TONE below, lead with the number. If the take is plainly right, the pushback reply can add the nuance instead. Keep evidence tight: one or two sentences per claim.
+Keep labels short (team abbreviations or last names). Replies: length as set in REPLY SHAPES below (Terry has X Premium, so up to 600 characters is allowed; past 280, X shows "Show more"), no links, no hashtags, tone as set in REPLY TONE below, shape as set in REPLY SHAPES below (the number stays exact, but it doesn't have to come first). If the take is plainly right, the pushback reply can add the nuance instead. Keep evidence tight: one or two sentences per claim.
 
 WRITING STYLE (headline, evidence, missing and both replies). Write like a sharp fan typing on X, not a press release or a chatbot:
 - Plain words. Never use: delve, crucial, pivotal, robust, seamless, leverage, foster, underscore, bolster, nuanced, comprehensive, landscape, realm, testament, navigate, showcase, highlights, emphasizes, ensures, elevate, game-changer, "plays a key role", "it's worth noting", "when it comes to", "at the end of the day".
@@ -597,7 +745,13 @@ WRITING STYLE (headline, evidence, missing and both replies). Write like a sharp
 - No stacked hedges ("could potentially", "it could be argued"). Commit, or say exactly what our data can't settle.
 - No wrap-up sentence that restates the point, no "Overall", no upbeat closer. Stop when the point is made.
 - Mix short and long sentences. Contractions are fine. No "Great take", no "Let's look at the numbers", no emoji strings, no hashtags.
-- Name the source when you mean one ("PFF has him at...", "our injury tracker has..."), never "it has been noted".`;
+- Name the source when you mean one ("PFF has him at...", "our injury tracker has..."), never "it has been noted".
+- No formal transitions (furthermore, moreover, additionally, consequently, notably, ultimately). Use "also", "but", "so" or nothing.
+- No press-release or marketing words (unlock, empower, cutting-edge, game-changer), no emphasis words for ordinary claims (key, essential, critical), no vague verbs (reflects, enhances, showcases).
+- No both-sides fence sitting. Pick a side and defend it with the number. No positive-spin closer.
+- Specific beats generic: a line that could sit under any take about any player is a bad line. Use a detail only this take has (the opponent, the week, the split).
+- Don't define terms a football fan knows. Don't open by restating the take.
+Your draft is checked by a filter for these after you answer; anything it catches gets sent back for a rewrite.`;
 }
 
 // thread mode: the posts as Terry pasted them (blank line between posts), numbered top to bottom
@@ -682,12 +836,115 @@ function toneRule() {
     : s ? "Sarcastic: deadpan and mock-sincere, the joke comes from the specific thing the take ignores (the games he missed, the soft schedule, the 2-week sample). Roast the take, never the person."
     : h ? "Funny, not mean: a light joke, playful comparison or football reference built from this take's details and wrapped around the number."
     : "Straight: confident and a little dry, no jokes.";
-  // recent drafts (this device): their openings go in the prompt so new replies don't start the same way
-  const recent = (store.get("analyst-history") || []).slice(0, 8).flatMap((x) => [x.res?.replies?.agree, x.res?.replies?.pushback])
-    .filter(Boolean).map((r) => r.split(/\s+/).slice(0, 7).join(" "));
-  return `REPLY TONE (applies to the two reply drafts only; verdict, claims, evidence and numbers stay plain and exact): ${tone} The number still comes first and stays exactly right. No insults about anyone's looks, family or identity, no slurs, nothing a brand account would regret.
-NO STOCK REPLY LINES: never use "bold" in any form (bold take, bold strategy, bold claim), "hot take", "spicy", "interesting take", "respectfully", "let's be real", "the numbers say otherwise", "the receipts", "imagine", "tell me you... without telling me", "not the flex you think", or a cupcake/bakery joke unless the take is about a soft schedule. Write each reply fresh from this take's specifics. The two drafts must open differently: different first word, different sentence shape.`
-    + (recent.length ? `\nRecent replies Terry already has started like this. Don't reuse these openings or their signature phrases:\n${recent.map((r) => "- " + r + "...").join("\n")}` : "");
+  return `REPLY TONE (applies to the two reply drafts only; verdict, claims, evidence and numbers stay plain and exact): ${tone} The numbers stay exactly right. No insults about anyone's looks, family or identity, no slurs, nothing a brand account would regret.
+NO STOCK REPLY LINES: never use "bold" in any form (bold take, bold strategy, bold claim), "hot take", "spicy", "interesting take", "respectfully", "let's be real", "the numbers say otherwise", "the receipts", "imagine", "tell me you... without telling me", "not the flex you think", or a cupcake/bakery joke unless the take is about a soft schedule. Write each reply fresh from this take's specifics. The two drafts must open differently: different first word, different sentence shape.`;
+}
+
+// ------------------------------------------------------------------ variety: reply shapes, a repeat filter, stat steering
+// Replies kept sounding alike because every one had the same shape (number, then the jab) and the same few stats. The
+// page (not Claude) picks a shape for each draft, bans 3-word phrases Terry's recent replies already used, and steers
+// away from the stats the last few checks leaned on. All of it is remembered on this device only.
+const SHAPES = {
+  compare: "Open with a comparison to one named peer (player or team) on the same stat, then say what it means for the take.",
+  rank: "Open with where they rank and out of how many, then one detail that explains the rank.",
+  drop: "One or two short sentences, under 160 characters total: the single most telling number, then a flat opinion.",
+  skipped: "Open with the thing the take left out (the opponents, the games missed, the split, the sample), then the number that shows it.",
+  story: "Two or three sentences that walk through how it changed over the weeks or seasons (a trend or a turning point), with the number landing in the last sentence.",
+  split: "Open with a split that changes the picture (on 3rd down, in the red zone, vs the blitz, the last few games vs the first few, vs good teams), then the overall number for contrast.",
+  concede: "Grant one part of the take with a number, then turn it with a second, different number.",
+  context: "Open with the situation around the number (schedule strength, injuries, the coach's tendencies, the role), then the number.",
+};
+const LENGTHS = { short: "a short burn, under 120 characters (one number, one line)", normal: "a normal reply, about 150-280 characters", long: "a longer reply, 280-500 characters, only because it carries two or three numbers that need the room" };
+function pickShapes() {
+  const last = store.get("analyst-shapes") || [];
+  const pool = Object.keys(SHAPES).filter((k) => !last.includes(k)).sort(() => Math.random() - 0.5);
+  // length too, so the drafts don't all land near 280: a short burn, a normal reply, or a long one with room for the numbers
+  const len = () => { const r = Math.random(); return r < 0.35 ? "short" : r < 0.8 ? "normal" : "long"; };
+  const L = (k) => (k === "drop" ? "short" : len()); // the one-line stat drop is short by nature
+  return { agree: pool[0], pushback: pool[1], agree_len: L(pool[0]), pushback_len: L(pool[1]) };
+}
+// the last 30 reply drafts (this device). Old checks saved before this list existed are folded in once.
+function replyBank() {
+  let bank = store.get("analyst-replies");
+  if (!bank) {
+    bank = (store.get("analyst-history") || []).flatMap((x) => [x.res?.replies?.agree, x.res?.replies?.pushback]).filter(Boolean);
+    store.set("analyst-replies", bank);
+  }
+  return bank;
+}
+const STOP = new Set("a an the and or but of to in on at for with by from is are was were be been his her their its this that it he she they we you i as so if than then just not no has have had do does did".split(" "));
+const words = (t) => norm(t).split(" ").filter(Boolean);
+function grams(t, n = 3) {
+  const w = words(t), out = new Set();
+  for (let i = 0; i + n <= w.length; i++) {
+    const g = w.slice(i, i + n);
+    if (g.every((x) => STOP.has(x)) || g.some((x) => /\d/.test(x))) continue; // all filler, or a number (numbers change)
+    out.add(g.join(" "));
+  }
+  return out;
+}
+// 3-word phrases that showed up in more than one recent reply, most used first
+function repeats(bank = replyBank()) {
+  const c = new Map();
+  for (const r of bank) for (const g of grams(r)) c.set(g, (c.get(g) || 0) + 1);
+  return [...c].filter(([, n]) => n > 1).sort((a, b) => b[1] - a[1]).map(([g, n]) => [g, n]);
+}
+// the LLM Writing Tendencies note, as checks the page can run on a draft
+const BANNED = ["delve", "crucial", "pivotal", "robust", "seamless", "seamlessly", "leverage", "foster", "underscore", "underscores", "bolster", "intricate", "multifaceted", "nuanced", "comprehensive", "holistic", "landscape", "realm", "tapestry", "ever-evolving", "testament", "navigate", "embark", "showcase", "showcases", "highlights", "emphasizes", "ensures", "enhances", "elevate", "unlock", "empower", "game-changer", "cutting-edge", "truly", "incredibly", "significantly", "remarkably", "fundamentally", "profoundly", "furthermore", "moreover", "additionally", "consequently", "notably", "ultimately", "overall", "bold", "spicy", "respectfully", "receipts"];
+const BANNED_RE = new RegExp(`\\b(${BANNED.join("|")})\\b`, "i");
+const PATTERNS = [
+  [/[—]|\s–\s/, "an em dash"],
+  [/\bnot (just|only)\b[^.]{0,60}\b(but|it'?s|it is)\b/i, "a \"not just X, it's Y\" setup"],
+  [/\bisn'?t about\b[^.]{0,60}\bit'?s about\b/i, "an \"isn't about X, it's about Y\" setup"],
+  [/\bwhether you'?re\b/i, "a \"whether you're\" line"],
+  [/,\s*(highlighting|showcasing|underscoring|proving|ensuring|signaling|reflecting|cementing|showing that)\b/i, "a trailing -ing clause"],
+  [/\b(could potentially|it could be argued|may often|generally tends)\b/i, "stacked hedging"],
+  [/\b(it is widely believed|it has been noted|it'?s worth noting|it is important to note|when it comes to|at the end of the day|plays a (key|vital|crucial) role|in today'?s)\b/i, "a stock filler phrase"],
+  [/\b(the result|here'?s the thing|the truth|the reality|bottom line|the kicker|the catch|translation|spoiler)\s*:/i, "a colon reveal"],
+  [/\?\s+[A-Za-z]/, "a rhetorical question answered right after"],
+  [/\b(great|interesting|hot) take\b|\blet'?s (be real|look)\b|\bthe numbers say otherwise\b|\bnot the flex\b/i, "a stock reply line"],
+];
+function styleIssues(t, banned) {
+  const out = [], m = String(t || "").match(BANNED_RE);
+  if (m) out.push(`uses "${m[1]}"`);
+  for (const [re, what] of PATTERNS) if (re.test(t || "")) out.push(`has ${what}`);
+  const g = grams(t);
+  const hit = banned.filter(([x]) => g.has(x)).map(([x]) => `"${x}"`);
+  if (hit.length) out.push(`repeats ${hit.slice(0, 4).join(", ")} from recent replies`);
+  return out;
+}
+// stats the last few checks leaned on (from the answer's stats_used, or the lookups it ran)
+function recentStats() {
+  const c = new Map();
+  for (const x of (store.get("analyst-history") || []).slice(0, 5)) for (const s of x.stats || []) c.set(s, (c.get(s) || 0) + 1);
+  return [...c].sort((a, b) => b[1] - a[1]).map(([s]) => s).slice(0, 12);
+}
+function varietyRule(shapes) {
+  const bad = repeats().slice(0, 40).map(([g]) => g), used = recentStats();
+  return `REPLY SHAPES (the page picked these; follow them, don't swap them):
+- "agree" draft: ${SHAPES[shapes.agree]}
+- "pushback" draft: ${SHAPES[shapes.pushback]}
+Length: "agree" ${LENGTHS[shapes.agree_len || "normal"]}; "pushback" ${LENGTHS[shapes.pushback_len || "normal"]}. These are targets, not quotas: if a short burn lands harder than the target, go short, and if the receipts truly need more room, go long. Never pad a reply to fill space.`
+    + (bad.length ? `\nBANNED PHRASES (Terry's recent replies already used each of these more than once; don't use any of them or a close variant):\n${bad.join(" | ")}` : "")
+    + (used.length ? `\nSTATS THE LAST FEW CHECKS LEANED ON: ${used.join(", ")}. Lead with something else this time when another stat can make the point; use these only when the take is about them.` : "");
+}
+// one automatic rewrite when a draft breaks the style rules or repeats a phrase; never loops
+async function polish(res, banned, signal) {
+  const rp = res.replies || {}, issues = {};
+  for (const k of ["agree", "pushback"]) { const i = rp[k] ? styleIssues(rp[k], banned) : []; if (i.length) issues[k] = i; }
+  const a = words(rp.agree)[0], b = words(rp.pushback)[0];
+  if (a && a === b) (issues.pushback ||= []).push(`opens with the same word as the other draft ("${a}")`);
+  if (!Object.keys(issues).length) return null;
+  const fix = await sample.json(`You wrote these two X reply drafts for @CupcakeIndex. A style filter caught problems. Rewrite ONLY the flagged drafts. Keep every number, name and fact exactly, keep the same point and roughly the same length, and keep the opening shape. Fix each problem listed. Plain words, no em dashes, no hashtags, no links.
+
+${Object.keys(issues).map((k) => `"${k}" draft: ${rp[k]}\nProblems: ${issues[k].join("; ")}`).join("\n\n")}
+${banned.length ? `\nPhrases that must not appear: ${banned.map(([g]) => g).join(" | ")}` : ""}
+${Object.keys(issues).length < 2 ? `\nThe other draft (unchanged, don't echo it): ${rp[issues.agree ? "pushback" : "agree"]}` : ""}
+
+Reply with ONLY JSON: {"agree": "...", "pushback": "..."} (copy an unflagged draft back unchanged).`, { signal }).catch(() => null);
+  const out = { ...rp };
+  for (const k of Object.keys(issues)) if (typeof fix?.[k] === "string" && fix[k].trim() && styleIssues(fix[k], banned).length <= issues[k].length) out[k] = fix[k].trim();
+  return { replies: out, issues };
 }
 
 const ERR = { not_granted: "Claude access wasn't allowed for this page. Reload and allow it to run checks.", sampling_disabled: "Claude isn't available on this account right now.", rate_limited: "You've hit a Claude usage limit. Try again a bit later.", session_expired: "Sign in to Claude again, then retry.", image_rejected: "That image didn't work. Try a PNG or JPG screenshot.", refused: "Claude wouldn't check that one. Try rewording the take.", invalid_json: "The answer came back garbled. Tap Check it to try again.", prompt_too_large: "Too much data came back. Try a narrower take (one player or one team).", tools_unavailable: "This Claude app can't run the stat lookups. Try claude.ai in a browser." };
@@ -701,18 +958,27 @@ $("check").onclick = async () => {
   const t0 = Date.now();
   say("Reading the take" + (image ? " and the screenshot" : ""));
   const tick = setInterval(() => { $("check").textContent = `Checking… ${Math.round((Date.now() - t0) / 1000)}s`; }, 1000);
+  const shapes = pickShapes();
   try {
     await base();
     const input = rules() + "\n\n" + (mode === "thread" ? threadBlock(take, $("target").value, !!image)
       : "THE TAKE:\n" + (take || "(see the screenshot)") + (image ? "\n\nA screenshot of the post is attached; read the take (and any numbers in it) from the image." : ""))
       + (note ? "\n\nTERRY'S NOTE (context or clarification from Terry, not part of the take; follow it when you check and write the replies):\n" + note : "")
-      + "\n\n" + toneRule();
-    const res = await sample.json(input, { tools: TOOLS, signal: ctl.signal, modelTier: $("deep").checked ? "complex" : "default", ...(image ? { images: [image] } : {}) });
+      + "\n\n" + toneRule() + "\n\n" + varietyRule(shapes);
+    // note which stats the lookups ran on, as a fallback when the answer leaves out stats_used
+    const ran = [], track = (a) => { for (const k of ["stat", "x_stat", "y_stat", "list", "tab"]) if (a?.[k]) ran.push(String(a[k])); };
+    const tools = TOOLS.map((t) => ({ ...t, execute: (a) => { track(a); return t.execute(a); } }));
+    const res = await sample.json(input, { tools, signal: ctl.signal, modelTier: $("deep").checked ? "complex" : "default", ...(image ? { images: [image] } : {}) });
     if (!res || typeof res !== "object" || !res.verdict) throw { code: "invalid_json" };
+    const banned = repeats().slice(0, 40), fixed = await polish(res, banned, ctl.signal);
+    if (fixed) { res.replies = fixed.replies; say(`Rewrote a draft (${Object.values(fixed.issues).flat()[0]})`); }
     say(`Done in ${Math.round((Date.now() - t0) / 1000)}s`);
     render(res);
+    const stats = [...new Set([...(Array.isArray(res.stats_used) ? res.stats_used.map(String) : []), ...ran])].slice(0, 20);
     const h = (store.get("analyst-history") || []).filter((x) => x.take !== take);
-    store.set("analyst-history", [{ take: take || "(screenshot)", note, res, at: Date.now(), mode, target: mode === "thread" ? $("target").value : undefined }, ...h].slice(0, 12));
+    store.set("analyst-history", [{ take: take || "(screenshot)", note, res, at: Date.now(), mode, target: mode === "thread" ? $("target").value : undefined, shapes, stats }, ...h].slice(0, 12));
+    store.set("analyst-shapes", [shapes.agree, shapes.pushback]);
+    store.set("analyst-replies", [res.replies?.agree, res.replies?.pushback, ...replyBank()].filter(Boolean).slice(0, 30));
     history();
   } catch (e) {
     if (e?.code !== "cancelled") showErr(ERR[e?.code] || `Something went wrong reaching Claude${e?.code ? ` (${e.code})` : ""}. Tap Check it to try again.`);
@@ -1003,6 +1269,15 @@ function history() {
   $("hist-wrap").hidden = !h.length;
   $("hist").innerHTML = h.map((x, i) => `<button type="button" data-h="${i}">${esc(VLABEL[x.res?.verdict] || "")} · ${x.mode === "thread" ? "THREAD · " : ""}${esc(x.take)}</button>`).join("");
 }
+// everything Terry's recent checks said, plus the phrases they repeat, to paste into the Obsidian note
+$("hist-copy").onclick = async () => {
+  const h = store.get("analyst-history") || [], rp = repeats();
+  const txt = `Cupcake Analyst recent checks (${new Date().toISOString().slice(0, 10)}, ${h.length} checks, ${replyBank().length} replies)\n\n`
+    + (rp.length ? `Repeated phrases (times used): ${rp.slice(0, 30).map(([g, n]) => `${g} (${n})`).join(", ")}\n\n` : "")
+    + h.map((x, i) => `${i + 1}. ${x.take.slice(0, 200)}\n   Verdict: ${VLABEL[x.res?.verdict] || "?"}. ${x.res?.headline || ""}\n   Agree${x.shapes ? ` (${x.shapes.agree})` : ""}: ${x.res?.replies?.agree || "-"}\n   Pushback${x.shapes ? ` (${x.shapes.pushback})` : ""}: ${x.res?.replies?.pushback || "-"}${x.stats?.length ? `\n   Stats: ${x.stats.join(", ")}` : ""}`).join("\n\n");
+  try { await navigator.clipboard.writeText(txt); $("hist-note").textContent = "Copied. Paste it in your Obsidian note."; }
+  catch { $("hist-note").textContent = "Couldn't copy here. Try claude.ai in a browser."; }
+};
 $("hist").onclick = (e) => { const b = e.target.closest("[data-h]"); if (!b) return; const x = (store.get("analyst-history") || [])[+b.dataset.h]; if (x) { lastTake = x.take; $("take").value = x.take === "(screenshot)" ? "" : x.take; $("note").value = x.note || ""; setMode(x.mode); if (x.target) $("target").value = x.target; render(x.res); } };
 history();
 })();
