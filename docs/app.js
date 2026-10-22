@@ -233,7 +233,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "411"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "412"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -265,7 +265,7 @@ async function init() {
     const fav = view === "team" && typeof Profile !== "undefined" ? Profile.get()?.[l] : null;
     if (fav) { location.hash = link("team", fav.id, { league: l }).slice(1); return; }
     // game/player/team pages belong to one league; fall back to that league's scores
-    const next = ["game", "player", "team", "freeagents", "trades"].includes(view) ? "scores" : view;
+    const next = ["game", "player", "team", "freeagents"].includes(view) ? "scores" : view; // Trades stays: college gets Portal watch
     location.hash = `#/${next}?league=${l}`;
   };
   $("#updated").textContent = "Rankings updated " + new Date(INDEX.updated).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + ".";

@@ -66,6 +66,9 @@ jobs:
       - name: NFL trade watch (who gets traded before the deadline, and where)
         continue-on-error: true
         run: python src/trade_watch.py --until-deadline
+      - name: College portal watch (who enters the transfer portal, and where)
+        continue-on-error: true
+        run: python src/portal_watch.py
       - name: Publish
         run: |
           git config user.name "rankings-bot"
@@ -79,6 +82,7 @@ jobs:
           git add docs/data/nfl/ol_stats.json 2>/dev/null || true
           git add docs/data/cfb/heisman_buzz.json 2>/dev/null || true
           git add docs/data/nfl/trade_watch.json 2>/dev/null || true
+          git add docs/data/cfb/portal_watch.json 2>/dev/null || true
           git diff --cached --quiet && echo "No changes" && exit 0
           git commit -m "Visualize data $(date -u +%Y-%m-%dT%H:%MZ)"
           for try in 1 2 3; do git pull --rebase -q && git push -q && exit 0; sleep 10; done

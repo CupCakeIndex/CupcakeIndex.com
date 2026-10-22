@@ -5256,10 +5256,7 @@ const Live = (() => {
 
   async function trades(pid) {
     const my = token;
-    if (league !== "nfl") {
-      view("trades").innerHTML = `<div class="card">Trade watch is NFL only. <a href="#/trades?league=nfl">See the NFL trade watch →</a></div>`;
-      return;
-    }
+    if (league !== "nfl") return portal(pid);
     view("trades").innerHTML = trSub("trades") + `<div class="card muted">Loading…</div>`;
     let D;
     try { D = await getJSON("data/nfl/trade_watch.json"); } catch (e) { return fail("trades", e); }
@@ -5328,6 +5325,109 @@ const Live = (() => {
       if (my !== token || !el) return clearInterval(tick);
       el.innerHTML = countdownHtml();
     }, 1000);
+  }
+  // ---------------------------------------------------------------- college portal watch
+  // The college Trade watch: who's most likely to enter the transfer portal, and the schools he'd fit
+  // (src/portal_watch.py, refreshed daily), under a countdown to the January window.
+  let pwPos = "", pwTeam = "";
+  const PW_KIND = { up: "Moving up", snaps: "Wants snaps", starter: "Starter" };
+  const pwTier = (t) => `<span class="tw-tier tw-${t === "Announced" || t === "Likely" ? "hi" : t === "Possible" ? "md" : "lo"}">${esc(t)}</span>`;
+  function pwCountdown(D) {
+    const t = `${D.window}T05:00:00Z`, s = Math.max(0, Math.floor((Date.parse(t) - Date.now()) / 1000));
+    if (!s) return `<div class="cd-what">The transfer portal window is <b>open</b></div>`;
+    const d = Math.floor(s / 86400), box = (n, l) => `<span class="cd-box"><b>${String(n).padStart(2, "0")}</b><small>${l}</small></span>`;
+    return `<div class="cd-what">Countdown to <b>the transfer portal window</b></div><div class="cd-time">${box(d, d === 1 ? "day" : "days")}</div>
+      <div class="cd-sub muted">Expected to open Jan 2 (the NCAA hasn't posted the 2027 dates). When a head coach leaves, his players get their own window.</div>`;
+  }
+  function portalWhy(D, pid, tlogo) {
+    const p = D.players.find((x) => String(x.id) === String(pid));
+    const back = `<a class="tw-back" href="${link("trades")}">← Portal watch</a>`;
+    if (!p) { view("trades").innerHTML = `<div class="card">${back}<p>He isn't on our portal list right now (it changes every day as the news moves). <a href="${link("player", pid)}">See his stats →</a></p></div>`; return; }
+    const T = D.teams[p.team] || {}, P = p.parts || {}, pct = (x) => Math.round(100 * x);
+    const role = p.kind === "up" ? `One of the most productive ${p.group}s in FBS (top ${Math.max(1, 100 - pct(p.pct))}%) at a Group of 5 school. Bigger programs go to the portal for exactly this.`
+      : p.kind === "snaps" ? `A backup: ${pct(p.share)}% of his team's ${p.group === "QB" ? "pass attempts" : p.group === "RB" ? "carries" : "targets"}, but efficient when he plays. Backups move to start somewhere.`
+      : `A ${p.share >= 0.35 || p.pct >= 0.5 ? "regular" : "part-time"} player. Starters leave less often, mostly after a coaching change.`;
+    const reasons = [
+      ["Portal talk", p.said ? 1 : P.talk || 0, p.said ? "Headlines say he's leaving (redshirting to transfer or entering the portal)." : p.talk ? `${p.talk} headline${p.talk > 1 ? "s" : ""} named him next to a portal word in the last 3 weeks.` : "No portal headlines about him in the last 3 weeks."],
+      ["Role", P.role ?? 0, role],
+      ["His coach", Math.min(1, (P.coach || 0) / 0.6), T.coach ? `Our Hot seat model gives ${T.coach} a ${pct(P.coach || 0)}% chance of being out after this season. A new coach usually means a wave of transfers.` : "We don't have a hot-seat number for his coach."],
+      ["Team's season", 1 - (P.bowl ?? 0.5), `${T.name} are ${T.record} with a ${pct(P.bowl ?? 0)}% chance of 6 wins (bowl eligible) in our simulations. A lost season makes leaving easier.`],
+      ["Class", P.cls ?? 0.6, { FR: "A freshman: young players transfer a lot, but many wait a year.", SO: "A sophomore: the class that transfers most.", JR: "A junior: still has time to start somewhere else.", SR: "A senior: most are out of eligibility, so few transfer.", GR: "A grad student: almost always out of eligibility." }[p.cls] || "We don't have his class."],
+      ["Position", Math.min(1, (P.position ?? 0.9) / 1.25), p.group === "QB" ? "Quarterbacks transfer more than anyone (only one plays)." : `${p.group}s transfer about as often as most positions.`],
+    ];
+    const meter = (v) => `<span class="tw-meter"><i style="width:${Math.round(100 * Math.max(0, Math.min(1, v)))}%"></i></span>`;
+    view("trades").innerHTML = `<div class="card tw-why">
+        ${back}
+        <div class="tw-hero">
+          <a href="${link("player", p.id)}" title="His stats">${face(`https://a.espncdn.com/i/headshots/college-football/players/full/${p.id}.png`, p.name, "bigface")}</a>
+          <div>
+            <div class="tw-why-h"><h2><a href="${link("player", p.id)}" title="His stats">${esc(p.name)}</a></h2>
+              <span class="muted">${esc(p.pos)}${p.cls ? ` · ${esc(p.cls)}` : ""}</span></div>
+            <span class="tm">${tlogo(p.team)} ${esc(T.name || "")}</span> <span class="muted">${esc(T.conf || "")}</span>
+          </div>
+        </div>
+        <p class="tw-why-sum">${pwTier(p.tier)} <b>#${D.players.indexOf(p) + 1}</b> on our portal list · ${esc(PW_KIND[p.kind])}. <a href="${link("player", p.id)}">See his stats →</a></p>
+        <h3 class="tw-h3">Why he might transfer</h3>
+        <div class="tw-reasons">${reasons.map(([l, v, t]) => `<div class="tw-reason"><div class="tw-reason-h"><b>${l}</b>${meter(v)}</div><p>${esc(t)}</p></div>`).join("")}</div>
+        <p class="note">Longer bar = pushes harder toward the portal. Portal talk counts on its own; the other five multiply together, so a senior with no eligibility left or a happy starter pulls the whole thing down.</p>
+        ${p.fits.length ? `<h3 class="tw-h3">Where he'd fit</h3><ol class="tw-fitlist">${p.fits.map(([f, why], k) =>
+          `<li><span class="tm">${tlogo(f)} <b>${esc(D.teams[f]?.name || f)}</b></span>${k ? "" : ` <span class="tw-front">Frontrunner</span>`}<small class="muted">${esc(why)}</small></li>`).join("")}</ol>` : ""}
+        ${p.stories?.length ? `<h3 class="tw-h3">The headlines</h3><ul class="tw-heads">${p.stories.filter((h) => safeUrl(h[1])).map(([t, u]) =>
+          `<li><a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)}</a></li>`).join("")}</ul>` : ""}
+      </div>`;
+  }
+  async function portal(pid) {
+    const my = token;
+    view("trades").innerHTML = `<div class="card muted">Loading…</div>`;
+    let D;
+    try { D = await getJSON("data/cfb/portal_watch.json"); } catch (e) { return fail("trades", e); }
+    if (my !== token) return;
+    const tlogo = (id) => img(`https://a.espncdn.com/i/teamlogos/ncaa/500/${id}.png`, "xs");
+    if (pid != null) return portalWhy(D, pid, tlogo);
+    if (!D.teams[pwTeam]) pwTeam = "";
+    const GROUPS = ["QB", "RB", "WR", "TE", "OL", "DL", "LB", "DB"];
+    const teamsByName = Object.entries(D.teams).sort((a, b) => a[1].name.localeCompare(b[1].name));
+    view("trades").innerHTML = `<div class="card tw-cd" id="pw-cd">${pwCountdown(D)}</div>
+      <div class="card">
+        <div class="sc-bar"><h2>Portal watch</h2>
+          <select id="pw-team" aria-label="Team"><option value="">All teams</option>${teamsByName.map(([id, t]) => `<option value="${id}"${id === pwTeam ? " selected" : ""}>${esc(t.name)}</option>`).join("")}</select>
+          <select id="pw-pos" aria-label="Position"><option value="">All positions</option>${GROUPS.map((g) => `<option value="${g}"${g === pwPos ? " selected" : ""}>${g}</option>`).join("")}</select></div>
+        <div id="pw-body"></div>
+        <p class="note">Our guess at who enters the transfer portal, refreshed daily (last ${esc(D.updated.slice(0, 10))}). <b>Announced</b> means headlines say he's leaving (many players now redshirt mid-season and transfer). <b>Portal headlines</b> counts news headlines from the last 3 weeks that name him next to a portal word, from Google News searches for each school. The rest comes from our numbers: <b>Moving up</b> is a standout at a Group of 5 school (top quarter of FBS at his position), the players bigger programs pull from the portal; <b>Wants snaps</b> is an efficient backup (under 35% of his team's attempts, carries or targets); his coach's chance of being out (our Hot seat model, since a new coach sets off transfers); and his team's chance of a bowl in ${D.sims.toLocaleString("en-US")} simulations. Seniors and grad students rank low because most are out of eligibility, and QBs rank higher because they transfer most. <b>Best fits</b> are teams whose unit at his position ranks low among the ${D.n} FBS teams we rate (Power 4 only for a mover-up), plus headlines that name him with a school. Our stats can't tell a backup lineman or defender from a starter, so those mostly show up through headlines or a coaching change. Chance is a ranking, not a percentage.</p></div>`;
+    const head = (extra) => `<thead><tr><th>#</th><th>Player</th><th>Team</th><th>Role</th><th title="Portal headlines naming him in the last 3 weeks">Portal headlines</th><th>Chance</th><th>${extra}</th></tr></thead>`;
+    const row = (p, i, last) => `<tr>
+        <td class="num">${i + 1}</td>
+        <td><a href="${link("trades", p.id)}" title="Why he might transfer"><b>${esc(p.name)}</b></a> <span class="muted">${esc(p.pos)}${p.cls ? ` · ${esc(p.cls)}` : ""}</span>${pwTeam && p.fits[0]?.[0] === pwTeam ? ` <span class="tw-front">Frontrunner</span>` : ""}
+          ${p.story && safeUrl(p.story[1]) ? `<a class="tw-story" href="${esc(p.story[1])}" target="_blank" rel="noopener">${esc(p.story[0])}</a>` : ""}</td>
+        <td><span class="tm">${tlogo(p.team)} ${esc(D.teams[p.team]?.name || "")}</span> <small class="muted">${esc(D.teams[p.team]?.record || "")} · ${Math.round(100 * (D.teams[p.team]?.bowl || 0))}% bowl</small></td>
+        <td>${esc(PW_KIND[p.kind])}</td>
+        <td class="num">${p.talk ? `<b class="tw-talk">${p.talk}</b>` : `<span class="muted">0</span>`}</td>
+        <td>${pwTier(p.tier)}</td>
+        <td class="tw-fits">${last}</td></tr>`;
+    const fitsOf = (p) => p.fits.map(([id, why], k) => `<span class="tm${k ? "" : " tw-fit1"}" title="${k ? "" : "Frontrunner: "}${esc(why)}">${tlogo(id)} ${esc(D.teams[id]?.name || "")}${k ? "" : `<sup class="tw-front-s">★</sup>`}</span>`).join(" ");
+    const posOk = (p) => !pwPos || p.group === pwPos;
+    const none = (txt) => `<tr><td colspan="7" class="muted">${txt}</td></tr>`;
+    const draw = () => {
+      const el = $("#pw-body");
+      if (!pwTeam) {
+        el.innerHTML = `<div class="table-wrap"><table class="box tw-table">${head("Best fits")}<tbody>${D.players.filter(posOk).map((p, i) => row(p, i, fitsOf(p))).join("") || none("No one at this position on our list.")}</tbody></table></div>`;
+        return;
+      }
+      const T = D.teams[pwTeam];
+      const targets = T.targets.map(([i, why]) => [D.players[i], why]).filter(([p]) => p && posOk(p));
+      const mine = D.players.filter((p) => p.team === pwTeam && posOk(p));
+      el.innerHTML = `<div class="tw-team">
+          <div class="tw-team-h"><span class="tm">${tlogo(pwTeam)} <b>${esc(T.name)}</b></span> <span class="muted">${esc(T.record)} · ${Math.round(100 * T.bowl)}% bowl chance${T.coach ? ` · ${esc(T.coach)} ${Math.round(100 * T.seat)}% likely out` : ""}</span></div>
+          <p class="tw-needs">Weakest spots: ${T.needs.slice(0, 3).map(([u, r]) => `<b>${esc(u)}</b> <span class="muted">#${r} of ${D.n}</span>`).join(" · ")}</p>
+        </div>
+        <h3 class="tw-h3">Who ${esc(T.name)} would most likely go after</h3>
+        <div class="table-wrap"><table class="box tw-table">${head("Why them")}<tbody>${targets.map(([p, why], i) => row(p, i, `<small>${esc(why)}</small>`)).join("") || none("No one at this position on their list.")}</tbody></table></div>
+        <h3 class="tw-h3">Who might leave ${esc(T.name)}</h3>
+        <div class="table-wrap"><table class="box tw-table">${head("Best fits")}<tbody>${mine.map((p, i) => row(p, i, fitsOf(p))).join("") || none("No one from this team on our list.")}</tbody></table></div>`;
+    };
+    draw();
+    $("#pw-pos").addEventListener("change", (e) => { pwPos = e.target.value; draw(); });
+    $("#pw-team").addEventListener("change", (e) => { pwTeam = e.target.value; draw(); });
   }
   return { stop, teamId, scores, game, stats, player, standings, team, freeagents, trades, searchPlayers, fillBugs, kit, statsSubtabs: (on) => stSubStats(on) };
 })();
