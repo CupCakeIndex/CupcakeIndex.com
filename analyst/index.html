@@ -669,6 +669,59 @@ const TOOLS = [
     },
   },
   {
+    name: "pace_to",
+    description: "Will a player reach a season total (2,000 rushing yards, 5,000 passing yards, 20 sacks...)? His total, his team's games left, the per-game he needs vs his per-game so far, his projected finish, how many games he could miss, and (NFL) how every player since 1999 on the same pace through the same number of games actually finished. Use it for any 'does he get to X' or 'on pace for X' question.",
+    inputSchema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, player_id: { type: "string" }, stat: { type: "string", enum: ["pass_yds", "pass_td", "rush_yds", "rush_td", "rec", "rec_yds", "rec_td", "def_sacks"] }, target: { type: "number" } }, required: ["league", "player_id", "stat", "target"] },
+    async execute(a) {
+      const lg = String(a.league), season = seasons(lg)[0], D = await load(lg, season), pid = String(a.player_id), m = D.pmeta[pid], k = String(a.stat), target = Number(a.target);
+      if (!m) throw new Error(`That player has no games in ${season}.`);
+      const me = aggPlayers(D, {}).get(pid);
+      if (!me) throw new Error("No games this season.");
+      say(`Running ${m[0]}'s pace to ${target.toLocaleString()} ${k.replace(/_/g, " ")}`);
+      const team = D.prows.filter((r) => r[0] === pid).sort((x, y) => y[1] - x[1])[0][2];
+      const full = lg === "nfl" ? 17 : 12, tg = D.trows.filter((r) => r[0] === team).length, left = Math.max(0, full - tg);
+      const so = me.sum[k] || 0, g = me.games, pg = so / g, need = target - so, needPg = left ? need / left : null;
+      const out = { player: m[0], team: D.teams[team]?.[0] || team, season, stat: k, target, so_far: r1(so, 1), games_played: g, team_games_played: tg, team_games_left: left,
+        per_game_so_far: r1(pg, 1), per_game_needed_rest_of_way: need <= 0 ? 0 : r1(needPg, 1), already_there: need <= 0,
+        projected_final_at_current_pace: Math.round(so + pg * left),
+        ...(need > 0 && needPg ? { cushion: `${pg >= needPg ? "ahead" : "behind"}: his ${r1(pg, 1)} a game vs ${r1(needPg, 1)} needed (${Math.round(100 * (pg / needPg - 1))}%)`,
+          games_he_can_miss_at_current_pace: pg > 0 ? Math.max(0, left - Math.ceil(need / pg)) : 0 } : {}),
+        how_to_answer: "Whether he gets there comes from per_game_needed_rest_of_way vs per_game_so_far (and games he can miss), then from how the comps finished. Another player's average doesn't answer it." };
+      // the defenses he still has to face, on this stat (rush yards allowed for a runner, pass yards allowed for a passer or
+      // receiver, sacks their offense gives up for a pass rusher), next to the ones he's already faced and the league average
+      const OPP = { rush_yds: "opp_rush_yds", rush_td: "opp_rush_yds", pass_yds: "opp_pass_yds", pass_td: "opp_pass_yds", rec: "opp_pass_yds", rec_yds: "opp_pass_yds", rec_td: "opp_pass_yds", def_sacks: "sacked" };
+      const col = OPP[k], Rt = ((await base())[lg]?.teams || []).find((t) => t.team === out.team);
+      if (col && D.ti[col] != null && Rt?.games) {
+        const per = {};
+        for (const r of D.trows) { const o = (per[r[0]] ||= { g: 0, v: 0 }); o.g++; o.v += r[D.ti[col]] || 0; }
+        const pg2 = Object.fromEntries(Object.entries(per).map(([t, o]) => [t, o.v / o.g])), order = Object.values(pg2).sort((x, y) => y - x);
+        const key = (name) => Object.keys(D.teams).find((t) => D.teams[t][0] === name), avg = (xs) => (xs.length ? r1(xs.reduce((t, x) => t + x, 0) / xs.length, 1) : null);
+        const row = (gm) => { const t = key(gm.opp), v = t != null ? pg2[t] : null; return { wk: gm.wk, opp: gm.opp, home: gm.loc === "H", allows_per_game: r1(v, 1), rank: v == null ? null : `${1 + order.filter((x) => x > v).length} of ${order.length} (1 = gives up the most)` }; };
+        const rest = Rt.games.filter((gm) => !gm.res).map(row), faced = Rt.games.filter((gm) => gm.res).map(row);
+        const what = col === "sacked" ? "sacks their offense gives up per game" : col === "opp_rush_yds" ? "rush yards their defense allows per game" : "pass yards their defense allows per game";
+        out.schedule_left = { what, league_average: avg(Object.values(pg2)), remaining_opponents_average: avg(rest.map((x) => x.allows_per_game).filter((x) => x != null)),
+          faced_so_far_average: avg(faced.map((x) => x.allows_per_game).filter((x) => x != null)), games: rest,
+          note: "Softer than the defenses he's faced = his pace has room to hold; tougher = expect it to dip. Cite the toughest and softest games left by name." };
+      }
+      if (lg !== "nfl" || g < 2) return out;
+      files.pace ||= fetch("data/pace.json").then((r) => { if (!r.ok) throw new Error("no pace history"); return r.json(); });
+      const P = await files.pace.catch(() => null), rows = P?.stats?.[k];
+      if (!rows) return out;
+      const all = rows.map(([name, yr, tm, pos, v]) => { const w = v.split(" ").map(Number), thru = w.slice(0, g).reduce((t, x) => t + x, 0), fin = w.reduce((t, x) => t + x, 0); return { name, season: yr, team: tm, pos, games: w.length, thru, fin }; });
+      const comps = all.filter((x) => x.games >= g && x.thru / g >= 0.9 * pg && !(x.name === m[0] && x.season === season)).sort((x, y) => y.thru - x.thru);
+      const kept = comps.filter((x) => x.games > g).map((x) => (x.fin - x.thru) / (x.games - g) / (x.thru / g));
+      const ever = all.filter((x) => x.fin >= target).sort((x, y) => y.fin - x.fin);
+      out.history = { seasons: `${P.seasons[0]}-${P.seasons[1]} regular seasons (1999-2020 were 16 games, 2021 on 17)`,
+        comps_rule: `players at 90%+ of his ${r1(pg, 1)} a game through their first ${g} games played`, comps: comps.length,
+        comps_who_reached_target: comps.filter((x) => x.fin >= target).length,
+        comps_kept_this_share_of_their_early_pace_after: kept.length ? `${Math.round((100 * kept.reduce((t, x) => t + x, 0)) / kept.length)}% on average` : null,
+        ...(kept.length && left ? { his_finish_if_he_fades_like_them: Math.round(so + (pg * left * kept.reduce((t, x) => t + x, 0)) / kept.length) } : {}),
+        closest: comps.slice(0, 10).map((x) => ({ name: x.name, season: x.season, team: x.team, per_game_first_games: r1(x.thru / g, 1), finished: r1(x.fin, 1), games: x.games })),
+        seasons_ever_at_target: ever.length, best: ever.slice(0, 8).map((x) => `${x.name} ${x.season}: ${r1(x.fin, 1)}`) };
+      return out;
+    },
+  },
+  {
     name: "rare_plays",
     description: "NFL play-by-play for rare events, this season and last: every score wiped out by the scoring team's own penalty (penalty type and flagged player), pick-sixes, fumble/kick/punt return TDs, safeties, blocked punts and field goals. Filter by type, team, season, week, player or penalty. Use it for anything about a specific play or which penalty did it; season totals can't tell you that.",
     inputSchema: { type: "object", properties: { type: { type: "string", enum: ["wiped_score", "pick_six", "fumble_return_td", "punt_return_td", "kick_return_td", "safety", "blocked_punt", "blocked_fg"] }, team: { type: "string" }, season: { type: "integer" }, week: { type: "integer" }, player: { type: "string" }, penalty: { type: "string" }, top: { type: "integer" } } },
@@ -749,12 +802,13 @@ Today is ${new Date().toISOString().slice(0, 10)}. Our data: weekly stats for NF
 NFL extras: offensive linemen (snaps, penalties), penalties for every player, QB pressured % and bad throws (PFR charting), QB splits vs the blitz and team blitz rate (FTN charting), team passing allowed by depth (short = 5 air yards or less, deep = 20+) and YAC allowed, team missed tackles. Not in any free source we use: pressures/sacks allowed by individual linemen, pass-rush snaps, a QB's completions when pressured. Charting services (PFF, TruMedia, NGS) define blitzes and pressures differently, so expect small gaps vs their numbers and say so instead of calling the take wrong over a few percent.
 
 How to work:
-1. Pull out each checkable claim. Use the tools to get the real numbers: find_player before player_stats; leaderboard to put a number in context (rank among peers); team_stats and our_rankings for teams, schedules and cupcake padding; team_status for injuries and starters. Our site's own tabs are worth citing because they're ours: site_tab "injuries" (every team's % healthy; use it for any take about a team being banged up, healthy, or excused by injuries), site_tab "frauds"/"over_achievers" (players vs their weekly projections; use it for "overrated", "bust", "breakout", fantasy takes), player_stats season_pace (the Projected tab; use it for "on pace for" takes), scatter_data (the Visualize scatter: two stats for every team or the top players at a position in one call), stat_menu (every stat we have for a position or for teams, grouped), and site_lists ("coach": coach score, hot seat and scheme tendencies; "records": NFL records a player holds; "trade_watch"; "heisman": our Heisman race), rare_plays (play by play for rare events: every score wiped by a penalty with the penalty and the flagged player, pick-sixes, return TDs, safeties, blocked kicks) and how_we_count (how each of OUR stats is defined: what counts and what doesn't). Anything about a specific play, or which penalty or player did something, comes from rare_plays; never infer play-level facts from season totals. In replies you can name them ("our injury tracker has WAS at 55% healthy, worst in the league"); no links. For "worst/best since <year>" claims use leaderboard with season and season_to. Make several calls in one round when you can.
+1. Pull out each checkable claim. Use the tools to get the real numbers: find_player before player_stats; leaderboard to put a number in context (rank among peers); team_stats and our_rankings for teams, schedules and cupcake padding; team_status for injuries and starters. Our site's own tabs are worth citing because they're ours: site_tab "injuries" (every team's % healthy; use it for any take about a team being banged up, healthy, or excused by injuries), site_tab "frauds"/"over_achievers" (players vs their weekly projections; use it for "overrated", "bust", "breakout", fantasy takes), player_stats season_pace (the Projected tab; use it for "on pace for" takes), pace_to (will a player reach a season total: what he needs per game vs what he's doing, games he can miss, and how players since 1999 on the same pace finished; call it for every "does he get to X" or "on pace for X" take or question), scatter_data (the Visualize scatter: two stats for every team or the top players at a position in one call), stat_menu (every stat we have for a position or for teams, grouped), and site_lists ("coach": coach score, hot seat and scheme tendencies; "records": NFL records a player holds; "trade_watch"; "heisman": our Heisman race), rare_plays (play by play for rare events: every score wiped by a penalty with the penalty and the flagged player, pick-sixes, return TDs, safeties, blocked kicks) and how_we_count (how each of OUR stats is defined: what counts and what doesn't). Anything about a specific play, or which penalty or player did something, comes from rare_plays; never infer play-level facts from season totals. In replies you can name them ("our injury tracker has WAS at 55% healthy, worst in the league"); no links. For "worst/best since <year>" claims use leaderboard with season and season_to. Make several calls in one round when you can.
 2. Only state numbers that came from a tool result. Never use numbers from memory. If our data can't answer a claim (contracts, career totals before our seasons, play-by-play detail we don't have, other sports), mark that claim "cant_check" and say what's missing.
 Leaderboard stats: any column name (pass_yds, rush_td, tackles, def_sacks, pressure, pen, snaps, pts, opp_pts, opp_short_yds...) or a rate. Player rates: ${Object.keys(RATES).join(", ")}, passer_rating, passer_rating_vs_blitz. Team rates: ${Object.keys(TEAM_RATES).join(", ")}.
 WIDER STATS: call stat_menu for the position (or TEAMS) in the take early, and pick the stat that settles the claim best, not the most familiar one. Every check must use at least one stat outside the usual set (passing/rushing/receiving yards and touchdowns, EPA, completion %, yards per attempt/carry, record, our rank, tackles, sacks) in its claims or a reply, as long as it's relevant. Good reaches: CPOE, success rate, first-down rate, broken tackles, drops, YAC, depth of target, 3rd down, red zone, clutch, vs the blitz, pressure, run stops, coverage, penalties, the O-line's on-field numbers, 4th-down and pass-rate tendencies, coach tendencies, records, Heisman race, Trade watch.
 3. Look for the classic flaws: tiny sample, cherry-picked week range, counting stat vs rate stat, ignoring opponent quality (use our rankings and cupcake data), ignoring games missed, comparing different positions or eras, correlation sold as cause.
-QUESTIONS: if the post (in a thread, the post Terry is replying to) asks a question instead of making a claim (how a stat is counted, whether X is included, who leads Y), set "verdict": "question", make "headline" the straight answer in one sentence, list the supporting facts as claims (verdict "holds") or leave claims empty, leave "missing" empty unless it truly matters, and write ONE reply, "replies": {"answer": "..."}, with "charts": {"answer": CHART or null}. A question about how a Cupcake Index stat, chart or ranking works: call how_we_count first and answer from it, plus rare_plays or other lookups for real examples. If an earlier post of ours in the thread worded the rule loosely or wrong, the answer says so plainly and gives the right rule. A statement that is really a correction of us ("OPI can happen") counts as a question about our rule.
+QUESTIONS: if the post (in a thread, the post Terry is replying to) asks a question instead of making a claim (how a stat is counted, whether X is included, who leads Y), set "verdict": "question", make "headline" the straight answer in one sentence, list the supporting facts as claims (verdict "holds") or leave claims empty, leave "missing" empty unless it truly matters, and write ONE reply, "replies": {"answer": "..."}, with "charts": {"answer": CHART or null}. A question about how a Cupcake Index stat, chart or ranking works: call how_we_count first and answer from it, plus rare_plays or other lookups for real examples. If an earlier post of ours in the thread worded the rule loosely or wrong, the answer says so plainly and gives the right rule. A statement that is really a correction of us ("OPI can happen") counts as a question about our rule. A "will he reach X" question (2,000 yards, a record, 15 sacks): call pace_to and answer from it. If his per-game so far beats what he needs, the answer leans yes, and the comps' finish and the defenses left on his schedule (schedule_left) say how sure; behind the needed pace leans no. Mention the schedule left when it's clearly softer or tougher than what he's faced. Never answer it by comparing him with other players' averages; that doesn't decide whether HE gets there.
+LOGIC: every yes/no, verdict and "probably" must follow from the numbers you cite. Before you answer, check that each number points the way your sentence says it does, and that each comparison bears on the question asked. Write stats in plain words in claims, numbers and replies ("20+ yard runs per 100 carries"), never column names like big_run_rate.
 4. No betting content: no spreads, lines, odds or picks. A win chance from our_rankings is fine.
 
 Reply with ONLY one JSON object, no other text:
@@ -957,6 +1011,8 @@ function styleIssues(t, banned) {
   const g = grams(t);
   const hit = banned.filter(([x]) => g.has(x)).map(([x]) => `"${x}"`);
   if (hit.length) out.push(`repeats ${hit.slice(0, 4).join(", ")} from recent replies`);
+  const col = String(t || "").match(/\b[a-z]+_[a-z0-9_]+\b/);
+  if (col) out.push(`uses the column name "${col[0]}" (say it in plain words)`);
   return out;
 }
 // stats the last few checks leaned on (from the answer's stats_used, or the lookups it ran)
@@ -975,16 +1031,32 @@ Length: "agree" ${LENGTHS[shapes.agree_len || "normal"]}; "pushback" ${LENGTHS[s
     + (bad.length ? `\nBANNED PHRASES (Terry's recent replies already used each of these more than once; don't use any of them or a close variant):\n${bad.join(" | ")}` : "")
     + (used.length ? `\nSTATS THE LAST FEW CHECKS LEANED ON: ${used.join(", ")}. Lead with something else this time when another stat can make the point; use these only when the take is about them.` : "");
 }
-// one automatic rewrite when a draft breaks the style rules or repeats a phrase; never loops
-async function polish(res, banned, signal) {
-  const rp = res.replies || {}, issues = {};
-  for (const k of ["answer", "agree", "pushback"]) { const i = rp[k] ? styleIssues(rp[k], banned) : []; if (i.length) issues[k] = i; }
+// logic check (quick model): does each draft's conclusion, and the headline's, follow from the numbers? Problems go to the rewrite.
+async function senseCheck(res, signal) {
+  const rp = res.replies || {}, keys = ["answer", "agree", "pushback"].filter((k) => rp[k]);
+  if (!keys.length) return {};
+  say("Checking the logic of the drafts");
+  const r = await sample.json(`You're checking X reply drafts for logic before they're posted. The facts they were built from:
+${JSON.stringify({ headline: res.headline, claims: res.claims, numbers: res.numbers })}
+
+Drafts:
+${keys.map((k) => `"${k}": ${rp[k]}`).join("\n")}
+
+For the headline and each draft: does its conclusion follow from its own numbers and the facts above? Flag only a real logic problem: a yes/no or "probably" that the numbers point the other way on (e.g. a player averaging more than he needs, answered "probably not"), a comparison that doesn't bear on the question (another player's average to answer whether this one reaches a total), or a number used to mean something it doesn't. Style and tone don't matter here.
+Reply with ONLY JSON: ${JSON.stringify(Object.fromEntries(["headline", ...keys].map((k) => [k, "null, or the problem in one sentence"])))}`, { signal, modelTier: "quick" }).catch(() => null);
+  return Object.fromEntries(["headline", ...keys].filter((k) => typeof r?.[k] === "string" && r[k].trim() && !/^null$/i.test(r[k].trim())).map((k) => [k, r[k].trim()]));
+}
+// one automatic rewrite when a draft breaks the style rules, repeats a phrase or fails the logic check; never loops
+async function polish(res, banned, signal, logic = {}) {
+  const rp = { ...(res.replies || {}), ...(logic.headline ? { headline: res.headline } : {}) }, issues = {};
+  for (const [k, why] of Object.entries(logic)) if (rp[k]) (issues[k] ||= []).push(`LOGIC: ${why}`);
+  for (const k of ["answer", "agree", "pushback"]) { const i = rp[k] ? styleIssues(rp[k], banned) : []; if (i.length) (issues[k] ||= []).push(...i); }
   const a = words(rp.agree)[0], b = words(rp.pushback)[0];
   if (a && a === b) (issues.pushback ||= []).push(`opens with the same word as the other draft ("${a}")`);
   if (!Object.keys(issues).length) return null;
-  const keys = ["answer", "agree", "pushback"].filter((k) => rp[k]);
-  const fix = await sample.json(`You wrote these two X reply drafts for @CupcakeIndex. A style filter caught problems. Rewrite ONLY the flagged drafts. Keep every number, name and fact exactly, keep the same point and roughly the same length, and keep the opening shape. Fix each problem listed. Plain words, no em dashes, no hashtags, no links.
-
+  const keys = ["headline", "answer", "agree", "pushback"].filter((k) => rp[k]), hasLogic = Object.keys(logic).length > 0;
+  const fix = await sample.json(`You wrote these X reply drafts for @CupcakeIndex. A filter caught problems. Rewrite ONLY the flagged ones. Keep every number, name and fact exactly, keep roughly the same length, and keep the opening shape. Fix each problem listed. A LOGIC problem means the conclusion doesn't follow from the numbers: fix the conclusion so it does (flip the yes/no if the numbers say so, drop a comparison that doesn't bear on the question), using only numbers already in the drafts or the facts below. Plain words, no em dashes, no hashtags, no links.
+${hasLogic ? `\nFacts the drafts were built from: ${JSON.stringify({ claims: res.claims, numbers: res.numbers })}\n` : ""}
 ${Object.keys(issues).map((k) => `"${k}" draft: ${rp[k]}\nProblems: ${issues[k].join("; ")}`).join("\n\n")}
 ${banned.length ? `\nPhrases that must not appear: ${banned.map(([g]) => g).join(" | ")}` : ""}
 ${keys.filter((k) => !issues[k]).map((k) => `\nThe "${k}" draft (unchanged, don't echo it): ${rp[k]}`).join("")}
@@ -992,7 +1064,8 @@ ${keys.filter((k) => !issues[k]).map((k) => `\nThe "${k}" draft (unchanged, don'
 Reply with ONLY JSON: ${JSON.stringify(Object.fromEntries(keys.map((k) => [k, "..."])))} (copy an unflagged draft back unchanged).`, { signal }).catch(() => null);
   const out = { ...rp };
   for (const k of Object.keys(issues)) if (typeof fix?.[k] === "string" && fix[k].trim() && styleIssues(fix[k], banned).length <= issues[k].length) out[k] = fix[k].trim();
-  return { replies: out, issues };
+  const headline = out.headline; delete out.headline;
+  return { replies: out, issues, ...(logic.headline && headline ? { headline } : {}) };
 }
 
 const ERR = { not_granted: "Claude access wasn't allowed for this page. Reload and allow it to run checks.", sampling_disabled: "Claude isn't available on this account right now.", rate_limited: "You've hit a Claude usage limit. Try again a bit later.", session_expired: "Sign in to Claude again, then retry.", image_rejected: "That image didn't work. Try a PNG or JPG screenshot.", refused: "Claude wouldn't check that one. Try rewording the take.", invalid_json: "The answer came back garbled. Tap Check it to try again.", prompt_too_large: "Too much data came back. Try a narrower take (one player or one team).", tools_unavailable: "This Claude app can't run the stat lookups. Try claude.ai in a browser." };
@@ -1018,8 +1091,8 @@ $("check").onclick = async () => {
     const tools = TOOLS.map((t) => ({ ...t, execute: (a) => { track(a); return t.execute(a); } }));
     const res = await sample.json(input, { tools, signal: ctl.signal, modelTier: $("deep").checked ? "complex" : "default", ...(image ? { images: [image] } : {}) });
     if (!res || typeof res !== "object" || !res.verdict) throw { code: "invalid_json" };
-    const banned = repeats().slice(0, 40), fixed = await polish(res, banned, ctl.signal);
-    if (fixed) { res.replies = fixed.replies; say(`Rewrote a draft (${Object.values(fixed.issues).flat()[0]})`); }
+    const logic = await senseCheck(res, ctl.signal), banned = repeats().slice(0, 40), fixed = await polish(res, banned, ctl.signal, logic);
+    if (fixed) { res.replies = fixed.replies; if (fixed.headline) res.headline = fixed.headline; say(`Rewrote ${Object.keys(fixed.issues).join(" + ")} (${Object.values(fixed.issues).flat()[0]})`); }
     say(`Done in ${Math.round((Date.now() - t0) / 1000)}s`);
     render(res);
     const stats = [...new Set([...(Array.isArray(res.stats_used) ? res.stats_used.map(String) : []), ...ran])].slice(0, 20);
