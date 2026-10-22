@@ -5,6 +5,8 @@ What counts: a monster line, e.g. 400 passing yards (450 in college), 175 rushin
 3+ total TDs (college 4), 3 sacks, 2 picks. Only the best one per run; each player/game posts once.
 Action shot (required): a recap photo whose caption names him, or a still from a highlight clip of one of his plays.
 A big game with no action shot is skipped for the next best one that has one.
+When there's no big game, a clean, efficient QB game gets a gold numbered card instead (collector.py): 75%+ on 25+
+throws with no picks, or 300+ yards and 2+ TDs with no picks. The serial is his completions/attempts (30/36).
 
     python src/social/postgame.py                       # games that finished in the last 9 hours, both leagues
     python src/social/postgame.py --league nfl --hours 72 --out DIR   # test on older games
@@ -84,6 +86,18 @@ def grade(p, league):
         r["tds"] = 0
     top = max(r, key=r.get)
     return (r[top] + 0.35 * sum(v for k, v in r.items() if k != top and v >= 0.5), top) if r[top] >= 1 else (0, None)
+
+
+def numbered_ok(s):
+    """(completions, attempts) when a QB's line earns a numbered card, else None. No picks, and either accurate
+    (75%+ on 25+ throws) or productive (300+ yards and 2+ TDs)."""
+    m = re.match(r"(\d+)/(\d+)", str(s.get("cmp_att", "")))
+    if not m or s.get("int_thrown", 0) > 0:
+        return None
+    c, a = int(m[1]), int(m[2])
+    if (a >= 25 and c / a >= 0.75) or (s.get("pass_yds", 0) >= 300 and s.get("pass_td", 0) >= 2):
+        return c, a
+    return None
 
 
 def tiles(s):
@@ -196,6 +210,12 @@ def best(leagues, hours):
                 key = f"biggame:{lg}:{e['id']}:{p['id']}"
                 if sc and key not in done:
                     picks.append((sc, lg, p, top, comp, s, key))
+                elif not sc and numbered_ok(p["s"]):
+                    # below every big game (those score 1+); the cleanest lines first
+                    c, a = numbered_ok(p["s"])
+                    key = f"numbered:{lg}:{e['id']}:{p['id']}"
+                    if key not in done:
+                        picks.append((0.5 + 0.4 * c / a + p["s"].get("pass_yds", 0) / 10000, lg, p, "numbered", comp, s, key))
     picks.sort(key=lambda x: -x[0])
     return picks
 
@@ -391,6 +411,42 @@ def make(pick, out, theme=None, photo=None):
     return {"day": "postgame", "stat": key, "theme": theme, "image": png, "text": tweet(text, "", with_link=False), "skip": False, "reason": ""}
 
 
+def make_numbered(pick, out):
+    """The gold numbered card for a clean QB game (no action shot needed: it's his headshot on the card)."""
+    import collector
+    sc, lg, p, top, comp, s, key = pick
+    st = p["s"]
+    c, a = numbered_ok(st)
+    me = next(x for x in comp["competitors"] if str(x["team"]["id"]) == p["tid"])
+    opp = next(x for x in comp["competitors"] if x is not me)
+    nm = lambda x: x["team"].get("location") if lg == "cfb" else x["team"].get("name") or x["team"].get("displayName")
+    ms, os_ = int(num(me.get("score"))), int(num(opp.get("score")))
+    won = bool(me.get("winner"))
+    win_c, lose_c = (me, opp) if won else (opp, me)
+    away = next((x for x in comp["competitors"] if x.get("homeAway") == "away"), opp)
+    home = next((x for x in comp["competitors"] if x is not away), me)
+    road = me is away
+    yds, td = int(st.get("pass_yds", 0)), int(st.get("pass_td", 0))
+    week = (s.get("header") or {}).get("week")
+    tds = f"{td} TD" + ("s" if td != 1 else "")
+    q = {"name": p["name"], "team": me["team"].get("abbreviation", ""), "color": me["team"].get("color") or "",
+         "logo": me["team"].get("logo") or (me["team"].get("logos") or [{}])[0].get("href"), "pic": p.get("pic"),
+         "c": c, "a": a, "yds": yds, "td": td, "ints": 0, "wl": "W" if won else "L",
+         "res": f"{nm(win_c).upper()} {max(ms, os_)}-{min(ms, os_)}",
+         "short": f"{nm(away).upper()} {int(num(away.get('score')))} @ {nm(home).upper()} {int(num(home.get('score')))}",
+         "score": f"{nm(win_c)} {int(num(win_c.get('score')))}, {nm(lose_c)} {int(num(lose_c.get('score')))}",
+         "when": f"Week {week}" if week else "", "league": lg,
+         "why": f"{tds}, no picks, in a {'road' if road else 'home'} {'win' if won else 'loss'} {'over' if won else 'to'} {'the ' if lg == 'nfl' else ''}{nm(opp)}"}
+    the = "the " if lg == "nfl" else ""  # the Commanders' loss to the 49ers; college names read fine bare
+    team = nm(me) + ("'" if nm(me).endswith("s") else "'s")
+    text = (f"{p['name']} ({q['team']}) earned a numbered card: {c}/{a}, {yds} yards, {tds} and no picks "
+            f"in {the}{team} {max(ms, os_)}-{min(ms, os_)} {'win over' if won else 'loss to'} {the}{nm(opp)}.")
+    os.makedirs(out, exist_ok=True)
+    png = os.path.join(out, f"numbered-{lg}-{p['id']}.png")
+    collector.numbered(q, O.image, O.team_logo).convert("RGB").save(png, optimize=True)
+    return {"day": "postgame", "stat": key, "theme": "numbered", "image": png, "text": tweet(text, "", with_link=False), "skip": False, "reason": ""}
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--league", choices=["both", "nfl", "cfb"], default="both")
@@ -406,6 +462,16 @@ def main():
     # every card needs an action shot of him: a big game without one gives way to the next best that has one
     made = 0
     for pk in picks:
+        if pk[3] == "numbered":
+            m = make_numbered(pk, a.out)
+            print(f"[{pk[1]} numbered] {m['image']} ({len(m['text'])} chars)\n   {m['text']}")
+            if not made:
+                with open(os.path.join(a.out, "today.json"), "w", encoding="utf-8") as fh:
+                    json.dump(m, fh, indent=1, ensure_ascii=False)
+            made += 1
+            if made >= a.top:
+                break
+            continue
         photo = action_shot(pk[5], pk[2])
         if not photo:
             print(f"[{pk[1]} {pk[0]:.2f}] {pk[2]['name']}: no action shot, skipping")

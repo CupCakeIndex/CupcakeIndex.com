@@ -19,10 +19,10 @@ on:
         default: cfb
         options: [cfb, nfl]
       theme:
-        description: "Card look (auto = the trading card all player stats use; random = surprise me)"
+        description: "Card look (auto = the stat's own collector card; random = surprise me)"
         type: choice
         default: auto
-        options: [auto, random, broadcast, poster, podium, trading]
+        options: [auto, random, broadcast, poster, podium, trading, slab, frontback, hand]
       post:
         description: "Post to X (untick to only make the picture)"
         type: boolean

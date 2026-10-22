@@ -114,7 +114,10 @@ back, set a repo **variable** `X_INCLUDE_LINK` = `true` (same place as step 4 be
   Over-achievers skip anyone hurt (even questionable) or who missed 2+ games, and anyone who led
   it in the last 3 weeks. Tonight posts need an NFL game or a top-25 college team.
 - Each kind of stat card has its own look: weekly series = poster, hot takes = broadcast,
-  player stats = trading card, team lists = podium. Pick another look in Run workflow if you want.
+  team lists = podium, player stats = one of the collector cards (trading card, graded slab, front + back,
+  or a hand of playing cards; each stat always gets the same one). Pick another look in Run workflow if you want.
+- Postgame: a QB with 75%+ on 25+ throws and no picks, or 300+ yards, 2+ TDs and no picks, gets a gold
+  numbered card (serial = completions/attempts, e.g. 30/36) when there's no bigger game to post.
 
 ## Claude writes the posts (optional, about $3-6 a month)
 
@@ -142,13 +145,13 @@ has actually beaten, how hard its schedule is from here) or a "hot take" that en
 arguments (e.g. "Georgia is 4-0. The teams it has beaten are a combined 3-12. Does a perfect record mean
 anything without a real test?"). A few hot takes are betting ones: the games where our model disagrees most
 with the books' line, and upset alerts. Those always say "for fun, not betting advice".
-Each card rotates through four looks, all in the site's orange with the team's colors: broadcast (`flare_card.py`: team-color backdrop, light rays, ribbon, glass panel with headshots), poster, podium and trading card (`card_looks.py`). Every look handles players, teams (logo instead of a photo) and hot takes.
+Each card rotates through seven looks, all in the site's orange with the team's colors: broadcast (`flare_card.py`: team-color backdrop, light rays, ribbon, glass panel with headshots), poster, podium and trading card (`card_looks.py`), and the collector cards in `collector.py`: slab (graded case), frontback (card front and back) and hand (top 5 as playing cards). Every look handles players, teams (logo instead of a photo) and hot takes.
 No links, always 280 characters or fewer.
 
 It posts on its own at 1 PM and 7 PM Eastern (August-January), going through every stat in order so nothing
 repeats for about two weeks. To post one yourself: GitHub > **Actions** > **Obscure stat post** > **Run workflow**:
 - **Stat**: random, random-hot (hot takes only), random-stat (no hot takes), or a specific one.
-- **Theme**: the card look (broadcast, poster, podium, trading). Random by default.
+- **Theme**: the card look (broadcast, poster, podium, trading, slab, frontback, hand). Auto by default (each stat's own look).
 - **Post to X**: leave ticked to post. Untick it to only make the picture (download it from the run's **Artifacts**).
 
 Try them on your computer: `python src/social/obscure.py --all --out branding/samples/obscure`

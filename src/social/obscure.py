@@ -20,6 +20,7 @@ import os
 import random
 import re
 import sys
+import zlib
 
 import requests
 from PIL import Image, ImageChops, ImageEnhance, ImageDraw, ImageFilter, ImageFont, ImageStat
@@ -1006,27 +1007,33 @@ def team_logo(p):
     return logo
 
 
-LOOKS = ("broadcast", "poster", "podium", "trading")  # flare_card.py (broadcast) and card_looks.py, all in the site's orange
+LOOKS = ("broadcast", "poster", "podium", "trading", "slab", "frontback", "hand")  # flare_card.py (broadcast), card_looks.py,
+# and collector.py (slab, frontback, hand), all in the site's orange
+PLAYER_LOOKS = ("trading", "slab", "frontback", "hand")
 ORANGE = (255, 107, 44)
 
 
 def look_for(key, f):
     """Each kind of stat has its own look, so the feed rotates between them and you can tell the posts apart:
-    weekly series (Fraud watch, Over-achievers) = poster, hot takes = broadcast, player stats = trading card,
-    team lists (schedules, injuries, blowouts, records) = podium."""
+    weekly series (Fraud watch, Over-achievers) = poster, hot takes = broadcast, team lists (schedules, injuries,
+    blowouts, records) = podium, player stats = one of the collector cards (the same one every time for a stat)."""
     if key.startswith("weekly_"):
         return "poster"
     if key.startswith("hot_"):
         return "broadcast"
-    return "trading" if f["kind"] == "player" else "podium"
+    if f["kind"] != "player":
+        return "podium"
+    return PLAYER_LOOKS[zlib.crc32(key.encode()) % len(PLAYER_LOOKS)]
 
 
 def card(f, look=None):
     """A stat card in one of the LOOKS; anything else (an old site-theme name, None) picks one at random."""
     import card_looks
+    import collector
     import flare_card
     look = look if look in LOOKS else random.choice(LOOKS)
-    draw = {"broadcast": flare_card.draw, "poster": card_looks.poster, "podium": card_looks.podium, "trading": card_looks.trading}[look]
+    draw = {"broadcast": flare_card.draw, "poster": card_looks.poster, "podium": card_looks.podium, "trading": card_looks.trading,
+            "slab": collector.look_slab, "frontback": collector.look_frontback, "hand": collector.look_hand}[look]
     return draw(f, ORANGE, image, team_logo)
 
 

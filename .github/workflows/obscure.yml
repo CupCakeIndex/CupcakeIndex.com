@@ -66,7 +66,7 @@ on:
         description: "Card look (auto = each stat type has its own look; random = surprise me)"
         type: choice
         default: auto
-        options: [auto, random, broadcast, poster, podium, trading]
+        options: [auto, random, broadcast, poster, podium, trading, slab, frontback, hand]
       post:
         description: "Post to X (untick to only make the picture)"
         type: boolean
