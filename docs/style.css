@@ -3116,3 +3116,5 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .tw-front { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: #f5c542; color: #111; font-weight: 700; margin-left: 4px; white-space: nowrap; }
 .tw-front-s { color: #f5c542; font-size: 10px; margin-left: 1px; }
 .tw-fit1 { font-weight: 700; }
+.tw-table .tm, .tw-table td > small { vertical-align: middle; }
+.tw-table td > .tm + small { margin-left: 4px; }
