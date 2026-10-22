@@ -116,6 +116,48 @@ def headlines(teams):
     return out
 
 
+# who a headline's trade is for: the words after "trade for" / "acquire" / "Cardinals trade ..." (up to "from", "to", a comma...)
+# a position or two may come before the name ("trade for receiver Marvin Harrison Jr.", "acquire Colts' RB Jonathan Taylor")
+POSW = r"(?:receiver|wide receiver|running back|quarterback|tight end|cornerback|safety|linebacker|pass rusher|edge|star|veteran|" \
+       r"wr|rb|qb|te|cb|lb|de|dt|ol|ot|[A-Z]{2,3}|[A-Z][\w.-]*['’]s)"
+OBJ = re.compile(r"\b(?:(?:trades?|traded|trading|deals?) for |go after |acquires?\s|acquiring\s|lands?\s|trades?\s(?=[A-Z])|traded\s(?=[A-Z]))"
+                 rf"((?:{POSW}\s){{0,2}}[A-Z].*)")
+
+
+def name_rx(name):
+    # (?<!\w) / (?!\w) rather than \b, so names ending in "Jr." match
+    return re.compile(r"(?<!\w)" + re.escape(name).replace(r"\ ", r"\s+") + r"(?!\w)", re.I)
+
+
+def already_traded(titles, name):
+    """Headlines saying the deal is done: "Marvin Harrison Jr. dealt to Texans", "Texans acquire Marvin Harrison Jr.",
+    "Cardinals trade Marvin Harrison Jr. to Houston", "Marvin Harrison Jr. to Texans" (trade grades)."""
+    n = name_rx(name).pattern
+    done = re.compile(rf"{n}(?:'s|’s)?\s+(?:(?:has been|is|was|gets|got)\s+)?(?:traded|dealt|shipped|sent)\s+to\b|"
+                      rf"\b(?:acquired?|acquires|traded|trade|deal|ship|ships|send|sends)\s+(?:[\w’']+\s+){{0,2}}{n}\s+to\s+(?:the\s+)?[A-Z]|"
+                      rf"\b(?:acquired?|acquires)\s+(?:[\w’']+\s+){{0,2}}{n}|{n}\s+to\s+(?:the\s+)?[A-Z][a-z]+;", re.I)
+    maybe = re.compile(r"\?|\b(?:pitch|idea|proposal|proposed|proposes|propose|proposing|mock|would|could|should|might|if|"
+                       r"scenario|predict\w*|projection|projected|dream|rumou?rs?|report|reportedly|eyes|eyeing|talks?|interest|"
+                       r"pursue|pursuing|ideal|perfect|offer|blockbuster)\b", re.I)
+    return sum(1 for t in titles if done.search(t) and not maybe.search(t)) >= 2  # two outlets saying it's done, not pitches
+
+
+def about_him(title, name):
+    """Is this trade headline about HIM being traded? "Terry McLaurin replacement" doesn't count, and "Texans trade for
+    Marvin Harrison Jr." counts for Harrison, not for anyone else it names."""
+    rx = name_rx(name)
+    m = rx.search(title)
+    if not m:
+        return False
+    if re.match(r"(?:'s|’s)?\s+(?:[\w-]+\s+){0,2}(?:replacement|successor|alternative|heir|instead|injury|injured|absence|return)", title[m.end():], re.I):
+        return False  # "Terry McLaurin replacement", "in wake of Terry McLaurin injury": about someone else coming in
+    objs = [re.split(r"\s+(?:from|to|with|after|in|as|is|was|could|would|will)\s+|[,:?!(—–]", x)[0].strip() for x in OBJ.findall(title)]
+    objs = [o for o in objs if re.search(r"[A-Z][\w.'’-]+\s+[A-Z]", o)]  # a name (two capitalized words), not just "QB"
+    if objs and not any(rx.search(o) for o in objs):
+        return False  # the headline's trade is for someone else ("Texans' trade for Marvin Harrison Jr.")
+    return True
+
+
 def contract(pid):
     """(salary this season, signed through, his team's ESPN id now) from ESPN's athlete contract record, or None."""
     for _ in range(3):
@@ -202,17 +244,24 @@ def main():
         t[0] += tr[tc["plays"]]
         t[1] += tr[tc["opp_plays"]]
     AG = ages()
-    news = [] if "--no-talk" in sys.argv else headlines(list(by_name))
+    cache = os.environ.get("TW_NEWS_CACHE")  # testing: reuse one fetch of the headlines
+    if cache and os.path.exists(cache):
+        news = json.load(open(cache, encoding="utf-8"))
+    else:
+        news = [] if "--no-talk" in sys.argv else headlines(list(by_name))
+        if cache:
+            json.dump(news, open(cache, "w", encoding="utf-8"))
     print(f"{len(news)} trade headlines")
     def talk_of(name):
-        rx = re.compile(r"\b" + re.escape(name).replace(r"\ ", r"\s+") + r"\b", re.I)
-        return [n for n in news if rx.search(n[0])]
+        return [n for n in news if about_him(n[0], name)]
     cands = []
     for pid, (sn, _) in snaps.items():
         name, _, team, pos = V["pmeta"][pid][:4]
         talk = talk_of(name) if pos in UNIT and len(name) > 6 else []
         if pos not in UNIT or (tp.get(team, 1) >= 0.45 and not talk):
             continue
+        if already_traded([n[0] for n in news], name):
+            continue  # the headlines say the deal is done
         share = sn / max(1, team_snaps[team][1 if side[pid] else 0])
         a, status = AG.get(pid, (None, None))
         if (share < 0.35 and not talk) or (status and status not in ("ACT",)):
@@ -249,13 +298,19 @@ def main():
             why.append(f"age {int(a)}")
         why.append(f"plays {round(100 * c['share'])}% of snaps")
         u = UNIT[c["pos"]]
+        # fits: contenders with a weak unit at his position, plus headlines that name him with that team ("Packers urged to go
+        # after DeForest Buckner"); the first one is his frontrunner
         fits = []
         for t, pt in tp.items():
-            if t == c["team"] or not 0.35 <= pt <= 0.97:
+            nick = V["teams"][t][0].split()[-1]
+            linked = sum(1 for h in talk if re.search(rf"\b{re.escape(nick)}\b", h[0]))
+            if t == c["team"] or not (0.35 <= pt <= 0.97 or (linked and pt >= 0.2)):
                 continue
             need = (rank[u][t] - 1) / 31  # 0 = best unit, 1 = worst
-            fits.append((need * (1 - abs(pt - 0.7)), t, need))
-        fits = [[abbr[t], f"#{rank[u][t]} {UNIT_TXT[u]}, {round(100 * tp[t])}% playoff chance"] for s, t, n in sorted(fits, reverse=True)[:3]]
+            fits.append((need * (1 - abs(pt - 0.7)) + 0.45 * math.log2(1 + linked), t, linked))
+        fits = [[abbr[t], f"#{rank[u][t]} {UNIT_TXT[u]}, {round(100 * tp[t])}% playoff chance"
+                 + (f", {n} headline{'s' if n > 1 else ''} link{'' if n > 1 else 's'} them" if n else ""), n]
+                for _, t, n in sorted(fits, reverse=True)[:3]]
         out.append({**c, "age": round(a, 1) if a else None, "salary": sal, "through": thru, "score": round(score, 4), "why": why, "fits": fits,
                     "talk": len(talk), "story": list(talk[0]) if talk else None})
     out.sort(key=lambda x: -x["score"])
@@ -275,7 +330,8 @@ def main():
                 continue
             u = UNIT[x["pos"]]
             need = (rank[u][t] - 1) / 31
-            tg.append((x["score"] * (0.25 + need), i, u))
+            linked = next((f[2] for f in x["fits"] if f[0] == abbr[t]), 0)  # headlines tying him to this team
+            tg.append((x["score"] * (0.25 + need) + 30 * math.log2(1 + linked), i, u))
         tg.sort(reverse=True)
         team_view[abbr[t]] = {"needs": [[UNIT_TXT[u], rank[u][t]] for u in needs],
                               "targets": [[i, f"their {UNIT_TXT[u]} ranks #{rank[u][t]} of 32"] for _, i, u in tg[:10]]}
