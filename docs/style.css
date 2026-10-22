@@ -3096,14 +3096,20 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .tw-lo { color: var(--muted); }
 .tw-exp { color: var(--accent, #ff6b2c); font-weight: 600; }
 .tw-fits .tm { margin-right: 6px; white-space: nowrap; }
-#tw-table td { vertical-align: middle; }
+.tw-table td { vertical-align: middle; }
 @media (max-width: 520px) {
   .cd-box { min-width: 54px; }
   .cd-box b { font-size: 26px; }
-  #tw-table th:nth-child(1), #tw-table td:nth-child(1) { display: none; }
-  #tw-table td small { display: block; }
+  .tw-table th:nth-child(1), .tw-table td:nth-child(1) { display: none; }
+  .tw-table td small { display: block; }
 }
 .tw-story { display: block; max-width: 340px; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
 .tw-story:hover { color: var(--accent, #ff6b2c); }
 .tw-talk { color: var(--accent, #ff6b2c); }
 @media (max-width: 520px) { .tw-story { max-width: 190px; } }
+#tw-team, #tw-pos { min-width: 150px; }
+.tw-team { border: 1px solid var(--line, #333); border-radius: 8px; padding: 12px 14px; margin: 4px 0 14px; }
+.tw-team-h { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.tw-role { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; }
+.tw-needs { margin: 8px 0 0; font-size: 13px; }
+.tw-h3 { margin: 16px 0 8px; font-size: 15px; }

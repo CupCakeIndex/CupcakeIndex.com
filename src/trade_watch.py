@@ -264,8 +264,24 @@ def main():
     for x in out:
         x["score"] = round(100 * x["score"] / top)
         x["tier"] = "Likely" if x["score"] >= 60 else "Possible" if x["score"] >= 30 else "Long shot"
+    # each team's view: its units from worst to best, and the listed players it fits best (need at his position x how
+    # likely he's moved; a contender buys, a seller rarely does, so a seller's list is "if they buy")
+    team_view = {}
+    for t, pt in tp.items():
+        needs = sorted({UNIT[x] for x in UNIT}, key=lambda u: -rank[u][t])
+        tg = []
+        for i, x in enumerate(out):
+            if x["team"] == t:
+                continue
+            u = UNIT[x["pos"]]
+            need = (rank[u][t] - 1) / 31
+            tg.append((x["score"] * (0.25 + need), i, u))
+        tg.sort(reverse=True)
+        team_view[abbr[t]] = {"needs": [[UNIT_TXT[u], rank[u][t]] for u in needs],
+                              "targets": [[i, f"their {UNIT_TXT[u]} ranks #{rank[u][t]} of 32"] for _, i, u in tg[:10]]}
     data = {"updated": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%MZ"), "season": SEASON, "deadline": DEADLINE, "sims": SIMS,
-            "teams": {abbr[t]: {"id": t.split(":")[1], "p": round(p, 3), "record": rec.get(t, "")} for t, p in tp.items()},
+            "teams": {abbr[t]: {"id": t.split(":")[1], "name": V["teams"][t][0], "p": round(p, 3), "record": rec.get(t, ""), **team_view[abbr[t]]}
+                      for t, p in tp.items()},
             "players": out}
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))

@@ -5140,7 +5140,7 @@ const Live = (() => {
       <div class="cd-time">${box(d, d === 1 ? "day" : "days")}${dayOnly ? "" : box(h, "hrs") + box(m, "min") + box(sec, "sec")}</div>
       <div class="cd-sub muted">${esc(sub)}</div>`;
   }
-  let twPos = "";
+  let twPos = "", twTeam = "";
   async function trades() {
     const my = token;
     if (league !== "nfl") {
@@ -5151,47 +5151,67 @@ const Live = (() => {
     let D;
     try { D = await getJSON("data/nfl/trade_watch.json"); } catch (e) { return fail("trades", e); }
     if (my !== token) return;
+    // teams in the file are keyed by abbreviation; players carry the chart key ("nfl:28")
+    const byId = Object.fromEntries(Object.entries(D.teams).map(([ab, t]) => [`nfl:${t.id}`, ab]));
+    const abOf = (k) => byId[k] || k;
     const tlogo = (ab) => { const t = D.teams[ab]; return t ? img(`https://a.espncdn.com/i/teamlogos/nfl/500/${t.id}.png`, "xs") : ""; };
     const money = (v) => (v ? `$${(v / 1e6).toFixed(v < 1e7 ? 1 : 0)}M` : "–");
     const gone = Date.now() > Date.parse(`${D.deadline}T21:00:00Z`);
     const POS = ["QB", "RB", "WR", "TE", "OL", "EDGE", "IDL", "LB", "CB", "S"];
+    if (!D.teams[twTeam]) twTeam = "";
+    const teamsByName = Object.entries(D.teams).sort((a, b) => a[1].name.localeCompare(b[1].name));
     view("trades").innerHTML = `<div class="card tw-cd" id="tw-cd">${countdownHtml()}</div>
       <div class="card">
         <div class="sc-bar"><h2>Trade watch</h2>
-          <div class="presets" id="tw-pos">${[["", "All"], ...POS.map((p) => [p, p])].map(([v, l]) => `<button data-pos="${v}" class="${v === twPos ? "on" : ""}">${l}</button>`).join("")}</div></div>
+          <select id="tw-team" aria-label="Team"><option value="">All teams</option>${teamsByName.map(([ab, t]) => `<option value="${ab}"${ab === twTeam ? " selected" : ""}>${esc(t.name)}</option>`).join("")}</select>
+          <select id="tw-pos" aria-label="Position"><option value="">All positions</option>${POS.map((p) => `<option value="${p}"${p === twPos ? " selected" : ""}>${p}</option>`).join("")}</select></div>
         ${gone ? `<p class="note">The ${D.season} deadline has passed. This was our list going in.</p>` : ""}
-        <div class="table-wrap"><table class="box" id="tw-table"><thead><tr><th>#</th><th>Player</th><th>Team</th><th>Contract</th><th>Talk</th><th>Chance</th><th>Best fits</th></tr></thead><tbody></tbody></table></div>
-        <p class="note">Our guess at who gets moved, refreshed daily (last ${esc(D.updated.slice(0, 10))}). <b>Talk</b> is how many trade headlines named him in the last 2 weeks (Google News: league-wide trade searches plus one per team); the line under his name is one of them. Talk counts a lot, since it's the best public sign a deal is being discussed, but with diminishing returns. Players who were already traded drop off. <b>Sellers</b> are teams with a low playoff chance in ${D.sims.toLocaleString("en-US")} simulations of the rest of the season from our power ratings. A player ranks higher when his team is selling, his contract ends soon (salary and years from ESPN), he's a veteran (rebuilding teams keep young players), he plays a big role, and he's worth something to a contender. QBs and running backs rarely move mid-season, so they count less. <b>Best fits</b> are contenders (35-97% playoff chance) whose unit at his position ranks low in our play-by-play numbers. We can't see teams' cap space, so a fit isn't a sure thing. Chance is a ranking (Likely, Possible, Long shot), not a percentage.</p></div>`;
-    const draw = () => {
-      const rows = D.players.filter((p) => !twPos || p.pos === twPos);
-      $("#tw-table tbody").innerHTML = rows.map((p, i) => `<tr>
+        <div id="tw-body"></div>
+        <p class="note">Our guess at who gets moved, refreshed daily (last ${esc(D.updated.slice(0, 10))}). <b>Trade headlines</b> is how many news headlines from the last 2 weeks named him next to a trade word ("trade", "deadline", "rumors", "landing spots"...), from Google News searches for NFL trade news and for each team; the line under his name is one of them. Headlines count a lot, since they're the best public sign a deal is being discussed, but each extra one adds a little less. Players who were already traded drop off. <b>Sellers</b> are teams with a low playoff chance in ${D.sims.toLocaleString("en-US")} simulations of the rest of the season from our power ratings. A player also ranks higher when his contract ends soon (salary and years from ESPN), he's a veteran (rebuilding teams keep young players), he plays a big role, and he's worth something to a contender. QBs and running backs rarely move mid-season, so they count less. <b>Best fits</b> and a team's targets come from where its units rank in our play-by-play numbers. We can't see teams' cap space, so a fit isn't a sure thing. Chance is a ranking (Likely, Possible, Long shot), not a percentage.</p></div>`;
+    const head = (extra) => `<thead><tr><th>#</th><th>Player</th><th>Team</th><th>Contract</th><th title="Trade headlines naming him in the last 2 weeks">Trade headlines</th><th>Chance</th><th>${extra}</th></tr></thead>`;
+    const row = (p, i, last) => `<tr>
         <td class="num">${i + 1}</td>
         <td><a href="${link("player", p.id)}"><b>${esc(p.name)}</b></a> <span class="muted">${esc(p.pos)}${p.age ? ` · ${Math.floor(p.age)}` : ""}</span>
           ${p.story && safeUrl(p.story[1]) ? `<a class="tw-story" href="${esc(p.story[1])}" target="_blank" rel="noopener">${esc(p.story[0])}</a>` : ""}</td>
         <td><span class="tm">${tlogo(abOf(p.team))} ${esc(abOf(p.team))}</span> <small class="muted">${esc(D.teams[abOf(p.team)]?.record || "")} · ${Math.round(100 * (D.teams[abOf(p.team)]?.p || 0))}% playoffs</small></td>
         <td>${p.through ? (p.through === D.season ? `<b class="tw-exp">ends ${p.through}</b>` : `thru ${p.through}`) : "–"} <small class="muted">${money(p.salary)}</small></td>
-        <td class="num">${p.talk ? `<b class="tw-talk" title="Trade headlines naming him in the last 2 weeks">${p.talk}</b>` : `<span class="muted">0</span>`}</td>
+        <td class="num">${p.talk ? `<b class="tw-talk">${p.talk}</b>` : `<span class="muted">0</span>`}</td>
         <td><span class="tw-tier tw-${p.tier === "Likely" ? "hi" : p.tier === "Possible" ? "md" : "lo"}">${esc(p.tier)}</span></td>
-        <td class="tw-fits">${p.fits.map(([ab, why]) => `<span class="tm" title="${esc(why)}">${tlogo(ab)} ${esc(ab)}</span>`).join(" ")}</td></tr>`).join("")
-        || `<tr><td colspan="7" class="muted">No one at this position on our list.</td></tr>`;
+        <td class="tw-fits">${last}</td></tr>`;
+    const fitsOf = (p) => p.fits.map(([ab, why]) => `<span class="tm" title="${esc(why)}">${tlogo(ab)} ${esc(ab)}</span>`).join(" ");
+    const posOk = (p) => !twPos || p.pos === twPos;
+    const none = (n, txt) => `<tr><td colspan="${n}" class="muted">${txt}</td></tr>`;
+    const draw = () => {
+      const el = $("#tw-body");
+      if (!twTeam) {
+        const rows = D.players.filter(posOk);
+        el.innerHTML = `<div class="table-wrap"><table class="box tw-table">${head("Best fits")}<tbody>${rows.map((p, i) => row(p, i, fitsOf(p))).join("") || none(7, "No one at this position on our list.")}</tbody></table></div>`;
+        return;
+      }
+      const T = D.teams[twTeam], short = T.name.split(" ").pop();
+      const seen = new Set(), needs = T.needs.filter(([u]) => !seen.has(u) && seen.add(u)); // QB and WR share "passing offense"
+      const buyer = T.p >= 0.35;
+      const targets = T.targets.map(([i, why]) => [D.players[i], why]).filter(([p]) => p && posOk(p));
+      const mine = D.players.filter((p) => abOf(p.team) === twTeam && posOk(p));
+      el.innerHTML = `<div class="tw-team">
+          <div class="tw-team-h"><span class="tm">${tlogo(twTeam)} <b>${esc(T.name)}</b></span> <span class="muted">${esc(T.record)} · ${Math.round(100 * T.p)}% playoff chance</span>
+            <span class="tw-role ${buyer ? "tw-hi" : "tw-lo"}">${T.p >= 0.6 ? "Buyer" : buyer ? "On the fence" : "Seller"}</span></div>
+          <p class="tw-needs">Weakest spots: ${needs.slice(0, 3).map(([u, r]) => `<b>${esc(u)}</b> <span class="muted">#${r} of 32</span>`).join(" · ")}</p>
+          ${buyer ? "" : `<p class="note">With a ${Math.round(100 * T.p)}% playoff chance the ${esc(short)} are more likely to sell than buy. Here's who they'd go after if they do buy, and who they might trade away.</p>`}
+        </div>
+        <h3 class="tw-h3">Who the ${esc(short)} would most likely go after</h3>
+        <div class="table-wrap"><table class="box tw-table">${head("Why them")}<tbody>${targets.map(([p, why], i) => row(p, i, `<small>${esc(why)}</small>`)).join("") || none(7, "No one at this position on their list.")}</tbody></table></div>
+        <h3 class="tw-h3">Who the ${esc(short)} might trade away</h3>
+        <div class="table-wrap"><table class="box tw-table">${head("Best fits")}<tbody>${mine.map((p, i) => row(p, i, fitsOf(p))).join("") || none(7, "No one from this team on our list.")}</tbody></table></div>`;
     };
-    // teams in the file are keyed by abbreviation; players carry the chart key ("nfl:28")
-    const byId = Object.fromEntries(Object.entries(D.teams).map(([ab, t]) => [`nfl:${t.id}`, ab]));
-    const abOf = (k) => byId[k] || k;
     draw();
-    $("#tw-pos").addEventListener("click", (e) => {
-      const b = e.target.closest("[data-pos]");
-      if (!b) return;
-      twPos = b.dataset.pos;
-      $("#tw-pos").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
-      draw();
-    });
+    $("#tw-pos").addEventListener("change", (e) => { twPos = e.target.value; draw(); });
+    $("#tw-team").addEventListener("change", (e) => { twTeam = e.target.value; draw(); });
     const tick = setInterval(() => {
       const el = $("#tw-cd");
       if (my !== token || !el) return clearInterval(tick);
       el.innerHTML = countdownHtml();
     }, 1000);
   }
-
   return { stop, teamId, scores, game, stats, player, standings, team, freeagents, trades, searchPlayers, fillBugs, kit, statsSubtabs: (on) => stSubStats(on) };
 })();
