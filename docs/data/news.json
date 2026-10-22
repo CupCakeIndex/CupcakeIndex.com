@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-22T02:12:02Z",
+ "updated": "2026-10-22T02:41:29Z",
  "teams": {
   "nfl:22": {
    "name": "Arizona Cardinals",
@@ -232,6 +232,13 @@
    "id": "252",
    "logo": "https://cdn.collegefootballdata.com/logos/500/252.png"
   },
+  "cfb:68": {
+   "name": "Boise State",
+   "short": "Boise State",
+   "lg": "cfb",
+   "id": "68",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/68.png"
+  },
   "cfb:2132": {
    "name": "Cincinnati",
    "short": "Cincinnati",
@@ -323,13 +330,6 @@
    "id": "130",
    "logo": "https://cdn.collegefootballdata.com/logos/500/130.png"
   },
-  "cfb:127": {
-   "name": "Michigan State",
-   "short": "Michigan State",
-   "lg": "cfb",
-   "id": "127",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/127.png"
-  },
   "cfb:344": {
    "name": "Mississippi State",
    "short": "Mississippi State",
@@ -343,6 +343,13 @@
    "lg": "cfb",
    "id": "158",
    "logo": "https://cdn.collegefootballdata.com/logos/500/158.png"
+  },
+  "cfb:167": {
+   "name": "New Mexico",
+   "short": "New Mexico",
+   "lg": "cfb",
+   "id": "167",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/167.png"
   },
   "cfb:77": {
    "name": "Northwestern",
@@ -400,12 +407,12 @@
    "id": "221",
    "logo": "https://cdn.collegefootballdata.com/logos/500/221.png"
   },
-  "cfb:242": {
-   "name": "Rice",
-   "short": "Rice",
+  "cfb:164": {
+   "name": "Rutgers",
+   "short": "Rutgers",
    "lg": "cfb",
-   "id": "242",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/242.png"
+   "id": "164",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/164.png"
   },
   "cfb:2567": {
    "name": "SMU",
@@ -427,13 +434,6 @@
    "lg": "cfb",
    "id": "58",
    "logo": "https://cdn.collegefootballdata.com/logos/500/58.png"
-  },
-  "cfb:24": {
-   "name": "Stanford",
-   "short": "Stanford",
-   "lg": "cfb",
-   "id": "24",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/24.png"
   },
   "cfb:2628": {
    "name": "TCU",
@@ -512,12 +512,12 @@
    "id": "259",
    "logo": "https://cdn.collegefootballdata.com/logos/500/259.png"
   },
-  "cfb:264": {
-   "name": "Washington",
-   "short": "Washington",
+  "cfb:265": {
+   "name": "Washington State",
+   "short": "Washington State",
    "lg": "cfb",
-   "id": "264",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/264.png"
+   "id": "265",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/265.png"
   },
   "cfb:277": {
    "name": "West Virginia",
@@ -525,9 +525,56 @@
    "lg": "cfb",
    "id": "277",
    "logo": "https://cdn.collegefootballdata.com/logos/500/277.png"
+  },
+  "cfb:275": {
+   "name": "Wisconsin",
+   "short": "Wisconsin",
+   "lg": "cfb",
+   "id": "275",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/275.png"
   }
  },
  "items": [
+  {
+   "title": "Miami scores big recruiting win after flipping 4-star LB",
+   "url": "https://sports.yahoo.com/articles/miami-scores-big-recruiting-win-022806324.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-22T02:28:06Z",
+   "summary": "The Miami Hurricanes scored a big win on the recruiting trail Wednesday by flipping four-star linebacker Aston Whiteside from the Texas A&M Aggies, adding another blue-chip prospect to their 2027…",
+   "image": "https://media.zenfs.com/en/clutchpoints_articles_939/a3c6a27a340bdae09b19b9b44634c4af.jpg",
+   "teams": [
+    "cfb:2390",
+    "cfb:245",
+    "cfb:52",
+    "cfb:251"
+   ]
+  },
+  {
+   "title": "How does WSU's defense match up with No. 21 Boise State's rushing attack? Look no further than tackling",
+   "url": "https://sports.yahoo.com/articles/does-wsus-defense-match-no-022700769.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-22T02:27:00Z",
+   "summary": "Oct. 21—PULLMAN — When Khamari Terrell makes a tackle in space, for a brief moment, he enters a world all by himself. Washington State's veteran cornerback will usually lower his head, staring down…",
+   "image": "",
+   "teams": [
+    "cfb:265",
+    "cfb:68"
+   ]
+  },
+  {
+   "title": "New Mexico's nation-leading scoring defense has Lobos in playoff conversation",
+   "url": "https://sports.yahoo.com/articles/mexicos-nation-leading-scoring-defense-022457660.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-22T02:24:57Z",
+   "summary": "Statistically, New Mexico is playing some of the best defense of any FBS team in the 21st century.",
+   "image": "https://media.zenfs.com/en/the_sporting_news_articles_584/afd441b82bc6538af7d142ad60d6b874",
+   "teams": [
+    "cfb:167"
+   ]
+  },
   {
    "title": "UFL has a stadium issue in St. Louis for 2027",
    "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/ufl-has-a-stadium-issue-in-st-louis",
@@ -539,6 +586,19 @@
    "teams": []
   },
   {
+   "title": "Wisconsin center Austin Kawecki nears return from hand injury",
+   "url": "https://sports.yahoo.com/articles/wisconsin-center-austin-kawecki-nears-015740149.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-22T01:57:40Z",
+   "summary": "The intial ability report for the Wisconsin-USC football game Oct. 24 included good and corcerning news for the Badgers.",
+   "image": "",
+   "teams": [
+    "cfb:275",
+    "cfb:30"
+   ]
+  },
+  {
    "title": "Patrick Mahomes practicing Wednesday",
    "url": "https://sports.yahoo.com/articles/patrick-mahomes-practicing-wednesday-014531889.html",
    "source": "Yahoo Sports",
@@ -548,6 +608,19 @@
    "image": "",
    "teams": [
     "nfl:12"
+   ]
+  },
+  {
+   "title": "Northwestern Receives More Concerning Injury News Ahead of Rutgers",
+   "url": "https://sports.yahoo.com/articles/northwestern-receives-more-concerning-injury-014518302.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-22T01:45:18Z",
+   "summary": "Northwestern faces more injury concerns ahead of Rutgers, with Luke Dehnicke ruled out and Robert Fitzgerald and Brendan Flakes listed as doubtful.",
+   "image": "https://media.zenfs.com/en/roundtable_sports_northwestern_917/2418e34f7de49e33014f2804f956eab6.jpg",
+   "teams": [
+    "cfb:77",
+    "cfb:164"
    ]
   },
   {
@@ -1000,31 +1073,6 @@
    ]
   },
   {
-   "title": "Washington football star DB named Sporting News Midseason All-American",
-   "url": "https://sports.yahoo.com/articles/washington-football-star-db-named-000031051.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-22T00:00:31Z",
-   "summary": "Washington's top defender found his name on Sporting News' Midseason All-America Team on Wednesday.",
-   "image": "",
-   "teams": [
-    "cfb:264"
-   ]
-  },
-  {
-   "title": "Who Could be Utah's Guest Picker for ESPN's College GameDay",
-   "url": "https://sports.yahoo.com/articles/could-utahs-guest-picker-espns-000020433.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-22T00:00:20Z",
-   "summary": "As Salt Lake City prepares for the national spotlight, legendary Utes like Eric Weddle and Alex Smith emerge as top contenders to join the desk at Rice-Eccles Stadium.",
-   "image": "",
-   "teams": [
-    "cfb:242",
-    "cfb:254"
-   ]
-  },
-  {
    "title": "Miami Dolphins Discussion: Week 7 Game Vs New York Jets Predictions Edition",
    "url": "https://sports.yahoo.com/articles/miami-dolphins-discussion-week-7-000000849.html",
    "source": "Yahoo Sports",
@@ -1048,32 +1096,6 @@
    "teams": [
     "nfl:17",
     "nfl:3"
-   ]
-  },
-  {
-   "title": "Michigan State Football Plays at Rose Bowl for First Time Since 2014, Takes on No.9 UCLA",
-   "url": "https://sports.yahoo.com/articles/michigan-state-football-plays-rose-234550436.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-21T23:45:50Z",
-   "summary": "It’s been nearly 13 years since the Spartans have played at the Rose Bowl, the last time was under former head coach Mark Dantonio, and his No.4 MSU football team took down No.5 Stanford 24-20 to…",
-   "image": "https://media.zenfs.com/en/heavy_214/195b983e87eebee232f7db5312924d76.jpg",
-   "teams": [
-    "cfb:127",
-    "cfb:24",
-    "cfb:26"
-   ]
-  },
-  {
-   "title": "Northwestern's David Braun Earns National Coach of the Year Recognition",
-   "url": "https://sports.yahoo.com/articles/northwesterns-david-braun-earns-national-234515835.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-21T23:45:15Z",
-   "summary": "Northwestern head coach David Braun has earned a spot on the Paul “Bear” Bryant National Coach of the Year watch list following the Wildcats' impressive 5-1 start.",
-   "image": "https://media.zenfs.com/en/roundtable_sports_northwestern_917/f9fb1d4b2c92fcf4e4804d12b911be70.jpg",
-   "teams": [
-    "cfb:77"
    ]
   },
   {
@@ -1149,19 +1171,6 @@
    "image": "https://nbcsports.brightspotcdn.com/dims4/default/c2a093f/2147483647/strip/false/crop/6823x3838+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F00%2F36%2F2175df6749519ef7f9e82ed204aa%2F2287899404.jpg",
    "teams": [
     "nfl:7"
-   ]
-  },
-  {
-   "title": "Four-star Texas A&M commit flips to Miami Hurricanes",
-   "url": "https://sports.yahoo.com/articles/four-star-texas-m-commit-232022269.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-21T23:20:22Z",
-   "summary": "The Miami Hurricanes have flipped four-star linebacker Aston Whiteseide from the Texas A&M Aggies.",
-   "image": "",
-   "teams": [
-    "cfb:2390",
-    "cfb:245"
    ]
   },
   {
