@@ -385,11 +385,11 @@ const Viz = (() => {
     ]],
     // our Heisman race (college; heisGame above): production that counts more against good teams, times winning
     ["Heisman race (our model)", [
-      ["heisman", "Heisman score (our model)", (S, g) => (S.hz == null || !g ? null : S.hz * (0.6 + (0.6 * S.hz_w) / g)), { d: 0, lg: "cfb",
-        about: "Heisman score (our model): his production (pass yards/25 + pass TDs x4 - INTs x2 + rushing and receiving yards/10 + rushing and receiving TDs x6), each game weighted by the opponent (x1.2 vs the top half of FBS by our power rating, x0.8 vs the bottom half, x0.5 vs FCS), then times his team's record in his games (0.6 + 0.6 x win %: unbeaten x1.2, .500 x0.9). Bullying cupcakes isn't a résumé." }],
-      ["heis_prod", "Heisman production, opponent-weighted", (S) => S.hz, { count: 1, noShare: 1, d: 0, lg: "cfb" }],
-      ["heis_raw", "Heisman production, raw (no opponent weighting)", (S) => S.hz_raw, { count: 1, noShare: 1, d: 0, lg: "cfb" }],
-      ["heis_cup", "Cupcake padding (% of production lost to weighting)", (S) => (S.hz_raw ? (100 * (S.hz_raw - S.hz)) / S.hz_raw : null), { den: (S) => S.hz_raw, pct: 1, low: 1, lg: "cfb", unit: "production points" }],
+      ["heisman", "Heisman score (our model)", (S, g) => { const i = hzIdx(S, g); return i == null ? null : i * hzTeam(S, g); }, { d: 0, lg: "cfb",
+        about: "Heisman score (our model): his production (QBs: passing + rushing yards, 20 per TD, minus 45 per INT; everyone else: rushing + receiving yards, 20 per TD), each game worth more against good teams and less against cupcakes, compared with his position (100 = the 10th best QB, RB or WR/TE), then times team success (win % and our power rating), like the voters. Bullying cupcakes isn't a résumé." }],
+      ["heis_prod", "Heisman production vs his position (opponent-weighted, 100 = 10th best)", (S, g) => hzIdx(S, g), { d: 0, lg: "cfb" }],
+      ["heis_raw", "Heisman production vs his position, raw (no opponent weighting)", (S, g) => hzIdx(S, g, 1), { d: 0, lg: "cfb" }],
+      ["heis_cup", "Cupcake padding (% of production lost to opponent weighting)", (S, g) => { const p = hzPos(S, g), w = p === "QB" ? S.hq : S.ho, r = p === "QB" ? S.hq_raw : S.ho_raw; return r > 0 ? (100 * (r - w)) / r : null; }, { pct: 1, low: 1, lg: "cfb" }],
     ]],
     ["Advanced", [
       ["epa_total", "Total EPA (pass + rush + catch)", (S) => S.pass_epa + S.rush_epa + S.rec_epa, { count: 1, d: 1, lg: "nfl" }],
@@ -712,22 +712,28 @@ const Viz = (() => {
     const ks = (ours.length ? ours : Object.keys(W)).sort((a, b) => score(b) - score(a));
     return (D.good = new Set(ks.slice(0, Math.ceil(ks.length / 2))));
   }
-  // Our Heisman score (college): production = pass yds/25 + pass TD x4 - INT x2 + rush/rec yds/10 + rush/rec TD x6, each
-  // game weighted by the opponent: x1.2 vs the top half of FBS (our power rating), x0.8 vs the bottom half (cupcakes),
-  // x0.5 vs FCS. Then times his team's record in his games (0.6 + 0.6 x win %): an unbeaten team's star gets x1.2, .500 x0.9.
-  // Columns: hz = weighted production, hz_raw = the same unweighted, hz_w = his team's wins in his games.
-  const HZ = { good: 1.2, soft: 0.8, fcs: 0.5 };
+  // Our Heisman score (college). Each game's production counts more against good teams: x(1 + opponent's power rating/40),
+  // kept between x0.6 and x1.4 (FCS x0.5). QBs: passing + rushing yards + 20 per TD - 45 per INT; everyone else: rushing +
+  // receiving yards + 20 per TD. That's compared with his position: 100 = the 10th best QB (or RB, or WR/TE) in the weeks
+  // picked, so a 1,000-yard receiver and a 2,500-yard passer are judged on the same scale. Then team success, the way voters
+  // do it: x(0.5 + 0.7 x win %²) x (1 + his team's power rating/80). Back-tested: 2025's #1 is Fernando Mendoza.
+  // Columns per game: hq/ho = weighted QB/other production (hq_raw/ho_raw unweighted), hz_w = his team won, hz_r = team rating.
+  let HZB = { QB: 1, RB: 1, WR: 1, rQB: 1, rRB: 1, rWR: 1 }; // the 10th best at each position (set by sum())
   function heisGame(D) {
-    const good = goodSet(D), opp = {}, won = {};
+    const opp = {}, won = {}, R = (k) => D.ours?.[k]?.ci_rating;
     for (const t of D.trows) { opp[`${t[0]}|${t[1]}`] = t[2]; won[`${t[0]}|${t[1]}`] = t[3] > t[4] ? 1 : t[3] === t[4] ? 0.5 : 0; }
     const ix = Object.fromEntries(D.pcols.map((c, i) => [c, i + 3]));
     const v = (r, c) => r[ix[c]] || 0;
     return (r) => {
-      const raw = v(r, "pass_yds") / 25 + 4 * v(r, "pass_td") - 2 * v(r, "int") + (v(r, "rush_yds") + v(r, "rec_yds")) / 10 + 6 * (v(r, "rush_td") + v(r, "rec_td"));
-      const o = opp[`${r[2]}|${r[1]}`], m = o == null ? 1 : good.has(o) ? HZ.good : D.teams[o] ? HZ.soft : HZ.fcs;
-      return { hz: raw * m, hz_raw: raw, hz_w: won[`${r[2]}|${r[1]}`] ?? 0 };
+      const o = opp[`${r[2]}|${r[1]}`], m = o == null ? 1 : R(o) == null ? 0.5 : Math.min(1.4, Math.max(0.6, 1 + R(o) / 40));
+      const td = v(r, "rush_td") + v(r, "rec_td");
+      const q = v(r, "pass_yds") + v(r, "rush_yds") + 20 * (v(r, "pass_td") + td) - 45 * v(r, "int"), x = v(r, "rush_yds") + v(r, "rec_yds") + 20 * td;
+      return { hq: q * m, ho: x * m, hq_raw: q, ho_raw: x, hz_w: won[`${r[2]}|${r[1]}`] ?? 0, hz_r: R(r[2]) ?? -15 };
     };
   }
+  const hzPos = (S, g) => (S.att >= 8 * (g || 1) ? "QB" : S.carries > 0 && S.carries >= 2 * S.rec ? "RB" : "WR");
+  const hzIdx = (S, g, raw) => { if (S.hq == null || !g) return null; const p = hzPos(S, g); return (100 * (p === "QB" ? (raw ? S.hq_raw : S.hq) : raw ? S.ho_raw : S.ho)) / HZB[(raw ? "r" : "") + p]; };
+  const hzTeam = (S, g) => (0.5 + 0.7 * (S.hz_w / g) ** 2) * (1 + S.hz_r / g / 80);
   function sum(D, who, w1, w2, byWeek) {
     const cols = who === "players" ? D.pcols : D.tcols, rows = who === "players" ? D.prows : D.trows, out = {};
     const mx = cols.map((c) => c.startsWith("mx_")); // season highs (longest field goal): the biggest one, not the sum
@@ -780,6 +786,12 @@ const Viz = (() => {
         if (hz) for (const c in hz) w[c] = (w[c] || 0) + hz[c];
         if (t) cols.forEach((c, i) => { w["tm_" + c] = (w["tm_" + c] || 0) + t[i]; });
       }
+    }
+    if (heis) { // the Heisman scale: 100 = the 10th best at his position
+      const L = {};
+      for (const o of Object.values(out)) { const p = hzPos(o.S, o.g); (L[p] ||= [[], []]); L[p][0].push(p === "QB" ? o.S.hq : o.S.ho); L[p][1].push(p === "QB" ? o.S.hq_raw : o.S.ho_raw); }
+      const tenth = (a) => Math.max(1, a.sort((x, y) => y - x)[Math.min(9, a.length - 1)] || 1);
+      for (const p in L) { HZB[p] = tenth(L[p][0]); HZB["r" + p] = tenth(L[p][1]); }
     }
     if (who === "players" && D.pseason) for (const [k, v] of Object.entries(D.pseason)) if (out[k]) D.pseason_cols.forEach((c, i) => { out[k].S["ss_" + c] = v[i]; });
     if (who === "teams" && D.tx?.length) { // team run stops etc.: the team's players added up, same weeks
@@ -1052,7 +1064,7 @@ const Viz = (() => {
     cfb: [
       "Heisman race",
       ["Heisman race: who we think should win it", P_({ type: "bar", stat: "heisman", top: "10" })],
-      ["Heisman race week by week", P_({ type: "line", stat: "heis_prod", per: "total", top: "5", cum: "1" })],
+      ["Heisman race week by week", P_({ type: "line", stat: "heisman", top: "5", cum: "1" })],
       ["Raw production vs our Heisman score (who padded vs cupcakes?)", P_({ type: "scatter", stat: "heis_raw", y: "heisman", top: "25" })],
       "Teams",
       ["Schedule vs cupcakes (the Schedules chart)", T_({ type: "scatter", stat: "ci_sos", y: "ci_cupcake", top: "all" })],
@@ -1201,6 +1213,12 @@ const Viz = (() => {
     const whereRead = W.groups.length ? W.read.join(" or ") + (W.groups.flat().some((c) => c.k === "stat" && c.s[3].count) && per === "game" ? " (per game)" : "") : "";
     const rank = (s, list) => list.filter((k) => val(s, k) != null).sort((a, b) => (s[3].low ? 1 : -1) * (val(s, a) - val(s, b)) * (st.order === "worst" ? -1 : 1));
     const top = st.top === "all" ? 9999 : +st.top || 10;
+    // a rare bad thing (points erased by penalties) on Best: the whole chart is a tie at 0, which says nothing, so show the most
+    let tieFlip = false;
+    if (st.order !== "worst" && stat[3].low && stat[3].count && (st.type === "bar" || st.type === "table")) {
+      const r = rank(stat, keys);
+      if (r.length > Math.min(top, 10) && val(stat, r[Math.min(top, 10)]) === val(stat, r[0])) { st.order = "worst"; tieFlip = true; }
+    }
     // a Head coach stat on the chart: teams go by their coach ("Macdonald", hover: "Mike Macdonald (Seattle Seahawks)")
     const coachy = who === "teams" && [stat[0], st.type === "scatter" ? st.y : ""].some((s) => s.startsWith("co_"));
     const coach = (k) => (coachy ? agg[k]?.S.co_name : null);
@@ -1513,6 +1531,7 @@ const Viz = (() => {
       note = "100 = the best among everyone listed, 0 = the worst. Lower-is-better stats are flipped.";
     }
     if (per === "share" && stat[3].count) note += ` Share of team = his part of his team's total in the games he played.`;
+    if (tieFlip) note += ` Fewest would just be a tie at ${fmt(stat, val(stat, rank(stat, keys).at(-1)), per)}, so this shows the most.`;
     if (stat[3].about) note += ` ${stat[3].about}`;
     if (condTxt) note += " Conditions come from nflverse's game list (kickoff temperature and wind; domes have none, so the weather choices leave them out).";
     if (st.opp) note += " Top half = the top half of our power ratings that season; cupcakes = the bottom half and anyone unranked.";
