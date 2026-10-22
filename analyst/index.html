@@ -32,7 +32,7 @@ button:disabled { opacity: .5; cursor: default }
 .log { font-size: 12px; color: var(--dim); display: grid; gap: 2px; max-height: 160px; overflow: auto }
 .log div::before { content: "› "; color: var(--accent) }
 .stamp { display: inline-block; font-weight: 800; font-size: 20px; letter-spacing: .08em; padding: 6px 12px; border: 3px solid currentColor; border-radius: 4px; transform: rotate(-2deg); justify-self: start }
-.v-holds { color: var(--ok) } .v-mixed, .v-misleading { color: var(--warn) } .v-wrong { color: var(--bad) } .v-cant_check { color: var(--dim) }
+.v-question { color: var(--accent) } .v-holds { color: var(--ok) } .v-mixed, .v-misleading { color: var(--warn) } .v-wrong { color: var(--bad) } .v-cant_check { color: var(--dim) }
 .headline { font-size: 16px; font-weight: 600; text-wrap: balance; margin: 0 }
 ul.claims, ul.miss { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px }
 .claims li { display: grid; gap: 2px; padding-left: 12px; border-left: 3px solid var(--line) }
@@ -128,7 +128,7 @@ select { font: 13px var(--mono); background: var(--bg); color: var(--fg); border
   <section class="card" id="result" hidden aria-live="polite">
     <div class="stamp" id="stamp"></div>
     <p class="headline" id="headline"></p>
-    <div><h2>Claim by claim</h2></div>
+    <div id="claims-h"><h2>Claim by claim</h2></div>
     <ul class="claims" id="claims"></ul>
     <div id="miss-wrap"><h2>What it leaves out</h2><ul class="miss" id="miss"></ul></div>
     <div id="nums-wrap"><h2>The numbers</h2><div class="scroll"><table class="nums" id="nums"></table></div></div>
@@ -668,6 +668,46 @@ const TOOLS = [
         top: out.slice(0, top), ...(q ? { asked: out.filter((r) => norm(r.name).includes(q)).slice(0, 3) } : {}) };
     },
   },
+  {
+    name: "rare_plays",
+    description: "NFL play-by-play for rare events, this season and last: every score wiped out by the scoring team's own penalty (penalty type and flagged player), pick-sixes, fumble/kick/punt return TDs, safeties, blocked punts and field goals. Filter by type, team, season, week, player or penalty. Use it for anything about a specific play or which penalty did it; season totals can't tell you that.",
+    inputSchema: { type: "object", properties: { type: { type: "string", enum: ["wiped_score", "pick_six", "fumble_return_td", "punt_return_td", "kick_return_td", "safety", "blocked_punt", "blocked_fg"] }, team: { type: "string" }, season: { type: "integer" }, week: { type: "integer" }, player: { type: "string" }, penalty: { type: "string" }, top: { type: "integer" } } },
+    async execute(a) {
+      const P = (await base()).extra?.plays;
+      if (!P?.list) throw new Error("No play-by-play list in this data.");
+      say(`Looking through the plays${a.type ? ` (${String(a.type).replace(/_/g, " ")})` : ""}${a.team ? ` for ${a.team}` : ""}`);
+      let abbr = null;
+      if (a.team) { const D = await load("nfl", seasons("nfl")[0]), k = teamKey(D, a.team); abbr = k ? D.teams[k][1] : String(a.team).toUpperCase(); }
+      const q = norm(a.player || ""), pen = norm(a.penalty || "");
+      const list = P.list.filter((x) => (!a.type || x.type === a.type) && (!abbr || x.team === abbr) && (!a.season || x.season === Number(a.season)) && (!a.week || x.week === Number(a.week))
+        && (!q || norm(x.flagged || "").includes(q) || norm(x.play).includes(q)) && (!pen || norm(x.penalty || "").includes(pen)));
+      const by = (f) => Object.entries(list.reduce((m, x) => { const k = f(x); if (k) { m[k] ||= { plays: 0, points: 0 }; m[k].plays++; m[k].points += x.points; } return m; }, {})).sort((x, y) => y[1].points - x[1].points || y[1].plays - x[1].plays);
+      return { seasons: P.seasons, regular_season_only: true, matches: list.length, points: list.reduce((t, x) => t + x.points, 0),
+        by_team: Object.fromEntries(by((x) => x.team).slice(0, 12)), ...(list.some((x) => x.penalty) ? { by_penalty: Object.fromEntries(by((x) => x.penalty)) } : {}),
+        plays: list.slice(0, Math.min(Number(a.top) || 25, 40)), note: "wiped_score = the scoring team's own accepted foul on the scoring play (any foul type, OPI included); points = what came off the board." };
+    },
+  },
+  {
+    name: "how_we_count",
+    description: "How a Cupcake Index stat, chart or ranking is defined: what counts, what doesn't, where the data comes from. Covers our model's factor scores, every Stats > Visualize stat and site tabs. Call it before answering any question about how our numbers work; never guess our rules.",
+    inputSchema: { type: "object", properties: { topic: { type: "string" } } },
+    async execute(a) {
+      const G = (await base()).extra?.glossary;
+      if (!G) throw new Error("No glossary in this data.");
+      say(`Checking how we count ${a.topic || "our stats"}`);
+      if (!a.topic) return { topics: Object.keys(G.how_we_count), factors: Object.keys(G.model_factors.nfl) };
+      const w = norm(a.topic).split(" ").filter((x) => x.length > 2 && !["the", "and", "our", "how", "does", "stat", "count", "counted"].includes(x));
+      const hit = (t) => w.filter((x) => norm(t).includes(x)).length;
+      const top = (entries, n) => entries.map(([k, v]) => [k, v, hit(k) * 3 + hit(typeof v === "string" ? v : JSON.stringify(v))]).filter((e) => e[2] > 0).sort((x, y) => y[2] - x[2]).slice(0, n);
+      const out = {
+        definitions: Object.fromEntries(top(Object.entries(G.how_we_count), 4).map(([k, v]) => [k, v])),
+        model_factors: Object.fromEntries(top(Object.entries(G.model_factors.nfl).map(([k, v]) => ["nfl " + k, v]).concat(Object.entries(G.model_factors.college).map(([k, v]) => ["college " + k, v])), 3).map(([k, v]) => [k, v])),
+        visualize_stats: Object.fromEntries(top(Object.entries(G.visualize_stats), 10).map(([k, v]) => [k, v])),
+      };
+      if (!Object.values(out).some((o) => Object.keys(o).length)) throw new Error(`Nothing on "${a.topic}". Topics: ${Object.keys(G.how_we_count).join(", ")}`);
+      return out;
+    },
+  },
 ];
 
 // our Heisman race, the same model as Stats > Visualize "Heisman score" (docs/viz.js heisGame/hzIdx/hzVoters), current season
@@ -709,21 +749,22 @@ Today is ${new Date().toISOString().slice(0, 10)}. Our data: weekly stats for NF
 NFL extras: offensive linemen (snaps, penalties), penalties for every player, QB pressured % and bad throws (PFR charting), QB splits vs the blitz and team blitz rate (FTN charting), team passing allowed by depth (short = 5 air yards or less, deep = 20+) and YAC allowed, team missed tackles. Not in any free source we use: pressures/sacks allowed by individual linemen, pass-rush snaps, a QB's completions when pressured. Charting services (PFF, TruMedia, NGS) define blitzes and pressures differently, so expect small gaps vs their numbers and say so instead of calling the take wrong over a few percent.
 
 How to work:
-1. Pull out each checkable claim. Use the tools to get the real numbers: find_player before player_stats; leaderboard to put a number in context (rank among peers); team_stats and our_rankings for teams, schedules and cupcake padding; team_status for injuries and starters. Our site's own tabs are worth citing because they're ours: site_tab "injuries" (every team's % healthy; use it for any take about a team being banged up, healthy, or excused by injuries), site_tab "frauds"/"over_achievers" (players vs their weekly projections; use it for "overrated", "bust", "breakout", fantasy takes), player_stats season_pace (the Projected tab; use it for "on pace for" takes), scatter_data (the Visualize scatter: two stats for every team or the top players at a position in one call), stat_menu (every stat we have for a position or for teams, grouped), and site_lists ("coach": coach score, hot seat and scheme tendencies; "records": NFL records a player holds; "trade_watch"; "heisman": our Heisman race). In replies you can name them ("our injury tracker has WAS at 55% healthy, worst in the league"); no links. For "worst/best since <year>" claims use leaderboard with season and season_to. Make several calls in one round when you can.
+1. Pull out each checkable claim. Use the tools to get the real numbers: find_player before player_stats; leaderboard to put a number in context (rank among peers); team_stats and our_rankings for teams, schedules and cupcake padding; team_status for injuries and starters. Our site's own tabs are worth citing because they're ours: site_tab "injuries" (every team's % healthy; use it for any take about a team being banged up, healthy, or excused by injuries), site_tab "frauds"/"over_achievers" (players vs their weekly projections; use it for "overrated", "bust", "breakout", fantasy takes), player_stats season_pace (the Projected tab; use it for "on pace for" takes), scatter_data (the Visualize scatter: two stats for every team or the top players at a position in one call), stat_menu (every stat we have for a position or for teams, grouped), and site_lists ("coach": coach score, hot seat and scheme tendencies; "records": NFL records a player holds; "trade_watch"; "heisman": our Heisman race), rare_plays (play by play for rare events: every score wiped by a penalty with the penalty and the flagged player, pick-sixes, return TDs, safeties, blocked kicks) and how_we_count (how each of OUR stats is defined: what counts and what doesn't). Anything about a specific play, or which penalty or player did something, comes from rare_plays; never infer play-level facts from season totals. In replies you can name them ("our injury tracker has WAS at 55% healthy, worst in the league"); no links. For "worst/best since <year>" claims use leaderboard with season and season_to. Make several calls in one round when you can.
 2. Only state numbers that came from a tool result. Never use numbers from memory. If our data can't answer a claim (contracts, career totals before our seasons, play-by-play detail we don't have, other sports), mark that claim "cant_check" and say what's missing.
 Leaderboard stats: any column name (pass_yds, rush_td, tackles, def_sacks, pressure, pen, snaps, pts, opp_pts, opp_short_yds...) or a rate. Player rates: ${Object.keys(RATES).join(", ")}, passer_rating, passer_rating_vs_blitz. Team rates: ${Object.keys(TEAM_RATES).join(", ")}.
 WIDER STATS: call stat_menu for the position (or TEAMS) in the take early, and pick the stat that settles the claim best, not the most familiar one. Every check must use at least one stat outside the usual set (passing/rushing/receiving yards and touchdowns, EPA, completion %, yards per attempt/carry, record, our rank, tackles, sacks) in its claims or a reply, as long as it's relevant. Good reaches: CPOE, success rate, first-down rate, broken tackles, drops, YAC, depth of target, 3rd down, red zone, clutch, vs the blitz, pressure, run stops, coverage, penalties, the O-line's on-field numbers, 4th-down and pass-rate tendencies, coach tendencies, records, Heisman race, Trade watch.
 3. Look for the classic flaws: tiny sample, cherry-picked week range, counting stat vs rate stat, ignoring opponent quality (use our rankings and cupcake data), ignoring games missed, comparing different positions or eras, correlation sold as cause.
+QUESTIONS: if the post (in a thread, the post Terry is replying to) asks a question instead of making a claim (how a stat is counted, whether X is included, who leads Y), set "verdict": "question", make "headline" the straight answer in one sentence, list the supporting facts as claims (verdict "holds") or leave claims empty, leave "missing" empty unless it truly matters, and write ONE reply, "replies": {"answer": "..."}, with "charts": {"answer": CHART or null}. A question about how a Cupcake Index stat, chart or ranking works: call how_we_count first and answer from it, plus rare_plays or other lookups for real examples. If an earlier post of ours in the thread worded the rule loosely or wrong, the answer says so plainly and gives the right rule. A statement that is really a correction of us ("OPI can happen") counts as a question about our rule.
 4. No betting content: no spreads, lines, odds or picks. A win chance from our_rankings is fine.
 
 Reply with ONLY one JSON object, no other text:
-{"verdict": "holds" | "mixed" | "misleading" | "wrong" | "cant_check",
+{"verdict": "holds" | "mixed" | "misleading" | "wrong" | "cant_check" | "question",
  "headline": "one sentence summing it up",
  "claims": [{"claim": "short restatement", "verdict": "holds|mixed|misleading|wrong|cant_check", "evidence": "the numbers that decide it, with ranks"}],
  "missing": ["context the take leaves out", "..."],
  "numbers": [{"label": "Daniels EPA/dropback, 2026", "value": "0.12", "note": "14th of 32 QBs"}],
  "charts": {"agree": CHART or null, "pushback": CHART or null},
- "replies": {"agree": "reply that backs the take with a stat", "pushback": "reply that corrects it with a stat"},
+ "replies": {"agree": "reply that backs the take with a stat", "pushback": "reply that corrects it with a stat"} (for a question: {"answer": "..."} only),
  "stats_used": ["every stat name you cited, as the tools name it (e.g. cpoe, rush_yds, our_rank)"],
  "data_requests": [{"stat": "the stat we'd need, named plainly (e.g. pressures allowed by offensive linemen)", "kind": "missing_stat" | "data_issue", "why": "which claim needed it and what it would have settled", "where_it_might_come_from": "your best guess at a free source (nflverse, Pro Football Reference via nflverse, CollegeFootballData, ESPN) or 'unknown'"}]}
 
@@ -872,7 +913,7 @@ function pickShapes() {
 function replyBank() {
   let bank = store.get("analyst-replies");
   if (!bank) {
-    bank = (store.get("analyst-history") || []).flatMap((x) => [x.res?.replies?.agree, x.res?.replies?.pushback]).filter(Boolean);
+    bank = (store.get("analyst-history") || []).flatMap((x) => [x.res?.replies?.answer, x.res?.replies?.agree, x.res?.replies?.pushback]).filter(Boolean);
     store.set("analyst-replies", bank);
   }
   return bank;
@@ -929,6 +970,7 @@ function varietyRule(shapes) {
   return `REPLY SHAPES (the page picked these; follow them, don't swap them):
 - "agree" draft: ${SHAPES[shapes.agree]}
 - "pushback" draft: ${SHAPES[shapes.pushback]}
+- If the post is a question, the single "answer" draft uses the "agree" shape and length, as long as it answers the question in its first sentence.
 Length: "agree" ${LENGTHS[shapes.agree_len || "normal"]}; "pushback" ${LENGTHS[shapes.pushback_len || "normal"]}. ${shapes.forced ? "Terry picked these lengths for this check; stick to them." : "These are targets, not quotas: if a short burn lands harder than the target, go short, and if the receipts truly need more room, go long."} Never pad a reply to fill space.`
     + (bad.length ? `\nBANNED PHRASES (Terry's recent replies already used each of these more than once; don't use any of them or a close variant):\n${bad.join(" | ")}` : "")
     + (used.length ? `\nSTATS THE LAST FEW CHECKS LEANED ON: ${used.join(", ")}. Lead with something else this time when another stat can make the point; use these only when the take is about them.` : "");
@@ -936,17 +978,18 @@ Length: "agree" ${LENGTHS[shapes.agree_len || "normal"]}; "pushback" ${LENGTHS[s
 // one automatic rewrite when a draft breaks the style rules or repeats a phrase; never loops
 async function polish(res, banned, signal) {
   const rp = res.replies || {}, issues = {};
-  for (const k of ["agree", "pushback"]) { const i = rp[k] ? styleIssues(rp[k], banned) : []; if (i.length) issues[k] = i; }
+  for (const k of ["answer", "agree", "pushback"]) { const i = rp[k] ? styleIssues(rp[k], banned) : []; if (i.length) issues[k] = i; }
   const a = words(rp.agree)[0], b = words(rp.pushback)[0];
   if (a && a === b) (issues.pushback ||= []).push(`opens with the same word as the other draft ("${a}")`);
   if (!Object.keys(issues).length) return null;
+  const keys = ["answer", "agree", "pushback"].filter((k) => rp[k]);
   const fix = await sample.json(`You wrote these two X reply drafts for @CupcakeIndex. A style filter caught problems. Rewrite ONLY the flagged drafts. Keep every number, name and fact exactly, keep the same point and roughly the same length, and keep the opening shape. Fix each problem listed. Plain words, no em dashes, no hashtags, no links.
 
 ${Object.keys(issues).map((k) => `"${k}" draft: ${rp[k]}\nProblems: ${issues[k].join("; ")}`).join("\n\n")}
 ${banned.length ? `\nPhrases that must not appear: ${banned.map(([g]) => g).join(" | ")}` : ""}
-${Object.keys(issues).length < 2 ? `\nThe other draft (unchanged, don't echo it): ${rp[issues.agree ? "pushback" : "agree"]}` : ""}
+${keys.filter((k) => !issues[k]).map((k) => `\nThe "${k}" draft (unchanged, don't echo it): ${rp[k]}`).join("")}
 
-Reply with ONLY JSON: {"agree": "...", "pushback": "..."} (copy an unflagged draft back unchanged).`, { signal }).catch(() => null);
+Reply with ONLY JSON: ${JSON.stringify(Object.fromEntries(keys.map((k) => [k, "..."])))} (copy an unflagged draft back unchanged).`, { signal }).catch(() => null);
   const out = { ...rp };
   for (const k of Object.keys(issues)) if (typeof fix?.[k] === "string" && fix[k].trim() && styleIssues(fix[k], banned).length <= issues[k].length) out[k] = fix[k].trim();
   return { replies: out, issues };
@@ -983,7 +1026,7 @@ $("check").onclick = async () => {
     const h = (store.get("analyst-history") || []).filter((x) => x.take !== take);
     store.set("analyst-history", [{ take: take || "(screenshot)", note, res, at: Date.now(), mode, target: mode === "thread" ? $("target").value : undefined, shapes, stats }, ...h].slice(0, 12));
     store.set("analyst-shapes", [shapes.agree, shapes.pushback]);
-    store.set("analyst-replies", [res.replies?.agree, res.replies?.pushback, ...replyBank()].filter(Boolean).slice(0, 30));
+    store.set("analyst-replies", [res.replies?.answer, res.replies?.agree, res.replies?.pushback, ...replyBank()].filter(Boolean).slice(0, 30));
     history();
   } catch (e) {
     if (e?.code !== "cancelled") showErr(ERR[e?.code] || `Something went wrong reaching Claude${e?.code ? ` (${e.code})` : ""}. Tap Check it to try again.`);
@@ -993,7 +1036,7 @@ $("check").onclick = async () => {
   }
 };
 
-const VLABEL = { holds: "HOLDS UP", mixed: "MIXED", misleading: "MISLEADING", wrong: "WRONG", cant_check: "CAN'T CHECK" };
+const VLABEL = { holds: "HOLDS UP", mixed: "MIXED", misleading: "MISLEADING", wrong: "WRONG", cant_check: "CAN'T CHECK", question: "ANSWER" };
 const vcls = (v) => "v-" + (VLABEL[v] ? v : "cant_check");
 function render(r) {
   $("how").hidden = true;
@@ -1001,18 +1044,19 @@ function render(r) {
   $("stamp").className = "stamp " + vcls(r.verdict);
   $("stamp").textContent = VLABEL[r.verdict] || "CAN'T CHECK";
   $("headline").textContent = r.headline || "";
+  $("claims-h").hidden = !(r.claims || []).length;
   $("claims").innerHTML = (r.claims || []).map((c) => `<li class="${vcls(c.verdict)}"><span class="tag ${vcls(c.verdict)}">${esc(VLABEL[c.verdict] || "CAN'T CHECK")}</span><b>${esc(c.claim)}</b><span class="ev">${esc(c.evidence)}</span></li>`).join("");
   $("miss-wrap").hidden = !(r.missing || []).length;
   $("miss").innerHTML = (r.missing || []).map((m) => `<li>${esc(m)}</li>`).join("");
   $("nums-wrap").hidden = !(r.numbers || []).length;
   $("nums").innerHTML = (r.numbers || []).map((n) => `<tr><td>${esc(n.label)}${n.note ? `<span class="note">${esc(n.note)}</span>` : ""}</td><td>${esc(n.value)}</td></tr>`).join("");
   // one chart per reply (agree / pushback) so Terry can post either; checks saved before that had a single chart
-  charts = { agree: normChart(r.charts?.agree), pushback: normChart(r.charts?.pushback), one: normChart(r.chart) };
+  charts = { answer: normChart(r.charts?.answer), agree: normChart(r.charts?.agree), pushback: normChart(r.charts?.pushback), one: normChart(r.chart) };
   $("chart-card").hidden = !charts.one;
   if (charts.one) { $("chart").innerHTML = chartSvg(charts.one); $("save-chart").hidden = !downloads; $("chart-note").textContent = downloads ? "" : "Screenshot the chart to attach it."; }
   const rp = r.replies || {};
-  $("replies-card").hidden = !rp.agree && !rp.pushback;
-  $("replies").innerHTML = [["agree", "Backs it up"], ["pushback", "Pushes back"]].filter(([k]) => rp[k]).map(([k, l]) => `<div class="reply"><h2>${l}</h2><p id="rp-${k}">${esc(rp[k])}</p>
+  $("replies-card").hidden = !rp.agree && !rp.pushback && !rp.answer;
+  $("replies").innerHTML = [["answer", "Answers it"], ["agree", "Backs it up"], ["pushback", "Pushes back"]].filter(([k]) => rp[k]).map(([k, l]) => `<div class="reply"><h2>${l}</h2><p id="rp-${k}">${esc(rp[k])}</p>
     <div class="row"><button type="button" data-copy="${k}">Copy</button><a class="btn" target="_blank" rel="noopener" href="https://x.com/intent/post?text=${encodeURIComponent(rp[k])}">Open in X</a><span class="count">${rp[k].length}/280${rp[k].length > 280 ? " · long post (Premium), shows \"Show more\"" : ""}</span></div>
     ${charts[k] ? `<div class="reply-chart">${chartSvg(charts[k])}</div><div class="row">${downloads ? `<button type="button" data-save="${k}">Save chart image</button>` : ""}<span class="note" id="note-${k}">${downloads ? "" : "Screenshot the chart to attach it."}</span></div>` : ""}</div>`).join("");
   const dr = (r.data_requests || []).filter((d) => d?.stat);
@@ -1279,7 +1323,7 @@ $("hist-copy").onclick = async () => {
   const h = store.get("analyst-history") || [], rp = repeats();
   const txt = `Cupcake Analyst recent checks (${new Date().toISOString().slice(0, 10)}, ${h.length} checks, ${replyBank().length} replies)\n\n`
     + (rp.length ? `Repeated phrases (times used): ${rp.slice(0, 30).map(([g, n]) => `${g} (${n})`).join(", ")}\n\n` : "")
-    + h.map((x, i) => `${i + 1}. ${x.take.slice(0, 200)}\n   Verdict: ${VLABEL[x.res?.verdict] || "?"}. ${x.res?.headline || ""}\n   Agree${x.shapes ? ` (${x.shapes.agree})` : ""}: ${x.res?.replies?.agree || "-"}\n   Pushback${x.shapes ? ` (${x.shapes.pushback})` : ""}: ${x.res?.replies?.pushback || "-"}${x.stats?.length ? `\n   Stats: ${x.stats.join(", ")}` : ""}`).join("\n\n");
+    + h.map((x, i) => `${i + 1}. ${x.take.slice(0, 200)}\n   Verdict: ${VLABEL[x.res?.verdict] || "?"}. ${x.res?.headline || ""}${x.res?.replies?.answer ? `\n   Answer: ${x.res.replies.answer}` : ""}\n   Agree${x.shapes ? ` (${x.shapes.agree})` : ""}: ${x.res?.replies?.agree || "-"}\n   Pushback${x.shapes ? ` (${x.shapes.pushback})` : ""}: ${x.res?.replies?.pushback || "-"}${x.stats?.length ? `\n   Stats: ${x.stats.join(", ")}` : ""}`).join("\n\n");
   try { await navigator.clipboard.writeText(txt); $("hist-note").textContent = "Copied. Paste it in your Obsidian note."; }
   catch { $("hist-note").textContent = "Couldn't copy here. Try claude.ai in a browser."; }
 };

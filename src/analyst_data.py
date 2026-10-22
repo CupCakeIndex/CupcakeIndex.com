@@ -11,6 +11,7 @@ out on purpose (Terry's no-betting rule).
 """
 import json
 import os
+import re
 
 from site_rank import site_rank  # the ranking exactly as the website shows it
 
@@ -84,6 +85,40 @@ def _load(*path):
         return json.load(f)
 
 
+def rare_plays(seasons):
+    """Play-level detail for rare events (NFL), so the page can say WHICH penalty wiped which touchdown instead of guessing
+    from season flag counts: scores wiped by the scoring team's own foul (same rule as deep_stats' tp_ptsnull), return
+    touchdowns (pick-sixes, fumble returns, kick and punt returns), safeties and blocked kicks."""
+    from deep_stats import pbp
+    out = []
+    for season in seasons:
+        for row in pbp(season):
+            if row.get("season_type") not in (None, "", "REG"):
+                continue
+            d, D = row.get("desc") or "", (row.get("desc") or "").upper()
+            pt = row.get("penalty_team")
+            kind, team, pts = None, None, 0
+            if row.get("penalty") == "1" and "offsetting" not in d.lower() and pt not in (None, "", "NA"):
+                pts = (6 if "TOUCHDOWN NULLIFIED" in D else 3 if "FIELD GOAL IS GOOD, NULLIFIED" in D and pt == row.get("posteam")
+                       else 2 if "SAFETY NULLIFIED" in D and pt == row.get("defteam") else 0)
+                if pts:
+                    kind, team = "wiped_score", pt
+            if not kind and row.get("return_touchdown") == "1":
+                kind, team, pts = {"pass": "pick_six", "run": "fumble_return_td", "punt": "punt_return_td", "kickoff": "kick_return_td"}.get(row.get("play_type"), "return_td"), row.get("td_team"), 6
+            if not kind and row.get("safety") == "1":
+                kind, team, pts = "safety", row.get("defteam"), 2
+            if not kind and (row.get("punt_blocked") == "1" or row.get("field_goal_result") == "blocked"):
+                kind, team = ("blocked_punt" if row.get("punt_blocked") == "1" else "blocked_fg"), row.get("defteam")
+            if not kind:
+                continue
+            p = {"season": season, "week": int(float(row["week"])), "game": f"{row['away_team']} @ {row['home_team']}", "qtr": row.get("qtr"), "clock": row.get("time"),
+                 "type": kind, "team": team, "points": pts, "play": re.sub(r"\s+", " ", d)[:260]}
+            if kind == "wiped_score":
+                p["penalty"], p["flagged"] = row.get("penalty_type"), row.get("penalty_player_name")
+            out.append(p)
+    return out
+
+
 def extras():
     """The site's other lists, so the page can cite more than yards and EPA: NFL records held by current players,
     Trade watch, Heisman popularity (the page runs the Heisman model itself) and coaches (score, hot seat, scheme)."""
@@ -102,6 +137,11 @@ def extras():
     out["heisman_buzz"] = {"season": bz["season"], "views": bz["views"]}
     prof = _load("coach_profile.json")["coaches"]
     co = _load("coaches.json")
+    import stat_glossary
+    out["glossary"] = stat_glossary.build()
+    from viz_data import season_now
+    now = season_now()
+    out["plays"] = {"seasons": [now - 1, now], "list": rare_plays([now - 1, now])}
     out["coaches"] = {}
     for lg in ("nfl", "cfb"):
         for c in co[lg]["coaches"]:
