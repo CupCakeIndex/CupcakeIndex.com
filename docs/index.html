@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://a.espncdn.com">
 <meta name="theme-color" content="#0f1216">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=401">
+<link rel="stylesheet" href="style.css?v=402">
 <script>
 // Appearance (Dark / Light / System) + theme from the Settings page, applied before first paint so the page never flashes.
 // html[data-theme] = "dark" | "light" (System is resolved here and follows the device live); html[data-theme-name] = theme key.
@@ -146,6 +146,7 @@ window.CIT = (function () {
     <a class="tab nav-wide" data-view="standings" href="#/standings">Standings</a>
     <a class="tab" data-view="picks" href="#/picks">Pick'em</a>
     <a class="tab nav-wide" data-view="games" href="#/games">Games</a>
+    <a class="tab nav-wide nfl-only" data-view="trades" href="#/trades">Trades</a>
     <a class="tab nav-wide owner-only" data-view="admin" href="#/admin">Admin</a>
   </div>
   <div class="nav-more">
@@ -153,7 +154,8 @@ window.CIT = (function () {
     <div class="more-menu" id="more-menu" hidden>
       <div class="mm-group nav-narrow"><span class="mm-h">// main</span>
         <a class="mm-item" data-view="standings" href="#/standings">Standings</a>
-        <a class="mm-item" data-view="games" href="#/games">Games</a></div>
+        <a class="mm-item" data-view="games" href="#/games">Games</a>
+        <a class="mm-item nfl-only" data-view="trades" href="#/trades">Trades</a></div>
       <div class="mm-group nav-narrow owner-only"><span class="mm-h">// owner</span>
         <a class="mm-item" data-view="admin" href="#/admin">Admin</a></div>
       <div class="mm-group"><span class="mm-h">// tools</span>
@@ -162,8 +164,6 @@ window.CIT = (function () {
         <a class="mm-item" data-view="shame" href="#/shame">Hall of Shame</a>
         <a class="mm-item" data-view="coaches" href="#/coaches">Coaches</a>
         <a class="mm-item cfb-only" data-view="compare" href="#/compare">Compare</a>
-        <a class="mm-item nfl-only" data-view="freeagents" href="#/freeagents">Free agents</a>
-        <a class="mm-item nfl-only" data-view="trades" href="#/trades">Trade watch</a>
         <a class="mm-item nfl-only" data-view="fantasy" href="#/fantasy">Fantasy</a></div>
       <div class="mm-group"><span class="mm-h">// read</span>
         <a class="mm-item" data-view="news" href="#/news">News</a>
@@ -372,26 +372,26 @@ window.CIT = (function () {
   </div>
 </div>
 
-<script src="app.js?v=401"></script>
-<script src="live.js?v=401"></script>
-<script src="daily.js?v=401"></script>
-<script src="hilo.js?v=401"></script>
-<script src="share.js?v=401"></script>
-<script src="pickem.js?v=401"></script>
-<script src="fantasy.js?v=401"></script>
-<script src="news.js?v=401"></script>
-<script src="takes.js?v=401"></script>
-<script src="coaches.js?v=401"></script>
-<script src="viz.js?v=401"></script>
-<script src="settings.js?v=401"></script>
-<script src="firebase-config.js?v=401"></script>
-<script src="account.js?v=401"></script>
-<script src="stats.js?v=401"></script>
-<script src="admin.js?v=401"></script>
-<script src="breakdown.js?v=401"></script>
-<script src="tour.js?v=401"></script>
-<script src="leaderboard.js?v=401"></script>
-<script src="profile.js?v=401"></script>
-<script src="push.js?v=401"></script>
+<script src="app.js?v=402"></script>
+<script src="live.js?v=402"></script>
+<script src="daily.js?v=402"></script>
+<script src="hilo.js?v=402"></script>
+<script src="share.js?v=402"></script>
+<script src="pickem.js?v=402"></script>
+<script src="fantasy.js?v=402"></script>
+<script src="news.js?v=402"></script>
+<script src="takes.js?v=402"></script>
+<script src="coaches.js?v=402"></script>
+<script src="viz.js?v=402"></script>
+<script src="settings.js?v=402"></script>
+<script src="firebase-config.js?v=402"></script>
+<script src="account.js?v=402"></script>
+<script src="stats.js?v=402"></script>
+<script src="admin.js?v=402"></script>
+<script src="breakdown.js?v=402"></script>
+<script src="tour.js?v=402"></script>
+<script src="leaderboard.js?v=402"></script>
+<script src="profile.js?v=402"></script>
+<script src="push.js?v=402"></script>
 </body>
 </html>

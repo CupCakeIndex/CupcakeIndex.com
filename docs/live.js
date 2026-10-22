@@ -4812,14 +4812,14 @@ const Live = (() => {
       view("freeagents").innerHTML = `<div class="card">Free agents are NFL only. <a href="#/freeagents?league=nfl">See NFL free agents →</a></div>`;
       return;
     }
-    loading("freeagents");
+    view("freeagents").innerHTML = trSub("freeagents") + `<div class="card muted">Loading…</div>`;
     let cands, teams;
     try {
       [cands, teams] = await Promise.all([faCandidates(), api(`${STAND("nfl")}/standings?level=3`, 86400000).then((d) => new Map(groupsOf(d).flatMap((g) => g.entries).map((e) => [String(e.team.id), e.team]))).catch(() => new Map())]);
     } catch (e) { return fail("freeagents", e); }
     if (my !== token) return;
     const done = new Map(); // id -> confirmed free agent row, or null if they're actually on a practice squad / retired
-    view("freeagents").innerHTML = `<div class="card">
+    view("freeagents").innerHTML = trSub("freeagents") + `<div class="card">
       <div class="sc-bar"><h2>NFL free agents</h2>
         <div class="presets" id="fa-pos">${[["", "All"], ...Object.values(FA_POS).map((p) => [p, p])].map(([v, l]) => `<button data-pos="${v}" class="${v === faState.pos ? "on" : ""}">${l}</button>`).join("")}</div>
         <div class="presets" id="fa-sort" title="How to order the list">${[["best", "Best"], ["rostered", "Most rostered"]].map(([v, l]) => `<button data-sort="${v}" class="${v === faState.sort ? "on" : ""}">${l}</button>`).join("")}</div>
@@ -5140,6 +5140,9 @@ const Live = (() => {
       <div class="cd-time">${box(d, d === 1 ? "day" : "days")}${dayOnly ? "" : box(h, "hrs") + box(m, "min") + box(sec, "sec")}</div>
       <div class="cd-sub muted">${esc(sub)}</div>`;
   }
+  // the Trades tab: Trade watch and Free agents
+  const trSub = (on) => `<div class="subtabs">` + [["trades", "Trade watch"], ["freeagents", "Free agents"]]
+    .map(([k, l]) => `<a class="subtab${k === on ? " on" : ""}" href="${link(k)}">${l}</a>`).join("") + `</div>`;
   let twPos = "", twTeam = "";
   async function trades() {
     const my = token;
@@ -5147,7 +5150,7 @@ const Live = (() => {
       view("trades").innerHTML = `<div class="card">Trade watch is NFL only. <a href="#/trades?league=nfl">See the NFL trade watch →</a></div>`;
       return;
     }
-    loading("trades");
+    view("trades").innerHTML = trSub("trades") + `<div class="card muted">Loading…</div>`;
     let D;
     try { D = await getJSON("data/nfl/trade_watch.json"); } catch (e) { return fail("trades", e); }
     if (my !== token) return;
@@ -5160,7 +5163,7 @@ const Live = (() => {
     const POS = ["QB", "RB", "WR", "TE", "OL", "EDGE", "IDL", "LB", "CB", "S"];
     if (!D.teams[twTeam]) twTeam = "";
     const teamsByName = Object.entries(D.teams).sort((a, b) => a[1].name.localeCompare(b[1].name));
-    view("trades").innerHTML = `<div class="card tw-cd" id="tw-cd">${countdownHtml()}</div>
+    view("trades").innerHTML = trSub("trades") + `<div class="card tw-cd" id="tw-cd">${countdownHtml()}</div>
       <div class="card">
         <div class="sc-bar"><h2>Trade watch</h2>
           <select id="tw-team" aria-label="Team"><option value="">All teams</option>${teamsByName.map(([ab, t]) => `<option value="${ab}"${ab === twTeam ? " selected" : ""}>${esc(t.name)}</option>`).join("")}</select>

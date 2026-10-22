@@ -189,7 +189,8 @@ async function route() {
 // Note: unknown routes (#/fantasy, #/news until those pages exist) fall back to rankings.
 const phoneNav = window.matchMedia("(max-width: 640px)");
 function setNavActive(view) {
-  document.querySelectorAll("#nav [data-view]").forEach((a) => a.classList.toggle("active", a.dataset.view === view));
+  const tab = { freeagents: "trades" }[view] || view; // pages that live under another tab (Trades: Trade watch + Free agents)
+  document.querySelectorAll("#nav [data-view]").forEach((a) => a.classList.toggle("active", a.dataset.view === tab));
   const inMenu = [...document.querySelectorAll("#more-menu .mm-item.active")]
     .find((a) => phoneNav.matches || !a.closest(".nav-narrow"));
   $("#more-btn").classList.toggle("active", !!inMenu);
