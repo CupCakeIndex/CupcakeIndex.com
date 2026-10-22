@@ -7,7 +7,7 @@ const Viz = (() => {
   const CHART_JS = "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js";
   const files = new Map();
   let chart = null, idx = null;
-  let stepOn = 1, editOpen = false; const shut = { 4: 1 }; // the steps panel: phone tab, Simple's Edit box, closed steps on a computer
+  let stepOn = 1, editOpen = false, mineOpen = false, mineSort = "new", mineQ = ""; const shut = { 4: 1 }; // the steps panel: phone tab, Simple's Edit box, closed steps on a computer
 
   // ---------------------------------------------------------------- the stats
   // v(S, g) -> value from summed columns S over g games; den(S) for rates (who qualifies); low = lower is better;
@@ -479,7 +479,13 @@ const Viz = (() => {
       ["pen_yds", "Penalty yards", (S) => S.pen_yds, { count: 1, low: 1, need: ["pen"], vol: ["snaps played", 200] }],
       ["pen_rate", "Penalties per 100 snaps", (S) => div(100 * S.pen, S.snaps), { den: (S) => S.snaps, d: 1, low: 1, unit: "snaps", need: ["pen"] }],
     ]],
-    ["Penalties by type (called on him)", [...PEN.filter(([k]) => !["dog", "tmm"].includes(k)).map(([k, l]) => [`pen_${k}`, l, (S) => S[`pn_${k}`], { count: 1, low: 1, need: [`pn_${k}`], vol: ["snaps played", 200] }]),
+    // breakdowns in counts ("abs"), not shares: pick a team and see who gets flagged for what, and how many times
+    ["Penalties by type (called on him)", [
+      ["pen_by_type", "Penalties by type: how many of each", (S) => S.pen, { count: 1, abs: 1, unit: "penalties", need: ["pn_fs"],
+        split: PEN.filter(([k]) => !["dog", "tmm"].includes(k)).map(([k, l]) => [l.replace(/ \(.*\)$/, ""), (S) => S[`pn_${k}`] || 0]) }],
+      ["pen_by_group", "Penalties by group: how many of each", (S) => S.pen, { count: 1, abs: 1, unit: "penalties", need: ["pn_fs"],
+        split: PEN_FAM.map(([, , ks, short]) => [cap(short.replace(/ \(.*\)$/, "")), (S) => famSum(S, "pn_", ks)]) }],
+      ...PEN.filter(([k]) => !["dog", "tmm"].includes(k)).map(([k, l]) => [`pen_${k}`, l, (S) => S[`pn_${k}`], { count: 1, low: 1, need: [`pn_${k}`], vol: ["snaps played", 200] }]),
     ]],
     ["Penalties grouped (called on him)", PEN_FAM.map(([k, l, ks]) => [`pen_${k}`, l, (S) => famSum(S, "pn_", ks), { count: 1, low: 1, need: ["pn_fs"], vol: ["snaps played", 200] }])],
     ["Points erased by his penalties", [
@@ -544,7 +550,7 @@ const Viz = (() => {
     ff: "fumbles", qbr: "rating", comp: "completion", comps: "completion", cmp: "completion", recs: "receptions", tgt: "targets", tgts: "targets",
     looks: "targets", dropped: "drops", drop: "drops", fg: "field", fgs: "field", pts: "points", ppg: "points", rushes: "carries", atts: "attempts",
     explosives: "explosive", picked: "interceptions", interception: "interceptions", pressures: "pressures", btk: "broken", btks: "broken",
-    flags: "penalties", nullified: "erased", wiped: "erased", negated: "erased", erase: "erased", flag: "penalties", flagged: "penalties", penalized: "penalties", holds: "holding", pi: "interference", personal: "personal", fourth: "4th" };
+    flags: "penalties", nullified: "erased", wiped: "erased", negated: "erased", erase: "erased", flag: "penalties", flagged: "penalties", penalized: "penalties", holds: "holding", penalty: "penalties", kind: "type", kinds: "type", pi: "interference", personal: "personal", fourth: "4th" };
   const qStem = (t) => (t.length > 3 && !/ss$/.test(t) ? t.replace(/s$/, "") : t);
   // numbers never name a stat ("drops per 100 targets" = drops per target)
   // ...except "40+", which is part of a stat's name (runs of 40+ yards), not a count
@@ -620,6 +626,8 @@ const Viz = (() => {
     opp: "", last: "",
     // cond = only games played in these conditions (NFL: weather, roof, field, division games; COND)
     cond: "",
+    // pl = the player whose stat list is open (search a name: every stat we have on him, by group)
+    pl: "",
     mode: "" }; // mode: "" = Simple, "adv" = Advanced (also remembered on this device: "viz-mode")
   let st = { ...DEF };
   const save = () => {
@@ -983,6 +991,8 @@ const Viz = (() => {
       ["Deep cuts: clutch QBs", P_({ type: "bar", stat: "clutch", pos: "QB", top: "15" })],
       ["Deep cuts: deep ball QBs", P_({ type: "bar", stat: "deep_cmp_pct", pos: "QB", top: "15" })],
       ["Deep cuts: most penalized players", P_({ type: "bar", stat: "pen", per: "total", order: "worst", top: "15" })],
+      ["Who gets flagged for what (penalty types, most penalized players)", P_({ type: "bar", stat: "pen_by_type", per: "total", top: "15" })],
+      ["Commanders: who gets flagged for what", P_({ type: "bar", stat: "pen_by_type", per: "total", team: "nfl:28", top: "25" })],
       ["TD killers: touchdowns erased by his penalties", P_({ type: "bar", stat: "pen_tdnull", per: "total", order: "worst", top: "15" })],
       ["Most holding calls (players)", P_({ type: "bar", stat: "pen_hold", per: "total", order: "worst", top: "15" })],
       ["Most pass interference calls (players)", P_({ type: "bar", stat: "pen_dpi", per: "total", order: "worst", top: "15" })],
@@ -1060,6 +1070,12 @@ const Viz = (() => {
   const MINE = "viz-presets";
   const mine = () => store.get(MINE) || {};
   const saveMine = (v) => store.set(MINE, v);
+  // My charts (the portfolio): each saved chart also keeps when it was saved, its seasons, what it shows and who's on it
+  // ({name, st, at, what, teams, players}), so the list can be sorted by team, player or stat. A small picture of each
+  // stays on this device only ("viz-thumbs", too big to sync); other devices show the chart type instead.
+  const THUMBS = "viz-thumbs";
+  const thumbs = () => { try { return JSON.parse(localStorage.getItem(THUMBS) || "{}"); } catch { return {}; } };
+  const saveThumbs = (v) => { try { localStorage.setItem(THUMBS, JSON.stringify(v)); } catch {} };
   const RADAR = { teams: ["epa_play", "def_epa_play", "ypp", "third", "giveaways", "def_sacks", "pts"], players: {
     QB: ["pass_yds", "pass_td", "cmp_pct", "ypa", "int", "epa_db", "eff", "rush_yds"], RB: ["rush_yds", "ypc", "rush_td", "rec", "rec_yds", "epa_rush"],
     WR: ["rec", "rec_yds", "rec_td", "ypr", "catch_pct", "epa_tgt", "yac"],
@@ -1252,28 +1268,32 @@ const Viz = (() => {
         + (partial ? " A week with most of its games still to play is left out until it's done." : "")
         + (multi ? "" : " Pick more seasons to compare years.");
       body.table = [...bars].reverse().map((b) => [order.indexOf(b) + 1 || "–", String(b.s), fmt(f2, b.v, per)]);
-    } else if (st.type === "bar" && stat[3].split) { // a breakdown: one 100% bar per player, split into its parts
-      const parts = stat[3].split, list = rank(stat, keys).filter((k) => val(stat, k) > 0);
+    } else if (st.type === "bar" && stat[3].split) { // a breakdown: one 100% bar per player, split into its parts ("abs": counts, not shares)
+      const abs = !!stat[3].abs, list = rank(stat, keys).filter((k) => val(stat, k) > 0);
       const shown = [...new Set([...list.slice(0, top), ...picks.filter((k) => list.includes(k))])];
+      // counts: only the parts somebody on the chart has (21 penalty types, most of them empty for one team)
+      const parts = abs ? stat[3].split.filter(([, f]) => shown.some((k) => f(agg[k].S) > 0)) : stat[3].split;
       const cnt = (k, i) => parts[i][1](agg[k].S), pctOf = (k, i) => (100 * cnt(k, i)) / (stat[2](agg[k].S) || 1); // shares of his season total, whatever Totals says
-      title = `${stat[1]} (share of each one's ${unitOf(stat)})`;
-      cfg = { type: "bar", data: { labels: shown.map(short), datasets: parts.map(([l], i) => ({ label: l, data: shown.map((k) => pctOf(k, i)),
-        backgroundColor: PAL[i % PAL.length], borderColor: C("--card"), borderWidth: 1 })) },
+      const colorOf = (i) => (parts.length > PAL.length ? `hsl(${Math.round((i * 360) / parts.length + 18) % 360} 70% 58%)` : PAL[i % PAL.length]);
+      title = abs ? `${stat[1]}${who === "players" && st.team ? ` · ${tm(st.team)[0]}` : ""}` : `${stat[1]} (share of each one's ${unitOf(stat)})`;
+      cfg = { type: "bar", data: { labels: shown.map(short), datasets: parts.map(([l], i) => ({ label: l, data: shown.map((k) => (abs ? cnt(k, i) : pctOf(k, i))),
+        backgroundColor: colorOf(i), borderColor: C("--card"), borderWidth: 1 })) },
         options: { ...base, indexAxis: "y", plugins: { ...base.plugins, legend: { position: "top", labels: base.plugins.legend.labels },
-          tooltip: { ...base.plugins.tooltip, callbacks: { title: (c) => name(shown[c[0].dataIndex]), label: (c) => `${c.dataset.label}: ${Math.round(c.raw)}% (${cnt(shown[c.dataIndex], c.datasetIndex)} ${unitOf(stat).replace("zoned ", "")})` } } },
-          scales: { x: { ...base.scales.x, stacked: true, min: 0, max: 100, ticks: { ...base.scales.x.ticks, callback: (v) => `${v}%` } },
+          tooltip: { ...base.plugins.tooltip, callbacks: { title: (c) => name(shown[c[0].dataIndex]), label: (c) => abs ? `${c.dataset.label}: ${c.raw}` : `${c.dataset.label}: ${Math.round(c.raw)}% (${cnt(shown[c.dataIndex], c.datasetIndex)} ${unitOf(stat).replace("zoned ", "")})` } } },
+          scales: { x: { ...base.scales.x, stacked: true, min: 0, ...(abs ? { ticks: { ...base.scales.x.ticks, precision: 0 } } : { max: 100, ticks: { ...base.scales.x.ticks, callback: (v) => `${v}%` } }) },
             y: { ...base.scales.y, stacked: true, ticks: { ...base.scales.y.ticks, autoSkip: false, display: showNames, padding: showLogo ? 28 : 3 }, afterFit: (sc) => { if (showLogo) sc.width = Math.max(sc.width, 30); } } } },
         plugins: [{ id: "vzStack", afterDatasetsDraw(c) { // logo by each name, the share inside each piece wide enough to hold it
           const { ctx, chartArea: a } = c;
           ctx.save(); ctx.font = `bold ${px(9)}px JetBrains Mono`; ctx.textBaseline = "middle"; ctx.textAlign = "center"; ctx.fillStyle = "#000";
           c.data.datasets.forEach((ds, i) => c.getDatasetMeta(i).data.forEach((b, j) => {
             if (i === 0 && showLogo) drawLogo(ctx, shown[j], a.left - Math.min(20, b.height + 4) / 2 - 4, b.y, Math.min(20, b.height + 4));
-            if (numsOn && !c.getDatasetMeta(i).hidden && Math.abs(b.x - b.base) >= 26) ctx.fillText(`${Math.round(ds.data[j])}%`, (b.x + b.base) / 2, b.y);
+            if (numsOn && !c.getDatasetMeta(i).hidden && ds.data[j] && Math.abs(b.x - b.base) >= (abs ? 14 : 26)) ctx.fillText(abs ? String(ds.data[j]) : `${Math.round(ds.data[j])}%`, (b.x + b.base) / 2, b.y);
           }));
           ctx.restore(); } }] };
-      body = { h: Math.max(260, shown.length * 26 + 90) };
-      note = `The ${shown.length} with the most ${unitOf(stat)}${picks.length ? " plus your highlights" : ""}. Each bar adds up to 100% of his own ${unitOf(stat)}. Short = under 10 air yards (how far past the line of scrimmage the ball was thrown), intermediate = 10-19, deep = 20+; throwaways and spikes have no zone. Click a color in the key to hide it.`;
-      body.table = shown.map((k, i) => [i + 1, k, parts.map(([l], j) => `${l} ${Math.round(pctOf(k, j))}%`).join(" · ")]);
+      body = { h: Math.max(260, shown.length * 26 + 90 + (abs ? Math.ceil(parts.length / 4) * 18 : 0)) };
+      note = abs ? `The ${shown.length} with the most ${unitOf(stat)}${picks.length ? " plus your highlights" : ""}${st.team ? "" : ". Pick a team (or type “was penalties by type”) to see one team's players"}. Each piece is how many times he was flagged for that (accepted penalties only, from the play-by-play). Click a color in the key to hide it.`
+        : `The ${shown.length} with the most ${unitOf(stat)}${picks.length ? " plus your highlights" : ""}. Each bar adds up to 100% of his own ${unitOf(stat)}. Short = under 10 air yards (how far past the line of scrimmage the ball was thrown), intermediate = 10-19, deep = 20+; throwaways and spikes have no zone. Click a color in the key to hide it.`;
+      body.table = shown.map((k, i) => [i + 1, k, abs ? parts.map(([l], j) => [l, cnt(k, j)]).filter(([, n]) => n).sort((a, b) => b[1] - a[1]).map(([l, n]) => `${l} ${n}`).join(" · ") : parts.map(([l], j) => `${l} ${Math.round(pctOf(k, j))}%`).join(" · ")]);
     } else if (st.type === "pie" && stat[3].split) { // one player's breakdown: the highlighted one, else the busiest
       const parts = stat[3].split, list = rank(stat, keys).filter((k) => val(stat, k) > 0);
       const k = picks.find((x) => list.includes(x)) || list[0];
@@ -1288,7 +1308,7 @@ const Viz = (() => {
         options: { ...base, scales: {}, plugins: { ...base.plugins, legend: { position: "bottom", labels: base.plugins.legend.labels },
           tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${c.label}: ${Math.round((100 * c.raw) / (total || 1))}% (${c.raw} ${unitOf(stat).replace("zoned ", "")})` } } } } };
       body = { h: 420 };
-      note = `${total} ${unitOf(stat)}. Pick someone in Highlight to see his${k && !picks.includes(k) ? ` (this is ${name(k)}, the one with the most)` : ""}. Short = under 10 air yards, intermediate = 10-19, deep = 20+; throwaways and spikes have no zone.`;
+      note = `${total} ${unitOf(stat)}. Pick someone in Highlight to see his${k && !picks.includes(k) ? ` (this is ${name(k)}, the one with the most)` : ""}.${/_by_/.test(stat[0]) ? " Short = under 10 air yards, intermediate = 10-19, deep = 20+; throwaways and spikes have no zone." : ""}`;
     } else if (st.type === "bar") {
       const list = rank(stat, qualify(stat));
       const shown = [...new Set([...list.slice(0, top), ...picks.filter((k) => list.includes(k))])];
@@ -1546,12 +1566,8 @@ const Viz = (() => {
     const presetsBox = `<div class="vz-presets">
         <label>Presets<select id="vz-preset"><option value="">Pick a chart…</option>
           ${presetGroups(PRESETS[league]).map(([g, l]) => `<optgroup label="${esc(g)}">${l.map(([n, i]) => `<option value="p${i}">${esc(n)}</option>`).join("")}</optgroup>`).join("")}
-          ${(mine()[league] || []).length ? `<optgroup label="Yours">${mine()[league].map((m, i) => `<option value="m${i}">${esc(m.name)}</option>`).join("")}</optgroup>` : ""}
+          ${(mine()[league] || []).length ? `<optgroup label="My charts">${mine()[league].map((m, i) => `<option value="m${i}">${esc(m.name)}</option>`).join("")}</optgroup>` : ""}
         </select></label>
-        <button class="btn" id="vz-save" type="button">Save as preset</button>
-        ${(mine()[league] || []).length ? `<button class="btn" id="vz-del" type="button" title="Delete one of your presets">Delete…</button>` : ""}
-        <span class="vz-saveform hidden" id="vz-saveform"><input id="vz-pname" maxlength="40" placeholder="Name this chart"><button class="btn tour-next" id="vz-pok" type="button">Save</button><button class="btn" id="vz-pno" type="button">Cancel</button></span>
-        <small class="muted" id="vz-pmsg"></small>
       </div>`;
     const steps = `<div class="vz-steptabs">${[1, 2, 3, 4].map((n) => `<button type="button" data-tab="${n}" class="${stepOn === n ? "on" : ""}">${n} ${["Chart", "Data", "Who", "Look"][n - 1]}</button>`).join("")}</div>
       <div class="vz-steps" data-on="${stepOn}">
@@ -1584,7 +1600,7 @@ const Viz = (() => {
         ${whole ? "" : denOf(stat) && st.type !== "pie" || (st.type === "radar" && who === "players") ? `<label>Minimum <small class="muted">${esc(st.type === "radar" ? { QB: "pass attempts", RB: "carries", WR: "catches", DEF: "tackles", CB: "tackles", S: "tackles", K: "field goal tries" }[st.pos] || "touches" : unitOf(stat))}</small><input id="vz-min" type="number" min="0" inputmode="numeric" placeholder="auto ${st.type === "radar" ? "" : autoMin(stat)}" value="${esc(st.min)}"></label>` : ""}
         ${(st.type === "bar" || st.type === "table") && !whole ? `<label>Show${seg("vz-order", [["best", "Best"], ["worst", "Worst"]], st.order)}</label>` : ""}
         <label class="vz-wide vz-findwrap">Highlight / compare<input id="vz-find" placeholder="Type a ${who === "teams" ? "team" : "player"}…" autocomplete="off" spellcheck="false"><div class="vz-sugg" id="vz-sugg" hidden></div></label>
-        <div class="vz-picks">${picks.map((k) => `<button data-k="${esc(k)}" title="Remove">${esc(name(k))} ×</button>`).join("")}</div>
+        <div class="vz-picks">${picks.map((k) => `<button data-k="${esc(k)}" title="Remove">${esc(name(k))} ×</button>${who === "players" && st.pl !== k ? `<button data-plk="${esc(k)}" class="vz-plk" title="Every stat we have on him">All his stats</button>` : ""}`).join("")}</div>
       </div>`)}
       ${step(4, "Look", `<div class="vz-ctl">
         ${st.type !== "radar" && st.type !== "table" && !whole ? `<div class="vz-chks vz-wide"><label><input type="checkbox" id="vz-logo"${st.logo !== "0" ? " checked" : ""}> Team logos</label><label><input type="checkbox" id="vz-names"${st.names !== "0" ? " checked" : ""}> ${who === "teams" ? "Team" : "Player"} names</label></div>` : ""}
@@ -1603,18 +1619,74 @@ const Viz = (() => {
     const after = `${takeaway ? `<p class="vz-take"><b>Takeaway:</b> ${esc(takeaway)}</p>` : ""}
       ${related.length ? `<div class="vz-rel"><h4>Related</h4><div>${related.map(([l], i) => `<button type="button" class="vz-chip" data-rel="${i}">${esc(l)}</button>`).join("")}</div></div>` : ""}
       ${topics.length ? `<div class="vz-rel"><h4>More to explore</h4><div>${topics.map(([g, [l]], i) => `<button type="button" class="vz-chip vz-topic" data-topic="${i}"><small>${esc(g)}</small>${esc(l)}</button>`).join("")}</div></div>` : ""}`;
-    const frame = `${chipRow}<div class="vz-frame" id="vz-frame"><div class="vz-title"><b>${esc(title)}</b><small>${esc(sub)}</small></div>
+    // My charts: your saved charts as cards, newest first or grouped by team, player or stat, with a filter box
+    const myList = mine()[league] || [], pics = thumbs()[league] || {};
+    const TYPE_ICON = { bar: "▤", line: "↗", pie: "◔", scatter: "⁘", radar: "✳", table: "☷" };
+    const minePanel = (() => {
+      const q = norm(mineQ.trim()), has = (m) => !q || norm([m.name, m.what, ...(m.teams || []), ...(m.players || [])].join(" ")).includes(q);
+      const list = myList.map((m, i) => [m, i]).filter(([m]) => has(m));
+      const card = ([m, i]) => `<div class="vz-mc"><button type="button" class="vz-mc-open" data-mo="${i}">${pics[m.name] ? `<img src="${pics[m.name]}" alt="" loading="lazy">` : `<span class="vz-mc-ico">${TYPE_ICON[m.st.type || "bar"] || "▤"}</span>`}
+          <b>${esc(m.name)}</b><small>${esc([m.what, m.st.from && m.st.to ? (m.st.from === m.st.to ? m.st.from : `${m.st.from}–${m.st.to}`) : ""].filter(Boolean).join(" · "))}</small>
+          ${(m.players || []).length || (m.teams || []).length ? `<small class="vz-mc-who">${esc([...(m.players || []), ...(m.teams || [])].slice(0, 4).join(", "))}</small>` : ""}
+          ${m.at ? `<small class="vz-mc-at">Saved ${esc(new Date(m.at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }))}</small>` : ""}</button>
+        <button type="button" class="vz-mc-del" data-md="${i}" title="Delete this chart">✕</button></div>`;
+      // grouped: a chart with two teams (or players) shows under each; ones with none go last
+      const by = { team: (m) => m.teams || [], player: (m) => m.players || [], stat: (m) => (m.what ? [m.what] : []) }[mineSort];
+      let body;
+      if (!by) body = `<div class="vz-mc-grid">${list.map(card).join("")}</div>`;
+      else {
+        const g = {};
+        for (const x of list) { const ks = by(x[0]); (ks.length ? ks : [mineSort === "team" ? "No team" : mineSort === "player" ? "No player" : "Other"]).forEach((k) => (g[k] ||= []).push(x)); }
+        body = Object.entries(g).sort((a, b) => /^(No |Other)/.test(a[0]) - /^(No |Other)/.test(b[0]) || a[0].localeCompare(b[0]))
+          .map(([k, l]) => `<h4 class="vz-mc-h">${esc(k)} <small>${l.length}</small></h4><div class="vz-mc-grid">${l.map(card).join("")}</div>`).join("");
+      }
+      const signed = typeof Account !== "undefined" && Account.user();
+      return `<div class="vz-mine"><div class="vz-mine-head"><b>My charts</b><button type="button" class="vz-pl-x" id="vz-mx" title="Close">✕</button>
+          <div class="vz-mine-ctl"><label class="vz-mine-sort">Sort${sel("vz-msort", [["new", "Newest"], ["team", "By team"], ["player", "By player"], ["stat", "By stat"]], mineSort)}</label>
+          <input id="vz-mq" type="search" placeholder="Find a team, player or stat…" value="${esc(mineQ)}" autocomplete="off"></div></div>
+        ${myList.length ? list.length ? body : `<p class="muted">No saved chart matches “${esc(mineQ)}”.</p>` : `<p class="muted">Nothing saved yet. Make a chart, then tap <b>☆ Save to My charts</b> under it. It keeps the seasons, filters and look, so it opens exactly the same later.</p>`}
+        <p class="muted vz-pl-note">${signed ? "Saved to your account, so they're on every device you sign in on (the little pictures stay on the device that saved them)." : "Saved on this device. Sign in (Settings) to keep them on every device."} Up to 30 ${league === "nfl" ? "NFL" : "college"} charts.</p></div>`;
+    })();
+    // Everything on one player: every group he has a number in, each stat with his number and rank; tap one to chart it.
+    // Ranks are against players at his position in these weeks (rates: anyone with 35% of the leader's volume), whatever the
+    // filters. "Fewer is better" totals (interceptions thrown, penalties) get no rank: everyone who barely played would beat him.
+    const plPanel = (() => {
+      const k = st.pl;
+      if (who !== "players" || !k || !agg[k]) return "";
+      const m = meta(k) || [k, ""], posK = POS_OF(m[1], agg[k].S), everyone = Object.keys(agg).filter((x) => POS_OF(meta(x)?.[1], agg[x].S) === posK);
+      const cats = groups.map(([g, l]) => [g, l.map((s) => {
+        const v = value(s, agg[k].S, agg[k].g, "total"), den = s[3].den;
+        if (v == null || Number.isNaN(v) || (s[3].count ? !v : den && !den(agg[k].S, agg[k].g))) return null;
+        let n = 0, better = 0;
+        const minD = den ? 0.35 * Math.max(0, ...everyone.map((x) => den(agg[x].S, agg[x].g) || 0)) : 0;
+        if ((!den || den(agg[k].S, agg[k].g) >= minD) && !(s[3].count && s[3].low)) for (const x of everyone) {
+          if (den && (den(agg[x].S, agg[x].g) || 0) < minD) continue;
+          const w = value(s, agg[x].S, agg[x].g, "total");
+          if (w == null || Number.isNaN(w)) continue;
+          n++; if (s[3].low ? w < v : w > v) better++;
+        }
+        return [s, s[3].split ? `${fmt(s, v, "total")} total` : fmt(s, v, "total"), n ? better + 1 : 0];
+      }).filter(Boolean)]).filter(([, l]) => l.length);
+      const count = cats.reduce((a, [, l]) => a + l.length, 0);
+      return `<div class="vz-pl"><div class="vz-pl-head"><div><b>Every stat on ${esc(m[0])}</b><small>${esc([m[1], tm(teamOf(k))[0], seasonTxt, `${count} stats in ${cats.length} groups`].filter(Boolean).join(" · "))}</small></div><button type="button" class="vz-pl-x" id="vz-plx" title="Close">✕</button></div>
+        <div class="vz-pl-cats">${cats.map(([g, l]) => `<details${l.some(([s]) => s === stat) ? " open" : ""}><summary>${esc(g)} <small>${l.length}</small></summary><div class="vz-pl-stats">${l.map(([s, v, r]) => `<button type="button" data-pls="${s[0]}" title="${esc(s[1])}" class="${s === stat ? "on" : ""}"><span>${esc(s[1])}</span><b>${esc(v)}</b>${r ? `<small>#${r}</small>` : ""}</button>`).join("")}</div></details>`).join("")}</div>
+        <p class="muted vz-pl-note">Tap a group, then a stat to chart it with ${esc(m[0])} highlighted. Totals for ${esc(seasonTxt)}, ${esc(weeksTxt.toLowerCase())}; # = his rank among ${esc({ QB: "QBs", RB: "running backs", WR: "receivers and tight ends", K: "kickers", OL: "offensive linemen", DEF: "defenders" }[posK] || "players")} (rates: ones with at least 35% of the leader's volume).</p></div>`;
+    })();
+    const frame = `${plPanel}${chipRow}<div class="vz-frame" id="vz-frame"><div class="vz-title"><b>${esc(title)}</b><small>${esc(sub)}</small></div>
         ${body.html || `<div class="vz-canvas" style="height:${body.h}px"><canvas id="vz-chart"></canvas></div>`}
         <div class="vz-mark">cupcakeindex.com · ${esc(league === "nfl" ? "data: nflverse" : "data: CollegeFootballData.com")}</div></div>
       ${seasonOnly ? `<p class="note">Our ratings and college PPA are season-long numbers (as of the latest rankings), so they ignore the weeks you picked.</p>` : ""}`;
-    const actions = `<div class="vz-actions">${st.type === "table" ? `<button class="btn" id="vz-csv">Download spreadsheet (CSV)</button>` : Share.phone() && navigator.share ? "" : `<button class="btn" id="vz-png">Download picture</button>`}<button class="btn" id="vz-link">Copy link</button>${navigator.share && st.type !== "table" ? `<button class="btn" id="vz-share">Share</button>` : ""}<button class="btn vz-reset" id="vz-reset">Start over</button></div>
+    const actions = `<div class="vz-actions">${st.type === "table" ? `<button class="btn" id="vz-csv">Download spreadsheet (CSV)</button>` : Share.phone() && navigator.share ? "" : `<button class="btn" id="vz-png">Download picture</button>`}<button class="btn" id="vz-link">Copy link</button>${navigator.share && st.type !== "table" ? `<button class="btn" id="vz-share">Share</button>` : ""}<button class="btn" id="vz-save" type="button">☆ Save to My charts</button><button class="btn vz-reset" id="vz-reset">Start over</button></div>
+      <div class="vz-saveform hidden" id="vz-saveform"><input id="vz-pname" maxlength="40" placeholder="Name this chart"><button class="btn tour-next" id="vz-pok" type="button">Save</button><button class="btn" id="vz-pno" type="button">Cancel</button></div>
+      <small class="muted vz-pmsg" id="vz-pmsg"></small>
       ${body.table ? `<details class="vz-tbl"><summary>See the numbers</summary><table class="box"><tbody>${body.table.map(([i, k, v]) => `<tr><td class="num muted">${i}</td><td>${whole ? esc(k) : who === "players" && /^\d+$/.test(k) ? `<a href="#/player/${esc(k)}?league=${league}">${esc(name(k))}</a>` : who === "teams" ? `<a href="#/team/${esc(k.split(":")[1])}?league=${league}">${esc(name(k))}</a>` : esc(name(k))}</td><td class="num">${esc(v)}</td></tr>`).join("")}</tbody></table></details>` : ""}
       <p class="note">${st.role ? esc(`${st.role} = each team's ${(({ QB: "quarterback with the most pass attempts", RB: "back with the most carries + catches", WR: "wide receiver with the most targets", TE: "tight end with the most targets" })[st.role.slice(0, 2)]).replace("the most", st.role.endsWith("1") ? "the most" : `the ${{ 2: "2nd", 3: "3rd", 4: "4th" }[st.role.slice(2)]}-most`)} in the weeks you picked${league === "cfb" ? " (catches stand in for targets in college)" : ""}. `) : ""}${esc(note)} Source: ${esc(src)}. Rates are total ÷ total over the weeks you pick, not an average of weekly averages. Updated ${esc(new Date(D.updated).toLocaleDateString(undefined, { month: "short", day: "numeric" }))}.</p>`;
     const qBox = `<div class="vz-q vz-findwrap"><input id="vz-q" type="search" placeholder="${adv ? "Ask or search: stats, teams, players, presets… (try “sacks vs pressures”)" : "Ask a question… (try “who gets the targets on Washington”)"}" autocomplete="off" spellcheck="false"><div class="vz-sugg" id="vz-qs" hidden></div></div>`;
     const toggle = `<div class="seg vz-mode" id="vz-mode"><button data-v="" class="${adv ? "" : "active"}">Simple</button><button data-v="adv" class="${adv ? "active" : ""}">Advanced</button></div>`;
 
     el.innerHTML = stSub() + `<div class="card vz ${adv ? "vz-adv" : "vz-simple"}">
-      <div class="sc-bar vz-head"><h2>Visualize</h2><span class="muted vz-tag">Make a chart, win the argument.</span>${toggle}</div>
+      <div class="sc-bar vz-head"><h2>Visualize</h2><span class="muted vz-tag">Make a chart, win the argument.</span><button type="button" class="vz-minebtn${mineOpen ? " on" : ""}" id="vz-mine" aria-expanded="${mineOpen}">★ My charts${myList.length ? ` (${myList.length})` : ""}</button>${toggle}</div>
+      ${mineOpen ? minePanel : ""}
       ${adv ? `<div class="vz-top">${qBox}${presetsBox}</div>
       <div class="vz-grid"><div class="vz-side">${steps}</div><div class="vz-main">${frame}${after}${actions}</div></div>`
       : `${qBox}<p class="vz-read">Showing: <b>${esc(readout.join(" · "))}</b> <button type="button" class="vz-editbtn" id="vz-edit" aria-expanded="${editOpen}">${editOpen ? "Done ▴" : "Edit ▾"}</button></p>
@@ -1715,14 +1787,48 @@ const Viz = (() => {
     sugg.onmousedown = (e) => e.preventDefault(); // keep the box focused while tapping a name
     sugg.onclick = (e) => { const b = e.target.closest("[data-i]"); if (b) add(hits[+b.dataset.i]); };
     find.onblur = () => setTimeout(() => (sugg.hidden = true), 150);
-    el.querySelector(".vz-picks").onclick = (e) => { const b = e.target.closest("[data-k]"); if (b) { st.pick = picks.filter((k) => k !== b.dataset.k).join(","); redo(); } };
+    el.querySelector(".vz-picks").onclick = (e) => {
+      const p = e.target.closest("[data-plk]"); if (p) { st.pl = p.dataset.plk; redo(); document.querySelector(".vz-pl")?.scrollIntoView({ block: "start", behavior: "smooth" }); return; }
+      const b = e.target.closest("[data-k]"); if (b) { st.pick = picks.filter((k) => k !== b.dataset.k).join(","); redo(); } };
+    const plx = document.getElementById("vz-plx");
+    if (plx) plx.onclick = () => { st.pl = ""; redo(); };
+    el.querySelectorAll("[data-pls]").forEach((b) => b.onclick = () => {
+      const s = all.find((x) => x[0] === b.dataset.pls); if (!s) return;
+      // chart it against everyone: filters that could leave him out come off, and he's highlighted
+      Object.assign(st, { stat: s[0], pick: [...new Set([...picks, st.pl])].slice(-6).join(","), team: "", pos: "", role: "", group: "", exp: "", draft: "", where: "", min: "", radar: "" });
+      if (!["bar", "line", "table"].includes(st.type)) st.type = "bar";
+      if (s[3].count && st.per !== "game") st.per = "total";
+      redo();
+      document.getElementById("vz-frame")?.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
     // Search box: one place to find any stat, preset, position, team or filter instead of scrolling the dropdowns.
     // Each item: [label, what it is, extra words to match, apply()]
     const qbox = document.getElementById("vz-q"), qs = document.getElementById("vz-qs");
     const setWho = (w) => { if (w !== st.who) { st.who = w; st.pick = ""; st.team = ""; st.pos = ""; st.radar = ""; st.role = ""; } };
+    // players by name: every stat we have on him (the season's player list; team-only seasons have none)
+    const PL_FIRST = { QB: "pass_yds", RB: "rush_yds", FB: "rush_yds", WR: "rec_yds", TE: "rec_yds", K: "fg_made", PK: "fg_made", P: "punts", T: "off_snaps", G: "off_snaps", C: "off_snaps", OT: "off_snaps", OG: "off_snaps", OL: "off_snaps" };
+    const plPool = (() => { const out = {}; for (const d of Ds) for (const [k, m] of Object.entries(d.pmeta || {})) out[k] = m; return Object.entries(out); })();
+    // how big his stat line is (yards, tackles, kicks), so "allen" lists Josh Allen before backups
+    const plSize = (() => {
+      const out = {};
+      for (const d of Ds) {
+        const c = (n) => d.pcols?.indexOf(n) + 3, ix = [["pass_yds", 1], ["rush_yds", 1], ["rec_yds", 1], ["tackles", 10], ["fg_made", 30]].map(([n, w]) => [c(n), w]).filter(([i]) => i > 2);
+        for (const r of d.prows || []) out[r[0]] = (out[r[0]] || 0) + ix.reduce((a, [i, w]) => a + (+r[i] || 0) * w, 0);
+      }
+      return out;
+    })();
+    const plItem = ([k, m]) => [m[0], `Player · ${[m[1], (D.teams[m[2]] || tm(m[2]))[1]].filter(Boolean).join(" ")} · every stat on him`, "player", () => {
+      const p = (m[1] || "").toUpperCase();
+      st = { ...DEF, from: st.from, to: st.to, mode: st.mode, who: "players", type: "bar", per: "total", top: "15", stat: PL_FIRST[p] || (league === "cfb" && !p ? "scrim" : "tackles"), pick: k, pl: k };
+      reload();
+    }];
+    // names only (never "player" or "stat"), whole words first, this season's players before older ones
+    const plFind = (words) => words.join("").length < 3 ? [] : plPool.map(([k, m]) => [k, m, norm(m[0])]).filter(([, , n]) => words.every((w) => n.includes(w)))
+      .map(([k, m, n]) => [k, m, (n.startsWith(words.join(" ")) ? 0 : words.every((w) => n.split(" ").some((x) => x.startsWith(w))) ? 1 : 2) + (D.pmeta?.[k] ? 0 : 0.5)])
+      .filter((x) => x[2] < 2).sort((a, b) => a[2] - b[2] || (plSize[b[0]] || 0) - (plSize[a[0]] || 0)).slice(0, 4).map(([k, m]) => plItem([k, m]));
     const qItems = () => [
       ...PRESETS[league].filter(Array.isArray).map(([l, o]) => [l, "Preset", "chart idea", () => { st = { ...DEF, from: st.from, to: st.to, mode: st.mode, ...o }; reload(); }]),
-      ...(mine()[league] || []).map((m) => [m.name, "Your preset", "mine saved", () => { st = { ...DEF, from: st.from, to: st.to, mode: st.mode, ...m.st }; reload(); }]),
+      ...(mine()[league] || []).map((m) => [m.name, "My chart", "mine saved portfolio", () => { st = { ...DEF, from: st.from, to: st.to, mode: st.mode, ...m.st }; reload(); }]),
       ...["players", "teams"].flatMap((w) => statsFor(w, have).flatMap(([g, l]) => l.map((x) => [x[1], `${w === "players" ? "Player" : "Team"} stat · ${g}`, `${g} ${x[0]}`,
         () => { setWho(w); if (st.type === "radar" || st.type === "pie" && !x[3].count) st.type = "bar"; st.stat = x[0]; st.min = ""; redo(); }]))),
       ...posOpts.filter(([k]) => k).map(([k, l]) => [l, "Position", `${k} position players`, () => { setWho("players"); st.pos = k; st.role = ""; st.min = ""; redo(); }]),
@@ -1826,7 +1932,8 @@ const Viz = (() => {
       if (patch.per === "share" && !(s[3].count && w === "players")) delete patch.per;
       if (w === "teams" && patch.team) { patch.pick = patch.team; delete patch.team; }
       if (w === "teams") { delete patch.pos; delete patch.exp; delete patch.draft; }
-      if (patch.team && !patch.top) patch.top = "10";
+      if (s[3].split && patch.per === "share") patch.per = "total"; // a breakdown is already split up: "who gets flagged for what"
+      if (patch.team && !patch.top) patch.top = s[3].split ? "25" : "10";
       const label = [`${s[1]}${patch.per === "share" ? " (share of team)" : patch.per === "snap" ? " per 100 snaps" : ""}`,
         patch.team ? `${D.teams[patch.team][0]} players` : patch.pick ? `highlight ${D.teams[patch.pick][0]}` : patch.pos ? posOpts.find(([k]) => k === patch.pos)?.[1] : "",
         patch.exp ? "rookies" : "", patch.draft ? "undrafted" : "", patch.opp ? OPP.find(([k]) => k === patch.opp)[1].toLowerCase() : "",
@@ -1897,7 +2004,7 @@ const Viz = (() => {
       const asked = ask(raw, !one.some((x) => x[1] < 2));
       // two stats ("drops vs targets"): the scatter comes before single stats that merely contain both words; only an exact name beats it
       const cut = pair?.hits?.length ? 0.5 : 2;
-      qHits = [...(asked ? [asked] : []), ...one.filter((x) => x[1] < cut || (x[1] < 2 && x[0][1] === "Preset" && / vs /.test(x[0][0]))).map((x) => x[0]), ...(pair?.hits || []),
+      qHits = [...plFind(words), ...(asked ? [asked] : []), ...one.filter((x) => x[1] < cut || (x[1] < 2 && x[0][1] === "Preset" && / vs /.test(x[0][0]))).map((x) => x[0]), ...(pair?.hits || []),
         ...one.filter((x) => x[1] >= cut && !(x[1] < 2 && x[0][1] === "Preset" && / vs /.test(x[0][0]))).map((x) => x[0])];
       // nothing at all: drop one word at a time and offer what the rest of the question finds
       if (!qHits.length && words.length > 1) {
@@ -1938,33 +2045,63 @@ const Viz = (() => {
       const chosen = v[0] === "p" ? PRESETS[league][+v.slice(1)]?.[1] : (mine()[league] || [])[+v.slice(1)]?.st;
       if (chosen) { st = { ...DEF, from: st.from, to: st.to, mode: st.mode, ...chosen }; reload(); }
     };
-    const form = document.getElementById("vz-saveform"), msg = document.getElementById("vz-pmsg"), nm = document.getElementById("vz-pname");
-    document.getElementById("vz-save").onclick = () => { form.classList.remove("hidden"); nm.value = title.slice(0, 40); nm.focus(); nm.select(); };
+    const form = document.getElementById("vz-saveform"), nm = document.getElementById("vz-pname");
+    document.getElementById("vz-save").onclick = () => { form.classList.remove("hidden"); nm.value = (st.ttl || title).slice(0, 40); nm.focus(); nm.select(); };
     document.getElementById("vz-pno").onclick = () => form.classList.add("hidden");
+    // what the chart shows and who it's about, for sorting My charts: the highlighted ones (or the top 3 when nobody is),
+    // and the team filter (or those players' teams)
+    const onChart = () => {
+      const mark = [...new Set([...picks, ...(st.pl ? [st.pl] : [])])].filter((k) => agg[k]);
+      const ks = whole ? [] : mark.length ? mark : rank(stat, qualify(stat)).slice(0, 3);
+      const teams = [...new Set((who === "players" && st.team ? [st.team] : ks.map(teamOf)).filter(Boolean).map((k) => tm(k)[0]))].slice(0, 6);
+      return { what: st.type === "scatter" ? `${stat[1]} vs ${ystat[1]}` : st.type === "radar" ? `${lgTxt} ${who} radar` : stat[1], teams, players: who === "players" ? ks.map(name).slice(0, 6) : [] };
+    };
     const doSave = () => {
       const name = nm.value.trim();
       if (!name) return nm.focus();
       const all = mine(), list = (all[league] || []).filter((m) => m.name !== name); // same name: replace it
-      const keep = Object.fromEntries(Object.entries(st).filter(([k, v]) => v !== "" && v !== DEF[k] && k !== "from" && k !== "to" && k !== "mode"));
-      list.unshift({ name, st: keep });
+      const keep = Object.fromEntries(Object.entries(st).filter(([k, v]) => v !== "" && v !== DEF[k] && k !== "mode"));
+      list.unshift({ name, st: keep, at: new Date().toISOString(), ...onChart() });
       all[league] = list.slice(0, 30);
       saveMine(all);
+      // the little picture: this device only
+      const cv = document.getElementById("vz-chart");
+      if (cv) try {
+        // 16:9, not squashed: a tall chart keeps its top (the leaders), a wide one its middle
+        const t = document.createElement("canvas"); t.width = 320; t.height = 180;
+        const sw = Math.min(cv.width, (cv.height * 16) / 9), sh = (sw * 9) / 16;
+        const x = t.getContext("2d"); x.fillStyle = C("--card") || "#111"; x.fillRect(0, 0, t.width, t.height); x.drawImage(cv, (cv.width - sw) / 2, 0, sw, sh, 0, 0, t.width, t.height);
+        const tb = thumbs(), kept = new Set(all[league].map((m) => m.name));
+        tb[league] = Object.fromEntries(Object.entries({ ...(tb[league] || {}), [name]: t.toDataURL("image/jpeg", 0.72) }).filter(([n]) => kept.has(n)));
+        saveThumbs(tb);
+      } catch {}
       const signed = typeof Account !== "undefined" && Account.user();
       redo();
       const m = document.getElementById("vz-pmsg");
-      if (m) m.textContent = signed ? `Saved “${name}” to your account.` : `Saved “${name}” on this device. Sign in (Settings) to keep it on every device.`;
+      if (m) m.textContent = signed ? `Saved “${name}” to My charts (your account).` : `Saved “${name}” to My charts on this device. Sign in (Settings) to keep it on every device.`;
     };
     document.getElementById("vz-pok").onclick = doSave;
     nm.onkeydown = (e) => { if (e.key === "Enter") doSave(); else if (e.key === "Escape") form.classList.add("hidden"); };
-    const del = document.getElementById("vz-del");
-    if (del) del.onclick = () => {
-      const list = mine()[league] || [];
-      const which = window.prompt(`Delete which preset? Type its name:\n${list.map((m) => "• " + m.name).join("\n")}`);
-      if (!which) return;
-      const all = mine(), left = list.filter((m) => m.name.toLowerCase() !== which.trim().toLowerCase());
-      if (left.length === list.length) { msg.textContent = `No preset called “${which}”.`; return; }
-      all[league] = left; saveMine(all); redo();
-    };
+    // My charts: open, sort, find, open one, delete one (tap ✕ twice)
+    document.getElementById("vz-mine").onclick = () => { mineOpen = !mineOpen; redo(); if (mineOpen) document.querySelector(".vz-mine")?.scrollIntoView({ block: "nearest", behavior: "smooth" }); };
+    const mp = el.querySelector(".vz-mine");
+    if (mp) {
+      document.getElementById("vz-mx").onclick = () => { mineOpen = false; redo(); };
+      document.getElementById("vz-msort").onchange = (e) => { mineSort = e.target.value; redo(); };
+      const mq = document.getElementById("vz-mq");
+      mq.oninput = () => { mineQ = mq.value; const at = mq.selectionStart; redo(); const n = document.getElementById("vz-mq"); n.focus(); n.setSelectionRange(at, at); };
+      mp.onclick = (e) => {
+        const o = e.target.closest("[data-mo]"), d = e.target.closest("[data-md]");
+        if (o) { const m = myList[+o.dataset.mo]; if (m) { mineOpen = false; st = { ...DEF, from: st.from, to: st.to, mode: st.mode, ...m.st }; reload(); window.scrollTo({ top: 0 }); } }
+        else if (d) {
+          if (!d.classList.contains("sure")) { d.classList.add("sure"); d.textContent = "Delete?"; return; }
+          const all = mine(), gone = (all[league] || [])[+d.dataset.md];
+          all[league] = (all[league] || []).filter((_, i) => i !== +d.dataset.md); saveMine(all);
+          const tb = thumbs(); if (gone && tb[league]) { delete tb[league][gone.name]; saveThumbs(tb); }
+          redo();
+        }
+      };
+    }
     document.getElementById("vz-reset").onclick = () => { st = { ...DEF, mode: st.mode }; reload(); };
     // Simple / Advanced, Edit, the steps (phone tabs, closing a step on a computer), filter chips, Related and More to explore
     el.querySelector("#vz-mode").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; st.mode = b.dataset.v; store.set("viz-mode", st.mode); redo(); };

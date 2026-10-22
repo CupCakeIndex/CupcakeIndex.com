@@ -3006,3 +3006,61 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
   .vz-steps[data-on="1"] > .vz-step:not([data-n="1"]), .vz-steps[data-on="2"] > .vz-step:not([data-n="2"]),
   .vz-steps[data-on="3"] > .vz-step:not([data-n="3"]), .vz-steps[data-on="4"] > .vz-step:not([data-n="4"]) { display: none; }
 }
+/* Visualize: every stat on one player (search his name), by group; tap a stat to chart it */
+.vz-pl { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 0 10px 10px 0; padding: 10px 12px; margin: 0 0 12px; background: var(--bg); }
+.vz-pl-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.vz-pl-head b { display: block; font-size: 15px; }
+.vz-pl-head small { color: var(--muted); font-size: 12px; }
+.vz-pl-x { border: 1px solid var(--line); background: none; color: var(--muted); border-radius: 99px; width: 30px; height: 30px; flex: none; font: inherit; cursor: pointer; }
+.vz-pl-x:hover { color: var(--accent); border-color: var(--accent); }
+.vz-pl-cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0 14px; }
+.vz-pl details { border-bottom: 1px solid var(--line); }
+.vz-pl details[open] { grid-column: 1 / -1; }
+.vz-pl summary { cursor: pointer; padding: 8px 2px; font-size: 13px; font-weight: 600; list-style-position: inside; }
+.vz-pl summary small { color: var(--muted); font-weight: 400; margin-left: 4px; }
+.vz-pl summary:hover { color: var(--accent); }
+.vz-pl-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; padding: 2px 0 10px; }
+.vz-pl-stats button { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; gap: 8px; text-align: left; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; padding: 7px 9px; font: inherit; font-size: 12px; cursor: pointer; }
+.vz-pl-stats button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vz-pl-stats button b { font-size: 13px; }
+.vz-pl-stats button small { color: var(--muted); font-size: 11px; min-width: 2.6em; text-align: right; }
+.vz-pl-stats button:hover, .vz-pl-stats button.on { border-color: var(--accent); }
+.vz-pl-stats button.on b, .vz-pl-stats button.on small { color: var(--accent); }
+.vz-pl-note { font-size: 11px; margin: 8px 0 0; }
+.vz-picks .vz-plk { border-style: dashed; }
+/* Visualize: My charts (saved charts, sortable by team, player or stat) */
+.vz-minebtn { border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 99px; padding: 5px 12px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.vz-minebtn:hover, .vz-minebtn.on { border-color: var(--accent); color: var(--accent); }
+.vz-saveform { margin-top: 8px; }
+.vz-saveform input { font: inherit; font-size: 13px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); padding: 6px 8px; flex: 1 1 200px; max-width: 320px; min-width: 0; }
+.vz-pmsg { display: block; margin-top: 6px; }
+.vz-pmsg:empty { display: none; }
+.vz-mine { border: 1px solid var(--accent); border-radius: 10px; padding: 10px 12px; margin: 0 0 14px; background: var(--bg); }
+.vz-mine-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 8px; }
+.vz-mine-head > b { font-size: 15px; margin-right: auto; }
+.vz-mine-sort { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.vz-mine-head select, .vz-mine-head input { font: inherit; font-size: 13px; color: var(--ink); background: var(--card); border: 1px solid var(--line); padding: 5px 8px; min-width: 0; }
+.vz-mine-head input { flex: 0 1 240px; }
+.vz-mine-ctl { display: flex; align-items: center; gap: 8px 10px; order: 1; min-width: 0; }
+.vz-mine-head > .vz-pl-x { order: 2; }
+.vz-mc-h { margin: 12px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); }
+.vz-mc-h small { color: var(--muted); font-weight: 400; }
+.vz-mc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.vz-mc { position: relative; }
+.vz-mc-open { display: flex; flex-direction: column; gap: 3px; width: 100%; height: 100%; text-align: left; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 10px; padding: 8px; font: inherit; cursor: pointer; }
+.vz-mc-open:hover { border-color: var(--accent); }
+.vz-mc-open img, .vz-mc-ico { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; background: var(--bg); margin-bottom: 4px; }
+.vz-mc-ico { display: flex; align-items: center; justify-content: center; font-size: 34px; color: var(--accent); }
+.vz-mc-open b { font-size: 13px; padding-right: 22px; }
+.vz-mc-open small { font-size: 11px; color: var(--muted); }
+.vz-mc-who { color: var(--ink) !important; }
+.vz-mc-del { position: absolute; top: 6px; right: 6px; border: 1px solid var(--line); background: var(--card); color: var(--muted); border-radius: 99px; min-width: 26px; height: 26px; padding: 0 6px; font: inherit; font-size: 11px; cursor: pointer; }
+.vz-mc-del:hover, .vz-mc-del.sure { color: #fff; background: #c0392b; border-color: #c0392b; }
+@media (max-width: 520px) {
+  .vz-mc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .vz-mine-ctl { order: 3; flex: 1 1 100%; }
+  .vz-mine-head input { flex: 1 1 0; }
+  .vz-pl-cats, .vz-pl-stats { grid-template-columns: minmax(0, 1fr); }
+}
+.vz-head .vz-minebtn { margin-left: auto; }
+.vz-head .vz-minebtn + .vz-mode { margin-left: 0; }
