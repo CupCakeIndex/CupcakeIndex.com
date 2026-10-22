@@ -5116,5 +5116,80 @@ const Live = (() => {
 
   // helpers shared with pickem.js and fantasy.js: ESPN fetch + cache, logos, our-rank lookup, game status, injury tags, polling tied to the current view
   const kit = { SITE, api, img, teamLogo, ourTeam, statusText, injTag, poll, teamColor, token: () => token };
-  return { stop, teamId, scores, game, stats, player, standings, team, freeagents, searchPlayers, fillBugs, kit, statsSubtabs: (on) => stSubStats(on) };
+  // ---------------------------------------------------------------- NFL trade watch
+  // Who's most likely to be traded before the deadline, and where he'd fit (src/trade_watch.py, refreshed daily), under a
+  // countdown to the next big date on the NFL calendar. The dates are from the NFL's 2026-27 calendar: add next year's
+  // when the league announces them. A date with no announced time counts down to midnight Eastern (shown in days).
+  const NFL_DATES = [
+    ["2026-11-10T21:00:00Z", "Trade deadline", "4 p.m. ET, Tue Nov 10. After this, teams can't trade until March."],
+    ["2026-11-17T21:00:00Z", "Last day to sign tagged players", "Franchise-tagged and restricted free agents still unsigned sit out the season."],
+    ["2027-01-16T05:00:00Z", "Playoffs begin", "Wild Card Weekend, Jan 16-18.", 1],
+    ["2027-02-14T05:00:00Z", "Super Bowl LXI", "SoFi Stadium, Inglewood, Calif.", 1],
+    ["2027-03-03T21:00:00Z", "Franchise tag deadline", "4 p.m. ET, Mar 3: last day to tag a player."],
+    ["2027-03-09T17:00:00Z", "Free agent talks open", "Noon ET, Mar 9: teams can start negotiating with other teams' free agents."],
+    ["2027-03-11T21:00:00Z", "Free agency + trades open", "4 p.m. ET, Mar 11: the 2027 league year starts; signings and trades become official."],
+    ["2027-04-29T05:00:00Z", "NFL Draft", "Apr 29-May 1, Washington, D.C.", 1],
+  ];
+  function countdownHtml() {
+    const now = Date.now(), next = NFL_DATES.find(([t]) => Date.parse(t) > now);
+    if (!next) return "";
+    const [t, what, sub, dayOnly] = next, s = Math.max(0, Math.floor((Date.parse(t) - now) / 1000));
+    const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    const box = (n, l) => `<span class="cd-box"><b>${String(n).padStart(2, "0")}</b><small>${l}</small></span>`;
+    return `<div class="cd-what">Countdown to <b>${esc(what)}</b></div>
+      <div class="cd-time">${box(d, d === 1 ? "day" : "days")}${dayOnly ? "" : box(h, "hrs") + box(m, "min") + box(sec, "sec")}</div>
+      <div class="cd-sub muted">${esc(sub)}</div>`;
+  }
+  let twPos = "";
+  async function trades() {
+    const my = token;
+    if (league !== "nfl") {
+      view("trades").innerHTML = `<div class="card">Trade watch is NFL only. <a href="#/trades?league=nfl">See the NFL trade watch →</a></div>`;
+      return;
+    }
+    loading("trades");
+    let D;
+    try { D = await getJSON("data/nfl/trade_watch.json"); } catch (e) { return fail("trades", e); }
+    if (my !== token) return;
+    const tlogo = (ab) => { const t = D.teams[ab]; return t ? img(`https://a.espncdn.com/i/teamlogos/nfl/500/${t.id}.png`, "xs") : ""; };
+    const money = (v) => (v ? `$${(v / 1e6).toFixed(v < 1e7 ? 1 : 0)}M` : "–");
+    const gone = Date.now() > Date.parse(`${D.deadline}T21:00:00Z`);
+    const POS = ["QB", "RB", "WR", "TE", "OL", "EDGE", "IDL", "LB", "CB", "S"];
+    view("trades").innerHTML = `<div class="card tw-cd" id="tw-cd">${countdownHtml()}</div>
+      <div class="card">
+        <div class="sc-bar"><h2>Trade watch</h2>
+          <div class="presets" id="tw-pos">${[["", "All"], ...POS.map((p) => [p, p])].map(([v, l]) => `<button data-pos="${v}" class="${v === twPos ? "on" : ""}">${l}</button>`).join("")}</div></div>
+        ${gone ? `<p class="note">The ${D.season} deadline has passed. This was our list going in.</p>` : ""}
+        <div class="table-wrap"><table class="box" id="tw-table"><thead><tr><th>#</th><th>Player</th><th>Team</th><th>Contract</th><th>Chance</th><th>Best fits</th></tr></thead><tbody></tbody></table></div>
+        <p class="note">Our guess at who gets moved, refreshed daily (last ${esc(D.updated.slice(0, 10))}). <b>Sellers</b> are teams with a low playoff chance in ${D.sims.toLocaleString("en-US")} simulations of the rest of the season from our power ratings. A player ranks higher when his team is selling, his contract ends soon (salary and years from ESPN), he's a veteran (rebuilding teams keep young players), he plays a big role, and he's worth something to a contender. QBs and running backs rarely move mid-season, so they count less. <b>Best fits</b> are contenders (35-97% playoff chance) whose unit at his position ranks low in our play-by-play numbers. We can't see teams' cap space, so a fit isn't a sure thing. Chance is a ranking (Likely, Possible, Long shot), not a percentage.</p></div>`;
+    const draw = () => {
+      const rows = D.players.filter((p) => !twPos || p.pos === twPos);
+      $("#tw-table tbody").innerHTML = rows.map((p, i) => `<tr>
+        <td class="num">${i + 1}</td>
+        <td><a href="${link("player", p.id)}"><b>${esc(p.name)}</b></a> <span class="muted">${esc(p.pos)}${p.age ? ` · ${Math.floor(p.age)}` : ""}</span></td>
+        <td><span class="tm">${tlogo(abOf(p.team))} ${esc(abOf(p.team))}</span> <small class="muted">${esc(D.teams[abOf(p.team)]?.record || "")} · ${Math.round(100 * (D.teams[abOf(p.team)]?.p || 0))}% playoffs</small></td>
+        <td>${p.through ? (p.through === D.season ? `<b class="tw-exp">ends ${p.through}</b>` : `thru ${p.through}`) : "–"} <small class="muted">${money(p.salary)}</small></td>
+        <td><span class="tw-tier tw-${p.tier === "Likely" ? "hi" : p.tier === "Possible" ? "md" : "lo"}">${esc(p.tier)}</span></td>
+        <td class="tw-fits">${p.fits.map(([ab, why]) => `<span class="tm" title="${esc(why)}">${tlogo(ab)} ${esc(ab)}</span>`).join(" ")}</td></tr>`).join("")
+        || `<tr><td colspan="6" class="muted">No one at this position on our list.</td></tr>`;
+    };
+    // teams in the file are keyed by abbreviation; players carry the chart key ("nfl:28")
+    const byId = Object.fromEntries(Object.entries(D.teams).map(([ab, t]) => [`nfl:${t.id}`, ab]));
+    const abOf = (k) => byId[k] || k;
+    draw();
+    $("#tw-pos").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-pos]");
+      if (!b) return;
+      twPos = b.dataset.pos;
+      $("#tw-pos").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+      draw();
+    });
+    const tick = setInterval(() => {
+      const el = $("#tw-cd");
+      if (my !== token || !el) return clearInterval(tick);
+      el.innerHTML = countdownHtml();
+    }, 1000);
+  }
+
+  return { stop, teamId, scores, game, stats, player, standings, team, freeagents, trades, searchPlayers, fillBugs, kit, statsSubtabs: (on) => stSubStats(on) };
 })();

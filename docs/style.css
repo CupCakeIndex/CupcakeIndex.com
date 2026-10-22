@@ -3081,3 +3081,25 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .kc-dot.rec { fill: #f5c542; stroke: #fff6d0; stroke-width: 1.2; }
 .kc-long.rec { fill: #f5c542; }
 .rec-txt { color: #f5c542; font-size: 12px; margin: 4px 0 0; }
+/* Trade watch: countdown to the next NFL date, then the list */
+.tw-cd { text-align: center; padding: 18px 12px; border-top: 3px solid var(--accent, #ff6b2c); }
+.cd-what { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.cd-what b { color: var(--ink, #fff); }
+.cd-time { display: flex; justify-content: center; gap: 10px; margin: 10px 0 6px; }
+.cd-box { display: flex; flex-direction: column; align-items: center; min-width: 64px; padding: 8px 6px; border: 1px solid var(--line, #333); border-radius: 8px; background: rgba(255, 107, 44, .06); }
+.cd-box b { font-size: 34px; line-height: 1; color: var(--accent, #ff6b2c); font-variant-numeric: tabular-nums; }
+.cd-box small { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.cd-sub { font-size: 12px; }
+.tw-tier { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.tw-hi { color: var(--accent, #ff6b2c); }
+.tw-md { color: #f5c542; }
+.tw-lo { color: var(--muted); }
+.tw-exp { color: var(--accent, #ff6b2c); font-weight: 600; }
+.tw-fits .tm { margin-right: 6px; white-space: nowrap; }
+#tw-table td { vertical-align: middle; }
+@media (max-width: 520px) {
+  .cd-box { min-width: 54px; }
+  .cd-box b { font-size: 26px; }
+  #tw-table th:nth-child(1), #tw-table td:nth-child(1) { display: none; }
+  #tw-table td small { display: block; }
+}
