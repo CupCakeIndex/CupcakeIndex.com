@@ -1678,6 +1678,7 @@ const Live = (() => {
         </div>
         ${side(home, "home")}
       </div>
+      <p class="gm-acts"><a class="btn" href="${link("stats", null, { show: "visualize", who: "teams", type: "radar", pick: `${lg}:${away.team.id},${lg}:${home.team.id}` })}">📈 Compare these two</a></p>
       ${lineTable || st === "in" ? `<div class="card sb-under">${lineTable}
         ${st === "in" && s.situation?.lastPlay?.text ? `<p class="note">Last play: ${esc(s.situation.lastPlay.text)}</p>` : ""}</div>` : ""}
       ${st === "in" ? fieldView(s, comp, home, away, tc, String(id), people, null)
@@ -3932,6 +3933,7 @@ const Live = (() => {
           <p>${a.team ? `<a href="${link("team", a.team.id)}"><span class="tm">${img(a.team.logos?.[0]?.href || a.team.logo, "xs")} ${esc(a.team.displayName)}</span></a>` : ""}
             ${injInfo(inj) ? ` <span class="inj-line">${injTag(inj, a.id, fa ? "" : a.team?.id)} ${esc(injInfo(inj).tip)}</span>` : ""}</p>
           <p class="muted">${facts.map(esc).join(" · ")}<span id="pl-exp">${exp ? " · " + esc(exp) : ""}</span></p>
+          <p class="pl-acts"><a class="btn" href="${link("stats", null, { show: "visualize", him: a.id })}">📈 Chart him</a></p>
         </div>
       </div>${takes.length ? `
       <div class="subtabs"><a class="subtab${ptab ? "" : " on"}" href="${link("player", id)}">Stats</a><a class="subtab${ptab ? " on" : ""}" href="${link("player", id, { tab: "takes" })}">Takes <small>${takes.length}</small></a></div>` : ""}`;
@@ -5054,6 +5056,7 @@ const Live = (() => {
           ${ours ? `<div><small>Power rating</small><b>${ours.rating > 0 ? "+" : ""}${ours.rating.toFixed(1)}</b></div>` : ""}
           ${ours ? `<div><small>Why #${ours.rank}?</small><a class="boxlink" href="${link("breakdown", ours.team)}">See the breakdown →</a></div>` : ""}
         </div>
+        ${ours?.scores ? `<p class="th-why">${esc(Breakdown.why(ours, [...ranks.byName.values()], lg))}</p>` : ""}
       </div>
       <div class="th-grid">
         ${facs.length ? `<div class="card"><h3>Factor scores</h3>${facs.map((f) => `<div class="frow" title="${esc(f.help || "")}"><span>${esc(f.label)}</span><span class="bar${f.invert ? " inv" : ""}"><i style="width:${+ours.scores[f.key] || 0}%"></i></span><b class="num">${Math.round(ours.scores[f.key])}</b></div>`).join("")}</div>` : ""}

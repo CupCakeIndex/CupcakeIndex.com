@@ -24,6 +24,28 @@ const Breakdown = (() => {
   // rank among every team in one factor (1 = best)
   const factorRank = (teams, f, t) => 1 + teams.filter((x) => (f.invert ? (x.scores[f.key] ?? 50) < (t.scores[f.key] ?? 50) : (x.scores[f.key] ?? 50) > (t.scores[f.key] ?? 50))).length;
 
+  // One plain sentence for the team page: what carries a team and what holds it back, in the Default ranking (the
+  // "our #" everywhere). Each factor counts by how far it's above or below an average team (50), times its weight.
+  function why(t, all, lg) {
+    const info = INDEX.leagues[lg], W = info.default_weights, total = Object.values(W).reduce((a, b) => a + b, 0) || 1;
+    const fs = info.factors.filter((f) => t.scores?.[f.key] != null).map((f) => {
+      const s = t.scores[f.key];
+      return { f, d: ((f.invert ? 100 - s : s) - 50) * (W[f.key] || 0) / total, r: factorRank(all, f, t) };
+    });
+    const up = fs.filter((x) => x.d > 0.5).sort((a, b) => b.d - a.d).slice(0, 2), down = fs.filter((x) => x.d < -0.5).sort((a, b) => a.d - b.d).slice(0, 1);
+    // factors whose name reads backwards on one side, said in words: [helps, hurts] (a low Bad luck score = they've been lucky)
+    const WORDS = { cupcake: ["Few cupcakes", "Cupcake padding"], luck: ["Bad luck", "Lucky breaks"] };
+    const name = (x, i) => `${WORDS[x.f.key]?.[x.d > 0 ? 0 : 1] || x.f.label} (#${x.r}${i ? "" : ` of ${all.length}`})`;
+    const list = (xs, of) => xs.map((x, i) => name(x, of ? i : 1)).join(" and ");
+    if (fs.reduce((a, x) => a + x.d, 0) < 0) { // below an average team: lead with what pulls them down
+      const dn = fs.filter((x) => x.d < -0.5).sort((a, b) => a.d - b.d).slice(0, 2);
+      if (dn.length) return `#${t.rank} because ${list(dn, true)} ${dn.length > 1 ? "pull" : "pulls"} them down${up.length ? `; ${name(up[0], 1)} helps` : ""}.`;
+    }
+    let s = up.length ? `${list(up, true)} ${up.length > 1 ? "carry" : "carries"} them` : "nothing stands out above average";
+    if (down.length) s += `; ${name(down[0], up.length)} holds them back`;
+    return `#${t.rank} because ${s}.`;
+  }
+
   async function render(name) {
     const el = $("#view-breakdown");
     const all = rankTeams(DATA.teams), t = all.find((x) => x.team === name);
@@ -88,5 +110,5 @@ const Breakdown = (() => {
     }).join("");
   }
 
-  return { render };
+  return { render, why };
 })();

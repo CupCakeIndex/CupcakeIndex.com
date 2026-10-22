@@ -18,6 +18,14 @@ const Takes = (() => {
   const lgOf = (k) => k.split(":")[0];
   const idOf = (k) => k.split(":")[1];
 
+  // "See the chart" in Visualize: a post's first player (every stat on him), else its teams side by side (radar)
+  const chart = (it) => {
+    const pl = (it.players || [])[0], tms = (it.teams || []).slice(0, 5);
+    if (pl) return `#/stats?${new URLSearchParams({ league: lgOf(pl), show: "visualize", him: idOf(pl) })}`;
+    if (tms.length) return `#/stats?${new URLSearchParams({ league: lgOf(tms[0]), show: "visualize", who: "teams", type: "radar", pick: tms.join(",") })}`;
+    return "";
+  };
+
   // one post: date and time, the card picture (tap for full size), the text, and chips for its teams and players
   const card = (it) => `<article class="tk-item">
       <p class="nw-meta"><time datetime="${esc(it.time)}">${esc(it.date_only ? new Date(it.time).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : when(it.time))}</time>${it.league ? ` · <span class="muted">${it.league === "nfl" ? "NFL" : "CFB"}</span>` : ""}</p>
@@ -26,7 +34,7 @@ const Takes = (() => {
       ${it.teams?.length || it.players?.length ? `<p class="nw-teams">${(it.teams || []).filter((k) => D.teams[k]).map((k) =>
         `<a href="#/team/${esc(idOf(k))}?league=${esc(lgOf(k))}">${esc(D.teams[k].short || D.teams[k].name)}</a>`).join("")}${(it.players || []).filter((k) => D.players[k]).map((k) =>
         `<a href="#/player/${esc(idOf(k))}?league=${esc(lgOf(k))}">${esc(D.players[k])}</a>`).join("")}</p>` : ""}
-      ${it.x ? `<p class="tk-x"><a class="muted" href="${esc(safeUrl(it.x))}" target="_blank" rel="noopener">See it on X ›</a></p>` : ""}
+      ${it.x || chart(it) ? `<p class="tk-x">${chart(it) ? `<a href="${esc(chart(it))}">📈 See the chart ›</a>` : ""}${it.x ? `<a class="muted" href="${esc(safeUrl(it.x))}" target="_blank" rel="noopener">See it on X ›</a>` : ""}</p>` : ""}
     </article>`;
 
   const list = (rows) => `<div class="nw-list tk-list">${rows.map(card).join("")}</div>`;

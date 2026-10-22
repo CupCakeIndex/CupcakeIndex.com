@@ -1213,6 +1213,8 @@ const Viz = (() => {
     const el = document.getElementById("view-stats");
     st = { ...DEF, ...Object.fromEntries([...params].filter(([k]) => k in DEF)) };
     if (!params.has("mode")) st.mode = store.get("viz-mode") === "adv" ? "adv" : "";
+    const him = params.get("him"); // "Chart him" (player pages, Takes): this player's chart
+    if (him) st.who = "players";
     el.innerHTML = stSub() + `<div class="card muted">Loading…</div>`;
     idx = idx || await getJSON("data/viz/index.json").catch(() => ({}));
     const pFrom = idx.players?.[league] || 0; // NFL seasons before this are team-only (smaller files, back to 1999)
@@ -1225,9 +1227,17 @@ const Viz = (() => {
     const Ds = (await Promise.all(span.map((s) => file(s)))).filter(Boolean);
     await Promise.all(Ds.map(ours));
     if (!Ds.length) { el.innerHTML = stSub() + `<div class="card">Couldn't load the chart data. Try again in a minute.</div>`; return; }
+    const m = him && Ds.at(-1).pmeta?.[him];
+    if (m) {
+      const p = (m[1] || "").toUpperCase();
+      st = { ...DEF, from: st.from, to: st.to, mode: st.mode, who: "players", type: "bar", per: "total", top: "15", stat: PL_FIRST[p] || (league === "cfb" && !p ? "scrim" : "tackles"), pick: him, pl: him };
+      save(); // the address becomes the chart's own, so Back and Copy link work
+    }
     draw(el, seasons, Ds);
   }
   const stSub = () => Live.statsSubtabs("visualize");
+  // a player's first chart: his position's main stat
+  const PL_FIRST = { QB: "pass_yds", RB: "rush_yds", FB: "rush_yds", WR: "rec_yds", TE: "rec_yds", K: "fg_made", PK: "fg_made", P: "punts", T: "off_snaps", G: "off_snaps", C: "off_snaps", OT: "off_snaps", OG: "off_snaps", OL: "off_snaps" };
 
   // Presets: popular charts, one pick away (the Presets dropdown). A plain string starts a new heading in the dropdown.
   // People's own presets are added below these.
@@ -2284,7 +2294,6 @@ const Viz = (() => {
     const qbox = document.getElementById("vz-q"), qs = document.getElementById("vz-qs");
     const setWho = (w) => { if (w !== st.who) { st.who = w; st.pick = ""; st.team = ""; st.pos = ""; st.radar = ""; st.role = ""; } };
     // players by name: every stat we have on him (the season's player list; team-only seasons have none)
-    const PL_FIRST = { QB: "pass_yds", RB: "rush_yds", FB: "rush_yds", WR: "rec_yds", TE: "rec_yds", K: "fg_made", PK: "fg_made", P: "punts", T: "off_snaps", G: "off_snaps", C: "off_snaps", OT: "off_snaps", OG: "off_snaps", OL: "off_snaps" };
     const plPool = (() => { const out = {}; for (const d of Ds) for (const [k, m] of Object.entries(d.pmeta || {})) out[k] = m; return Object.entries(out); })();
     // how big his stat line is (yards, tackles, kicks), so "allen" lists Josh Allen before backups
     const plSize = (() => {
@@ -2652,6 +2661,15 @@ const Viz = (() => {
       if (o.plugins?.legend?.labels) o.plugins.legend.labels.color = ink;
       chart.update("none");
     }
+    // the header's cupcake (svg) as an image, colored for the picture
+    function logoMark(inkC, accC) {
+      const svg = document.querySelector(".logo-mark")?.cloneNode(true);
+      if (!svg) return Promise.reject();
+      svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      svg.querySelectorAll(".ink").forEach((p) => p.setAttribute("fill", inkC));
+      svg.querySelectorAll(".acc").forEach((p) => p.setAttribute("fill", accC));
+      return new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg.outerHTML); });
+    }
     async function picture() {
       const SIZES = { x: [1600, 900, 800], sq: [1350, 1350, 640], story: [1080, 1920, 420] }; // pixels wide, high, and the width it's laid out at
       const size = SIZES[st.size], cv = document.getElementById("vz-chart"), box = cv.parentElement;
@@ -2674,7 +2692,10 @@ const Viz = (() => {
       x.drawImage(cv, pad, top, cw, ch);
       x.fillStyle = muted; x.font = font(400, 10);
       fine.forEach((t, i) => x.fillText(t, pad, top + ch + 16 * sc + i * 14 * sc));
-      x.fillStyle = accent; x.font = font(700, 12); x.fillText("CUPCAKE_INDEX", pad, out.height - 12 * sc);
+      // our cupcake logo (the one in the header, in the picture's colors) next to the name
+      const mark = await logoMark(ink, accent).catch(() => null), mh = 18 * sc, mw = mark ? mh * 217 / 304 : 0;
+      if (mark) x.drawImage(mark, pad, out.height - 9 * sc - mh, mw, mh);
+      x.fillStyle = accent; x.font = font(700, 12); x.fillText("CUPCAKE_INDEX", pad + (mark ? mw + 6 * sc : 0), out.height - 12 * sc);
       x.fillStyle = muted; x.font = font(400, 11); x.textAlign = "right";
       x.fillText(`cupcakeindex.com · ${league === "nfl" ? "data: nflverse" : "data: CollegeFootballData.com"}`, out.width - pad, out.height - 12 * sc);
       // put the chart on the page back the way it was

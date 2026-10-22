@@ -3181,3 +3181,10 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 @media (max-width: 640px) {
   .tab-dd .more-car { display: none; }
 }
+
+/* "Chart him" (player page), "Compare these two" (game page), "#3 because..." (team page) */
+.pl-acts, .gm-acts { margin: 8px 0 0; }
+.gm-acts { display: flex; justify-content: center; margin: 0 0 12px; }
+.pl-acts .btn, .gm-acts .btn, .tk-x a { text-decoration: none; }
+.tk-x { display: flex; gap: 14px; flex-wrap: wrap; }
+.th-why { margin: 0; padding: 10px 14px 12px; border-top: 1px solid var(--line); font-size: 13px; }
