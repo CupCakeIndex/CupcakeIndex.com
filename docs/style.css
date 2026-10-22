@@ -3064,3 +3064,20 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 }
 .vz-head .vz-minebtn { margin-left: auto; }
 .vz-head .vz-minebtn + .vz-mode { margin-left: 0; }
+/* NFL records a player holds (src/nfl_records.py): gold tag, gold card, gold record kick on the kick chart */
+.rec-tag { display: inline-block; vertical-align: middle; margin-left: 10px; padding: 3px 8px 2px; border: 1px solid #f5c542; color: #f5c542; background: rgba(245, 197, 66, .1);
+  border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; text-decoration: none; white-space: nowrap; }
+.rec-tag:hover { background: rgba(245, 197, 66, .2); }
+.rec-card { border-color: #f5c542; background: linear-gradient(135deg, rgba(245, 197, 66, .12), transparent 60%), var(--card); }
+.rec-card h3 { color: #f5c542; margin-top: 0; }
+.rec-card ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.rec-card li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 8px 10px; border: 1px solid rgba(245, 197, 66, .35); border-radius: 8px; }
+.rec-card li b { font-size: 13px; font-weight: 600; }
+.rec-card .rec-val { color: #f5c542; font-weight: 800; font-size: 16px; text-align: right; }
+.rec-card li small { grid-column: 1 / -1; color: var(--muted); font-size: 11px; }
+.rec-card details { margin-top: 8px; }
+.rec-card summary { cursor: pointer; color: #f5c542; font-size: 13px; margin-bottom: 8px; }
+.kc-arc.rec { stroke: #f5c542; opacity: 1; stroke-width: 2.8; filter: drop-shadow(0 0 3px rgba(245, 197, 66, .7)); }
+.kc-dot.rec { fill: #f5c542; stroke: #fff6d0; stroke-width: 1.2; }
+.kc-long.rec { fill: #f5c542; }
+.rec-txt { color: #f5c542; font-size: 12px; margin: 4px 0 0; }

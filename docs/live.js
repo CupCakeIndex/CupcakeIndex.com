@@ -2031,8 +2031,14 @@ const Live = (() => {
   // Each dot is the kick's line of scrimmage, the way kicks are called (field goal distance = yard line + 17).
   // All weeks: one arc, his longest make. Pick a game and its kicks play back one at a time: the ball's flight through the
   // uprights, or off to the side it missed (from the play text: "No Good, Wide Right"), dropping short, or blocked.
+  // NFL records held by a player (src/nfl_records.py, from Wikipedia's record lists): [[record, value, when], ...]
+  let recordsP = null;
+  const nflRecords = (id) => (recordsP ||= getJSON("data/nfl/records.json").catch(() => ({}))).then((d) => d?.players?.[id] || []);
   async function kickChartInto(a, season, slot) {
     const id = encodeURIComponent(a.id);
+    // his NFL record kick, if he has one (Cam Little's 68-yarder): drawn in gold
+    const recFG = (await nflRecords(a.id)).find((r) => /^Longest field goal$/i.test(r[0]));
+    const recD = recFG ? parseInt(recFG[1], 10) : null, recYr = recFG ? +(/(19|20)\d\d/.exec(recFG[2])?.[0] || 0) : 0;
     // one season's kicks: this season's chart file (src/pass_charts.py) or, for past seasons, the kick-only file (--kicks)
     const fetchSeason = async (y) => {
       let f = await getJSON(`data/nfl/${y}/charts/${id}.json`).catch(() => null);
@@ -2147,15 +2153,18 @@ const Live = (() => {
       };
       const cls = (k) => (k.res === "g" ? "make" : k.res === "s" ? "short" : k.res === "b" ? "block" : "miss");
       const made = pts.filter((k) => k.res === "g"), long = made.length ? made.reduce((p, q) => (q.d > p.d ? q : p)) : null;
-      const arcs = all ? (long ? [long] : []) : pts; // the season view keeps one arc: the longest make
-      arcs.forEach((k) => g.push(`<path class="kc-arc ${cls(k)}${all ? " long" : ""}" data-i="${k.i}" d="${flight(k)}"/>`));
+      const rec = recD ? made.find((k) => k.d === recD && (!recYr || k.yr === recYr || !k.yr)) : null; // the NFL record kick, in gold
+      const arcs = all ? [...new Set([long, rec].filter(Boolean))] : pts; // the season view keeps one arc: the longest make (and the record)
+      arcs.forEach((k) => g.push(`<path class="kc-arc ${cls(k)}${all ? " long" : ""}${k === rec ? " rec" : ""}" data-i="${k.i}" d="${flight(k)}"/>`));
       g.push(nearPost);
       pts.slice().sort((p, q) => (q.res === "g") - (p.res === "g")).forEach((k) => { // makes first, misses drawn on top
         const [x, y] = spot.get(k.i);
-        g.push(`<circle class="kc-dot ${cls(k)}${pts.length > 80 ? " many" : ""}" data-i="${k.i}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rad}"><title>${esc(tip(k))}</title></circle>`);
+        g.push(`<circle class="kc-dot ${cls(k)}${pts.length > 80 ? " many" : ""}${k === rec ? " rec" : ""}" data-i="${k.i}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rad}"><title>${esc(tip(k))}</title></circle>`);
         if (!all) g.push(`<text class="kc-dist" data-i="${k.i}" x="${x.toFixed(1)}" y="${(y + 15).toFixed(1)}">${k.d}</text>`); // a game: each kick's distance under its spot
       });
-      if (all && long) { const [x, y] = spot.get(long.i); g.push(`<text class="kc-long" x="${(x - 8).toFixed(1)}" y="${(y - 9).toFixed(1)}">LONG ${long.d}</text>`); } // above-left of the dot, clear of the yard numbers
+      // above-left of the dot, clear of the yard numbers; the record kick says so
+      if (all && long) { const [x, y] = spot.get(long.i); g.push(`<text class="kc-long${long === rec ? " rec" : ""}" x="${(x - 8).toFixed(1)}" y="${(y - 9).toFixed(1)}">${long === rec ? "NFL RECORD" : "LONG"} ${long.d}</text>`); }
+      else if (rec) { const [x, y] = spot.get(rec.i); g.push(`<text class="kc-long rec" x="${(x - 8).toFixed(1)}" y="${(y - 9).toFixed(1)}">NFL RECORD ${rec.d}</text>`); }
       g.push(`<circle class="kc-ball" id="kc-ball" r="4"/>`);
       // the numbers over the chart, ranked against the league's kickers on "All weeks" (src/pass_charts.py)
       const R = all ? file.ranks?.kick : null, rk = (key) => (R?.[key] ? `<em class="ay-rk${R[key][0] <= 5 ? " top" : ""}">#${R[key][0]} of ${R[key][1]}</em>` : "");
@@ -2166,7 +2175,8 @@ const Live = (() => {
           ${stat(long ? long.d : "–", "Longest", "", "long")}${stat(`${far.filter((k) => k.res === "g").length}/${far.length}`, "From 50+", "", "fg50")}${xp ? stat(`${xp[0]}/${xp[1]}`, "Extra points") : ""}</div>
         <div class="pc-ctl">${all ? "" : `<button class="gcv-live" id="kc-go">▶ Play</button>`}<span class="muted">${pts.length} kick${pts.length === 1 ? "" : "s"}${all ? (yr === "all" ? " · pick a season to play its games back" : " · pick a week to play them back") : ""}</span><span class="pc-legend">${chip("kc-k-make", "Good")}${pts.some((k) => k.res === "m") ? chip("kc-k-miss", "Missed") : ""}${pts.some((k) => k.res === "s") ? chip("kc-k-short", "Short") : ""}${pts.some((k) => k.res === "b") ? chip("kc-k-block", "Blocked") : ""}</span></div>
         <div class="pc-stage"><svg class="pc-field kc-field" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(a.displayName)} kick chart">${g.join("")}</svg></div>
-        <p class="kc-play muted" id="kc-play">${all ? `The arc is his longest make. Tap a kick for the play.` : "Tap a kick for the play."}</p>
+        <p class="kc-play muted" id="kc-play">${all ? `The arc is his longest make. Tap a kick for the play.` : "Tap a kick for the play."}</p>${rec ? `<p class="rec-txt">★ Gold = the NFL record: ${esc(recFG[0].toLowerCase())}, ${esc(recFG[1])} (${esc(recFG[2])}).</p>`
+          : recFG && years.includes(recYr) ? `<p class="rec-txt">★ His NFL-record ${esc(recFG[1])} field goal (${esc(recFG[2])}) is in gold under ${recYr} and All years.</p>` : ""}
         <p class="note">Every field goal try (nflverse play-by-play, through Week ${file.ranks?.kick?._wk ?? "–"}). Seen from the side: each dot is the kick's line of scrimmage (field goal distance = yard line + 17), and the line is the ball's flight. A miss wide left goes behind the far upright, wide right in front of the near one; which way a miss went comes from the play-by-play text. Ranks: NFL kickers with ${file.ranks?.kick?._min ?? "–"}+ tries.</p>`;
       const svg = slot.querySelector(".kc-field"), ball = svg.querySelector("#kc-ball");
       // drag across the field: a line at that distance, with how far it is from the posts and which yard line it is
@@ -3832,12 +3842,13 @@ const Live = (() => {
     const vs = (params.get("vs") || "").split(",").filter(Boolean).slice(0, 3);
     const careersP = Promise.all([career(lg, id), ...vs.map((v) => { const [l, pid] = v.split(":"); return career(LEAGUE_OF[l] || "nfl", pid); })]).catch(() => null);
     const ptab = params.get("tab") === "takes" ? "takes" : "";
-    let bio, gl, takes;
+    let bio, gl, takes, recs;
     try {
-      [bio, gl, takes] = await Promise.all([
+      [bio, gl, takes, recs] = await Promise.all([
         api(`${WEB(lg)}/athletes/${encodeURIComponent(id)}`, 300000),
         api(`${WEB(lg)}/athletes/${encodeURIComponent(id)}/gamelog${season ? `?season=${season}` : ""}`, 120000).catch(() => null),
         Takes.about("players", `${lg}:${id}`).catch(() => []), // our X posts about this player (takes.js)
+        lg === "nfl" ? nflRecords(id) : [],
       ]);
     } catch (e) { return fail("player", e); }
     if (my !== token) return;
@@ -3909,7 +3920,7 @@ const Live = (() => {
           ${face(a.headshot?.href, a.displayName, "headshot", lg === "nfl", born)}
           ${hsLabel ? `<span class="hs-tag">${esc(hsLabel)}</span>` : ""}</div>
         <div>
-          <h2>${esc(a.displayName)}${lg === "nfl" && a.active === false ? ` <span class="retired-tag">Retired</span>` : ""}</h2>
+          <h2>${esc(a.displayName)}${lg === "nfl" && a.active === false ? ` <span class="retired-tag">Retired</span>` : ""}${recs.length ? ` <a class="rec-tag" href="#pl-recs" title="${esc(recs.map((r) => r[0]).join(" · "))}">★ NFL record${recs.length > 1 ? `s (${recs.length})` : ""}</a>` : ""}</h2>
           <p>${a.team ? `<a href="${link("team", a.team.id)}"><span class="tm">${img(a.team.logos?.[0]?.href || a.team.logo, "xs")} ${esc(a.team.displayName)}</span></a>` : ""}
             ${injInfo(inj) ? ` <span class="inj-line">${injTag(inj, a.id, fa ? "" : a.team?.id)} ${esc(injInfo(inj).tip)}</span>` : ""}</p>
           <p class="muted">${facts.map(esc).join(" · ")}<span id="pl-exp">${exp ? " · " + esc(exp) : ""}</span></p>
@@ -3923,7 +3934,12 @@ const Live = (() => {
     }
     const pcModes = { QB: ["pass", "rush"], WR: ["target"], TE: ["target"], RB: ["rush", "target"], FB: ["rush", "target"] }[a.position?.abbreviation] || [];
     const kicker = logLg === "nfl" && !pcModes.includes("pass"); // a kick chart if he tried a field goal this season (kickChartInto drops it otherwise; ESPN's position can be wrong)
-    view("player").innerHTML = head + `
+    // NFL records he holds, in gold: the first few, the rest behind "more"
+    const recRow = (r) => `<li><b>${esc(r[0])}</b><span class="rec-val">${esc(r[1])}</span>${r[2] ? `<small>${esc(r[2])}</small>` : ""}</li>`;
+    const recCard = recs.length ? `<div class="card rec-card" id="pl-recs"><h3>★ NFL record${recs.length > 1 ? "s" : ""} he holds</h3><ul>${recs.slice(0, 4).map(recRow).join("")}</ul>
+      ${recs.length > 4 ? `<details><summary>${recs.length - 4} more</summary><ul>${recs.slice(4).map(recRow).join("")}</ul></details>` : ""}
+      <p class="note muted">From the NFL's record lists (Wikipedia, citing the NFL Record & Fact Book and Pro Football Reference). Shared records count.</p></div>` : "";
+    view("player").innerHTML = head + recCard + `
       ${summary ? `<div class="stats wide">${summary}</div>${caughtUp ? `<p class="note muted">Added up from his game-by-game stats, so it includes his latest game. Ranks come back once the overnight totals update.</p>` : ""}` : ""}
       <div id="career-slot"><div class="card muted">Loading stats by year…</div></div>
       ${pcModes.length && logGl?.events && Object.keys(logGl.events).length ? `<div id="pc-slot"><div class="card muted">Loading pass chart…</div></div>` : ""}

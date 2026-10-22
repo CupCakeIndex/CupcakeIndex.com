@@ -383,6 +383,14 @@ const Viz = (() => {
       ["fg_made", "Field goals made", (S) => S.fg_made, { count: 1, pos: "K" }],
       ["fg_pct", "Field goal %", (S) => div(100 * S.fg_made, S.fg_att), { den: (S) => S.fg_att, pct: 1, pos: "K" }],
     ]],
+    // our Heisman race (college; heisGame above): production that counts more against good teams, times winning
+    ["Heisman race (our model)", [
+      ["heisman", "Heisman score (our model)", (S, g) => (S.hz == null || !g ? null : S.hz * (0.6 + (0.6 * S.hz_w) / g)), { d: 0, lg: "cfb",
+        about: "Heisman score (our model): his production (pass yards/25 + pass TDs x4 - INTs x2 + rushing and receiving yards/10 + rushing and receiving TDs x6), each game weighted by the opponent (x1.2 vs the top half of FBS by our power rating, x0.8 vs the bottom half, x0.5 vs FCS), then times his team's record in his games (0.6 + 0.6 x win %: unbeaten x1.2, .500 x0.9). Bullying cupcakes isn't a résumé." }],
+      ["heis_prod", "Heisman production, opponent-weighted", (S) => S.hz, { count: 1, noShare: 1, d: 0, lg: "cfb" }],
+      ["heis_raw", "Heisman production, raw (no opponent weighting)", (S) => S.hz_raw, { count: 1, noShare: 1, d: 0, lg: "cfb" }],
+      ["heis_cup", "Cupcake padding (% of production lost to weighting)", (S) => (S.hz_raw ? (100 * (S.hz_raw - S.hz)) / S.hz_raw : null), { den: (S) => S.hz_raw, pct: 1, low: 1, lg: "cfb", unit: "production points" }],
+    ]],
     ["Advanced", [
       ["epa_total", "Total EPA (pass + rush + catch)", (S) => S.pass_epa + S.rush_epa + S.rec_epa, { count: 1, d: 1, lg: "nfl" }],
       ["epa_db", "EPA per dropback", (S) => div(S.pass_epa, S.att + S.sacked), { den: (S) => S.att + S.sacked, d: 3, pos: "QB", lg: "nfl" }],
@@ -704,6 +712,22 @@ const Viz = (() => {
     const ks = (ours.length ? ours : Object.keys(W)).sort((a, b) => score(b) - score(a));
     return (D.good = new Set(ks.slice(0, Math.ceil(ks.length / 2))));
   }
+  // Our Heisman score (college): production = pass yds/25 + pass TD x4 - INT x2 + rush/rec yds/10 + rush/rec TD x6, each
+  // game weighted by the opponent: x1.2 vs the top half of FBS (our power rating), x0.8 vs the bottom half (cupcakes),
+  // x0.5 vs FCS. Then times his team's record in his games (0.6 + 0.6 x win %): an unbeaten team's star gets x1.2, .500 x0.9.
+  // Columns: hz = weighted production, hz_raw = the same unweighted, hz_w = his team's wins in his games.
+  const HZ = { good: 1.2, soft: 0.8, fcs: 0.5 };
+  function heisGame(D) {
+    const good = goodSet(D), opp = {}, won = {};
+    for (const t of D.trows) { opp[`${t[0]}|${t[1]}`] = t[2]; won[`${t[0]}|${t[1]}`] = t[3] > t[4] ? 1 : t[3] === t[4] ? 0.5 : 0; }
+    const ix = Object.fromEntries(D.pcols.map((c, i) => [c, i + 3]));
+    const v = (r, c) => r[ix[c]] || 0;
+    return (r) => {
+      const raw = v(r, "pass_yds") / 25 + 4 * v(r, "pass_td") - 2 * v(r, "int") + (v(r, "rush_yds") + v(r, "rec_yds")) / 10 + 6 * (v(r, "rush_td") + v(r, "rec_td"));
+      const o = opp[`${r[2]}|${r[1]}`], m = o == null ? 1 : good.has(o) ? HZ.good : D.teams[o] ? HZ.soft : HZ.fcs;
+      return { hz: raw * m, hz_raw: raw, hz_w: won[`${r[2]}|${r[1]}`] ?? 0 };
+    };
+  }
   function sum(D, who, w1, w2, byWeek) {
     const cols = who === "players" ? D.pcols : D.tcols, rows = who === "players" ? D.prows : D.trows, out = {};
     const mx = cols.map((c) => c.startsWith("mx_")); // season highs (longest field goal): the biggest one, not the sum
@@ -736,11 +760,15 @@ const Viz = (() => {
       const t = TW[`${r[2]}|${r[1]}`] || (TW[`${r[2]}|${r[1]}`] = new Array(cols.length).fill(0));
       for (let i = 0; i < cols.length; i++) t[i] += r[i + 3];
     }
+    // the Heisman race (college players): each game's production, weighted by who it came against, and whether his team won
+    const heis = who === "players" && D.league === "cfb" ? heisGame(D) : null;
     for (const r of rows) {
       if (!keep(r) || (lastOk && !lastOk[r[0]]?.has(r[1]))) continue;
       const o = out[r[0]] || (out[r[0]] = { S: Object.fromEntries(cols.map((c) => [c, 0])), g: 0, wk: {}, team: r[2] });
       o.g++;
       o.team = r[2];
+      const hz = heis ? heis(r) : null;
+      if (hz) for (const c in hz) o.S[c] = (o.S[c] || 0) + hz[c];
       if (who === "teams") played.add(`${r[0]}|${r[1]}`);
       cols.forEach((c, i) => { o.S[c] = mx[i] ? Math.max(o.S[c], r[i + 3]) : o.S[c] + r[i + 3]; });
       const t = TW[`${r[2]}|${r[1]}`];
@@ -749,6 +777,7 @@ const Viz = (() => {
       if (byWeek) {
         const w = o.wk[r[1]] || (o.wk[r[1]] = Object.fromEntries(cols.map((c) => [c, 0])));
         cols.forEach((c, i) => { w[c] = mx[i] ? Math.max(w[c], r[i + 3]) : w[c] + r[i + 3]; });
+        if (hz) for (const c in hz) w[c] = (w[c] || 0) + hz[c];
         if (t) cols.forEach((c, i) => { w["tm_" + c] = (w["tm_" + c] || 0) + t[i]; });
       }
     }
@@ -1021,6 +1050,10 @@ const Viz = (() => {
       ["Best kick returners, new kickoff era (2024 on)", P_({ type: "bar", stat: "kr_avg", from: "2024", to: "", top: "15" })],
     ],
     cfb: [
+      "Heisman race",
+      ["Heisman race: who we think should win it", P_({ type: "bar", stat: "heisman", top: "10" })],
+      ["Heisman race week by week", P_({ type: "line", stat: "heis_prod", per: "total", top: "5", cum: "1" })],
+      ["Raw production vs our Heisman score (who padded vs cupcakes?)", P_({ type: "scatter", stat: "heis_raw", y: "heisman", top: "25" })],
       "Teams",
       ["Schedule vs cupcakes (the Schedules chart)", T_({ type: "scatter", stat: "ci_sos", y: "ci_cupcake", top: "all" })],
       ["Who's for real: EPA per play vs points", T_({ type: "scatter", stat: "epa_play", y: "pts", top: "50" })],
@@ -1480,6 +1513,7 @@ const Viz = (() => {
       note = "100 = the best among everyone listed, 0 = the worst. Lower-is-better stats are flipped.";
     }
     if (per === "share" && stat[3].count) note += ` Share of team = his part of his team's total in the games he played.`;
+    if (stat[3].about) note += ` ${stat[3].about}`;
     if (condTxt) note += " Conditions come from nflverse's game list (kickoff temperature and wind; domes have none, so the weather choices leave them out).";
     if (st.opp) note += " Top half = the top half of our power ratings that season; cupcakes = the bottom half and anyone unranked.";
     const whereBox = `<label class="vz-wide">Filter <small class="muted">e.g. run stops > 20 and sacks >= 3, or QB, EPA per dropback over .1</small><input id="vz-where" type="search" maxlength="200" placeholder="Type conditions… (and / or, > < >= <=)" value="${esc(st.where)}" autocomplete="off" spellcheck="false">
