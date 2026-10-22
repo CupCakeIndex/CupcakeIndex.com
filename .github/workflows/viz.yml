@@ -60,6 +60,9 @@ jobs:
       - name: NFL records players hold (gold on player pages; from Wikipedia's record lists)
         continue-on-error: true
         run: python src/nfl_records.py
+      - name: Heisman race popularity (Wikipedia page views for college stars)
+        continue-on-error: true
+        run: python src/heisman_buzz.py
       - name: Publish
         run: |
           git config user.name "rankings-bot"
@@ -70,6 +73,7 @@ jobs:
           git add docs/data/coach_profile.json 2>/dev/null || true
           git add docs/data/hilo.json 2>/dev/null || true
           git add docs/data/nfl/records.json 2>/dev/null || true
+          git add docs/data/cfb/heisman_buzz.json 2>/dev/null || true
           git diff --cached --quiet && echo "No changes" && exit 0
           git commit -m "Visualize data $(date -u +%Y-%m-%dT%H:%MZ)"
           for try in 1 2 3; do git pull --rebase -q && git push -q && exit 0; sleep 10; done

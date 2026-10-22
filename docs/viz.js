@@ -385,10 +385,10 @@ const Viz = (() => {
     ]],
     // our Heisman race (college; heisGame above): production that counts more against good teams, times winning
     ["Heisman race (our model)", [
-      ["heisman", "Heisman score (our model)", (S, g) => { const i = hzIdx(S, g); return i == null ? null : i * hzTeam(S, g); }, { d: 0, lg: "cfb",
-        about: "Heisman score (our model): his production (QBs: passing + rushing yards, 20 per TD, minus 45 per INT; everyone else: rushing + receiving yards, 20 per TD), each game worth more against good teams and less against cupcakes, compared with his position (100 = the 10th best QB, RB or WR/TE), then times team success (win % and our power rating), like the voters. Bullying cupcakes isn't a résumé." }],
-      ["heis_prod", "Heisman production vs his position (opponent-weighted, 100 = 10th best)", (S, g) => hzIdx(S, g), { d: 0, lg: "cfb" }],
-      ["heis_raw", "Heisman production vs his position, raw (no opponent weighting)", (S, g) => hzIdx(S, g, 1), { d: 0, lg: "cfb" }],
+      ["heisman", "Heisman score (our model)", (S, g) => { const i = hzIdx(S, g); return i == null ? null : i * hzVoters(S, g); }, { d: 0, lg: "cfb",
+        about: "Heisman score (our model): his production (QBs: passing + rushing yards, 20 per TD, minus 45 per INT; everyone else: rushing + receiving yards, 20 per TD), each game worth more against good teams and less against cupcakes, per game, compared with his position (100 = the 10th best QB, RB or WR/TE), then times what voters weigh: team success (win % and our power rating), popularity (Wikipedia page views this month) and position (QBs win most Heismans). Bullying cupcakes isn't a résumé." }],
+      ["heis_prod", "Heisman production per game vs his position (opponent-weighted, 100 = 10th best)", (S, g) => hzIdx(S, g), { d: 0, lg: "cfb" }],
+      ["heis_raw", "Heisman production per game vs his position, raw (no opponent weighting)", (S, g) => hzIdx(S, g, 1), { d: 0, lg: "cfb" }],
       ["heis_cup", "Cupcake padding (% of production lost to opponent weighting)", (S, g) => { const p = hzPos(S, g), w = p === "QB" ? S.hq : S.ho, r = p === "QB" ? S.hq_raw : S.ho_raw; return r > 0 ? (100 * (r - w)) / r : null; }, { pct: 1, low: 1, lg: "cfb" }],
     ]],
     ["Advanced", [
@@ -668,6 +668,9 @@ const Viz = (() => {
       const k = D.league === "cfb" ? `cfb:${t.id}` : byName[t.team];
       if (k) D.ours[k] = { ci_rating: t.rating, ci_rank: t.power_rank, ci_sos: t.scores?.sos, ci_cupcake: t.scores?.cupcake, ci_resume: t.scores?.resume, ci_eff: t.scores?.efficiency };
     }
+    // Heisman popularity (Wikipedia page views; src/heisman_buzz.py): this season only
+    const bz = D.league === "cfb" ? await getJSON("data/cfb/heisman_buzz.json").catch(() => null) : null;
+    if (bz?.season === D.season) D.buzz = bz.views;
     const co = await Coaches.forSeason(D.league, D.season).catch(() => ({})); // NFL by abbreviation, college by name
     for (const [k, t] of Object.entries(D.teams)) {
       const c = co[D.league === "nfl" ? t[1] : t[0]];
@@ -714,13 +717,18 @@ const Viz = (() => {
   }
   // Our Heisman score (college). Each game's production counts more against good teams: x(1 + opponent's power rating/40),
   // kept between x0.6 and x1.4 (FCS x0.5). QBs: passing + rushing yards + 20 per TD - 45 per INT; everyone else: rushing +
-  // receiving yards + 20 per TD. That's compared with his position: 100 = the 10th best QB (or RB, or WR/TE) in the weeks
-  // picked, so a 1,000-yard receiver and a 2,500-yard passer are judged on the same scale. Then team success, the way voters
-  // do it: x(0.5 + 0.7 x win %²) x (1 + his team's power rating/80). Back-tested: 2025's #1 is Fernando Mendoza.
-  // Columns per game: hq/ho = weighted QB/other production (hq_raw/ho_raw unweighted), hz_w = his team won, hz_r = team rating.
-  let HZB = { QB: 1, RB: 1, WR: 1, rQB: 1, rRB: 1, rWR: 1 }; // the 10th best at each position (set by sum())
+  // receiving yards + 20 per TD. Per game, compared with his position: 100 = the 10th best QB (or RB, or WR/TE) per game,
+  // so a 1,000-yard receiver and a 2,500-yard passer are judged on the same scale; missed games cost a little (x the square
+  // root of the share of his team's games he played). Then what voters weigh besides stats: team success x(0.5 + 0.7 x win %²)
+  // x (1 + his team's power rating/80), popularity (Wikipedia page views, last 30 days, src/heisman_buzz.py: x(views/50k)^0.1,
+  // between x0.8 and x1.25; no page counts as 8k) and position (Heisman history: QB x1.1, RB x0.85).
+  // Back-tested on 2025 (no popularity data for past seasons): Mendoza, Smith, Chambliss, Love, Pavia.
+  // Columns per game: hq/ho = weighted QB/other production (hq_raw/ho_raw unweighted), hz_w = his team won, hz_r = team rating,
+  // hz_bz = popularity; hz_tg (season totals only) = his team's games in the weeks picked.
+  let HZB = { QB: 1, RB: 1, WR: 1, rQB: 1, rRB: 1, rWR: 1 }; // the 10th best per game at each position (set by sum())
   function heisGame(D) {
     const opp = {}, won = {}, R = (k) => D.ours?.[k]?.ci_rating;
+    const bz = (k) => (D.buzz ? Math.min(1.25, Math.max(0.8, ((D.buzz[k] || 8000) / 50000) ** 0.1)) : 1);
     for (const t of D.trows) { opp[`${t[0]}|${t[1]}`] = t[2]; won[`${t[0]}|${t[1]}`] = t[3] > t[4] ? 1 : t[3] === t[4] ? 0.5 : 0; }
     const ix = Object.fromEntries(D.pcols.map((c, i) => [c, i + 3]));
     const v = (r, c) => r[ix[c]] || 0;
@@ -728,12 +736,13 @@ const Viz = (() => {
       const o = opp[`${r[2]}|${r[1]}`], m = o == null ? 1 : R(o) == null ? 0.5 : Math.min(1.4, Math.max(0.6, 1 + R(o) / 40));
       const td = v(r, "rush_td") + v(r, "rec_td");
       const q = v(r, "pass_yds") + v(r, "rush_yds") + 20 * (v(r, "pass_td") + td) - 45 * v(r, "int"), x = v(r, "rush_yds") + v(r, "rec_yds") + 20 * td;
-      return { hq: q * m, ho: x * m, hq_raw: q, ho_raw: x, hz_w: won[`${r[2]}|${r[1]}`] ?? 0, hz_r: R(r[2]) ?? -15 };
+      return { hq: q * m, ho: x * m, hq_raw: q, ho_raw: x, hz_w: won[`${r[2]}|${r[1]}`] ?? 0, hz_r: R(r[2]) ?? -15, hz_bz: bz(r[0]) };
     };
   }
   const hzPos = (S, g) => (S.att >= 8 * (g || 1) ? "QB" : S.carries > 0 && S.carries >= 2 * S.rec ? "RB" : "WR");
-  const hzIdx = (S, g, raw) => { if (S.hq == null || !g) return null; const p = hzPos(S, g); return (100 * (p === "QB" ? (raw ? S.hq_raw : S.hq) : raw ? S.ho_raw : S.ho)) / HZB[(raw ? "r" : "") + p]; };
-  const hzTeam = (S, g) => (0.5 + 0.7 * (S.hz_w / g) ** 2) * (1 + S.hz_r / g / 80);
+  const hzProd = (S, g, raw) => { const p = hzPos(S, g); return (p === "QB" ? (raw ? S.hq_raw : S.hq) : raw ? S.ho_raw : S.ho) / g; };
+  const hzIdx = (S, g, raw) => { if (S.hq == null || !g) return null; const p = hzPos(S, g); return (100 * hzProd(S, g, raw) * Math.sqrt(Math.min(1, g / (S.hz_tg || g)))) / HZB[(raw ? "r" : "") + p]; };
+  const hzVoters = (S, g) => (0.5 + 0.7 * (S.hz_w / g) ** 2) * (1 + S.hz_r / g / 80) * (S.hz_bz / g || 1) * ({ QB: 1.1, RB: 0.85 }[hzPos(S, g)] || 1);
   function sum(D, who, w1, w2, byWeek) {
     const cols = who === "players" ? D.pcols : D.tcols, rows = who === "players" ? D.prows : D.trows, out = {};
     const mx = cols.map((c) => c.startsWith("mx_")); // season highs (longest field goal): the biggest one, not the sum
@@ -787,9 +796,16 @@ const Viz = (() => {
         if (t) cols.forEach((c, i) => { w["tm_" + c] = (w["tm_" + c] || 0) + t[i]; });
       }
     }
-    if (heis) { // the Heisman scale: 100 = the 10th best at his position
+    if (heis) { // the Heisman scale: 100 = the 10th best per game at his position (players in at least half their team's games)
+      const TG = {};
+      for (const t of D.trows) if (t[1] >= w1 && t[1] <= w2) TG[t[0]] = (TG[t[0]] || 0) + 1;
       const L = {};
-      for (const o of Object.values(out)) { const p = hzPos(o.S, o.g); (L[p] ||= [[], []]); L[p][0].push(p === "QB" ? o.S.hq : o.S.ho); L[p][1].push(p === "QB" ? o.S.hq_raw : o.S.ho_raw); }
+      for (const o of Object.values(out)) {
+        o.S.hz_tg = TG[o.team] || o.g;
+        if (o.g < o.S.hz_tg / 2) continue;
+        const p = hzPos(o.S, o.g);
+        (L[p] ||= [[], []]); L[p][0].push(hzProd(o.S, o.g)); L[p][1].push(hzProd(o.S, o.g, 1));
+      }
       const tenth = (a) => Math.max(1, a.sort((x, y) => y - x)[Math.min(9, a.length - 1)] || 1);
       for (const p in L) { HZB[p] = tenth(L[p][0]); HZB["r" + p] = tenth(L[p][1]); }
     }
