@@ -19,6 +19,7 @@ Ratings are in points: +3 = a field goal better than an average team on a neutra
 import argparse
 import csv
 import itertools
+import json
 import math
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -58,11 +59,65 @@ def _num(v):
 # Joe Brady took over in the offseason (ESPN and buffalobills.com agree). Add a line here when a coach change is missed.
 COACH_FIX = {(2026, "BUF"): "Joe Brady"}
 COACH_NAME_FIX = {"Klint Kubliak": "Klint Kubiak"}
+ESPN_AB = {"WSH": "WAS", "LAR": "LA"}  # ESPN's abbreviation -> nflverse's
+_NOW = {}  # filled once: {"season": int, "espn": {team: coach}, "steady": {team: nflverse's one coach all season}}
+
+
+def espn_coaches(season):
+    """{team: head coach} from ESPN for this season, saved in data/raw/nfl/espn_coaches.json and refreshed at most every
+    12 hours. nflverse fills a new season's schedule with last year's coaches and doesn't always catch a new hire
+    (2026: Falcons still Raheem Morris, Cardinals still Jonathan Gannon), so ESPN decides who the coach is now."""
+    import time
+    import urllib.request
+    f = RAW / "espn_coaches.json"
+    try:
+        old = json.loads(f.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        old = {}
+    if old.get("season") == season and time.time() - f.stat().st_mtime < 12 * 3600:
+        return old["coaches"]
+    get = lambda u: json.load(urllib.request.urlopen(u, timeout=20))  # ESPN refuses a custom User-Agent; send none
+    out = {}
+    try:
+        for t in get("https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams")["sports"][0]["leagues"][0]["teams"]:
+            t = t["team"]
+            refs = get(f"https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/{season}/teams/{t['id']}/coaches").get("items") or []
+            if refs:
+                c = get(refs[0]["$ref"])
+                out[ESPN_AB.get(t["abbreviation"], t["abbreviation"])] = f"{c.get('firstName', '')} {c.get('lastName', '')}".strip()
+    except Exception as e:  # offline or ESPN down: keep what we had
+        print(f"  ESPN coaches: {e}; using the saved list")
+        return old.get("coaches", {}) if old.get("season") == season else {}
+    if len(out) >= 30:
+        f.write_text(json.dumps({"season": season, "coaches": out}, indent=1), encoding="utf-8")
+    return out
+
+
+def _now():
+    if not _NOW:
+        with open(RAW / "games.csv", encoding="utf-8") as f:
+            rows = list(csv.DictReader(f))
+        season = max(int(r["season"]) for r in rows)
+        seen = defaultdict(set)
+        for r in rows:
+            if int(r["season"]) == season:
+                for side in ("home", "away"):
+                    seen[r[f"{side}_team"]].add(r[f"{side}_coach"])
+        _NOW.update(season=season, espn=espn_coaches(season), steady={t: next(iter(c)) for t, c in seen.items() if len(c) == 1})
+    return _NOW
 
 
 def game_coach(r, side):
-    """The 'home' or 'away' head coach in a games.csv row, with nflverse's known mistakes fixed."""
-    c = COACH_FIX.get((int(r["season"]), r[f"{side}_team"]), r.get(f"{side}_coach") or "")
+    """The 'home' or 'away' head coach in a games.csv row, with nflverse's known mistakes fixed. This season, when
+    nflverse lists one coach for a team all year and ESPN says someone else is the coach, it's last year's coach carried
+    over, so ESPN's wins. (If nflverse shows a change during the season, it's tracking a firing: trust it.)"""
+    team = r[f"{side}_team"]
+    c = COACH_FIX.get((int(r["season"]), team), r.get(f"{side}_coach") or "")
+    if (int(r["season"]), team) not in COACH_FIX:
+        now = _now()
+        e = now["espn"].get(team)
+        if int(r["season"]) == now["season"] and e and team in now["steady"] and COACH_NAME_FIX.get(c, c) != e:
+            c = e
     return COACH_NAME_FIX.get(c, c) or None
 
 
