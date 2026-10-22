@@ -1,0 +1,39 @@
+name: Trade watch
+
+# Rebuilds NFL Trade watch (src/trade_watch.py -> docs/data/nfl/trade_watch.json) every 3 hours in the run-up to the
+# trade deadline, when headlines and deals move fast. "Visualize data" also rebuilds it once a morning all season.
+# After the deadline it does nothing (--until-deadline), so the page keeps the list going into the deadline.
+# Run it any time: Actions tab > "Trade watch" > Run workflow.
+
+on:
+  schedule:
+    - cron: "10 */3 * 10,11 *"   # every 3 hours, October and November
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: trade-watch
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Build the trade watch
+        run: python src/trade_watch.py --until-deadline
+      - name: Publish
+        run: |
+          git config user.name "rankings-bot"
+          git config user.email "rankings-bot@users.noreply.github.com"
+          git add docs/data/nfl/trade_watch.json
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "Trade watch $(date -u +%Y-%m-%dT%H:%MZ)"
+          for try in 1 2 3; do git pull --rebase -q && git push -q && exit 0; sleep 10; done
+          exit 1

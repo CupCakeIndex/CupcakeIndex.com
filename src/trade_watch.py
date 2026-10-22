@@ -195,6 +195,9 @@ def ages():
 
 def main():
     global SEASON
+    if "--until-deadline" in sys.argv and dt.datetime.now(dt.timezone.utc) > dt.datetime.fromisoformat(f"{DEADLINE}T21:00:00+00:00"):
+        print(f"Past the {DEADLINE} deadline: keeping the list as it stood going in.")
+        return
     viz = json.load(open(os.path.join(DOCS, "viz", "index.json")))
     SEASON = max(viz["nfl"])
     rk = json.load(open(latest_week(SEASON), encoding="utf-8"))
