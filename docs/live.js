@@ -36,12 +36,12 @@ const Live = (() => {
   const view = (name) => $("#view-" + name);
   const loading = (name) => { view(name).innerHTML = `<div class="card muted">Loading…</div>`; };
   const fail = (name, e) => { view(name).innerHTML = `<div class="card">Couldn't load this from ESPN (${esc(e.message)}). Try again in a minute.</div>`; };
-  const SIZES = { xs: [18, 18], sm: [22, 22], lg: [28, 28], xl: [56, 56], hero: [96, 96], hs: [30, 30], leadshot: [52, 52], headshot: [132, 96] }; // CSS display sizes
+  const SIZES = { xs: [18, 18], sm: [22, 22], lg: [28, 28], xl: [56, 56], hero: [96, 96], bigface: [96, 96], hs: [30, 30], leadshot: [52, 52], headshot: [132, 96] }; // CSS display sizes
   let boxTab = "off"; // remembered across live refreshes
   const img = (src, cls = "lg") => {
     if (!safeUrl(src)) return `<span class="logo-ph ${cls}"></span>`;
     const [w, h] = SIZES[cls] || [40, 40];
-    const crop = cls === "leadshot" || cls === "hs"; // round headshots: square crop centered on the face
+    const crop = cls === "leadshot" || cls === "hs" || cls === "bigface"; // round headshots: square crop centered on the face
     return `<img src="${esc(thumb(src, w, h, crop))}" alt="" loading="lazy" decoding="async" width="${w}" height="${h}" class="${cls}">`;
   };
   // A player's picture, or their initials when ESPN has no headshot (common for retired players).
@@ -5168,7 +5168,7 @@ const Live = (() => {
     view("trades").innerHTML = trSub("trades") + `<div class="card tw-why">
         ${back}
         <div class="tw-hero">
-          <a href="${link("player", p.id)}" title="His stats">${face(`https://a.espncdn.com/i/headshots/nfl/players/full/${p.id}.png`, p.name, "hero")}</a>
+          <a href="${link("player", p.id)}" title="His stats">${face(`https://a.espncdn.com/i/headshots/nfl/players/full/${p.id}.png`, p.name, "bigface")}</a>
           <div>
             <div class="tw-why-h">
               <h2><a href="${link("player", p.id)}" title="His stats">${esc(p.name)}</a></h2>

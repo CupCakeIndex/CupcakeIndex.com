@@ -3139,6 +3139,7 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .tw-hero > a img, .tw-hero > a .logo-ph, .tw-hero > a .face-ph { border-radius: 50%; background: var(--line, #222); object-fit: cover; }
 .tw-hero .tm { margin-top: 4px; }
 .tw-hero > a { flex: 0 0 auto; }
+.tw-hero .bigface { width: 96px; height: 96px; display: block; }
 .tw-hero > div { flex: 1 1 auto; min-width: 0; }
 .tw-bio { font-size: 12px; margin-top: 4px; white-space: normal; overflow-wrap: anywhere; }
 .tw-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
