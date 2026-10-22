@@ -3160,3 +3160,14 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .ol-track { height: 10px; border-radius: 5px; background: var(--line, #222); overflow: hidden; }
 .ol-track i { display: block; height: 100%; background: var(--accent, #ff6b2c); }
 .ol-bar b { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* tap-to-explain bubble for tags with a title (phones can't hover) */
+.tip-pop { position: absolute; z-index: 60; max-width: 260px; padding: 8px 10px; border-radius: 8px; font-size: 12px; line-height: 1.45;
+  background: var(--card); color: var(--ink); border: 1px solid var(--accent, #ff6b2c); box-shadow: 0 6px 20px rgba(0,0,0,.4); }
+.pill[title] { cursor: help; }
+.h2h-note .pill { margin-right: 4px; }
+
+/* Season / After week, under the tabs on Rankings, Schedules and Résumé Check (the header stays the same everywhere) */
+.rank-bar { display: flex; gap: 12px; align-items: flex-end; margin: 0 0 12px; }
+.rank-bar.hidden { display: none; }
+.rank-bar select { padding: 6px 8px; }

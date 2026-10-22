@@ -272,7 +272,7 @@ const Live = (() => {
       <div class="sc-bar"><select id="sc-season">${Array.from({ length: new Date().getFullYear() - (lg === "nfl" ? 1999 : 2001) + 1 }, (_, i) => new Date().getFullYear() - i)
         .map((y) => `<option${y === season ? " selected" : ""}>${y}</option>`).join("")}</select><select id="sc-week">${weekOpts}</select>${grpSel}<span class="muted live-note">${liveBadge(live.length)}</span></div>
       ${section("Live now", live)}${section("Upcoming", pre)}${section("Final", post)}
-      ${events.length ? "" : `<div class="card muted">No games this week.</div>`}`;
+      ${events.length ? "" : `<div class="card muted">No games this week. Pick another week above, or see <a href="${link("rankings")}">the rankings →</a></div>`}`;
     const go = (k, v) => { const p = new URLSearchParams(params); p.set(k, v); p.set("league", lg); location.hash = `#/scores?${p}`; };
     $("#sc-week").onchange = (e) => go("week", e.target.value);
     $("#sc-season").onchange = (e) => { const p = new URLSearchParams(params); p.set("season", e.target.value); p.delete("week"); p.set("league", lg); location.hash = `#/scores?${p}`; };
@@ -2666,6 +2666,7 @@ const Live = (() => {
   // A player's fraud score compares what they actually did with their lines in the games they played,
   // stat by stat for their position, as a weighted % below expectation. Over-achievers are the same list flipped.
   const stSubStats = (on) => `<div class="subtabs">` + [["leaders", "Leaders", {}], ["frauds", "Frauds", { show: "frauds" }], ["projected", "Projected", { show: "projected" }], ["injuries", "Injuries", { show: "injuries" }], ["visualize", "Visualize", { show: "visualize" }]]
+    .filter(([k]) => k !== "frauds" || league === "nfl") // Frauds need ESPN's NFL projections: no pill in college
     .map(([k, l, q]) => `<a class="subtab${k === on ? " on" : ""}" href="${link("stats", null, q)}">${l}</a>`).join("") + `</div>`;
   const FR_POS = { 1: "QB", 2: "RB", 3: "WR", 4: "TE" };
   // [label, ESPN fantasy stat ids (summed), weight, minimum expected per game to count, higher is worse]
@@ -2934,13 +2935,18 @@ const Live = (() => {
       const d = await cfbInj();
       if (my !== token) return;
       const weeks = Object.keys(d?.weeks || {}).map(Number).sort((a, b) => b - a);
-      const wk = weeks.find((w) => Object.keys(d.weeks[w]).length >= 10) ?? weeks[0]; // early in the week only a few teams have reported
+      // early in the week only a few teams have reported, and the first reports can list nobody yet: show the newest week
+      // with 10+ teams that actually lists players, and say so when a newer week was skipped
+      const listed = (w) => Object.values(d.weeks[w]).some((r) => r.players.length);
+      const wk = weeks.find((w) => Object.keys(d.weeks[w]).length >= 10 && listed(w)) ?? weeks.find(listed) ?? weeks[0];
+      const skipped = weeks.length && wk != null && weeks[0] > wk ? weeks[0] : null;
       const wt = (st) => (st.startsWith("Out") ? 1 : st === "Doubtful" ? 0.75 : 0.3);
       const rows = wk == null ? [] : Object.entries(d.weeks[wk]).map(([t, r]) => ({ t, ...r, load: r.players.reduce((a, p) => a + wt(p[3]), 0) })).sort((a, b) => b.load - a.load);
       view("stats").innerHTML = stSubStats("injuries") + `<div class="card"><h2>College availability reports${wk != null ? ` <span class="muted">Week ${wk}</span>` : ""}</h2>
         ${rows.length ? rows.map((r) => `<details class="cfb-inj"><summary><b>${esc(r.t)}</b> <span class="muted">vs ${esc(r.opp)}</span>
           <span class="cfb-cnt">${r.players.filter((p) => p[3].startsWith("Out")).length} out · ${r.players.filter((p) => !p[3].startsWith("Out")).length} other</span></summary>${cfbInjList(r)}</details>`).join("")
           : `<p class="muted">No reports yet.</p>`}
+        ${skipped ? `<p class="note">Week ${skipped} reports so far don't list anyone, so this is week ${wk}. They fill in two or three days before the games.</p>` : ""}
         <p class="note">${CFB_INJ_NOTE} Each week's reports start two or three days before the game. Tap a team to see its list. <a href="${link("stats", null, { show: "injuries", league: "nfl" })}">NFL injuries →</a></p></div>`;
       return;
     }
@@ -3147,7 +3153,7 @@ const Live = (() => {
         : `ESPN's projections for <b>${esc(whenTxt)}</b>.`} These are ESPN's fantasy football forecasts, not betting lines.</p>
       <div class="table-wrap"><table id="pj-table"><thead><tr><th class="num">#</th><th>Player</th><th>Team</th>${wk1 ? "<th>Opp</th>" : ""}
         ${cols.map(([l, k, t]) => th(k, l, t)).join("")}${th("pts", "PPR pts", "Projected fantasy points, PPR scoring (1 per catch)")}</tr></thead>
-        <tbody>${rows || `<tr><td colspan="13" class="muted">No projections yet.</td></tr>`}</tbody></table></div>
+        <tbody>${rows || `<tr><td colspan="13" class="muted">No projections yet. <a href="${link("stats")}">See this season's leaders →</a></td></tr>`}</tbody></table></div>
       ${all.length > shown ? `<p><button id="pj-more" class="btn">Show 100 more</button></p>` : ""}
       <p class="note">Click a column to sort by it. Players on bye or projected for nothing (out) aren't listed${ros ? "; rest-of-season totals skip byes and games ESPN expects them to miss" : ""}. Projections: ESPN fantasy, updated through the week.</p>`;
     $("#pj-when").onclick = (e) => { const b = e.target.closest("[data-when]"); if (b) go({ when: b.dataset.when, sort: null, dir: null, pages: null }); };
@@ -3932,7 +3938,7 @@ const Live = (() => {
       </div>${takes.length ? `
       <div class="subtabs"><a class="subtab${ptab ? "" : " on"}" href="${link("player", id)}">Stats</a><a class="subtab${ptab ? " on" : ""}" href="${link("player", id, { tab: "takes" })}">Takes <small>${takes.length}</small></a></div>` : ""}`;
     if (ptab === "takes") {
-      view("player").innerHTML = head + `<div class="card">${takes.length ? Takes.list(takes) : `<p class="muted">No takes about this player yet.</p>`}</div>`;
+      view("player").innerHTML = head + `<div class="card">${takes.length ? Takes.list(takes) : `<p class="muted">No takes about this player yet. <a href="${link("takes")}">See all our Takes →</a></p>`}</div>`;
       fillFaces(view("player"));
       return;
     }
@@ -4097,7 +4103,7 @@ const Live = (() => {
     const bySeed = (g) => [...g.entries].sort((a, b) => (statNum(a, "playoffseed") || 99) - (statNum(b, "playoffseed") || 99));
     view("standings").innerHTML = `${stSub(false)}<div class="sc-bar"><div class="presets" id="st-conf">${chips.map(([v, l, t]) =>
         `<button data-conf="${esc(v)}" title="${esc(t)}" class="${v === pick ? "on" : ""}">${esc(l)}</button>`).join("")}</div></div>
-      ${shown.flatMap((c) => c.groups.map((g) => table(c.groups.length > 1 || nfl ? g.name : c.name, bySeed(g)))).join("") || `<div class="card muted">No standings available.</div>`}
+      ${shown.flatMap((c) => c.groups.map((g) => table(c.groups.length > 1 || nfl ? g.name : c.name, bySeed(g)))).join("") || `<div class="card muted">No standings available. <a href="${link("rankings")}">See our rankings →</a></div>`}
       ${nfl && shown.length ? `<p class="note">Seed = playoff seed if the season ended today; seeds 1–7 make the playoffs.</p>` : ""}`;
     $("#st-conf").onclick = (e) => {
       const v = e.target.dataset?.conf;
@@ -5100,7 +5106,7 @@ const Live = (() => {
     const injAvg = injTeam ? extra.reduce((a, t) => a + t.health, 0) / extra.length : 0;
     const cfbRep = !nfl && tab === "injuries" ? cfbInjFor(extra, ourTeam(ranks, lg, T)?.team) : null;
     const injHtml = !nfl ? (cfbRep ? `<h3>Week ${cfbRep.wk} availability report <span class="muted">vs ${esc(cfbRep.opp)}</span></h3>${cfbInjList(cfbRep)}<p class="note">${CFB_INJ_NOTE}</p>`
-        : `<p class="muted">No availability report for this team yet.</p><p class="note">${CFB_INJ_NOTE}</p>`)
+        : `<p class="muted">No availability report for this team yet. <a href="${link("stats", null, { show: "injuries" })}">All college availability reports →</a></p><p class="note">${CFB_INJ_NOTE}</p>`)
       : !injTeam ? "" : `<div class="inj-head"><div><span class="inj-big" style="color:${injTeam.health >= 92 ? "var(--inj-good)" : injTeam.health >= 82 ? "var(--inj-mid)" : "var(--inj-bad)"}">Operating at ${Math.round(injTeam.health)}%</span>
         <small class="muted">${injRank === 1 ? "The most banged-up team in the NFL" : `#${injRank} most banged-up of ${extra.length}`} · ${injTeam.keyOut} key player${injTeam.keyOut === 1 ? "" : "s"}, ${injTeam.hurt.length} total on the report · league average ${Math.round(injAvg)}%</small></div></div>
       ${injList(injTeam)}
@@ -5128,16 +5134,16 @@ const Live = (() => {
     const tabLink = (t, label) => `<a class="subtab${tab === t ? " on" : ""}" href="${link("team", id, { tab: t })}">${label}</a>`;
     view("team").innerHTML = `${hub}
       <div class="subtabs">${tabLink("schedule", "Schedule")}${tabLink("glance", "At a glance")}${tabLink("roster", "Roster")}${nfl ? tabLink("depth", "Depth chart") + tabLink("injuries", "Injuries") + tabLink("moves", "Transactions") : tabLink("injuries", "Injuries")}${takes.length || starters.length ? tabLink("takes", `Takes <small>${takes.length + starters.length}</small>`) : ""}</div>
-      <div class="card">${tab === "glance" ? `<div id="tm-glance"><p class="muted">Loading…</p></div>` : tab === "takes" ? Takes.startersHtml(starters) + (takes.length ? `${starters.length ? `<h3 class="tk-posts-h">From our X account</h3>` : ""}${Takes.list(takes)}` : starters.length ? "" : `<p class="muted">No takes about this team yet.</p>`)
+      <div class="card">${tab === "glance" ? `<div id="tm-glance"><p class="muted">Loading…</p></div>` : tab === "takes" ? Takes.startersHtml(starters) + (takes.length ? `${starters.length ? `<h3 class="tk-posts-h">From our X account</h3>` : ""}${Takes.list(takes)}` : starters.length ? "" : `<p class="muted">No takes about this team yet. <a href="${link("takes")}">See all our Takes →</a></p>`)
         : tab === "roster"
         ? rosterRows || `<p class="muted">Roster not available.</p>`
         : tab === "injuries" ? injHtml || `<p class="muted">Injury report not available.</p>`
         : tab === "depth" ? depthRows || `<p class="muted">Depth chart not available.</p>`
         : tab === "moves" ? (movesRows ? `<div class="table-wrap"><table class="box moves"><tbody>${movesRows}</tbody></table></div>
             <p class="note">Signings, releases and injured-reserve moves since ${esc(new Date(extra.transactions[extra.transactions.length - 1].date).toLocaleDateString(undefined, { month: "long", day: "numeric" }))}.</p>`
-            : `<p class="muted">No recent transactions.</p>`)
+            : `<p class="muted">No recent transactions. <a href="${link("trades")}">See who might be on the move →</a></p>`)
         : games ? `<div class="mb-list cols">${games}</div>${ourGames.size ? `<p class="note">Tap a game for the box score or preview. Diff (difficulty) is the chance a typical ${nfl ? "top-8 NFL" : "top-25"} team would lose that game; win chances are from the Cupcake Index model.</p>` : ""}`
-        : `<p class="muted">No games scheduled.</p>`}</div>`;
+        : `<p class="muted">No games scheduled. <a href="${link("scores")}">See all scores →</a></p>`}</div>`;
     // the head coach, top right (coaches.js): photo, name and hot seat, linking to his page
     Coaches.forTeam(lg, T.id).then((h) => { const el = my === token && $("#th-coach"); if (el && h) el.outerHTML = h; }).catch(() => {});
     // At a glance: charts from the Visualize data (viz.js)

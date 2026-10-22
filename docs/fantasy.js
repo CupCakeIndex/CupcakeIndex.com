@@ -311,7 +311,8 @@ const Fantasy = (() => {
   async function render(params) {
     const K = Live.kit, my = K.token(), root = $("#view-fantasy");
     if (league !== "nfl") {
-      root.innerHTML = `<div class="card">Fantasy is NFL only. <a href="#/fantasy?league=nfl">Go to NFL fantasy →</a></div>`;
+      // Fantasy is NFL only: a college visitor who lands here (an old or shared link) goes straight to the NFL version
+      location.replace("#/fantasy?league=nfl");
       return;
     }
     if (!cur) root.innerHTML = `<div class="card muted">Loading…</div>`;

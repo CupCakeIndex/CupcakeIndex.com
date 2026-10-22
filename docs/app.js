@@ -129,6 +129,7 @@ async function route() {
   setNavActive(NAV_PARENT[r.view] || r.view);
   $("#gear").classList.toggle("active", r.view === "settings");
   document.querySelectorAll(".rank-ctl").forEach((el) => el.classList.toggle("hidden", !RANK_VIEWS.has(r.view)));
+  $("#rank-bar")?.classList.toggle("hidden", !RANK_VIEWS.has(r.view));
   $("#drawer").classList.add("hidden");
   document.body.classList.remove("drawer-open");
   // a new page starts at the top; a tab or filter on the same page (Rushing -> Receiving) keeps your place,
@@ -233,7 +234,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "417"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "418"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -716,6 +717,18 @@ function headToHead(list, lg = league) {
   const at = new Map(list.map((t, i) => [t.team, i]));
   return list.map((t) => (t.h2h && at.get(t.team) > at.get(t.h2h) ? { ...t, h2h: null } : t));
 }
+// phones can't hover: tapping a tag with a title (H2H, OVER, NOBODY...) shows its explanation in a small bubble
+document.addEventListener("click", (e) => {
+  document.querySelector(".tip-pop")?.remove();
+  const p = e.target.closest?.(".pill[title]");
+  if (!p) return;
+  e.stopPropagation(); e.preventDefault();
+  const r = p.getBoundingClientRect(), tip = document.createElement("div");
+  tip.className = "tip-pop"; tip.textContent = p.title;
+  tip.style.top = `${r.bottom + window.scrollY + 6}px`;
+  tip.style.left = `${Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - 268))}px`;
+  document.body.appendChild(tip);
+}, true);
 const h2hTag = (t) => t.h2h ? ` <span class="pill h2h" title="Beat ${esc(t.h2h)} head-to-head and is within ${H2H_GAP} points of them, so ranked right above them">H2H</span>` : "";
 
 // Ranking shown in the table. Sorting by an inverted factor alone (Cupcake) numbers teams by that
@@ -1336,7 +1349,7 @@ function renderResume() {
     });
     return { t, ours: t.rank, real, rec: `${w}-${l}`, cups, games: w + l + cups.length };
   });
-  if (!rows.some((r) => r.games)) { tb.innerHTML = `<tr><td colspan="4" class="muted">No games played yet this season.</td></tr>`; $("#rc-callouts").innerHTML = ""; return; }
+  if (!rows.some((r) => r.games)) { tb.innerHTML = `<tr><td colspan="4" class="muted">No games played yet this season. <a href="${link("rankings")}">See the preseason rankings →</a></td></tr>`; $("#rc-callouts").innerHTML = ""; return; }
   rows.sort((a, b) => b.real - a.real || a.ours - b.ours).forEach((r, i) => { r.rank = i + 1; r.move = r.ours - r.rank; });
   const cupWins = (r) => r.cups.length;
   // the headline: who falls the furthest out of our top 25 (top 10 NFL), and who climbs the most into the real top 25
@@ -1390,7 +1403,7 @@ async function renderShame() {
     el("hs-season-title").textContent = `${lt.season} easiest schedules`;
     el("hs-season").innerHTML = easy.length ? `<ol class="hs-list">${easy.map((t) => `<li data-team="${esc(t.team)}">${logo(t)}<div><b>${esc(t.team)}</b>
         <small class="muted">${esc(t.record)} · ${esc(topHalfRec(t))} vs top-half teams</small></div><span class="hs-n" title="Schedule rank (#1 = hardest)">#${sosRankOf(t, cur.teams)}</span></li>`).join("")}</ol>`
-      : `<p class="muted">No games played yet this season.</p>`;
+      : `<p class="muted">No games played yet this season. <a href="${link("rankings")}">See the preseason rankings →</a></p>`;
     el("hs-season").onclick = open;
     return;
   }

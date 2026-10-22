@@ -277,7 +277,7 @@ const Pickem = (() => {
         ${cur.mine && !weekLocked ? `<button data-act="lock" class="pk-lockbtn"${picks.size ? "" : " disabled"}>🔒 Lock in my picks</button>` : ""}${cur.mine && lockedAt && due && Date.now() <= due
           ? `<button data-act="unlock" title="Change your picks until the deadline (games that have kicked off stay locked); lock in again for Perfect Pick'em">🔓 Unlock</button>` : ""}${Share.menuHtml()}
         ${list.some((e) => cur.preds.has(String(e.id))) ? `<button data-act="modelimg" title="Download a picture of every winner our model picks this week">Share our picks</button>` : ""}</div>
-      ${list.length ? `<div class="pk-grid">${list.map(game).join("")}</div>` : `<p class="muted">No games this week.</p>`}
+      ${list.length ? `<div class="pk-grid">${list.map(game).join("")}</div>` : `<p class="muted">No games this week. <a href="${link("scores")}">See all scores →</a></p>`}
       <p class="note">Tap a team to pick it; tap again to undo. Each game locks at kickoff, and the whole week locks Saturday at 11:59 PM Eastern (or as soon as you tap Lock in; Unlock reopens it until the deadline). Next week's games show up Sunday for college and Monday at 11:59 PM Eastern for the NFL.
         Your picks get a ✓ or ✗ when the game is final and add to your season record (a tie is void and doesn't count), which stays in this browser unless you clear its data.
         Pick every game, lock in before the deadline and get them all right for the permanent 🏅 Perfect Pick'em badge.
