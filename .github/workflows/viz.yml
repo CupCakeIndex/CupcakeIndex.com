@@ -76,6 +76,7 @@ jobs:
           git add docs/data/coach_profile.json 2>/dev/null || true
           git add docs/data/hilo.json 2>/dev/null || true
           git add docs/data/nfl/records.json 2>/dev/null || true
+          git add docs/data/nfl/ol_stats.json 2>/dev/null || true
           git add docs/data/cfb/heisman_buzz.json 2>/dev/null || true
           git add docs/data/nfl/trade_watch.json 2>/dev/null || true
           git diff --cached --quiet && echo "No changes" && exit 0

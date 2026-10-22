@@ -3963,6 +3963,11 @@ const Live = (() => {
     const toInj = params.get("inj") && $("#pl-inj");
     if (toInj) pulse(toInj);
     $("#pl-season").onchange = (e) => { const v = e.target.value; location.hash = link("player", id, v[0] === "c" ? { cseason: v.slice(1) } : { season: v }); };
+    if (lg === "nfl" && OL_ABBR.has(a.position?.abbreviation)) { // linemen: blocking stats instead of ESPN's (tackles only)
+      await olInto(id, $("#career-slot"));
+      if (toInj && my === token) pulse(toInj);
+      return;
+    }
     const careers = await careersP;
     if (my !== token) return;
     const cst = { cat: params.get("cat"), metric: params.get("metric"), align: params.get("align"), from: params.get("from"), to: params.get("to"), lvl: params.get("lvl") };
@@ -3980,6 +3985,53 @@ const Live = (() => {
     if (toInj) pulse(toInj); // stats by year just filled in above it, so find it again
     else if (vs.length) $("#career-slot").scrollIntoView({ block: "start" });
   }
+  // Offensive linemen: ESPN has no blocking stats (its only numbers are the odd tackle after an interception), so their
+  // "by year" card comes from docs/data/nfl/ol_stats.json (src/viz_data.py, nflverse): snaps, penalties called on him, and
+  // his line's pressures, sacks and runs on the plays he was on the field for. Ranks are among linemen with 300+ snaps.
+  const OL_ABBR = new Set(["OL", "OT", "T", "OG", "G", "C"]);
+  const OL_MET = [
+    ["snaps", "Snaps", (r) => r.snaps, 0, false],
+    ["pen", "Penalties", (r) => r.pen, 0, true],
+    ["pen100", "Penalties per 100 snaps", (r) => (r.snaps ? (100 * r.pen) / r.snaps : null), 2, true],
+    ["pr", "Pressure % on the field", (r) => (r.ol_db ? (100 * r.ol_pr) / r.ol_db : null), 1, true, "%"],
+    ["sk", "Sack % on the field", (r) => (r.ol_db ? (100 * r.ol_sk) / r.ol_db : null), 1, true, "%"],
+    ["ypc", "Yards per run on the field", (r) => (r.ol_run ? r.ol_ryds / r.ol_run : null), 2, false],
+  ];
+  async function olCard(id, on) {
+    const D = await getJSON("data/nfl/ol_stats.json");
+    const row = (a) => Object.fromEntries(D.cols.map((c, i) => [c, a[i]]));
+    const years = Object.keys(D.seasons).filter((y) => D.seasons[y][id]).sort();
+    if (!years.length) return `<div class="card muted">No blocking stats for him yet. They come from snap counts, so he needs NFL snaps on the line.</div>`;
+    const ord = (n) => n + ([11, 12, 13].includes(n % 100) ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th");
+    const m = OL_MET.find((x) => x[0] === on) || OL_MET[3];
+    const [, label, fn, d, low, unit = ""] = m;
+    const fmt = (v, dd = d) => (v == null ? "–" : v.toLocaleString(undefined, { minimumFractionDigits: dd, maximumFractionDigits: dd }) + unit);
+    const bars = years.map((y) => {
+      const me = row(D.seasons[y][id]), v = fn(me);
+      const pool = Object.values(D.seasons[y]).map(row).filter((r) => r.snaps >= 300).map(fn).filter((x) => x != null);
+      const rk = v != null && me.snaps >= 300 ? 1 + pool.filter((x) => (low ? x < v : x > v)).length : null;
+      return { y, v, rk, n: pool.length, me };
+    });
+    const max = Math.max(...bars.map((b) => b.v || 0), 0.001);
+    const last = bars.at(-1).me;
+    const tiles = [["Games", last.g], ["Snaps", last.snaps.toLocaleString()], ["Penalties", last.pen, `${last.pn_hold} holding · ${last.pn_fs} false start`],
+      ["Pressure %", last.ol_db ? ((100 * last.ol_pr) / last.ol_db).toFixed(1) + "%" : "–", last.ol_db ? `${last.ol_db} dropbacks` : "not out yet"]];
+    return `<div class="card ol-card"><h3>Blocking by year</h3>
+      <div class="stats wide">${tiles.map(([l, v, s]) => `<div class="stat"><small>${l} (${years.at(-1)})</small><b>${v}</b>${s ? `<small class="muted">${s}</small>` : ""}</div>`).join("")}</div>
+      <div class="ol-mets">${OL_MET.map(([k, l]) => `<button class="ol-m${k === m[0] ? " on" : ""}" data-olm="${k}">${l}</button>`).join("")}</div>
+      <div class="ol-bars">${bars.map((b) => `<div class="ol-bar"><span class="ol-y">${b.y}</span>
+        <span class="ol-track">${b.v != null ? `<i style="width:${Math.max(2, (100 * b.v) / max).toFixed(1)}%"></i>` : ""}</span>
+        <b>${fmt(b.v)}</b><small class="muted">${b.rk ? `${ord(b.rk)} of ${b.n}${low ? " (1st = fewest)" : ""}` : b.v == null ? "not out yet" : "under 300 snaps"}</small></div>`).join("")}</div>
+      <p class="note muted">${low ? "Lower is better. " : ""}Ranks are among offensive linemen with 300+ snaps that season. Nobody tracks sacks allowed by one lineman for free (PFF charts them by hand and charges for it), so pressure, sack and run numbers are his line's results on the plays he was on the field for (nflverse play-by-play and participation, 2022 on; the current season's arrive when nflverse publishes them). Penalties are the accepted ones called on him.</p></div>`;
+  }
+  async function olInto(id, slot, on) {
+    slot.innerHTML = await olCard(id, on).catch(() => `<div class="card muted">Blocking stats aren't available right now.</div>`);
+    slot.querySelector(".ol-mets")?.addEventListener("click", (e) => {
+      const k = e.target.closest("[data-olm]")?.dataset.olm;
+      if (k) olInto(id, slot, k);
+    });
+  }
+
   // The player's current injury, at the bottom of their page: status, body part, expected return and ESPN's notes
   function injCard(i, pid, tid) {
     const x = injInfo(i), d = i.details || {};

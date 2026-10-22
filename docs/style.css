@@ -3147,3 +3147,14 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .tw-tile b { font-size: 22px; color: var(--accent, #ff6b2c); }
 .tw-tile span { font-size: 12px; }
 .tw-tile small { font-size: 11px; color: var(--muted); }
+/* offensive linemen: blocking by year (player page) */
+.ol-mets { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 10px; }
+.ol-m { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line, #333); background: none; color: var(--muted); cursor: pointer; }
+.ol-m.on { border-color: var(--accent, #ff6b2c); color: var(--accent, #ff6b2c); }
+.ol-bars { display: flex; flex-direction: column; gap: 8px; }
+.ol-bar { display: grid; grid-template-columns: 40px minmax(0, 1fr) 64px; align-items: center; gap: 2px 10px; }
+.ol-bar small { grid-column: 2 / -1; font-size: 11px; }
+.ol-y { font-size: 12px; color: var(--muted); }
+.ol-track { height: 10px; border-radius: 5px; background: var(--line, #222); overflow: hidden; }
+.ol-track i { display: block; height: 100%; background: var(--accent, #ff6b2c); }
+.ol-bar b { text-align: right; font-variant-numeric: tabular-nums; }

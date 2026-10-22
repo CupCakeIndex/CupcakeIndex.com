@@ -127,6 +127,79 @@ OL_POS = ("T", "G", "C", "OT", "OG", "OL")
 OLD = {"SD": "LAC", "STL": "LA", "OAK": "LV"}  # moved teams: old play-by-play abbreviation -> today's
 
 
+OL_ON = ["ol_db", "ol_sk", "ol_pr", "ol_hit", "ol_run", "ol_ryds", "ol_repa"]  # per lineman per game, plays he was on the field for
+
+
+def ol_onfield(season, linemen):
+    """{(gsis id, week): {OL_ON column: value}} for the gsis ids in `linemen`: his team's dropbacks, sacks, pressures and
+    QB hits, and its designed runs with their yards and EPA, on the plays he was on the field for (nflverse play-by-play
+    + NGS/FTN participation, which shows who was on the field). Nobody tracks sacks allowed by one blocker for free, so
+    this is the line's results with him in it. {} when participation isn't published for the season yet."""
+    try:
+        part = nflverse_csv(f"{NFLV}/pbp_participation/pbp_participation_{season}.csv", f"pbp_participation_{season}.csv")
+    except requests.HTTPError:
+        return {}
+    import deep_stats
+    plays = {}
+    for r in deep_stats.pbp(season):
+        if r.get("season_type") != "REG" or not r.get("posteam"):
+            continue
+        db, run = r.get("qb_dropback") == "1", r.get("rush") == "1" and r.get("qb_scramble") != "1"
+        if db or run:
+            plays[(r["game_id"], r["play_id"].split(".")[0])] = (int(r["week"]), db, r.get("sack") == "1", r.get("qb_hit") == "1",
+                                                                 n(r.get("rushing_yards")), n(r.get("epa")))
+    out = defaultdict(lambda: dict.fromkeys(OL_ON, 0))
+    for r in part:
+        p = plays.get((r["nflverse_game_id"], r["play_id"].split(".")[0]))
+        if not p:
+            continue
+        wk, db, sk, hit, ryds, epa = p
+        for g in (r.get("offense_players") or "").split(";"):
+            if g not in linemen:
+                continue
+            s = out[(g, wk)]
+            if db:
+                s["ol_db"] += 1
+                s["ol_sk"] += sk
+                s["ol_pr"] += r.get("was_pressure") == "TRUE"
+                s["ol_hit"] += hit
+            else:
+                s["ol_run"] += 1
+                s["ol_ryds"] += ryds
+                s["ol_repa"] += epa
+    for s in out.values():
+        s["ol_repa"] = round(s["ol_repa"], 2)
+    return out
+
+
+OL_SUM = ["g", "snaps", "pen", "pn_hold", "pn_fs", "pen_yds"] + OL_ON
+
+
+def ol_summary(season, pmeta, prows, xcols):
+    """docs/data/nfl/ol_stats.json: each offensive lineman's season totals (OL_SUM), for the blocking card on his player
+    page (the full Visualize file is too big to load there). One key per season, so building one season keeps the rest."""
+    f = ROOT / "docs" / "data" / "nfl" / "ol_stats.json"
+    doc = json.loads(f.read_text(encoding="utf-8")) if f.exists() else {"cols": OL_SUM, "seasons": {}}
+    doc["cols"] = OL_SUM
+    si = PLAYER_COLS_NFL.index("snaps") + 3
+    tot = {}
+    for r in prows:
+        pid = r[0]
+        if pmeta[pid][1] not in OL_POS or not r[si]:
+            continue
+        t = tot.setdefault(pid, dict.fromkeys(OL_SUM, 0))
+        t["g"] += 1
+        t["snaps"] += r[si]
+        x = r[-1]
+        for i in range(0, len(x), 2):
+            if xcols[x[i]] in t:
+                t[xcols[x[i]]] += x[i + 1]
+    doc["seasons"][str(season)] = {pid: [round(t[c], 2) for c in OL_SUM] for pid, t in tot.items()}
+    doc["updated"] = date.today().isoformat()
+    f.write_text(json.dumps(doc, separators=(",", ":")), encoding="utf-8")
+    print(f"  ol_stats.json: {len(tot)} linemen in {season}")
+
+
 def early_exits(season):
     """{(gsis id, game id)} for players who had a pass, run or target in the first half and none after halftime:
     hurt (or benched) by halftime. From nflverse play-by-play. Players who only came in later (relief QBs) aren't in it."""
@@ -350,7 +423,17 @@ def nfl(season):
         team_miss[row[2], row[1]] += pfr.get((row[0], row[1]), {}).get("miss_tkl", 0)
     for row in trows:
         row.append(team_miss.get((row[0], row[1]), 0))
-    xcols = deep_stats.XCOLS + list(PFR_DEF) + list(PFR_PASS) + list(PFR_REC) + list(NV_EXTRA)
+    # offensive linemen: the line's results on the plays he was on the field for (ol_onfield)
+    ol_pid = {gsis[pid]: pid for pid, m in pmeta.items() if m[1] in OL_POS}
+    try:
+        onf = ol_onfield(season, set(ol_pid))
+    except Exception as e:  # no play-by-play: linemen keep snaps and penalties only
+        print(f"  ! O-line on-field stats unavailable ({e})")
+        onf = {}
+    for (g, wk), s in onf.items():
+        pfr.setdefault((ol_pid[g], wk), {}).update({c: v for c, v in s.items() if v})
+    print(f"  O-line on-field stats: {len(onf)} lineman games")
+    xcols = deep_stats.XCOLS + list(PFR_DEF) + list(PFR_PASS) + list(PFR_REC) + list(NV_EXTRA) + OL_ON
     xi = {c: i for i, c in enumerate(xcols)}
     for row in prows:
         x = {**deep.get((gsis[row[0]], row[1]), {}), **pfr.get((row[0], row[1]), {})}
@@ -360,6 +443,7 @@ def nfl(season):
         p = pl_csv.get(gsis[pid])
         if p:
             m += deep_stats.extra(p, season)
+    ol_summary(season, pmeta, prows, xcols)
     write("nfl", season, {"teams": tmeta, "tcols": TEAM_COLS_NFL + list(NV_EXTRA) + deep_stats.TCOLS + ["miss_tkl"], "trows": trows, "pcols": PLAYER_COLS_NFL, "pmeta": pmeta, "prows": prows,
                           "xcols": xcols if deep or pfr else [], "gcond": gcond})
 

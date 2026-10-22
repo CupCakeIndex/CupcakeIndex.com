@@ -486,6 +486,13 @@ const Viz = (() => {
       ["pen", "Penalties (called on him)", (S) => S.pen, { count: 1, low: 1, need: ["pen"], vol: ["snaps played", 200] }],
       ["pen_yds", "Penalty yards", (S) => S.pen_yds, { count: 1, low: 1, need: ["pen"], vol: ["snaps played", 200] }],
       ["pen_rate", "Penalties per 100 snaps", (S) => div(100 * S.pen, S.snaps), { den: (S) => S.snaps, d: 1, low: 1, unit: "snaps", need: ["pen"] }],
+      // the line's results on plays he was on the field for (nflverse participation, 2022-25): nobody tracks one blocker's sacks for free
+      ["ol_pr_pct", "Pressure % with him on the field", (S) => div(100 * S.ol_pr, S.ol_db), { den: (S) => S.ol_db, pct: 1, low: 1, unit: "dropbacks", need: ["ol_db"] }],
+      ["ol_sk_pct", "Sack % with him on the field", (S) => div(100 * S.ol_sk, S.ol_db), { den: (S) => S.ol_db, pct: 1, low: 1, unit: "dropbacks", need: ["ol_db"] }],
+      ["ol_hit_pct", "QB hit % with him on the field", (S) => div(100 * S.ol_hit, S.ol_db), { den: (S) => S.ol_db, pct: 1, low: 1, unit: "dropbacks", need: ["ol_db"] }],
+      ["ol_sk", "Sacks with him on the field", (S) => S.ol_sk, { count: 1, low: 1, need: ["ol_db"], vol: ["snaps played", 300] }],
+      ["ol_ypc", "Yards per run with him on the field", (S) => div(S.ol_ryds, S.ol_run), { den: (S) => S.ol_run, d: 2, unit: "runs", need: ["ol_run"] }],
+      ["ol_repa", "EPA per run with him on the field", (S) => div(S.ol_repa, S.ol_run), { den: (S) => S.ol_run, d: 3, fmt: "+", unit: "runs", need: ["ol_run"] }],
     ]],
     // breakdowns in counts ("abs"), not shares: pick a team and see who gets flagged for what, and how many times
     ["Penalties by type (called on him)", [
