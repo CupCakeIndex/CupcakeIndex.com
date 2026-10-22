@@ -3135,3 +3135,12 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .tw-heads { margin: 0; padding-left: 18px; }
 .tw-heads li { margin: 5px 0; font-size: 14px; }
 .tw-more { font-size: 12px; margin: 4px 0 0; }
+.tw-hero { display: flex; align-items: center; gap: 16px; margin: 4px 0 6px; }
+.tw-hero > a img, .tw-hero > a .logo-ph, .tw-hero > a .face-ph { border-radius: 50%; background: var(--line, #222); object-fit: cover; }
+.tw-hero .tm { margin-top: 4px; }
+.tw-bio { font-size: 12px; margin-top: 4px; }
+.tw-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.tw-tile { border: 1px solid var(--line, #333); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; }
+.tw-tile b { font-size: 22px; color: var(--accent, #ff6b2c); }
+.tw-tile span { font-size: 12px; }
+.tw-tile small { font-size: 11px; color: var(--muted); }

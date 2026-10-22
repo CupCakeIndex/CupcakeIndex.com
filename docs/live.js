@@ -5167,12 +5167,19 @@ const Live = (() => {
     const rank = D.players.indexOf(p) + 1;
     view("trades").innerHTML = trSub("trades") + `<div class="card tw-why">
         ${back}
-        <div class="tw-why-h">
-          <h2><a href="${link("player", p.id)}" title="His stats">${esc(p.name)}</a></h2>
-          <span class="muted">${esc(p.pos)}${age ? ` · ${age}` : ""}</span>
-          <span class="tm">${tlogo(ab)} ${esc(T.name || ab)}</span>
+        <div class="tw-hero">
+          <a href="${link("player", p.id)}" title="His stats">${face(`https://a.espncdn.com/i/headshots/nfl/players/full/${p.id}.png`, p.name, "hero")}</a>
+          <div>
+            <div class="tw-why-h">
+              <h2><a href="${link("player", p.id)}" title="His stats">${esc(p.name)}</a></h2>
+              <span class="muted" id="tw-jersey">${esc(p.pos)}${age ? ` · ${age}` : ""}</span>
+            </div>
+            <span class="tm">${tlogo(ab)} ${esc(T.name || ab)}</span>
+            <div class="tw-bio muted" id="tw-bio"></div>
+          </div>
         </div>
         <p class="tw-why-sum">${tier} <b>#${rank}</b> on our trade list. <a href="${link("player", p.id)}">See his stats →</a></p>
+        <div class="tw-stats" id="tw-stats"></div>
         <h3 class="tw-h3">Why he might be traded</h3>
         <div class="tw-reasons">${reasons.map(([l, v, t]) => `<div class="tw-reason"><div class="tw-reason-h"><b>${l}</b>${meter(v)}</div><p>${esc(t)}</p></div>`).join("")}</div>
         <p class="note">Longer bar = pushes harder toward a trade. Trade talk counts on its own; the other six multiply together, so one long contract or a young age pulls the whole thing down.</p>
@@ -5181,6 +5188,18 @@ const Live = (() => {
         ${p.stories?.length ? `<h3 class="tw-h3">The headlines</h3><ul class="tw-heads">${p.stories.filter((h) => safeUrl(h[1])).map(([t, u]) =>
           `<li><a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)}</a></li>`).join("")}</ul>${p.talk > p.stories.length ? `<p class="muted tw-more">…and ${p.talk - p.stories.length} more.</p>` : ""}` : ""}
       </div>`;
+    // his bio and this season's line from ESPN (the same record his stats page uses), filled in when it arrives
+    const my = token;
+    api(`${WEB("nfl")}/athletes/${encodeURIComponent(p.id)}`, 600000).then((r) => {
+      const a = r?.athlete;
+      if (!a || my !== token || !$("#tw-bio")) return;
+      if (a.jersey) $("#tw-jersey").textContent = `#${a.jersey} · ${p.pos}${age ? ` · ${age}` : ""}`;
+      $("#tw-bio").textContent = [[a.displayHeight, a.displayWeight].filter(Boolean).join(", "), a.displayExperience,
+        a.displayDraft ? `Drafted ${a.displayDraft}` : "", a.college?.name].filter(Boolean).join(" · ");
+      const st = a.statsSummary?.statistics || [];
+      if (st.length) $("#tw-stats").innerHTML = `<h3 class="tw-h3">${esc(a.statsSummary.displayName || "This season")}</h3><div class="tw-tiles">${st.map((x) =>
+        `<div class="tw-tile"><b>${esc(x.displayValue)}</b><span>${esc(x.shortDisplayName || x.displayName)}</span>${x.rankDisplayValue ? `<small>${esc(x.rankDisplayValue)} in NFL</small>` : ""}</div>`).join("")}</div>`;
+    }).catch(() => {});
   }
 
   async function trades(pid) {
