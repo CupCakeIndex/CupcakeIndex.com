@@ -631,7 +631,7 @@ const Viz = (() => {
 
   // ---------------------------------------------------------------- state (all in the link)
   const DEF = { who: "teams", type: "bar", stat: "epa_play", y: "pts", from: "", to: "", wk1: "", wk2: "", per: "game", top: "10",
-    group: "", team: "", pos: "", pick: "", order: "best", cum: "", scope: "", radar: "", logo: "", names: "", min: "", role: "", noexit: "", exp: "", draft: "",
+    group: "", team: "", pos: "", pick: "", order: "best", cum: "", scope: "", radar: "", logo: "", names: "", min: "", role: "", noexit: "", exp: "", draft: "", nz: "",
     // Style and picture: scheme = colors, ttl/subt = your own title, bg/size = the downloaded picture; nums/grid/curve: "" = on, "0" = off; big/round: "1" = on
     scheme: "", ttl: "", subt: "", bg: "", size: "", nums: "", grid: "", curve: "", big: "", round: "", // logo/names: "" = on, "0" = off; min: "" = automatic
     // where = the filter typed in plain English ("run stops > 20 and sacks >= 3"), every chart; cols = the Table's columns;
@@ -1233,6 +1233,9 @@ const Viz = (() => {
       : c.k === "exp" ? expOk(meta(k)?.[4], c.v) : c.k === "draft" ? draftOk(meta(k)?.[5], c.v)
       : c.k === "team" ? teamOf(k) === c.v : c.k === "group" ? tm(teamOf(k))[3] === c.v : true;
     if (W.groups.length) keys = keys.filter((k) => picks.includes(k) || W.groups.some((g) => g.every((c) => condOk(c, k))));
+    // Hide zeros: a scatter drops whoever sits at 0, 0; bars and tables drop a 0 on the stat shown (highlighted picks stay)
+    const zeroOk = (k) => st.type === "scatter" ? !(val(stat, k) === 0 && val(ystat, k) === 0) : val(stat, k) !== 0;
+    if (st.nz && (st.type === "scatter" || st.type === "bar" || st.type === "table")) keys = keys.filter((k) => picks.includes(k) || zeroOk(k));
     const whereRead = W.groups.length ? W.read.join(" or ") + (W.groups.flat().some((c) => c.k === "stat" && c.s[3].count) && per === "game" ? " (per game)" : "") : "";
     const rank = (s, list) => list.filter((k) => val(s, k) != null).sort((a, b) => (s[3].low ? 1 : -1) * (val(s, a) - val(s, b)) * (st.order === "worst" ? -1 : 1));
     const top = st.top === "all" ? 9999 : +st.top || 10;
@@ -1492,7 +1495,7 @@ const Viz = (() => {
       cfg = { type: "scatter", data: { datasets: [{ data: pts, pointRadius: pts.map((p) => (showLogo ? 11 : hl(p.k) ? 7 : 5)), pointHoverRadius: showLogo ? 13 : 7,
         pointBackgroundColor: pts.map((p) => (showLogo ? "transparent" : hl(p.k) ? hi : color(p.k))), pointBorderColor: pts.map((p) => (showLogo ? (hl(p.k) ? hi : "transparent") : ink)),
         pointBorderWidth: pts.map((p) => (hl(p.k) ? 2 : showLogo ? 0 : 0.5)) }] },
-        options: { ...base, layout: { padding: { right: 36, top: 8 } }, plugins: { ...base.plugins, legend: { display: false }, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${name(c.raw.k)}: ${fmt(stat, c.raw.x, per)}, ${fmt(ystat, c.raw.y, per)}` } } },
+        options: { ...base, interaction: { mode: "point", intersect: true }, layout: { padding: { right: 36, top: 8 } }, plugins: { ...base.plugins, legend: { display: false }, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${name(c.raw.k)}: ${fmt(stat, c.raw.x, per)}, ${fmt(ystat, c.raw.y, per)}` } } },
           scales: { x: { ...base.scales.x, reverse: !!stat[3].low, title: { display: true, text: stat[1] + perTxt(stat) + (stat[3].low ? " (better →)" : ""), color: muted } },
             y: { ...base.scales.y, reverse: !!ystat[3].low, title: { display: true, text: ystat[1] + perTxt(ystat) + (ystat[3].low ? " (better ↑)" : ""), color: muted } } } },
         plugins: [{ id: "vzLabels", afterDatasetsDraw(c) {
@@ -1509,11 +1512,59 @@ const Viz = (() => {
             ctx.globalAlpha = 1; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
           }
           ctx.font = `${px(10)}px JetBrains Mono`; ctx.fillStyle = ink;
-          c.getDatasetMeta(0).data.forEach((p, i) => {
-            const sz = hl(pts[i].k) ? 26 : 20, logo = showLogo && drawLogo(ctx, pts[i].k, p.x, p.y, sz);
-            if (showLogo && !logo) { ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, 7); ctx.fillStyle = color(pts[i].k); ctx.fill(); ctx.fillStyle = ink; } // no logo (an FCS team): a dot
-            if (named.has(pts[i].k)) ctx.fillText(short(pts[i].k), p.x + (showLogo ? 13 : 7), p.y + 3);
-          });
+          // Points on the same spot (common with counts: three teams at 6, 6) share one marker: their logos side by side in a
+          // box centered on the real spot, and one label listing them. Nothing is nudged off its value; the box is the spot.
+          const els = c.getDatasetMeta(0).data, spots = [];
+          els.forEach((p, i) => { const g = spots.find((q) => Math.abs(q.x - p.x) < 4 && Math.abs(q.y - p.y) < 4); g ? g.ks.push(i) : spots.push({ x: p.x, y: p.y, ks: [i] }); });
+          spots.forEach((g) => g.ks.sort((i, j) => (hl(pts[j].k) - hl(pts[i].k)) || short(pts[i].k).localeCompare(short(pts[j].k))));
+          const boxes = [], narrow = a.right - a.left < 520; // drawn markers and labels, so later labels can dodge them
+          for (const g of spots) {
+            const n = g.ks.length, sz = n > 1 ? (n > 4 ? 14 : 16) : hl(pts[g.ks[0]].k) ? 26 : 20, gap = 2;
+            if (n === 1) { const r = showLogo ? sz / 2 : 6; g.m = { x: g.x - r, y: g.y - r, w: 2 * r, h: 2 * r }; boxes.push(g.m); continue; }
+            if (narrow) { g.m = g.box = { x: g.x - 10, y: g.y - 10, w: 20, h: 20, narrow: 1 }; boxes.push(g.m); continue; } // phones: a count bubble
+            const show = g.ks.slice(0, 6), w = show.length * (sz + gap) + 6 + (n > 6 ? 18 : 0), h = sz + 6;
+            const x0 = Math.min(Math.max(g.x - w / 2, a.left - 4), a.right + 30 - w), y0 = g.y - h / 2;
+            g.box = { x: x0, y: y0, w, h, show, sz, gap };
+            g.m = g.box; boxes.push(g.box);
+          }
+          for (const g of spots) {
+            if (g.ks.length === 1) {
+              const i = g.ks[0], sz = hl(pts[i].k) ? 26 : 20, logo = showLogo && drawLogo(ctx, pts[i].k, g.x, g.y, sz);
+              if (showLogo && !logo) { ctx.beginPath(); ctx.arc(g.x, g.y, 5, 0, 7); ctx.fillStyle = color(pts[i].k); ctx.fill(); ctx.fillStyle = ink; } // no logo (an FCS team): a dot
+              continue;
+            }
+            if (g.box.narrow) {
+              ctx.beginPath(); ctx.arc(g.x, g.y, 10, 0, 7); ctx.fillStyle = C("--card") || "#151515"; ctx.fill();
+              ctx.strokeStyle = g.ks.some((i) => hl(pts[i].k)) ? hi : ink; ctx.lineWidth = 1.5; ctx.stroke();
+              ctx.fillStyle = ink; ctx.textAlign = "center"; ctx.font = `bold ${px(10)}px JetBrains Mono`; ctx.fillText(g.ks.length, g.x, g.y + 3.5);
+              ctx.font = `${px(10)}px JetBrains Mono`; ctx.textAlign = "left"; continue;
+            }
+            const { x: bx, y: by, w, h, show, sz, gap } = g.box;
+            ctx.fillStyle = C("--card") || "#151515"; ctx.strokeStyle = g.ks.some((i) => hl(pts[i].k)) ? hi : muted; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, w, h, 6) : ctx.rect(bx, by, w, h); ctx.fill(); ctx.stroke();
+            show.forEach((i, j) => {
+              const cx = bx + 3 + j * (sz + gap) + sz / 2, cy = by + h / 2;
+              if (!(showLogo && drawLogo(ctx, pts[i].k, cx, cy, sz))) { ctx.beginPath(); ctx.arc(cx, cy, 4, 0, 7); ctx.fillStyle = hl(pts[i].k) ? hi : color(pts[i].k); ctx.fill(); }
+            });
+            if (g.ks.length > 6) { ctx.fillStyle = ink; ctx.textAlign = "center"; ctx.fillText(`+${g.ks.length - 6}`, bx + w - 12, by + h / 2 + 3); ctx.textAlign = "left"; }
+            ctx.fillStyle = ink;
+          }
+          // labels: right of the marker, else left, above or below; skipped (the hover still names it) if every spot is taken
+          for (const g of spots) {
+            const ks = g.ks.filter((i) => named.has(pts[i].k));
+            if (!ks.length) continue;
+            const names = ks.map((i) => short(pts[i].k)), txt = names.length > 3 ? `${names.slice(0, 3).join(", ")} +${names.length - 3}` : names.join(", ");
+            const tw = ctx.measureText(txt).width, th = px(10) + 2, m = g.m;
+            const cx = Math.max(a.left - 6, Math.min(g.x - tw / 2, a.right + 34 - tw)); // above / below: centered, slid inward at the edges
+            const tries = [[m.x + m.w + 3, g.y - th / 2], [m.x - tw - 3, g.y - th / 2], [cx, m.y - th - 1], [cx, m.y + m.h + 1]];
+            const rest = boxes.filter((b) => b !== m);
+            const fits = ([x0, y0]) => x0 >= a.left - 6 && x0 + tw <= a.right + 34 && y0 >= a.top - th && y0 <= a.bottom + 2
+              && !rest.some((b) => x0 < b.x + b.w && x0 + tw > b.x && y0 < b.y + b.h && y0 + th > b.y);
+            const at = tries.find(fits);
+            if (!at) continue;
+            ctx.fillText(txt, at[0], at[1] + th - 3);
+            boxes.push({ x: at[0], y: at[1], w: tw, h: th });
+          }
           ctx.restore(); } }] };
       body = { h: 440 };
       note = `${both.length < pool.length ? `Top ${both.length} of ${pool.length} ${who} by ${lc(stat[1])}` : `${both.length} ${who}`}${stat[3].den ? ` (at least ${minFor(stat)} ${unitOf(stat)} for ${stat[1].toLowerCase()})` : ""}. Dashed lines are the averages. ${stat[3].low || ystat[3].low ? "Axes are flipped where lower is better, so up and right is always good." : "Up and right is good."}`;
@@ -1588,6 +1639,7 @@ const Viz = (() => {
       ...(wkPer ? [[per === "share" ? "Share of team" : "Per 100 snaps", { per: "game" }]] : []),
       ...(whereRead ? [[`Where ${whereRead}`, { where: "" }]] : []),
       ...(st.noexit ? [["No halftime exits", { noexit: "" }]] : []),
+      ...(st.nz ? [["Zeros hidden", { nz: "" }]] : []),
       ...picks.filter((k) => agg[k]).map((k) => [`★ ${short(k)}`, { pick: picks.filter((x) => x !== k).join(",") }]),
     ];
     // the takeaway: one plain sentence from the chart's own numbers
@@ -1667,6 +1719,7 @@ const Viz = (() => {
       </div>`)}
       ${step(3, "Who", `<div class="vz-ctl">
         ${!whole ? whereBox : ""}
+        ${!whole && ["scatter", "bar", "table"].includes(st.type) ? `<div class="vz-chks vz-wide"><label><input type="checkbox" id="vz-nz"${st.nz ? " checked" : ""}> Hide zeros <small class="muted">${st.type === "scatter" ? "(anyone at 0, 0)" : "(anyone at 0)"}</small></label></div>` : ""}
         <label>${league === "nfl" ? "Division" : "Conference"}${sel("vz-group", [["", "All"], ...confs.map((c) => [c, c])], st.group)}</label>
         ${who === "players" ? `<label>Team${sel("vz-team", [["", "All teams"], ...Object.entries(D.teams).sort((a, b) => a[1][0].localeCompare(b[1][0])).map(([k, t]) => [k, t[0]])], st.team)}</label>
           <label>Position${sel("vz-pos", posOpts, st.pos)}</label>
@@ -1798,6 +1851,8 @@ const Viz = (() => {
     on("vz-from", "from", reload); on("vz-to", "to", reload); on("vz-opp", "opp"); on("vz-last", "last"); on("vz-cond", "cond");
     const nx = document.getElementById("vz-noexit");
     if (nx) nx.onchange = () => { st.noexit = nx.checked ? "1" : ""; redo(); };
+    const nzb = document.getElementById("vz-nz");
+    if (nzb) nzb.onchange = () => { st.nz = nzb.checked ? "1" : ""; redo(); };
     ["logo", "names"].forEach((k) => { const x = document.getElementById("vz-" + k); if (x) x.onchange = () => { st[k] = x.checked ? "" : "0"; redo(); }; });
     const rs = document.getElementById("vz-radar");
     if (rs) rs.onchange = (e) => {
@@ -2221,6 +2276,7 @@ const Viz = (() => {
         whole ? `${st.group || "whole league"}, one ${st.type} per season` : (st.type === "line" || st.type === "radar" || st.type === "pie") && !picks.length && `Top ${top}`,
         picks.length && `Highlighted: ${picks.map(name).join(", ")}`,
         st.noexit && "games left by halftime left out",
+        st.nz && (st.type === "scatter" ? "anyone at 0, 0 hidden" : "zeros hidden"),
         whereRead && `Filter: ${whereRead}`,
         st.type === "line" && st.cum && "running total",
       ].filter(Boolean);
