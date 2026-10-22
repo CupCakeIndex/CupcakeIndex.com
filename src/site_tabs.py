@@ -8,7 +8,7 @@ math as docs/live.js:
 import json
 import re
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
@@ -44,9 +44,30 @@ def inj_hit(st):
     return 0
 
 
-def _team(t, yr, starts):
+def inj_norm(n):
+    return re.sub(r"[^a-z ]", "", re.sub(r"\s+(jr|sr|ii|iii|iv|v)\.?$", "", (n or "").lower()))
+
+
+def official_for(off, team):
+    """The NFL's official report for this team (src/nfl_injuries.py), as live.js officialFor: {name: game status} plus
+    whether game statuses are out yet (usually Friday). None after the team's game."""
+    nm = (team or "").lower()
+    k = next((x for x in (off or {}).get("teams", {}) if nm.endswith(x.lower())), None)
+    r = k and off["teams"][k]
+    if not r or datetime.now(timezone.utc) > datetime.fromisoformat(r["kickoff"].replace("Z", "+00:00")) + timedelta(hours=4):
+        return None
+    return {inj_norm(p[0]): p[4] for p in r["players"]}, any(p[4] for p in r["players"])
+
+
+def _team(t, yr, starts, off=None):
     idof = lambda i: (re.search(r"/id/(\d+)", " ".join(l.get("href", "") for l in (i.get("athlete") or {}).get("links", []))) or [None, ""])[1]
-    injs = t.get("injuries") or []
+    rep_ = official_for(off, t.get("displayName", ""))
+
+    def st_of(name, st):  # the official game status once a team posts them; before that ESPN's (live.js stOf)
+        if rep_ and inj_norm(name) in rep_[0] and (rep_[0][inj_norm(name)] or rep_[1]):
+            return rep_[0][inj_norm(name)]
+        return st
+    injs = [{**i, "status": st_of((i.get("athlete") or {}).get("displayName"), i.get("status"))} for i in (t.get("injuries") or [])]
     missing = {idof(i) for i in injs if inj_hit(i.get("status")) >= 0.75} - {""}
     reported = {idof(i) for i in injs}
     try:
@@ -61,7 +82,7 @@ def _team(t, yr, starts):
         people = []
     extra = []  # long-term IR the league report leaves out
     for a in people:
-        st = ((a.get("injuries") or [{}])[0]).get("status", "")
+        st = st_of(a.get("fullName") or a.get("displayName", ""), ((a.get("injuries") or [{}])[0]).get("status", ""))
         if inj_hit(st) > 0 and str(a.get("id")) not in reported:
             extra.append({"id": str(a["id"]), "name": a.get("fullName") or a.get("displayName", ""), "pos": (a.get("position") or {}).get("abbreviation", ""), "status": st})
             if inj_hit(st) >= 0.75:
@@ -122,8 +143,12 @@ def injuries():
     rep = get(f"{SITE}/injuries")
     yr = (rep.get("season") or {}).get("year") or date.today().year
     starts = json.loads((ROOT / "docs" / "data" / "nfl_starts.json").read_text(encoding="utf-8")).get("players", {})
+    try:
+        off = json.loads((ROOT / "docs" / "data" / "nfl_injuries.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        off = None
     with ThreadPoolExecutor(8) as ex:
-        teams = list(ex.map(lambda t: _team(t, yr, starts), rep.get("injuries") or []))
+        teams = list(ex.map(lambda t: _team(t, yr, starts, off), rep.get("injuries") or []))
     teams.sort(key=lambda t: t["health"])
     for i, t in enumerate(teams, 1):
         t["rank_most_hurt"] = i

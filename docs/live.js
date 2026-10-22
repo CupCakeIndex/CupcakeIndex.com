@@ -2819,14 +2819,18 @@ const Live = (() => {
   }
   // The NFL's official report (nfl.com, the same one each team's site shows; src/nfl_injuries.py, every 10 minutes): its game
   // status wins over ESPN's until the team's game ends, since ESPN lags (Trey Amos stayed IR on ESPN when Washington
-  // listed him Questionable). On the report with no game status = expected to play.
+  // listed him Questionable). Game statuses come with the final report (usually Friday); before a team posts them, its report
+  // only has practice notes, so ESPN's status stands (Wednesday: Deebo Samuel "did not participate" isn't "expected to play").
+  // Once a team's report has game statuses, being on it with no status = expected to play.
   const injNorm = (n) => (n || "").toLowerCase().replace(/\s+(jr|sr|ii|iii|iv|v)\.?$/, "").replace(/[^a-z ]/g, "");
   const officialFor = (off, team) => {
     const nm = (team.displayName || team.name || "").toLowerCase();
     const k = Object.keys(off?.teams || {}).find((x) => nm.endsWith(x.toLowerCase()));
     const r = k && off.teams[k];
     if (!r || Date.now() > Date.parse(r.kickoff) + 4 * 3600000) return null;
-    return new Map(r.players.map((p) => [injNorm(p[0]), { status: p[4], note: [p[2], p[3]].filter(Boolean).join(" · ") }]));
+    const m = new Map(r.players.map((p) => [injNorm(p[0]), { status: p[4], note: [p[2], p[3]].filter(Boolean).join(" · ") }]));
+    m.final = r.players.some((p) => p[4]); // game statuses are out
+    return m;
   };
   let injP = null, injAt = 0;
   const injData = () => {
@@ -2843,7 +2847,7 @@ const Live = (() => {
       // who's missing (Out / IR / Doubtful, or hurt in today's game and not back): decides who the next man up is
       const idOf = (i) => (/\/id\/(\d+)/.exec((i.athlete?.links || []).map((l) => l.href).join(" ")) || [])[1] || "";
       const off = officialFor(offRep, t);
-      const stOf = (name, s) => { const o = off?.get(injNorm(name)); return o ? o.status : s; }; // official status, else ESPN's
+      const stOf = (name, s) => { const o = off?.get(injNorm(name)); return o && (o.status || off.final) ? o.status : s; }; // official game status, else ESPN's
       const missing = new Set((t.injuries || []).filter((i) => INJ_HIT(stOf(i.athlete?.displayName, i.status)) >= 0.75).map(idOf).filter(Boolean));
       // the league report leaves out long-term injured reserve (Trey Amos, Laremy Tunsil...): the team roster has them
       const reported = new Set((t.injuries || []).map(idOf));
@@ -2961,7 +2965,7 @@ const Live = (() => {
           <span class="inj-rk">${i + 1}</span><span class="tm">${img(teamLogo(t.team), "xs")} ${esc(t.team.abbreviation)}</span>
           <span class="inj-bar"><i style="width:${t.health.toFixed(1)}%;background:${col(t.health)}"></i><em style="left:${avg.toFixed(1)}%" title="League average"></em></span>
           <span class="inj-pct">${Math.round(t.health)}%</span><span class="inj-so">${t.keyOut} key, ${t.hurt.length} total</span></button>`).join("")}</div>
-      <p class="fr-how">Tap a team for its report. <b>% healthy</b> weighs who's hurt: a starting QB counts about 10x a punter. <b>Key players</b> count fully: the starters, the next man up when a starter is out (with QB1 out, QB2 is the starter, so losing him hurts just as much), and anyone hurt who has started 5+ games since last season (even if ESPN has dropped him from the depth chart, like most players on IR). Other backups count a little. Out or IR counts fully, Doubtful 3/4, Questionable 1/4. The dashed line is the league average.</p>
+      <p class="fr-how">Tap a team for its report. <b>% healthy</b> weighs who's hurt: a starting QB counts about 10x a punter. <b>Key players</b> count fully: the starters, the next man up when a starter is out (with QB1 out, QB2 is the starter, so losing him hurts just as much), and anyone hurt who has started 5+ games since last season (even if ESPN has dropped him from the depth chart, like most players on IR). Other backups count a little. Out or IR counts fully, Doubtful 3/4, Questionable 1/4. Statuses come from the NFL's official report once a team posts game statuses (usually Friday); before that, from ESPN, since midweek reports only list who practiced. The dashed line is the league average.</p>
       <div id="inj-detail"><h3>${esc(focus.team.displayName || "")} injury report</h3>${list(focus)}</div>
       <p class="note">The NFL's official injury report (the game statuses each team's site shows) until a team's game is played, otherwise ESPN's, with ESPN's depth charts, plus today's games: anyone hurt during a game counts right away (from the play-by-play, marked IN-GAME) and drops off if he returns. During games this page refreshes every minute. Players already moved off the depth chart (often to IR) count at 30%.</p></div>`;
     $("#inj-chart").onclick = (e) => {

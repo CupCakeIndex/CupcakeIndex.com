@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.105.1",
+    "build": 413,
+    "date": "2026-10-22",
+    "items": [
+      "Injuries fix: midweek, the tracker was counting players who missed practice as healthy (the NFL's Wednesday report has no game statuses yet, and we read that as \"expected to play\"). It now uses ESPN's status until a team posts game statuses, usually Friday. The 49ers went from 84% to 71% healthy, which matches our posts and is closer to reality."
+    ]
+  },
+  {
     "version": "1.105.0",
     "build": 412,
     "date": "2026-10-22",
