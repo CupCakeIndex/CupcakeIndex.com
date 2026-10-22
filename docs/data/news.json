@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-22T02:41:29Z",
+ "updated": "2026-10-22T03:12:25Z",
  "teams": {
   "nfl:22": {
    "name": "Arizona Cardinals",
@@ -42,6 +42,13 @@
    "lg": "nfl",
    "id": "4",
    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/cin.png"
+  },
+  "nfl:5": {
+   "name": "Cleveland Browns",
+   "short": "Browns",
+   "lg": "nfl",
+   "id": "5",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/cle.png"
   },
   "nfl:6": {
    "name": "Dallas Cowboys",
@@ -217,6 +224,13 @@
    "lg": "cfb",
    "id": "333",
    "logo": "https://cdn.collegefootballdata.com/logos/500/333.png"
+  },
+  "cfb:349": {
+   "name": "Army",
+   "short": "Army",
+   "lg": "cfb",
+   "id": "349",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/349.png"
   },
   "cfb:2": {
    "name": "Auburn",
@@ -470,6 +484,13 @@
    "id": "2641",
    "logo": "https://cdn.collegefootballdata.com/logos/500/2641.png"
   },
+  "cfb:202": {
+   "name": "Tulsa",
+   "short": "Tulsa",
+   "lg": "cfb",
+   "id": "202",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/202.png"
+  },
   "cfb:2116": {
    "name": "UCF",
    "short": "UCF",
@@ -535,6 +556,43 @@
   }
  },
  "items": [
+  {
+   "title": "Joe Burrow says he didn't interact with VP Vance during Bengals practice visit",
+   "url": "https://sports.yahoo.com/articles/joe-burrow-says-didnt-interact-025516756.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-22T02:55:16Z",
+   "summary": "VP JD Vance made a surprise visit at Bengals practice on Wednesday. Joe Burrow spoke about it after practice.",
+   "image": "",
+   "teams": [
+    "nfl:4"
+   ]
+  },
+  {
+   "title": "Army vs Tulsa Prediction: The Nation's Best Ground Game Keeps Rolling",
+   "url": "https://sports.yahoo.com/articles/army-vs-tulsa-prediction-nations-025413194.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-22T02:54:13Z",
+   "summary": "Army started playing well just when it needed to, but Tulsa is good enough to put that to a stop. Here's the CFN preview and prediction.",
+   "image": "",
+   "teams": [
+    "cfb:202",
+    "cfb:349"
+   ]
+  },
+  {
+   "title": "JC Latham on incident with Jordan Elliott: It was just an unfortunate situation",
+   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/jc-latham-on-incident-with-jordan-elliott-it-was-just-an-unfortunate-situation",
+   "source": "Pro Football Talk",
+   "league": "nfl",
+   "published": "2026-10-22T02:51:05Z",
+   "summary": "The Titans released defensive lineman Jordan Elliott on Tuesday after an incident at the team facility.",
+   "image": "https://nbcsports.brightspotcdn.com/dims4/default/c7bdc09/2147483647/strip/false/crop/5223x2938+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2Fff%2F9c%2Fdf5a7dc3457f972f37682b27e6c2%2Fhttps-delivery-gettyimages.com%2Fdownloads%2F2254175343",
+   "teams": [
+    "nfl:10"
+   ]
+  },
   {
    "title": "Miami scores big recruiting win after flipping 4-star LB",
    "url": "https://sports.yahoo.com/articles/miami-scores-big-recruiting-win-022806324.html",
@@ -997,19 +1055,6 @@
    "teams": []
   },
   {
-   "title": "Tennessee football reports no new injuries for the South Carolina game",
-   "url": "https://sports.yahoo.com/articles/tennessee-football-reports-no-injuries-001307333.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-22T00:13:07Z",
-   "summary": "Tennessee football plays at South Carolina on Oct. 24 in Week 8. Here is the latest SEC availability report for both teams.",
-   "image": "",
-   "teams": [
-    "cfb:2579",
-    "cfb:2633"
-   ]
-  },
-  {
    "title": "Texas EDGE Colin Simmons officially ruled doubtful vs. Ole Miss",
    "url": "https://on3.com/news/texas-edge-colin-simmons-officially-ruled-doubtful-vs-ole-miss/",
    "source": "On3",
@@ -1293,18 +1338,6 @@
    ]
   },
   {
-   "title": "Christian Watson a limited participant at practice",
-   "url": "https://sports.yahoo.com/articles/christian-watson-limited-participant-practice-222353911.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-21T22:23:53Z",
-   "summary": "Packers WR Christian Watson start week off with a limited practice",
-   "image": "",
-   "teams": [
-    "nfl:9"
-   ]
-  },
-  {
    "title": "Brian Kelly sticks with Georgia as No. 1 team: Kirby Smart 'the guy that I trust the most'",
    "url": "https://on3.com/news/brian-kelly-sticks-with-georgia-as-no-1-team-kirby-smart-the-guy-that-i-trust-the-most/",
    "source": "On3",
@@ -1363,6 +1396,31 @@
    "summary": "Last week saw no shortage of upsets as part of a wild Week 7 slate. It’s now on to Week 8 as college football enters its final stretch, and the announcer schedule is in place for some of the biggest…",
    "image": "https://on3static.com/cdn-cgi/image/height=630,width=1200,quality=90,fit=cover/uploads/dev/assets/cms/2026/10/20153043/TV-coaches-afi.png",
    "teams": []
+  },
+  {
+   "title": "Jameis Winston on losing his starting job: I understand where I am now",
+   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/jameis-winston-on-losing-his-starting-job-i-understand-where-i-am-now",
+   "source": "Pro Football Talk",
+   "league": "nfl",
+   "published": "2026-10-21T20:40:41Z",
+   "summary": "The Giants benched Jameis Winston just 23 days after trading with the Vikings for J.J.",
+   "image": "https://nbcsports.brightspotcdn.com/dims4/default/9a8b7ac/2147483647/strip/false/crop/2139x1203+0+219/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F33%2Ffc%2Fe1e9da0c4bd790f22a560747c7ec%2F2301029930.jpg",
+   "teams": [
+    "nfl:16",
+    "nfl:19"
+   ]
+  },
+  {
+   "title": "Rashod Bateman joins Lamar Jackson as limited participant Wednesday; Cam Jurgens fully participates",
+   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/rashod-bateman-joins-lamar-jackson-as-limited-participant-wednesday-cam-jurgens-fully-participates",
+   "source": "Pro Football Talk",
+   "league": "nfl",
+   "published": "2026-10-21T20:38:26Z",
+   "summary": "Wide receiver Rashod Bateman was forced out of last Sunday's loss to the Browns with a shoulder injury, but he was able to get on the practice field Wednesday.",
+   "image": "https://nbcsports.brightspotcdn.com/dims4/default/85e8ebf/2147483647/strip/false/crop/6871x3865+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2Fa9%2Fb4%2Fcd63068f4c06803ca028dcb7bb73%2F2299365579.jpg",
+   "teams": [
+    "nfl:5"
+   ]
   },
   {
    "title": "Cowboys-Packers generates 24.656 million on Sunday night",
@@ -1544,16 +1602,6 @@
    "teams": [
     "nfl:17"
    ]
-  },
-  {
-   "title": "John Harbaugh: Starting J.J. McCarthy is the plan going forward",
-   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/john-harbaugh-starting-j-j-mccarthy-is-the-plan-going-forward",
-   "source": "Pro Football Talk",
-   "league": "nfl",
-   "published": "2026-10-21T19:36:10Z",
-   "summary": "Jameis Winston will move to the bench after starting the last four games.",
-   "image": "https://nbcsports.brightspotcdn.com/dims4/default/609ddeb/2147483647/strip/false/crop/3840x2160+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F1d%2F7b%2F1eecc5f74695a2ab7da6042f5390%2F2026-10-19t000804z-479843322-mt1usatoday30127274-rtrmadp-3-nfl-new-orleans-saints-at-new-york-giants.jpg",
-   "teams": []
   },
   {
    "title": "2026 Big 12 Title Odds: Texas Tech remains slight Polymarket favorite over BYU heading into Week 8",
@@ -2200,18 +2248,6 @@
    ]
   },
   {
-   "title": "NFL, Saints address plans for Paris game during Week 6 as protests escalate in France",
-   "url": "https://www.cbssports.com/nfl/news/nfl-saints-address-paris-game-plans-week-6-protests/",
-   "source": "CBS Sports",
-   "league": "nfl",
-   "published": "2026-10-20T22:26:16Z",
-   "summary": "The league says its continuing with its original plans and monitoring the situation",
-   "image": "https://sportshub.cbsistatic.com/i/2026/10/18/d761f43c-b902-4438-a72b-633954f2fb49/paris-france.jpg",
-   "teams": [
-    "nfl:18"
-   ]
-  },
-  {
    "title": "Inside the rise of FIU's dominant, no-name defense under Jovan Dewitt: Bounceback transfers, modular scheme",
    "url": "https://www.cbssports.com/college-football/news/fiu-defense-dominance-2026-season-transfers-modular-scheme/",
    "source": "CBS Sports",
@@ -2342,19 +2378,6 @@
    "teams": [
     "nfl:25",
     "nfl:28"
-   ]
-  },
-  {
-   "title": "2026 CFP bracket projection: How Julian Sayin's uncertain status could reshape Ohio State's playoff path",
-   "url": "https://www.cbssports.com/college-football/news/college-football-playoff-bracket-projection-2026-miami-ohio-state-julian-sayin/",
-   "source": "CBS Sports",
-   "league": "cfb",
-   "published": "2026-10-20T15:35:30Z",
-   "summary": "The Buckeyes face a complicated path in the wake of Sayin's injury, while Miami takes over the No. 1 seed in our latest projection",
-   "image": "https://sportshub.cbsistatic.com/i/2026/10/20/600bdaec-be65-4f51-b4d6-d648b9ed8dd9/cfp-week-8.png",
-   "teams": [
-    "cfb:194",
-    "cfb:2390"
    ]
   },
   {
