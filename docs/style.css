@@ -3172,7 +3172,12 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .rank-bar.hidden { display: none; }
 .rank-bar select { padding: 6px 8px; }
 
-/* The group bar: the pages inside the current tab (app.js GROUPS). One row; on phones it scrolls sideways. */
-.subtabs.group-bar { position: relative; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 12px 0 6px; padding-bottom: 2px; }
-.subtabs.group-bar::-webkit-scrollbar { display: none; }
-.group-bar .subtab { flex: none; white-space: nowrap; }
+/* Main tabs open a drop-down of their pages (app.js openTabMenu), styled like More. Phones: no caret, to fit 5 tabs. */
+#nav { position: relative; }
+.tab-dd { display: inline-flex; align-items: center; gap: 6px; }
+.tab-dd[aria-expanded="true"] { color: var(--ink); }
+.tab-dd[aria-expanded="true"] .more-car { transform: rotate(180deg); }
+.more-menu.tab-menu { right: auto; min-width: 200px; }
+@media (max-width: 640px) {
+  .tab-dd .more-car { display: none; }
+}

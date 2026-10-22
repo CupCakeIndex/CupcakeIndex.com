@@ -23,7 +23,7 @@ const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", rece
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
 const RANK_VIEWS = new Set(["rankings", "schedules", "resume"]);
 const VIEWS = new Set(["rankings", "picks", "schedules", "resume", "shame", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "trades", "daily", "hilo", "fantasy", "news", "takes", "coaches", "coach", "admin", "breakdown", "games", "settings", "privacy"]);
-// The 5 tabs and the pages inside each, shown as a row of pills under the nav (the group bar). An item is
+// The 5 tabs and the pages inside each, shown in a drop-down when you tap the tab (like More). An item is
 // [view, label, params, league]: params pick a page that shares a view (Stats ?show=visualize), league hides it in the
 // other league. "also" = pages with no pill of their own that still light up the tab (a game's box score -> Scores).
 const GROUPS = [
@@ -40,17 +40,18 @@ function groupItem(g, r) {
   return mine.find(([, , p]) => p && hit(p)) || mine.find(([, , p]) => !p);
 }
 function groupOf(view) { return GROUPS.find((g) => g.items.some(([v]) => v === view) || (g.also || []).includes(view)); }
-function renderGroupBar(r) {
-  const g = groupOf(r.view), bar = $("#group-bar");
-  bar.classList.toggle("hidden", !g);
-  if (!g) return (bar.innerHTML = "");
-  const on = groupItem(g, r);
-  bar.innerHTML = g.items.filter(([, , , lg]) => !lg || lg === league)
-    .map((it) => `<a class="subtab${it === on ? " on" : ""}" href="${link(it[0], null, it[2] || {})}">${esc(it[1])}</a>`).join("");
-  // phones: the row scrolls sideways, so center this page's pill (never scrolls the page); again once the font has loaded
-  const center = () => { const a = bar.querySelector(".on"); if (a) bar.scrollLeft = a.offsetLeft - (bar.clientWidth - a.offsetWidth) / 2; };
-  center();
-  document.fonts?.ready.then(center);
+// Open a tab's drop-down under it (one shared menu, outside the sideways-scrolling tab row so it isn't clipped)
+function openTabMenu(tab) {
+  const g = GROUPS.find((x) => x.tab === tab.dataset.view), menu = $("#tab-menu"), r = parseHash();
+  const on = groupOf(r.view) === g ? groupItem(g, r) : null;
+  setMoreOpen(false);
+  menu.innerHTML = `<div class="mm-group"><span class="mm-h">// ${esc(tab.firstChild.textContent.trim().toLowerCase())}</span>` + g.items.filter(([, , , lg]) => !lg || lg === league)
+    .map((it) => `<a class="mm-item${it === on ? " active" : ""}" href="${link(it[0], null, it[2] || {})}">${esc(it[1])}</a>`).join("") + `</div>`;
+  menu.hidden = false;
+  menu.dataset.tab = g.tab;
+  tab.setAttribute("aria-expanded", "true");
+  const nav = $("#nav").getBoundingClientRect(), t = tab.getBoundingClientRect();
+  menu.style.left = Math.max(0, Math.min(t.left - nav.left, nav.width - menu.offsetWidth)) + "px"; // stays on screen
 }
 
 // ------------------------------------------------------------------ forgiving name search
@@ -154,7 +155,6 @@ async function route() {
   Live.stop();
   document.querySelectorAll(".view").forEach((s) => s.classList.toggle("hidden", s.id !== "view-" + r.view));
   setNavActive(groupOf(r.view)?.tab || r.view);
-  renderGroupBar(r);
   $("#gear").classList.toggle("active", r.view === "settings");
   document.querySelectorAll(".rank-ctl").forEach((el) => el.classList.toggle("hidden", !RANK_VIEWS.has(r.view)));
   $("#rank-bar")?.classList.toggle("hidden", !RANK_VIEWS.has(r.view));
@@ -228,11 +228,20 @@ function setNavActive(view) {
 function setMoreOpen(open) {
   $("#more-menu").hidden = !open;
   $("#more-btn").setAttribute("aria-expanded", open);
+  $("#tab-menu").hidden = true; // only one menu open at a time
+  document.querySelectorAll("#nav .tab-dd").forEach((t) => t.setAttribute("aria-expanded", "false"));
 }
 function initNav() {
   $("#more-btn").onclick = () => setMoreOpen($("#more-menu").hidden);
   $("#more-menu").onclick = (e) => { if (e.target.closest("a")) setMoreOpen(false); };
-  document.addEventListener("pointerdown", (e) => { if (!e.target.closest(".nav-more")) setMoreOpen(false); });
+  $("#tab-menu").onclick = (e) => { if (e.target.closest("a")) setMoreOpen(false); };
+  // a main tab opens its drop-down (tap it again to close) instead of going straight to its first page
+  document.querySelectorAll("#nav .tab-dd").forEach((t) => (t.onclick = (e) => {
+    e.preventDefault();
+    if ($("#tab-menu").dataset.tab === t.dataset.view && !$("#tab-menu").hidden) setMoreOpen(false);
+    else openTabMenu(t);
+  }));
+  document.addEventListener("pointerdown", (e) => { if (!e.target.closest(".nav-more, #tab-menu, .tab-dd")) setMoreOpen(false); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") setMoreOpen(false); });
   phoneNav.addEventListener("change", () => setNavActive(groupOf(parseHash().view)?.tab || parseHash().view));
 }
@@ -261,7 +270,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "419"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "420"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
