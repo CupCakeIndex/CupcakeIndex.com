@@ -5,13 +5,17 @@ How it works (all from free data we already use, plus ESPN's contract records):
      file), seeding 4 division winners + 3 wild cards per conference. Teams with a low chance are sellers.
   2. Candidates: everyone who plays a real role (35%+ of his side's snaps) on a team with a playoff chance under 45%.
   3. Contract (ESPN): the year he's signed through and this season's salary. Expiring deals get moved; long new ones don't.
-  4. Trade score = seller x contract x age x role x worth (QBs and running backs rarely move mid-season, so they count less).
-     Rebuilding teams sell veterans on short deals and keep young players.
-  5. Best fits: contenders (playoff chance 35-97%) whose unit at his position ranks low (our play-by-play numbers), best first.
+  4. Trade talk: headlines from the last 2 weeks (Google News: league-wide trade searches plus one per team) that name
+     him next to a trade word. Anyone being talked about joins the list, even on a winning team.
+  5. Trade score = seller x contract x age x role x worth x talk (QBs and running backs rarely move mid-season, so they
+     count less), plus trade talk on its own: 0.35 x log2(1 + headlines), so 1 headline adds 0.35 and 15 add 1.4 (the
+     contract math tops out at 1). Rebuilding teams sell veterans on short deals and keep young players.
+  6. Best fits: contenders (playoff chance 35-97%) whose unit at his position ranks low (our play-by-play numbers), best first.
 
 Writes docs/data/nfl/trade_watch.json. Usage: python src/trade_watch.py [--no-contracts]
 """
 import datetime as dt
+import math
 import glob
 import json
 import os
@@ -73,8 +77,47 @@ def playoff_chances(teams):
     return {n: made[n] / SIMS for n in names}, {n: n0[n] for n in names}
 
 
+TALK_WORDS = re.compile(r"\btrad(e|es|ed|ing)\b|deadline|trade block|on the block|shop(ped|ping)?\b|rumou?rs?|sweepstakes|"
+                        r"suitors?|availab|could be moved|landing spots?|mock trade|deal for|acquire", re.I)
+
+
+def headlines(teams):
+    """Trade-ish headlines from the last 14 days: [(title, link)], deduped."""
+    import html
+    qs = ["NFL trade rumors", "NFL trade deadline", "NFL trade deadline candidates", "NFL trade block", "NFL mock trade"]
+    qs += [f"{t} trade" for t in teams]
+    seen, out = set(), []
+    for q in qs:
+        try:
+            r = requests.get("https://news.google.com/rss/search", params={"q": f"{q} when:14d", "hl": "en-US", "gl": "US", "ceid": "US:en"},
+                             headers={"User-Agent": "Mozilla/5.0 (compatible; CupcakeIndex/1.0; +https://cupcakeindex.com)"}, timeout=20)
+            r.raise_for_status()
+            r.encoding = "utf-8"
+        except requests.RequestException:
+            continue
+        for item in re.findall(r"<item>(.*?)</item>", r.text, re.S):
+            t = re.search(r"<title>(.*?)</title>", item, re.S)
+            l = re.search(r"<link>(.*?)</link>", item, re.S)
+            if not t:
+                continue
+            title = html.unescape(re.sub(r"<!\[CDATA\[|\]\]>", "", t.group(1))).strip()
+            title = re.sub(r"\s+-\s+[^-]+$", "", title)  # " - Source"
+            if "â€" in title:  # a source's UTF-8 read as Latin-1 ("Coltsâ€™"): undo it
+                try:
+                    title = title.encode("cp1252").decode("utf-8")
+                except UnicodeError:
+                    title = title.replace("â€™", "’").replace("â€œ", "“").replace("â€", "”")
+            k = title.lower()
+            if k in seen or not TALK_WORDS.search(title):
+                continue
+            seen.add(k)
+            out.append((title, html.unescape(l.group(1).strip()) if l else ""))
+        time.sleep(0.3)
+    return out
+
+
 def contract(pid):
-    """(salary this season, signed through, years remaining) from ESPN's athlete contract record, or None."""
+    """(salary this season, signed through, his team's ESPN id now) from ESPN's athlete contract record, or None."""
     for _ in range(3):
         try:
             r = requests.get(f"https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/athletes/{pid}/contracts/{SEASON}",
@@ -83,7 +126,8 @@ def contract(pid):
                 return None
             if r.ok:
                 c = r.json()
-                return c.get("salary"), c.get("signedThrough"), c.get("yearsRemaining")
+                tm = re.search(r"/teams/(\d+)", (c.get("team") or {}).get("$ref", ""))
+                return c.get("salary"), c.get("signedThrough"), tm.group(1) if tm else None
         except requests.RequestException:
             pass
         time.sleep(1.5)
@@ -158,16 +202,22 @@ def main():
         t[0] += tr[tc["plays"]]
         t[1] += tr[tc["opp_plays"]]
     AG = ages()
+    news = [] if "--no-talk" in sys.argv else headlines(list(by_name))
+    print(f"{len(news)} trade headlines")
+    def talk_of(name):
+        rx = re.compile(r"\b" + re.escape(name).replace(r"\ ", r"\s+") + r"\b", re.I)
+        return [n for n in news if rx.search(n[0])]
     cands = []
     for pid, (sn, _) in snaps.items():
         name, _, team, pos = V["pmeta"][pid][:4]
-        if pos not in UNIT or tp.get(team, 1) >= 0.45:
+        talk = talk_of(name) if pos in UNIT and len(name) > 6 else []
+        if pos not in UNIT or (tp.get(team, 1) >= 0.45 and not talk):
             continue
         share = sn / max(1, team_snaps[team][1 if side[pid] else 0])
         a, status = AG.get(pid, (None, None))
-        if share < 0.35 or (status and status not in ("ACT",)):
+        if (share < 0.35 and not talk) or (status and status not in ("ACT",)):
             continue
-        cands.append({"id": pid, "name": name, "pos": pos, "team": team, "share": round(share, 3), "age": a})
+        cands.append({"id": pid, "name": name, "pos": pos, "team": team, "share": round(share, 3), "age": a, "talk": talk})
     print(f"{len(cands)} candidates on {sum(1 for p in tp.values() if p < 0.45)} seller teams")
 
     no_c = "--no-contracts" in sys.argv
@@ -176,17 +226,23 @@ def main():
         k = None if no_c else contract(c["id"])
         if not no_c:
             time.sleep(0.05)
-        sal, thru, _ = k or (None, None, None)
+        sal, thru, now = k or (None, None, None)
+        if now and now != c["team"].split(":")[1]:
+            continue  # already traded (or cut and signed elsewhere): ESPN has him on another team
         p = tp[c["team"]]
-        seller = min(1, (0.45 - p) / 0.35) ** 0.7
+        seller = max(0.15, min(1, (0.45 - p) / 0.35)) ** 0.7 if p < 0.45 else 0.15  # a contender rarely sells, but it happens
         cf = {SEASON: 1.0, SEASON + 1: 0.6}.get(thru, 0.3 if thru else 0.5)
         a = c["age"]
         af = 0.5 if a is None else 1.0 if a >= 30 else 0.85 if a >= 28 else 0.6 if a >= 26 else 0.3
         role = min(1, c["share"] / 0.7)
         worth = 0.6 + 0.4 * min(1, (sal or 0) / 10e6)
         posf = {"QB": 0.45, "RB": 0.7}.get(c["pos"], 1)
-        score = seller * cf * af * role * worth * posf
+        talk = c.pop("talk")
+        # trade talk counts on its own (people are discussing it), with diminishing returns: 1 headline +0.35, 3 +0.7, 7 +1.05, 15 +1.4
+        score = seller * cf * af * role * worth * posf + 0.35 * math.log2(1 + len(talk)) * posf ** 0.5
         why = [f"{abbr[c['team']]} {rec.get(c['team'], '')}, {round(100 * p)}% playoff chance"]
+        if talk:
+            why.insert(0, f"{len(talk)} trade headline{'s' if len(talk) > 1 else ''} in 2 weeks")
         if thru:
             why.append("contract ends after this season" if thru == SEASON else f"signed through {thru}")
         if a:
@@ -200,7 +256,8 @@ def main():
             need = (rank[u][t] - 1) / 31  # 0 = best unit, 1 = worst
             fits.append((need * (1 - abs(pt - 0.7)), t, need))
         fits = [[abbr[t], f"#{rank[u][t]} {UNIT_TXT[u]}, {round(100 * tp[t])}% playoff chance"] for s, t, n in sorted(fits, reverse=True)[:3]]
-        out.append({**c, "age": round(a, 1) if a else None, "salary": sal, "through": thru, "score": round(score, 4), "why": why, "fits": fits})
+        out.append({**c, "age": round(a, 1) if a else None, "salary": sal, "through": thru, "score": round(score, 4), "why": why, "fits": fits,
+                    "talk": len(talk), "story": list(talk[0]) if talk else None})
     out.sort(key=lambda x: -x["score"])
     out = out[:80]
     top = out[0]["score"] if out else 1
@@ -214,7 +271,7 @@ def main():
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
     print(f"{len(out)} players -> {OUT}")
     for x in out[:12]:
-        print(f"  {x['score']:3} {x['name']} {x['pos']} {abbr[x['team']]} thru {x['through']} ${(x['salary'] or 0) / 1e6:.1f}M age {x['age']} -> {', '.join(f[0] for f in x['fits'])}")
+        print(f"  {x['score']:3} talk {x['talk']:2} {x['name']} {x['pos']} {abbr[x['team']]} thru {x['through']} ${(x['salary'] or 0) / 1e6:.1f}M age {x['age']} -> {', '.join(f[0] for f in x['fits'])}")
 
 
 if __name__ == "__main__":

@@ -3103,3 +3103,7 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
   #tw-table th:nth-child(1), #tw-table td:nth-child(1) { display: none; }
   #tw-table td small { display: block; }
 }
+.tw-story { display: block; max-width: 340px; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.tw-story:hover { color: var(--accent, #ff6b2c); }
+.tw-talk { color: var(--accent, #ff6b2c); }
+@media (max-width: 520px) { .tw-story { max-width: 190px; } }

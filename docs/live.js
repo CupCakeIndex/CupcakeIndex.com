@@ -5160,18 +5160,20 @@ const Live = (() => {
         <div class="sc-bar"><h2>Trade watch</h2>
           <div class="presets" id="tw-pos">${[["", "All"], ...POS.map((p) => [p, p])].map(([v, l]) => `<button data-pos="${v}" class="${v === twPos ? "on" : ""}">${l}</button>`).join("")}</div></div>
         ${gone ? `<p class="note">The ${D.season} deadline has passed. This was our list going in.</p>` : ""}
-        <div class="table-wrap"><table class="box" id="tw-table"><thead><tr><th>#</th><th>Player</th><th>Team</th><th>Contract</th><th>Chance</th><th>Best fits</th></tr></thead><tbody></tbody></table></div>
-        <p class="note">Our guess at who gets moved, refreshed daily (last ${esc(D.updated.slice(0, 10))}). <b>Sellers</b> are teams with a low playoff chance in ${D.sims.toLocaleString("en-US")} simulations of the rest of the season from our power ratings. A player ranks higher when his team is selling, his contract ends soon (salary and years from ESPN), he's a veteran (rebuilding teams keep young players), he plays a big role, and he's worth something to a contender. QBs and running backs rarely move mid-season, so they count less. <b>Best fits</b> are contenders (35-97% playoff chance) whose unit at his position ranks low in our play-by-play numbers. We can't see teams' cap space, so a fit isn't a sure thing. Chance is a ranking (Likely, Possible, Long shot), not a percentage.</p></div>`;
+        <div class="table-wrap"><table class="box" id="tw-table"><thead><tr><th>#</th><th>Player</th><th>Team</th><th>Contract</th><th>Talk</th><th>Chance</th><th>Best fits</th></tr></thead><tbody></tbody></table></div>
+        <p class="note">Our guess at who gets moved, refreshed daily (last ${esc(D.updated.slice(0, 10))}). <b>Talk</b> is how many trade headlines named him in the last 2 weeks (Google News: league-wide trade searches plus one per team); the line under his name is one of them. Talk counts a lot, since it's the best public sign a deal is being discussed, but with diminishing returns. Players who were already traded drop off. <b>Sellers</b> are teams with a low playoff chance in ${D.sims.toLocaleString("en-US")} simulations of the rest of the season from our power ratings. A player ranks higher when his team is selling, his contract ends soon (salary and years from ESPN), he's a veteran (rebuilding teams keep young players), he plays a big role, and he's worth something to a contender. QBs and running backs rarely move mid-season, so they count less. <b>Best fits</b> are contenders (35-97% playoff chance) whose unit at his position ranks low in our play-by-play numbers. We can't see teams' cap space, so a fit isn't a sure thing. Chance is a ranking (Likely, Possible, Long shot), not a percentage.</p></div>`;
     const draw = () => {
       const rows = D.players.filter((p) => !twPos || p.pos === twPos);
       $("#tw-table tbody").innerHTML = rows.map((p, i) => `<tr>
         <td class="num">${i + 1}</td>
-        <td><a href="${link("player", p.id)}"><b>${esc(p.name)}</b></a> <span class="muted">${esc(p.pos)}${p.age ? ` · ${Math.floor(p.age)}` : ""}</span></td>
+        <td><a href="${link("player", p.id)}"><b>${esc(p.name)}</b></a> <span class="muted">${esc(p.pos)}${p.age ? ` · ${Math.floor(p.age)}` : ""}</span>
+          ${p.story && safeUrl(p.story[1]) ? `<a class="tw-story" href="${esc(p.story[1])}" target="_blank" rel="noopener">${esc(p.story[0])}</a>` : ""}</td>
         <td><span class="tm">${tlogo(abOf(p.team))} ${esc(abOf(p.team))}</span> <small class="muted">${esc(D.teams[abOf(p.team)]?.record || "")} · ${Math.round(100 * (D.teams[abOf(p.team)]?.p || 0))}% playoffs</small></td>
         <td>${p.through ? (p.through === D.season ? `<b class="tw-exp">ends ${p.through}</b>` : `thru ${p.through}`) : "–"} <small class="muted">${money(p.salary)}</small></td>
+        <td class="num">${p.talk ? `<b class="tw-talk" title="Trade headlines naming him in the last 2 weeks">${p.talk}</b>` : `<span class="muted">0</span>`}</td>
         <td><span class="tw-tier tw-${p.tier === "Likely" ? "hi" : p.tier === "Possible" ? "md" : "lo"}">${esc(p.tier)}</span></td>
         <td class="tw-fits">${p.fits.map(([ab, why]) => `<span class="tm" title="${esc(why)}">${tlogo(ab)} ${esc(ab)}</span>`).join(" ")}</td></tr>`).join("")
-        || `<tr><td colspan="6" class="muted">No one at this position on our list.</td></tr>`;
+        || `<tr><td colspan="7" class="muted">No one at this position on our list.</td></tr>`;
     };
     // teams in the file are keyed by abbreviation; players carry the chart key ("nfl:28")
     const byId = Object.fromEntries(Object.entries(D.teams).map(([ab, t]) => [`nfl:${t.id}`, ab]));
