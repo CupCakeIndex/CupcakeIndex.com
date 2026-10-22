@@ -631,7 +631,7 @@ const Viz = (() => {
 
   // ---------------------------------------------------------------- state (all in the link)
   const DEF = { who: "teams", type: "bar", stat: "epa_play", y: "pts", from: "", to: "", wk1: "", wk2: "", per: "game", top: "10",
-    group: "", team: "", pos: "", pick: "", order: "best", cum: "", scope: "", radar: "", logo: "", names: "", min: "", role: "", noexit: "", exp: "", draft: "", nz: "",
+    group: "", team: "", pos: "", pick: "", order: "best", cum: "", scope: "", radar: "", logo: "", names: "", min: "", role: "", noexit: "", exp: "", draft: "", nz: "", lsz: "", qa: "",
     // Style and picture: scheme = colors, ttl/subt = your own title, bg/size = the downloaded picture; nums/grid/curve: "" = on, "0" = off; big/round: "1" = on
     scheme: "", ttl: "", subt: "", bg: "", size: "", nums: "", grid: "", curve: "", big: "", round: "", // logo/names: "" = on, "0" = off; min: "" = automatic
     // where = the filter typed in plain English ("run stops > 20 and sacks >= 3"), every chart; cols = the Table's columns;
@@ -696,6 +696,12 @@ const Viz = (() => {
       if (path.startsWith("/i/")) LOGOS[`${lg}:${x.id}`] = `https://a.espncdn.com/combiner/i?img=${path}&w=160&h=160`;
     }
   }
+  // Witty quadrant names for a scatter nobody named (qa "0" turns them off). Axes flip when lower is better, so top right
+  // is always better at both: top left, bottom right, bottom left, top right. The same pair of stats always gets the same set.
+  const AUTOQ = ["Sidekicks|Final bosses|Tutorial level|Henchmen", "All bark|Bullies|Bullied|All bite", "Show ponies|Big dogs|Lunch money|Workhorses",
+    "Half a résumé|Main characters|Cupcake country|Other half", "Pick a lane|No notes|Send help|Other lane", "Smoke|Fire|Ashes|Mirrors"];
+  const autoQuad = (a, b) => AUTOQ[[...a + "|" + b].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % AUTOQ.length];
+
   function logoImg(key, redraw) {
     const u = LOGOS?.[key];
     if (!u) return null;
@@ -1264,6 +1270,8 @@ const Viz = (() => {
     const [, hi, plain, PAL] = SCHEMES[st.scheme] || SCHEMES[""];
     const color = (k) => plain || (who === "players" && st.team ? hi : tm(teamOf(k))[2]) || "#888"; // one team's players: its color would be every bar, and some are near black
     const px = (n) => Math.round(n * (st.big ? 1.3 : 1)); // Bigger text
+    // Logo size slider (Look): logos and the team/player names next to them scale together, linearly (100 = normal)
+    const LS = Math.min(2.5, Math.max(0.5, (+st.lsz || 100) / 100));
     const gridOn = st.grid !== "0", numsOn = st.nums !== "0", tension = st.curve === "0" ? 0 : 0.25, radius = st.round ? 6 : 0;
     const weeksTxt = `${w1 > 1 || w2 < 99 ? `Weeks ${w1}–${D.bowls && w2 >= D.bowls ? "bowls" : Math.min(w2, maxWk)}` : league === "nfl" ? "Regular season" : "Full season incl. bowls"}`;
     const seasonTxt = multi ? `${st.from}–${st.to}` : st.to;
@@ -1358,16 +1366,17 @@ const Viz = (() => {
         options: { ...base, indexAxis: "y", plugins: { ...base.plugins, legend: { position: "top", labels: base.plugins.legend.labels },
           tooltip: { ...base.plugins.tooltip, callbacks: { title: (c) => name(shown[c[0].dataIndex]), label: (c) => abs ? `${c.dataset.label}: ${c.raw}` : `${c.dataset.label}: ${Math.round(c.raw)}% (${cnt(shown[c.dataIndex], c.datasetIndex)} ${unitOf(stat).replace("zoned ", "")})` } } },
           scales: { x: { ...base.scales.x, stacked: true, min: 0, ...(abs ? { ticks: { ...base.scales.x.ticks, precision: 0 } } : { max: 100, ticks: { ...base.scales.x.ticks, callback: (v) => `${v}%` } }) },
-            y: { ...base.scales.y, stacked: true, ticks: { ...base.scales.y.ticks, autoSkip: false, display: showNames, padding: showLogo ? 28 : 3 }, afterFit: (sc) => { if (showLogo) sc.width = Math.max(sc.width, 30); } } } },
+            y: { ...base.scales.y, stacked: true, ticks: { ...base.scales.y.ticks, font: { family: "JetBrains Mono", size: px(10 * LS) }, autoSkip: false, display: showNames, padding: showLogo ? 8 + 20 * LS : 3 }, afterFit: (sc) => { if (showLogo) sc.width = Math.max(sc.width, 10 + 20 * LS); } } } },
         plugins: [{ id: "vzStack", afterDatasetsDraw(c) { // logo by each name, the share inside each piece wide enough to hold it
           const { ctx, chartArea: a } = c;
           ctx.save(); ctx.font = `bold ${px(9)}px JetBrains Mono`; ctx.textBaseline = "middle"; ctx.textAlign = "center"; ctx.fillStyle = "#000";
           c.data.datasets.forEach((ds, i) => c.getDatasetMeta(i).data.forEach((b, j) => {
-            if (i === 0 && showLogo) drawLogo(ctx, shown[j], a.left - Math.min(20, b.height + 4) / 2 - 4, b.y, Math.min(20, b.height + 4));
+            const lz = Math.min(20 * LS, (a.bottom - a.top) / shown.length - 2); // as big as the slider says, but never into the next row
+            if (i === 0 && showLogo) drawLogo(ctx, shown[j], a.left - lz / 2 - 4, b.y, lz);
             if (numsOn && !c.getDatasetMeta(i).hidden && ds.data[j] && Math.abs(b.x - b.base) >= (abs ? 14 : 26)) ctx.fillText(abs ? String(ds.data[j]) : `${Math.round(ds.data[j])}%`, (b.x + b.base) / 2, b.y);
           }));
           ctx.restore(); } }] };
-      body = { h: Math.max(260, shown.length * 26 + 90 + (abs ? Math.ceil(parts.length / 4) * 18 : 0)) };
+      body = { h: Math.max(260, shown.length * Math.max(26, 20 * LS + 8) + 90 + (abs ? Math.ceil(parts.length / 4) * 18 : 0)) };
       note = abs ? `The ${shown.length} with the most ${unitOf(stat)}${picks.length ? " plus your highlights" : ""}${st.team ? "" : ". Pick a team (or type “was penalties by type”) to see one team's players"}. Each piece is how many times he was flagged for that (accepted penalties only, from the play-by-play). Click a color in the key to hide it.`
         : `The ${shown.length} with the most ${unitOf(stat)}${picks.length ? " plus your highlights" : ""}. Each bar adds up to 100% of his own ${unitOf(stat)}. Short = under 10 air yards (how far past the line of scrimmage the ball was thrown), intermediate = 10-19, deep = 20+; throwaways and spikes have no zone. Click a color in the key to hide it.`;
       body.table = shown.map((k, i) => [i + 1, k, abs ? parts.map(([l], j) => [l, cnt(k, j)]).filter(([, n]) => n).sort((a, b) => b[1] - a[1]).map(([l, n]) => `${l} ${n}`).join(" · ") : parts.map(([l], j) => `${l} ${Math.round(pctOf(k, j))}%`).join(" · ")]);
@@ -1393,20 +1402,20 @@ const Viz = (() => {
       cfg = { type: "bar", data: { labels: shown.map(short), datasets: [{ data: shown.map((k) => val(stat, k)), backgroundColor: shown.map((k) => hl(k) ? hi : color(k)), borderRadius: radius,
         borderColor: shown.map((k) => (hl(k) ? ink : "transparent")), borderWidth: 2 }] },
         options: { ...base, indexAxis: "y", layout: { padding: { right: 56 } }, plugins: { ...base.plugins, legend: { display: false }, tooltip: { ...base.plugins.tooltip, callbacks: { title: (c) => name(shown[c[0].dataIndex]), label: (c) => fmt(stat, c.raw, per) } } },
-          scales: { ...base.scales, y: { ...base.scales.y, ticks: { ...base.scales.y.ticks, autoSkip: false, display: showNames, padding: showLogo ? 28 : 3 },
-            afterFit: (sc) => { if (showLogo) sc.width = Math.max(sc.width, 30); } } } },
+          scales: { ...base.scales, y: { ...base.scales.y, ticks: { ...base.scales.y.ticks, font: { family: "JetBrains Mono", size: px(10 * LS) }, autoSkip: false, display: showNames, padding: showLogo ? 8 + 20 * LS : 3 },
+            afterFit: (sc) => { if (showLogo) sc.width = Math.max(sc.width, 10 + 20 * LS); } } } },
         plugins: [{ id: "vzBar", afterDatasetsDraw(c) { // logo by each name, the number at the end of each bar
           const { ctx, chartArea: a } = c;
           ctx.save(); ctx.font = `bold ${px(10)}px JetBrains Mono`; ctx.textBaseline = "middle";
           c.getDatasetMeta(0).data.forEach((b, i) => {
-            const v = c.data.datasets[0].data[i], sz = Math.min(20, b.height + 4);
+            const v = c.data.datasets[0].data[i], sz = Math.min(20 * LS, (a.bottom - a.top) / c.data.datasets[0].data.length - 2);
             if (showLogo) drawLogo(ctx, shown[i], a.left - sz / 2 - 4, b.y, sz);
             if (!numsOn) return;
             ctx.fillStyle = ink; ctx.textAlign = v < 0 ? "right" : "left";
             ctx.fillText(fmt(stat, v, per), b.x + (v < 0 ? -4 : 4), b.y);
           });
           ctx.restore(); } }] };
-      body = { h: Math.max(260, shown.length * 26 + 60) };
+      body = { h: Math.max(260, shown.length * Math.max(26, 20 * LS + 8) + 60) };
       note = `${list.length} ${who} ranked${stat[3].den ? ` (at least ${minFor(stat)} ${unitOf(stat)}${st.min === "" ? ", 35% of the leader's; change it with Minimum" : ""})` : ""}.`;
       body.table = shown.map((k, i) => [i + 1, k, fmt(stat, val(stat, k), per)]);
     } else if (whole) { // line: one line per season, week by week
@@ -1454,12 +1463,12 @@ const Viz = (() => {
       }
       cfg = { type: "line", data: { labels, datasets: sers.map((k, i) => ({ label: short(k), data: data(k), borderColor: PAL[i % PAL.length], backgroundColor: PAL[i % PAL.length],
         borderWidth: hl(k) || i === 0 ? 3 : 2, pointRadius: 3, spanGaps: true, tension })) },
-        options: { ...base, layout: { padding: { right: showLogo ? 26 : 0 } }, plugins: { ...base.plugins, legend: { ...base.plugins.legend, display: showNames }, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${c.dataset.label}: ${wkPer ? fmt(stat, c.raw, per) : fmt({ 3: { ...stat[3], count: 0 } }, c.raw)}` } } } },
+        options: { ...base, layout: { padding: { right: showLogo ? 6 + 20 * LS : 0 } }, plugins: { ...base.plugins, legend: { ...base.plugins.legend, display: showNames, labels: { ...base.plugins.legend.labels, font: { family: "JetBrains Mono", size: px(11 * LS) } } }, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${c.dataset.label}: ${wkPer ? fmt(stat, c.raw, per) : fmt({ 3: { ...stat[3], count: 0 } }, c.raw)}` } } } },
         plugins: [{ id: "vzLine", afterDatasetsDraw(c) { // each line ends in its team's logo
           if (!showLogo) return;
           c.data.datasets.forEach((d, i) => {
             const pts = c.getDatasetMeta(i).data, j = d.data.map((v) => v != null).lastIndexOf(true);
-            if (j >= 0) drawLogo(c.ctx, sers[i], pts[j].x + 14, pts[j].y, 20);
+            if (j >= 0) drawLogo(c.ctx, sers[i], pts[j].x + 4 + 10 * LS, pts[j].y, 20 * LS);
           }); } }] };
       body = { h: 380 };
       note = picks.length ? "" : `The top ${sers.length} in ${stat[1].toLowerCase()}. Pick ${who} below to compare your own.`;
@@ -1474,7 +1483,7 @@ const Viz = (() => {
         datasets: [{ data: [...shown.map((k) => val(s, k)), ...(rest ? [rest] : [])], backgroundColor: [...shown.map((k, i) => PAL[i % PAL.length]), ...(rest ? [line] : [])], borderColor: C("--card"), borderWidth: 2 }] },
         plugins: [{ id: "vzPie", afterDatasetsDraw(c) { // team logos on their slices; the share shows on hover
           if (!showLogo || who !== "teams") return;
-          c.getDatasetMeta(0).data.forEach((arc, i) => { if (i < shown.length && arc.circumference > 0.3) { const p = arc.tooltipPosition(); drawLogo(c.ctx, shown[i], p.x, p.y, 24); } }); } }],
+          c.getDatasetMeta(0).data.forEach((arc, i) => { if (i < shown.length && arc.circumference > 0.3) { const p = arc.tooltipPosition(); drawLogo(c.ctx, shown[i], p.x, p.y, 24 * LS); } }); } }],
         options: { ...base, scales: {}, plugins: { ...base.plugins, legend: { position: "bottom", labels: base.plugins.legend.labels, display: showNames },
           tooltip: { ...base.plugins.tooltip, callbacks: {
             title: (c) => (c[0].dataIndex < shown.length ? name(shown[c[0].dataIndex]) : "Everyone else"),
@@ -1492,7 +1501,7 @@ const Viz = (() => {
       const pts = both.map((k) => ({ x: val(stat, k), y: val(ystat, k), k }));
       const avg = (a) => a.reduce((s, x) => s + x, 0) / (a.length || 1), mx = avg(pts.map((p) => p.x)), my = avg(pts.map((p) => p.y));
       const named = !showNames ? new Set() : pts.length <= 40 ? new Set(pts.map((p) => p.k)) : label; // every name when there's room
-      cfg = { type: "scatter", data: { datasets: [{ data: pts, pointRadius: pts.map((p) => (showLogo ? 11 : hl(p.k) ? 7 : 5)), pointHoverRadius: showLogo ? 13 : 7,
+      cfg = { type: "scatter", data: { datasets: [{ data: pts, pointRadius: pts.map((p) => (showLogo ? 11 * LS : hl(p.k) ? 7 : 5)), pointHoverRadius: showLogo ? 13 * LS : 7,
         pointBackgroundColor: pts.map((p) => (showLogo ? "transparent" : hl(p.k) ? hi : color(p.k))), pointBorderColor: pts.map((p) => (showLogo ? (hl(p.k) ? hi : "transparent") : ink)),
         pointBorderWidth: pts.map((p) => (hl(p.k) ? 2 : showLogo ? 0 : 0.5)) }] },
         options: { ...base, interaction: { mode: "point", intersect: true }, layout: { padding: { right: 36, top: 8 } }, plugins: { ...base.plugins, legend: { display: false }, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${name(c.raw.k)}: ${fmt(stat, c.raw.x, per)}, ${fmt(ystat, c.raw.y, per)}` } } },
@@ -1504,14 +1513,14 @@ const Viz = (() => {
           ctx.beginPath(); ctx.moveTo(x.getPixelForValue(mx), a.top); ctx.lineTo(x.getPixelForValue(mx), a.bottom); ctx.moveTo(a.left, y.getPixelForValue(my)); ctx.lineTo(a.right, y.getPixelForValue(my)); ctx.stroke();
           ctx.setLineDash([]);
           // your quadrant names (Style and picture), in the corners: on screen, so "top right" is top right even on a flipped axis
-          const Q = (st.quad || "").split("|");
+          const Q = (st.quad || (st.qa === "0" ? "" : autoQuad(stat[0], ystat[0]))).split("|");
           if (Q.some(Boolean)) {
             ctx.font = `bold ${px(12)}px JetBrains Mono`; ctx.fillStyle = hi; ctx.globalAlpha = 0.8;
             [[0, a.left + 8, a.top + 6, "left", "top"], [1, a.right - 8, a.top + 6, "right", "top"], [2, a.left + 8, a.bottom - 6, "left", "bottom"], [3, a.right - 8, a.bottom - 6, "right", "bottom"]]
               .forEach(([i, x0, y0, al, bl]) => { if (Q[i]) { ctx.textAlign = al; ctx.textBaseline = bl; ctx.fillText(Q[i].toUpperCase(), x0, y0); } });
             ctx.globalAlpha = 1; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
           }
-          ctx.font = `${px(10)}px JetBrains Mono`; ctx.fillStyle = ink;
+          ctx.font = `${px(10 * LS)}px JetBrains Mono`; ctx.fillStyle = ink;
           // Points on the same spot (common with counts: three teams at 6, 6) share one marker: their logos side by side in a
           // box centered on the real spot, and one label listing them. Nothing is nudged off its value; the box is the spot.
           const els = c.getDatasetMeta(0).data, spots = [];
@@ -1519,7 +1528,7 @@ const Viz = (() => {
           spots.forEach((g) => g.ks.sort((i, j) => (hl(pts[j].k) - hl(pts[i].k)) || short(pts[i].k).localeCompare(short(pts[j].k))));
           const boxes = [], narrow = a.right - a.left < 520; // drawn markers and labels, so later labels can dodge them
           for (const g of spots) {
-            const n = g.ks.length, sz = n > 1 ? (n > 4 ? 14 : 16) : hl(pts[g.ks[0]].k) ? 26 : 20, gap = 2;
+            const n = g.ks.length, sz = (n > 1 ? (n > 4 ? 14 : 16) : hl(pts[g.ks[0]].k) ? 26 : 20) * LS, gap = 2;
             if (n === 1) { const r = showLogo ? sz / 2 : 6; g.m = { x: g.x - r, y: g.y - r, w: 2 * r, h: 2 * r }; boxes.push(g.m); continue; }
             if (narrow) { g.m = g.box = { x: g.x - 10, y: g.y - 10, w: 20, h: 20, narrow: 1 }; boxes.push(g.m); continue; } // phones: a count bubble
             const show = g.ks.slice(0, 6), w = show.length * (sz + gap) + 6 + (n > 6 ? 18 : 0), h = sz + 6;
@@ -1529,7 +1538,7 @@ const Viz = (() => {
           }
           for (const g of spots) {
             if (g.ks.length === 1) {
-              const i = g.ks[0], sz = hl(pts[i].k) ? 26 : 20, logo = showLogo && drawLogo(ctx, pts[i].k, g.x, g.y, sz);
+              const i = g.ks[0], sz = (hl(pts[i].k) ? 26 : 20) * LS, logo = showLogo && drawLogo(ctx, pts[i].k, g.x, g.y, sz);
               if (showLogo && !logo) { ctx.beginPath(); ctx.arc(g.x, g.y, 5, 0, 7); ctx.fillStyle = color(pts[i].k); ctx.fill(); ctx.fillStyle = ink; } // no logo (an FCS team): a dot
               continue;
             }
@@ -1537,7 +1546,7 @@ const Viz = (() => {
               ctx.beginPath(); ctx.arc(g.x, g.y, 10, 0, 7); ctx.fillStyle = C("--card") || "#151515"; ctx.fill();
               ctx.strokeStyle = g.ks.some((i) => hl(pts[i].k)) ? hi : ink; ctx.lineWidth = 1.5; ctx.stroke();
               ctx.fillStyle = ink; ctx.textAlign = "center"; ctx.font = `bold ${px(10)}px JetBrains Mono`; ctx.fillText(g.ks.length, g.x, g.y + 3.5);
-              ctx.font = `${px(10)}px JetBrains Mono`; ctx.textAlign = "left"; continue;
+              ctx.font = `${px(10 * LS)}px JetBrains Mono`; ctx.textAlign = "left"; continue;
             }
             const { x: bx, y: by, w, h, show, sz, gap } = g.box;
             ctx.fillStyle = C("--card") || "#151515"; ctx.strokeStyle = g.ks.some((i) => hl(pts[i].k)) ? hi : muted; ctx.lineWidth = 1;
@@ -1554,7 +1563,7 @@ const Viz = (() => {
             const ks = g.ks.filter((i) => named.has(pts[i].k));
             if (!ks.length) continue;
             const names = ks.map((i) => short(pts[i].k)), txt = names.length > 3 ? `${names.slice(0, 3).join(", ")} +${names.length - 3}` : names.join(", ");
-            const tw = ctx.measureText(txt).width, th = px(10) + 2, m = g.m;
+            const tw = ctx.measureText(txt).width, th = px(10 * LS) + 2, m = g.m;
             const cx = Math.max(a.left - 6, Math.min(g.x - tw / 2, a.right + 34 - tw)); // above / below: centered, slid inward at the edges
             const tries = [[m.x + m.w + 3, g.y - th / 2], [m.x - tw - 3, g.y - th / 2], [cx, m.y - th - 1], [cx, m.y + m.h + 1]];
             const rest = boxes.filter((b) => b !== m);
@@ -1733,10 +1742,11 @@ const Viz = (() => {
       </div>`)}
       ${step(4, "Look", `<div class="vz-ctl">
         ${st.type !== "radar" && st.type !== "table" && !whole ? `<div class="vz-chks vz-wide"><label><input type="checkbox" id="vz-logo"${st.logo !== "0" ? " checked" : ""}> Team logos</label><label><input type="checkbox" id="vz-names"${st.names !== "0" ? " checked" : ""}> ${who === "teams" ? "Team" : "Player"} names</label></div>` : ""}
+        ${["scatter", "bar", "line", "pie"].includes(st.type) && st.logo !== "0" && !whole ? `<label class="vz-wide">Logo size <small class="muted">(names scale with it) <b id="vz-lsz-v">${Math.round(LS * 100)}%</b></small><input type="range" id="vz-lsz" min="50" max="250" step="10" value="${Math.round(LS * 100)}"></label>` : ""}
         <label>Colors${sel("vz-scheme", Object.entries(SCHEMES).map(([k, x]) => [k, x[0]]), st.scheme)}</label>
         <label class="vz-wide">Your title<input id="vz-ttl" maxlength="80" placeholder="${esc(autoTitle)}" value="${esc(st.ttl)}" spellcheck="true"></label>
         <label class="vz-wide">Your subtitle<input id="vz-subt" maxlength="100" placeholder="${esc(autoSub)}" value="${esc(st.subt)}" spellcheck="true"></label>
-        ${st.type === "scatter" ? `<fieldset class="vz-wide vz-quad"><legend>Name the quadrants <small class="muted">(split by the dashed average lines)</small></legend>${["Top left", "Top right", "Bottom left", "Bottom right"].map((l, i) => `<label>${l}<input data-quad="${i}" maxlength="24" placeholder="${esc(["e.g. Lucky", "e.g. Elite", "e.g. Bad", "e.g. Unlucky"][i])}" value="${esc((st.quad || "").split("|")[i] || "")}" spellcheck="true"></label>`).join("")}</fieldset>` : ""}
+        ${st.type === "scatter" ? `<fieldset class="vz-wide vz-quad"><legend>Name the quadrants <small class="muted">(split by the dashed average lines)</small></legend>${["Top left", "Top right", "Bottom left", "Bottom right"].map((l, i) => `<label>${l}<input data-quad="${i}" maxlength="24" placeholder="${esc(st.qa === "0" ? ["e.g. Lucky", "e.g. Elite", "e.g. Bad", "e.g. Unlucky"][i] : autoQuad(stat[0], ystat[0]).split("|")[i])}" value="${esc((st.quad || "").split("|")[i] || "")}" spellcheck="true"></label>`).join("")}<label class="vz-chk"><input type="checkbox" id="vz-qa"${st.qa !== "0" ? " checked" : ""}> Witty names when blank</label></fieldset>` : ""}
         <label>Picture background${seg("vz-bg", [["", "Dark"], ["light", "Light"], ["clear", "See-through"]], st.bg)}</label>
         <label>Picture size${sel("vz-size", [["", "Like the screen"], ["x", "X post (16:9)"], ["sq", "Square"], ["story", "Phone story (9:16)"]], st.size)}</label>
         <div class="vz-chks vz-wide">${[["nums", "Numbers on bars", 1], ["grid", "Gridlines", 1], ["curve", "Smooth lines", 1], ["round", "Rounded bars", 0], ["big", "Bigger text", 0]]
@@ -1851,6 +1861,10 @@ const Viz = (() => {
     on("vz-from", "from", reload); on("vz-to", "to", reload); on("vz-opp", "opp"); on("vz-last", "last"); on("vz-cond", "cond");
     const nx = document.getElementById("vz-noexit");
     if (nx) nx.onchange = () => { st.noexit = nx.checked ? "1" : ""; redo(); };
+    const qa = document.getElementById("vz-qa");
+    if (qa) qa.onchange = () => { st.qa = qa.checked ? "" : "0"; redo(); };
+    const lsz = document.getElementById("vz-lsz");
+    if (lsz) { lsz.oninput = () => { document.getElementById("vz-lsz-v").textContent = lsz.value + "%"; }; lsz.onchange = () => { st.lsz = lsz.value === "100" ? "" : lsz.value; redo(); }; }
     const nzb = document.getElementById("vz-nz");
     if (nzb) nzb.onchange = () => { st.nz = nzb.checked ? "1" : ""; redo(); };
     ["logo", "names"].forEach((k) => { const x = document.getElementById("vz-" + k); if (x) x.onchange = () => { st[k] = x.checked ? "" : "0"; redo(); }; });

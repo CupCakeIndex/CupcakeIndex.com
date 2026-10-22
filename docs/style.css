@@ -1985,6 +1985,7 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 .vz-ctl > label.vz-wide { flex: 1 1 220px; }
 .vz-ctl select, .vz-ctl input { font: inherit; font-size: 13px; text-transform: none; letter-spacing: 0; color: var(--ink); background: var(--bg); border: 1px solid var(--line); padding: 5px 6px; min-width: 0; }
 .vz-ctl select[multiple] { padding: 2px; }
+.vz-ctl input[type="range"] { border: 0; background: none; padding: 0; width: 100%; accent-color: var(--accent); }
 .vz-pair { display: flex; align-items: center; gap: 6px; }
 .vz-pair i { font-style: normal; text-transform: none; }
 .vz-seg { align-self: flex-start; }
@@ -2039,6 +2040,7 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 /* Style and picture > Name the quadrants (scatter) */
 .vz-quad { border: 0; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; }
 .vz-quad legend { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; padding: 0; }
+.vz-quad .vz-chk { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; }
 @media (max-width: 640px) {
   .vz-ctl { gap: 8px 10px; }
   .vz-ctl > label.vz-wide { flex-basis: 100%; }
