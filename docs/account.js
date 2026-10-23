@@ -5,7 +5,7 @@
 const Account = (() => {
   const CFG = window.FIREBASE_CONFIG;
   const SDK = "https://www.gstatic.com/firebasejs/10.12.2/";
-  const SYNCED = (k) => /^pickem-/.test(k) || k === "daily-nfl" || k === "daily-nfl-stats" || k === "hilo-stats" || k === "fantasy-team" || k === "cupcake-profile" || k === "viz-presets" || k === "lb-name";
+  const SYNCED = (k) => /^pickem-/.test(k) || k === "daily-nfl" || k === "daily-nfl-stats" || k === "hilo-stats" || k === "dynasty-stats" || k === "fantasy-team" || k === "cupcake-profile" || k === "viz-presets" || k === "lb-name";
   let fb = null, user = null, status = "", timer = null, ready = null;
 
   const enabled = () => !!(CFG && CFG.apiKey && CFG.projectId);
@@ -51,6 +51,7 @@ const Account = (() => {
     const A = parse(a), B = parse(b);
     if (k === "daily-nfl-stats") return (A?.played || 0) >= (B?.played || 0) ? a : b; // the one with more games played
     if (k === "hilo-stats") return (A?.best || 0) > (B?.best || 0) || ((A?.best || 0) === (B?.best || 0) && (A?.played || 0) >= (B?.played || 0)) ? a : b;
+    if (k === "dynasty-stats") return (A?.played || 0) >= (B?.played || 0) ? a : b; // the one with more seasons played
     if (k === "daily-nfl") return (A?.guesses?.length || 0) >= (B?.guesses?.length || 0) ? a : b;
     if (A && B && typeof A === "object" && typeof B === "object" && !Array.isArray(A)) {
       const m = { ...B, ...A }; // this device wins a tie

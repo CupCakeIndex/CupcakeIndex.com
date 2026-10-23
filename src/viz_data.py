@@ -240,14 +240,15 @@ def nfl_teams(season):
     score = {}
     for g in games:
         if g["home_score"] != "":
-            score[(g["game_id"], g["home_team"])] = (n(g["home_score"]), n(g["away_score"]))
-            score[(g["game_id"], g["away_team"])] = (n(g["away_score"]), n(g["home_score"]))
+            # keyed by the site's team, since games and team stats spell moved teams differently (OAK vs LV)
+            score[(g["game_id"], key.get(g["home_team"], g["home_team"]))] = (n(g["home_score"]), n(g["away_score"]))
+            score[(g["game_id"], key.get(g["away_team"], g["away_team"]))] = (n(g["away_score"]), n(g["home_score"]))
     rows = {(r["game_id"], r["team"]): r for r in teams if r["season_type"] == "REG" and r["team"]}  # regular season only, like ESPN's season totals (1999 has a blank-team row)
     trows = []
     for (gid, tm), r in rows.items():
         o = rows.get((gid, r["opponent_team"]), {})
         f = lambda x, k: n(x.get(k))
-        pts, opp = score.get((gid, tm), (0, 0))
+        pts, opp = score.get((gid, key.get(tm, tm)), (0, 0))
         trows.append([key.get(tm, tm), int(r["week"]), key.get(r["opponent_team"], r["opponent_team"]),
                       pts, opp, f(r, "attempts") + f(r, "carries") + f(r, "sacks_suffered"), f(r, "completions"), f(r, "attempts"),
                       f(r, "passing_yards"), f(r, "passing_tds"), f(r, "passing_interceptions"), f(r, "sacks_suffered"),

@@ -3201,3 +3201,50 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
   .th-links { display: grid; grid-template-columns: 1fr 1fr; }
   .th-links .btn { text-align: center; font-size: 12px; padding: 6px 6px; white-space: nowrap; }
 }
+
+/* Dynasty Draft (dynasty.js): your six slots, three teams to pick from, then the season */
+.dy { --hl-g: #3ccf7e; --hl-r: #ff4d6d; }
+.dy-roster { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 14px 0; }
+.dy-slot { border: 1px solid var(--line); padding: 6px 10px; min-width: 0; }
+.dy-slot.empty { border-style: dashed; }
+.dy-slot small { display: block; color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; }
+.dy-pick { display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; overflow: hidden; }
+.dy-pick .dy-g { margin-left: auto; }
+.dy-q { font-size: 16px; margin: 10px 0; }
+.dy-q b { color: var(--accent); }
+.dy-offers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+.dy-team { border: 1px solid var(--line); background: var(--bg); padding: 10px; display: flex; flex-direction: column; gap: 6px; min-width: 0; animation: dyIn .25s ease-out both; }
+.dy-th { display: flex; gap: 8px; align-items: center; margin-bottom: 2px; }
+.dy-th b { display: block; font-size: 14px; line-height: 1.2; }
+.dy-th small { color: var(--muted); font-size: 12px; }
+.dy-unit { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; text-align: left; }
+.dy-unit:hover { border-color: var(--accent); }
+.dy-unit:active { transform: scale(.98); }
+.dy-unit[disabled] { opacity: .35; cursor: not-allowed; transform: none; }
+.dy-cap { color: var(--accent) !important; }
+.dy-g { font-variant-numeric: tabular-nums; min-width: 2.2em; text-align: right; }
+.dy-g.hi { color: var(--hl-g); }
+.dy-g.md { color: #f5c542; }
+.dy-g.lo { color: var(--hl-r); }
+.dy-ready { border-top: 1px solid var(--line); padding-top: 6px; }
+.dy-rec { font-size: 26px; font-weight: 800; margin: 6px 0 12px; }
+.dy-rec span { font-size: 16px; font-weight: 600; color: var(--muted); margin-left: 8px; }
+.dy-rec .dy-champ { color: var(--accent); }
+.dy-season h3 { margin: 12px 0 6px; font-size: 14px; }
+.dy-games { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px; }
+.dy-gm { display: flex; gap: 8px; align-items: baseline; padding: 5px 8px; border-left: 3px solid var(--line); background: var(--bg); font-size: 13px; font-variant-numeric: tabular-nums; animation: dyIn .3s ease-out both; min-width: 0; }
+.dy-gm span { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dy-gm.w { border-left-color: var(--hl-g); }
+.dy-gm.w b { color: var(--hl-g); }
+.dy-gm.l { border-left-color: var(--hl-r); }
+.dy-gm.l b { color: var(--hl-r); }
+@keyframes dyIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .dy-team, .dy-gm { animation: none; } }
+@media (max-width: 600px) {
+  .dy-roster { grid-template-columns: 1fr 1fr; }
+  .dy-offers { grid-template-columns: 1fr; }
+  .dy-unit { padding: 9px 10px; }
+  .dy .hl-bar { gap: 12px; }
+  .dy .hl-bar span { white-space: nowrap; }
+  .dy .hl-lv { display: none; }
+}
