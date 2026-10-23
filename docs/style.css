@@ -3271,13 +3271,24 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .mk-tbtn { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
 .mk-tbtn small { color: var(--muted); font-weight: 400; font-size: 10.5px; }
 .mk-tbtn:hover, .mk-tbtn.fav { border-color: var(--accent); }
+.mk-tbtn[disabled] { opacity: .4; cursor: not-allowed; }
+.mk-from { display: block; font-size: 10px; font-weight: 400; color: var(--muted); }
 .mk-clock { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--accent); margin-bottom: 10px; }
 .mk-clock b { display: block; font-size: 16px; }
+.mk-clock > div { flex: 1; min-width: 0; }
+.mk-clock.you { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.mk-clock:not(.you) { border-color: var(--line); }
+.mk-timer { font-size: 28px !important; font-variant-numeric: tabular-nums; color: var(--accent); }
+.mk-timer.low { color: #ff4d6d; animation: injPulse 1s ease-out infinite; }
+.mk-len { margin: 0 0 10px !important; }
+.mk-live .mk-pick:first-child { animation: dyIn .3s ease-out both; border-color: var(--accent); }
 .mk-pos-f { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
 .mk-pos-f button { border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; font-size: 12px; padding: 4px 9px; cursor: pointer; }
 .mk-pos-f button.on { border-color: var(--accent); color: var(--accent); }
 .mk-board { display: flex; flex-direction: column; gap: 4px; max-height: 560px; overflow-y: auto; }
 .mk-take { padding: 5px 12px; font-size: 12px; }
+.mk-search { width: 100%; box-sizing: border-box; font: inherit; font-size: 14px; padding: 9px 12px; margin-bottom: 8px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); }
+.mk-search:focus { border-color: var(--accent); outline: none; }
 .mk-h3 { margin: 14px 0 6px; font-size: 14px; }
 .linkbtn { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; }
 @media (max-width: 600px) {

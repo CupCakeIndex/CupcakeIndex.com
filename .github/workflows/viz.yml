@@ -69,9 +69,6 @@ jobs:
       - name: NFL trade watch (who gets traded before the deadline, and where)
         continue-on-error: true
         run: python src/trade_watch.py --until-deadline
-      - name: Mock draft (our two-round NFL mock and the Be the GM board; draft order from our season sims, prospects from draft headlines)
-        continue-on-error: true
-        run: python src/mock_draft.py
       - name: College portal watch (who enters the transfer portal, and where)
         continue-on-error: true
         run: python src/portal_watch.py
@@ -85,7 +82,6 @@ jobs:
           git add docs/data/coach_profile.json 2>/dev/null || true
           git add docs/data/hilo.json 2>/dev/null || true
           git add docs/data/dynasty.json 2>/dev/null || true
-          git add docs/data/nfl/mock_draft.json 2>/dev/null || true
           git add docs/data/nfl/records.json 2>/dev/null || true
           git add docs/data/nfl/ol_stats.json 2>/dev/null || true
           git add docs/data/cfb/heisman_buzz.json 2>/dev/null || true

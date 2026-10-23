@@ -3,6 +3,11 @@
 How it works (free data only: our NFL model and stats, ESPN college rosters, our college stats, Google News):
   1. Draft order: 10,000 simulations of the rest of the NFL season from our win chances. Teams that miss the playoffs
      pick 1-18 by projected wins (fewest first), then playoff teams 19-32. Ties are broken by our power rating.
+     Who owns each pick (all 7 rounds, for Be the GM): ESPN's transactions feed (2024 on), every trade that moved a pick in
+     this draft, replayed oldest first ("Traded X and a 2027 first-round pick to Dallas"), so a pick traded away
+     shows up with its new team. Once the season is over and ESPN posts the real order (January), we use that instead:
+     every pick, who owns it and where it came from. A new trade shows up the next morning (the job runs every day
+     until the draft).
   2. Team needs: where each unit ranks in our play-by-play numbers (the same units as Trade watch), so a #30 pass
      defense needs a corner. QB is a need only with a weak passing game and no young first-round QB, or an old starter.
   3. Prospects: every FBS junior, senior or grad student (ESPN rosters; a sophomore counts only if the draft
@@ -16,7 +21,8 @@ How it works (free data only: our NFL model and stats, ESPN college rosters, our
   4. Picks: each team takes the best score left plus a need bonus (+0.9 its biggest need, +0.5 second, +0.25 third);
      a team with its QB (no QB need) takes one only if he's far and away the best left (-3).
 
-Writes docs/data/nfl/mock_draft.json. Usage: python src/mock_draft.py [--no-news]
+Writes docs/data/nfl/mock_draft.json, and docs/data/nfl/mock_pool.json: every other draft-eligible player, so Be the GM
+can search for anyone (loaded only when you search). Usage: python src/mock_draft.py [--no-news]
 """
 import datetime as dt
 import glob
@@ -201,6 +207,109 @@ def headlines(schools, nfl_teams, year):
     return out
 
 
+TX_VERBS = r"Acquired|Traded|Received|Signed|Released|Waived|Placed|Activated|Claimed|Re-signed|Agreed|Reinstated|Promoted|Elevated|Designated|Exercised|Terminated|Suspended|Restructured|Recalled|Converted|Announced"
+ROUNDS = {"first": 1, "1st": 1, "second": 2, "2nd": 2, "third": 3, "3rd": 3, "fourth": 4, "4th": 4, "fifth": 5, "5th": 5,
+          "sixth": 6, "6th": 6, "seventh": 7, "7th": 7}
+NROUNDS = 7
+# conditions ESPN's wording leaves out: (from, to, round) -> which of the giver's picks moves
+# Jets/Cowboys, Nov 4 2025 (Quinnen Williams): the Jets get the earlier of Dallas's own first and the one from Green Bay
+CONDITIONS = {("DAL", "NYJ", 1): "earlier"}
+
+
+def pick_trades(year, alias, by_id):
+    """[(date, round, from abbr, to abbr)] for every pick of `year` that changed hands, from
+    ESPN's NFL transactions (each trade is listed by both teams; kept once)."""
+    team_rx = sorted(alias, key=len, reverse=True)
+    def team_in(text):
+        for nm in team_rx:
+            if re.search(rf"\b{re.escape(nm)}\b", text):
+                return alias[nm]
+        return None
+    def rounds_in(part):
+        out = []
+        for m in re.finditer(rf"{year}\s+((?:(?:first|second|third|fourth|fifth|sixth|seventh|1st|2nd|3rd|[4-7]th)(?:-round)?[,\s]*(?:and\s+)?)+)", part):
+            out += [ROUNDS[w] for w in re.findall(r"first|second|third|fourth|fifth|sixth|seventh|1st|2nd|3rd|[4-7]th", m.group(1))]
+        return out
+    seen, out = [], []
+    for season in range(year - 3, year):
+        page, pages = 1, 1
+        while page <= pages:
+            try:
+                r = requests.get("https://site.api.espn.com/apis/site/v2/sports/football/nfl/transactions",
+                                 params={"season": season, "limit": 1000, "page": page}, timeout=30).json()
+            except (requests.RequestException, ValueError):
+                break
+            pages = r.get("pageCount", 1)
+            page += 1
+            for t in r.get("transactions", []):
+                me, day = by_id.get(str(t.get("team", {}).get("id"))), t["date"][:10]  # ESPN's abbreviations differ (LAR vs LA)
+                for sent in re.split(rf"\.\s+(?=(?:{TX_VERBS})\b)", t.get("description", "")):
+                    if str(year) not in sent or not re.search(r"\b(first|second|third|fourth|fifth|sixth|seventh|1st|2nd|3rd|[4-7]th)\b", sent):
+                        continue
+                    # Traded <give> to Y (in exchange) for <get> | Acquired <get> from Y (in exchange) for <give> | Received <get> from (a trade with) Y
+                    m = re.match(r"Traded\s+(.*?)\s+to\s+(.*?)\s+(?:in exchange\s+)?for\s+(.*)", sent) or re.match(r"Traded\s+(.*?)\s+to\s+(.*)()", sent)
+                    if m:
+                        give, other, get = m.group(1), m.group(2), m.group(3)
+                    else:
+                        m = re.match(r"(?:Acquired|Received)\s+(.*?)\s+from\s+(?:a trade with\s+)?(.*?)(?:\s+(?:in exchange\s+)?for\s+(.*)|$)", sent)
+                        if not m:
+                            continue
+                        get, other, give = m.group(1), m.group(2), m.group(3) or ""
+                    y = team_in(other)
+                    if not y or not me or y == me:
+                        continue
+                    for rnd in rounds_in(give):
+                        out.append((day, rnd, me, y))
+                    for rnd in rounds_in(get):
+                        out.append((day, rnd, y, me))
+            time.sleep(0.2)
+    kept = []
+    for d, rnd, a, b in sorted(out):
+        dd = dt.date.fromisoformat(d)
+        if any(x[1:] == (rnd, a, b) and abs((dt.date.fromisoformat(x[0]) - dd).days) <= 10 for x in kept):
+            continue  # the other team's entry for the same trade
+        kept.append((d, rnd, a, b))
+    return kept
+
+
+def espn_order(year, by_id):
+    """[[owner, original team, round]] for every pick from ESPN's draft page once the real order is out, else None."""
+    try:
+        r = requests.get("https://site.api.espn.com/apis/site/v2/sports/football/nfl/draft", params={"season": year}, timeout=30).json()
+    except (requests.RequestException, ValueError):
+        return None
+    ab_of = {str(t.get("id")): by_id.get(str(t.get("id"))) for t in r.get("teams", [])}
+    espn_ab = {str(t.get("abbreviation", "")).upper(): by_id.get(str(t.get("id"))) for t in r.get("teams", [])}
+    picks = sorted((p for p in r.get("picks", []) if 1 <= (p.get("round") or 0) <= NROUNDS), key=lambda p: p.get("overall", 999))
+    if len(picks) < 64 or not all(ab_of.get(str(p.get("teamId"))) for p in picks):
+        return None
+    out = []
+    for p in picks:
+        own = ab_of[str(p["teamId"])]
+        m = re.search(r"From\s+([A-Z]{2,3})", p.get("tradeNote") or "")
+        out.append([own, espn_ab.get(m.group(1), m.group(1)) if m else own, p["round"]])
+    return out
+
+
+def owners(order, trades):
+    """[[owner, original team, round]] for all 7 rounds (no compensatory picks until the real order is out): each team's
+    own pick at its spot, then the trades replayed in order."""
+    slot = {(r, ab): (r - 1) * 32 + i for r in range(1, NROUNDS + 1) for i, ab in enumerate(order)}
+    own = {k: k[1] for k in slot}
+    for d, rnd, a, b in trades:
+        mine = sorted((k for k, o in own.items() if k[0] == rnd and o == a), key=lambda k: slot[k])
+        if not mine:
+            print(f"  ! {d}: {a} traded a round-{rnd} pick it doesn't own; skipped")
+            continue
+        cond = CONDITIONS.get((a, b, rnd))
+        k = mine[0] if cond == "earlier" else mine[-1] if cond == "later" else ((rnd, a) if (rnd, a) in mine else mine[0])
+        own[k] = b
+    out = [None] * len(slot)
+    for k, n in slot.items():
+        out[n] = [own[k], k[1], k[0]]
+    return out
+
+
 def norm(name):
     """'Kenyatta Jackson Jr.' -> 'kenyatta jackson' (what a headline will match)."""
     n = re.sub(r"[.'’]", "", name.lower())
@@ -231,6 +340,9 @@ def main():
     viz = json.load(open(os.path.join(DOCS, "viz", "index.json")))
     season, cfb_season = max(viz["nfl"]), max(viz["cfb"])
     year = season + 1
+    if dt.date.today() > dt.date(year, 5, 5):
+        print(f"The {year} draft is done; keeping the last mock until next season starts.")
+        return
     rk = json.load(open(latest_week(season), encoding="utf-8"))
     V = json.load(open(os.path.join(DOCS, "viz", f"nfl_{season}.json"), encoding="utf-8"))
     by_name = {v[0]: k for k, v in V["teams"].items()}
@@ -244,6 +356,24 @@ def main():
     out_ = sorted((n for n in names if proj[n][1] < 0.5), key=lambda n: (proj[n][0], rating[n]))
     in_ = sorted((n for n in names if proj[n][1] >= 0.5), key=lambda n: (proj[n][0], rating[n]))
     order = out_ + in_
+    alias = {}
+    for k, v in V["teams"].items():
+        full, ab = v[0], v[1]
+        mascot, loc = full.split()[-1], " ".join(full.split()[:-1])
+        alias[full] = alias[mascot] = ab
+        if loc in ("New York", "Los Angeles"):
+            alias[f"{'NY' if loc == 'New York' else 'LA'} {mascot}"] = ab
+        else:
+            alias[loc] = ab
+    by_id = {k.split(":")[1]: v[1] for k, v in V["teams"].items()}
+    trades = [] if "--no-news" in sys.argv else pick_trades(year, alias, by_id)
+    real = espn_order(year, by_id)
+    slots = real or owners([abbr[by_name[n]] for n in order], trades)
+    if real:  # the real order: round 1's original teams, in order
+        ab_name = {abbr[by_name[n]]: n for n in order}
+        order = [ab_name[o] for _, o in real[:32] if o in ab_name]
+        print("Using ESPN's real draft order")
+    print(f"{len(trades)} pick trades: " + ", ".join(f"R{r} {a}->{b}" for _, r, a, b in trades))
 
     # 2. needs
     rank = unit_ranks(V)
@@ -309,7 +439,7 @@ def main():
                     for rx, ps in HINT:
                         if rx.search(before):
                             hint[p][ps] += 1
-    board = []
+    board, pool = [], []
     for pid, (nm, pos, cls, sid) in R.items():
         if pos in ("PK", "K", "P", "LS", "ATH", "") or sid not in school:
             continue
@@ -328,20 +458,22 @@ def main():
         p4 = school[sid]["group"] in P4 or school[sid]["name"] == "Notre Dame"
         prod = pct.get(pid, 0.35 if dp in ("OT", "IOL", "OL") else 0.0) * (1 if p4 else 0.6)
         score = 1.0 * math.log2(1 + h) + 1.2 * prod + VALUE.get(dp, 0)
-        if h == 0 and score < 1.6:
-            continue
+        pool.append([pid, nm, dp, sid, school[sid]["name"], cls, score])
         board.append({"id": pid, "name": nm, "pos": dp, "sid": sid, "school": school[sid]["name"], "cls": cls, "buzz": h,
                       "prod": round(prod, 2), "score": round(score, 3), "story": sample.get(pid)})
     board.sort(key=lambda b: -b["score"])
-    board = board[:160]
+    board = board[:320]
+    on_board = {b["id"] for b in board}
+    pool = [x[:6] for x in sorted(pool, key=lambda x: -x[6]) if x[0] not in on_board]
 
     # 4. picks: two rounds in the same order
     before = {ab: list(v) for ab, v in needs.items()}  # what the page shows and Be the GM starts from
     left = list(range(len(board)))
     picks = []
+    first_two = [x for x in slots if x[2] <= 2]
     for rnd in (1, 2):
         for slot, n in enumerate(order):
-            ab = abbr[by_name[n]]
+            ab, orig, _ = first_two[(rnd - 1) * 32 + slot]
             nd = [u for u, _ in needs[ab]]
             def fit(i):
                 u = NEED_OF.get(board[i]["pos"])
@@ -351,7 +483,7 @@ def main():
             u = NEED_OF.get(board[best]["pos"])
             mine = [r for x, r in needs[ab] if x == u]
             why = f"#{best + 1} on our board" + (f"; their {NEED_TXT[u]} ranks #{mine[0]} of 32" if mine else "; best player left")
-            picks.append([(rnd - 1) * 32 + slot + 1, ab, best, why])
+            picks.append([(rnd - 1) * 32 + slot + 1, ab, best, why, orig])
             # a team that just took a QB doesn't need another
             if u == "QB":
                 needs[ab] = [x for x in needs[ab] if x[0] != "QB"] or needs[ab]
@@ -360,11 +492,15 @@ def main():
                                    "needs": [[u, r, NEED_TXT[u]] for u, r in before[abbr[by_name[n]]]], "id": by_name[n].split(":")[1]}
                 for n in order}
     out = {"updated": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%MZ"), "season": season, "year": year, "sims": SIMS,
-           "headlines": len(titles), "order": [abbr[by_name[n]] for n in order], "teams": team_out, "board": board, "picks": picks,
+           "headlines": len(titles), "order": [abbr[by_name[n]] for n in order], "slots": slots, "real_order": bool(real),
+           "trades": [[d, r, a, b] for d, r, a, b in trades], "teams": team_out, "board": board, "picks": picks,
            "value": VALUE, "need_of": NEED_OF, "need_bonus": NEED_BONUS}
     json.dump(out, open(OUT, "w", encoding="utf-8"), separators=(",", ":"), ensure_ascii=False)
+    json.dump({"updated": out["updated"], "cols": ["id", "name", "pos", "sid", "school", "cls"], "players": pool},
+              open(os.path.join(DOCS, "nfl", "mock_pool.json"), "w", encoding="utf-8"), separators=(",", ":"), ensure_ascii=False)
+    print(f"{len(pool)} more eligible players in mock_pool.json")
     print(f"order: {', '.join(out['order'][:10])}...")
-    for pk, ab, i, why in picks[:32]:
+    for pk, ab, i, why, orig in picks[:32]:
         b = board[i]
         print(f"{pk:>2}. {ab:<4} {b['name']} ({b['pos']}, {b['school']}, {b['cls']}) buzz {b['buzz']} prod {b['prod']} | {why}")
 
