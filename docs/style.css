@@ -3281,6 +3281,31 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .mk-timer { font-size: 28px !important; font-variant-numeric: tabular-nums; color: var(--accent); }
 .mk-timer.low { color: #ff4d6d; animation: injPulse 1s ease-out infinite; }
 .mk-len { margin: 0 0 10px !important; }
+.mk-live { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; margin-top: 12px; }
+.mk-dboard { position: relative; max-height: 560px; overflow-y: auto; border: 1px solid var(--line); scroll-behavior: smooth; }
+.mk-dboard.full { max-height: none; }
+.mk-avail .mk-board { max-height: 470px; overflow-y: auto; }
+.mk-slot { display: grid; grid-template-columns: 28px 24px 54px minmax(0, 1fr); gap: 8px; align-items: center; padding: 6px 10px; min-height: 38px; box-sizing: border-box; border-bottom: 1px solid var(--line); font-size: 13px; }
+.mk-slot:last-child { border-bottom: 0; }
+.mk-slot .mk-n { color: var(--muted); text-align: right; }
+.mk-slot.you { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.mk-slot.now { box-shadow: inset 3px 0 0 var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.mk-slot.now em { color: var(--accent); font-style: normal; font-weight: 700; animation: mkBlink 1.2s ease-in-out infinite; }
+@keyframes mkBlink { 50% { opacity: .45; } }
+.mk-slot.new .mk-sp { animation: dyIn .4s ease-out both; }
+.mk-sab { font-weight: 700; display: flex; flex-direction: column; line-height: 1.15; }
+.mk-sp { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mk-avail.wait .mk-take { opacity: .35; cursor: default; }
+.mk-full { margin-top: 18px; }
+.mk-full-top { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.mk-full-top .seg { margin: 0 !important; }
+@media (max-width: 760px) {
+  .mk-live { grid-template-columns: 1fr; }
+  .mk-live .mk-dboard { max-height: 40vh; }
+  .mk-avail .mk-board { max-height: none; }
+  .mk-clock { flex-wrap: wrap; }
+  .mk-clock #mk-skip { width: 100%; }
+}
 .mk-live .mk-pick:first-child { animation: dyIn .3s ease-out both; border-color: var(--accent); }
 .mk-pos-f { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
 .mk-pos-f button { border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; font-size: 12px; padding: 4px 9px; cursor: pointer; }
