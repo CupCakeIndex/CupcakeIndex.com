@@ -5058,7 +5058,6 @@ const Live = (() => {
         </div>
         ${ours?.scores ? `<p class="th-why">${esc(Breakdown.why(ours, [...ranks.byName.values()], lg))}</p>` : ""}
         <nav class="th-links" aria-label="More about this team"><a class="btn hidden" id="th-news-link" href="${link("news")}" data-q="${esc(T.location || T.displayName || "")}" data-nwteam="${esc(`${lg}:${T.id}`)}">Team news</a>
-          ${takes.length || starters.length ? `<a class="btn" href="${link("team", id, { tab: "takes", jump: 1 })}">Our Takes <small>${takes.length + starters.length}</small></a>` : ""}
           <a class="btn" id="th-watch-link" href="${link("trades", null, { team: T.id })}">${nfl ? "Trade watch" : "Portal watch"}</a>
           ${prof ? `<a class="btn" href="${link("schedules", null, { team: ours.team })}">Schedule profile</a>` : ""}
           <a class="btn" href="${link("stats", null, { show: "visualize", who: "teams", type: "radar", pick: `${lg}:${T.id}` })}">📈 Chart this team</a></nav>
@@ -5153,9 +5152,6 @@ const Live = (() => {
     Coaches.forTeam(lg, T.id).then((h) => { const el = my === token && $("#th-coach"); if (el && h) el.outerHTML = h; }).catch(() => {});
     // hub: Team news only when the feed has headlines about this team
     News.countFor(lg, T.id).then((n) => { const el = my === token && $("#th-news-link"); if (el && n) { el.innerHTML = `Team news <small>${n}</small>`; el.classList.remove("hidden"); } }).catch(() => {});
-    // from the hub's Takes button: scroll down to the tab instead of leaving you at the top (again once the watch card loads above it)
-    const jump = () => { if (my === token && params.get("jump")) view("team").querySelector(".subtabs")?.scrollIntoView({ block: "start" }); };
-    jump();
     // this team's players on our Trade watch (NFL) / Portal watch (college) list, under the hub
     getJSON(nfl ? "data/nfl/trade_watch.json" : "data/cfb/portal_watch.json").then((W) => {
       const el = my === token && $("#th-watch");
@@ -5166,7 +5162,6 @@ const Live = (() => {
       el.outerHTML = `<div class="card th-watch"><div class="sc-bar"><h3>On our ${what}</h3><a class="muted" href="${link("trades", null, { team: T.id })}">all ›</a></div>
         <div class="th-watch-list">${mine.slice(0, 6).map((p) => `<a href="${link("trades", p.id)}" title="${nfl ? "Why he might be traded" : "Why he might transfer"}"><b>${esc(p.name)}</b> <span class="muted">${esc(p.pos)}</span> <span class="tw-tier tw-${tierCls(p.tier)}">${esc(p.tier)}</span></a>`).join("")}</div>
         <p class="note">${nfl ? "Players we think could be traded" : "Players we think could enter the transfer portal"}, from headlines and our numbers. Tap one for why.</p></div>`;
-      jump();
     }).catch(() => {});
     // At a glance: charts from the Visualize data (viz.js)
     if (tab === "glance") Viz.glance(lg, T.id, $("#tm-glance")).catch(() => { const el = my === token && $("#tm-glance"); if (el) el.innerHTML = `<p class="muted">Couldn't load the charts. Try again in a minute.</p>`; });
