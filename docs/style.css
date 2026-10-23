@@ -3243,6 +3243,29 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .dy-gm.w b { color: var(--hl-g); }
 .dy-gm.l { border-left-color: var(--hl-r); }
 .dy-gm.l b { color: var(--hl-r); }
+.dy-next { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 4px; }
+/* a playoff game on the gamecast field: score bug, controls, the field (live.js), lineups */
+.dy-watch { margin-top: 12px; scroll-margin-top: 70px; }
+.dy-bug { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); background: var(--bg); }
+.dy-bt { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.dy-bt:last-child { flex-direction: row-reverse; text-align: right; }
+.dy-bt b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.dy-bt em { font-style: normal; font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; margin-left: auto; }
+.dy-bt:last-child em { margin-left: 0; margin-right: auto; }
+.dy-bt.win em { color: var(--accent); }
+.dy-bm { text-align: center; display: flex; flex-direction: column; gap: 2px; }
+.dy-bm small { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.dy-bm b { font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dy-ctl { margin: 10px 0; align-items: center; }
+.dy-spd { display: inline-flex; border: 1px solid var(--line); height: 34px; }
+.dy-spd button { padding: 0 12px; font: 700 12px var(--font-head); color: var(--muted); background: none; border: 0; cursor: pointer; }
+.dy-spd button.on { color: var(--on-accent, #000); background: var(--accent); }
+.dy-field .tf-clock { display: none; } /* (the 8-bit field's play clock waits on ESPN; a simulated game has no feed) */
+.dy-lineup { margin: 12px 0 6px; border: 1px solid var(--line); padding: 8px 10px; }
+.dy-lineup summary { cursor: pointer; font-size: 13px; }
+.dy-lineup table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+.dy-lineup th, .dy-lineup td { text-align: left; padding: 5px 6px; border-top: 1px solid var(--line); vertical-align: top; }
+.dy-lineup th { color: var(--muted); font-weight: 600; white-space: nowrap; }
 @keyframes dyIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .dy-team, .dy-gm { animation: none; } }
 @media (max-width: 600px) {
@@ -3252,6 +3275,12 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
   .dy .hl-bar { gap: 12px; }
   .dy .hl-bar span { white-space: nowrap; }
   .dy .hl-lv { display: none; }
+  .dy-bug { gap: 6px; padding: 8px; }
+  .dy-bt img { width: 22px; height: 22px; }
+  .dy-bt b { font-size: 12px; }
+  .dy-bt em { font-size: 22px; }
+  .dy-ctl .btn { flex: 1 1 40%; }
+  .dy-lineup table { font-size: 12px; }
 }
 
 /* Mock draft (mock.js): our picks, and Be the GM */

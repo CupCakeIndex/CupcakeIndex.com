@@ -60,6 +60,9 @@ jobs:
       - name: Dynasty Draft team grades (finished seasons only, so this only changes once a year)
         continue-on-error: true
         run: python src/dynasty_data.py
+      - name: Dynasty Draft rosters (real players for the playoff gamecast; only seasons that don't have a file yet)
+        continue-on-error: true
+        run: python src/dynasty_rosters.py
       - name: NFL records players hold (gold on player pages; from Wikipedia's record lists)
         continue-on-error: true
         run: python src/nfl_records.py
@@ -82,6 +85,7 @@ jobs:
           git add docs/data/coach_profile.json 2>/dev/null || true
           git add docs/data/hilo.json 2>/dev/null || true
           git add docs/data/dynasty.json 2>/dev/null || true
+          git add docs/data/dynasty 2>/dev/null || true
           git add docs/data/nfl/records.json 2>/dev/null || true
           git add docs/data/nfl/ol_stats.json 2>/dev/null || true
           git add docs/data/cfb/heisman_buzz.json 2>/dev/null || true

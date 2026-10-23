@@ -1064,7 +1064,7 @@ const Live = (() => {
       const t = document.createElement("template");
       t.innerHTML = fieldView(...args);
       wrap.replaceWith(t.content);
-      const tfWrap = view("game").querySelector(".tecmo .tf-wrap");
+      const tfWrap = document.querySelector(`.gcv-wrap[data-gid="${CSS.escape(wrap.dataset.gid)}"] .tecmo .tf-wrap`);
       if (tfWrap) { wireFieldZoom(); applyZoom(tfWrap); }
     });
   }
@@ -1376,7 +1376,7 @@ const Live = (() => {
   function wireFieldZoom() {
     if (fieldZoomWired) return;
     fieldZoomWired = true;
-    const root = view("game"), pts = new Map();
+    const root = document, pts = new Map(); // the whole page: the game page and Dynasty Draft's playoff games
     let g0 = null; // the gesture so far: start positions + zoom
     const start = (wrap) => {
       const r = wrap.querySelector(".tf-zm").getBoundingClientRect(), p = [...pts.values()];
@@ -1433,7 +1433,7 @@ const Live = (() => {
   function wireFieldTips() {
     if (fieldTipsWired) return;
     fieldTipsWired = true;
-    const root = view("game");
+    const root = document; // the game page and Dynasty Draft's playoff games
     let on = null;
     const PICK = ".tf-field .tf-guy, .tf-field .tf-flag";
     const show = (g, ev) => {
@@ -5457,5 +5457,14 @@ const Live = (() => {
     $("#pw-pos").addEventListener("change", (e) => { pwPos = e.target.value; draw(); });
     $("#pw-team").addEventListener("change", (e) => { pwTeam = e.target.value; draw(); });
   }
-  return { stop, teamId, scores, game, stats, player, standings, team, freeagents, trades, searchPlayers, fillBugs, kit, statsSubtabs: (on) => stSubStats(on) };
+  // Dynasty Draft playoff games (docs/dynasty.js, docs/dynasty_sim.js): a simulated game, ESPN-shaped, drawn on the
+  // same field (either look) outside the game page. final: after the last play, the highlights / replay buttons.
+  function simField(s, comp, home, away, gameId, people, final) {
+    wireGcv(); wireFieldTips(); wireFieldZoom();
+    const keep = league;
+    league = "nfl"; // NFL kicking spots on the field, whichever league the site is on
+    try { return fieldView(s, comp, home, away, { home: teamColor(home.team), away: teamColor(away.team) }, gameId, people, final ? topPlays(s) : null); }
+    finally { league = keep; }
+  }
+  return { stop, teamId, scores, game, stats, player, standings, team, freeagents, trades, searchPlayers, fillBugs, kit, simField, statsSubtabs: (on) => stSubStats(on) };
 })();
