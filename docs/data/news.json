@@ -1,6 +1,13 @@
 {
- "updated": "2026-10-23T12:09:21Z",
+ "updated": "2026-10-23T12:50:08Z",
  "teams": {
+  "nfl:22": {
+   "name": "Arizona Cardinals",
+   "short": "Cardinals",
+   "lg": "nfl",
+   "id": "22",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ari.png"
+  },
   "nfl:33": {
    "name": "Baltimore Ravens",
    "short": "Ravens",
@@ -50,6 +57,13 @@
    "id": "6",
    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/dal.png"
   },
+  "nfl:7": {
+   "name": "Denver Broncos",
+   "short": "Broncos",
+   "lg": "nfl",
+   "id": "7",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/den.png"
+  },
   "nfl:8": {
    "name": "Detroit Lions",
    "short": "Lions",
@@ -77,6 +91,13 @@
    "lg": "nfl",
    "id": "11",
    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ind.png"
+  },
+  "nfl:30": {
+   "name": "Jacksonville Jaguars",
+   "short": "Jaguars",
+   "lg": "nfl",
+   "id": "30",
+   "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/jax.png"
   },
   "nfl:12": {
    "name": "Kansas City Chiefs",
@@ -225,6 +246,13 @@
    "id": "38",
    "logo": "https://cdn.collegefootballdata.com/logos/500/38.png"
   },
+  "cfb:150": {
+   "name": "Duke",
+   "short": "Duke",
+   "lg": "cfb",
+   "id": "150",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/150.png"
+  },
   "cfb:151": {
    "name": "East Carolina",
    "short": "East Carolina",
@@ -274,13 +302,6 @@
    "id": "84",
    "logo": "https://cdn.collegefootballdata.com/logos/500/84.png"
   },
-  "cfb:2294": {
-   "name": "Iowa",
-   "short": "Iowa",
-   "lg": "cfb",
-   "id": "2294",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/2294.png"
-  },
   "cfb:256": {
    "name": "James Madison",
    "short": "James Madison",
@@ -288,26 +309,12 @@
    "id": "256",
    "logo": "https://cdn.collegefootballdata.com/logos/500/256.png"
   },
-  "cfb:96": {
-   "name": "Kentucky",
-   "short": "Kentucky",
-   "lg": "cfb",
-   "id": "96",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/96.png"
-  },
   "cfb:99": {
    "name": "LSU",
    "short": "LSU",
    "lg": "cfb",
    "id": "99",
    "logo": "https://cdn.collegefootballdata.com/logos/500/99.png"
-  },
-  "cfb:2335": {
-   "name": "Liberty",
-   "short": "Liberty",
-   "lg": "cfb",
-   "id": "2335",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/2335.png"
   },
   "cfb:276": {
    "name": "Marshall",
@@ -350,13 +357,6 @@
    "lg": "cfb",
    "id": "127",
    "logo": "https://cdn.collegefootballdata.com/logos/500/127.png"
-  },
-  "cfb:135": {
-   "name": "Minnesota",
-   "short": "Minnesota",
-   "lg": "cfb",
-   "id": "135",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/135.png"
   },
   "cfb:344": {
    "name": "Mississippi State",
@@ -421,12 +421,12 @@
    "id": "2483",
    "logo": "https://cdn.collegefootballdata.com/logos/500/2483.png"
   },
-  "cfb:213": {
-   "name": "Penn State",
-   "short": "Penn State",
+  "cfb:164": {
+   "name": "Rutgers",
+   "short": "Rutgers",
    "lg": "cfb",
-   "id": "213",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/213.png"
+   "id": "164",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/164.png"
   },
   "cfb:2579": {
    "name": "South Carolina",
@@ -484,12 +484,12 @@
    "id": "254",
    "logo": "https://cdn.collegefootballdata.com/logos/500/254.png"
   },
-  "cfb:238": {
-   "name": "Vanderbilt",
-   "short": "Vanderbilt",
+  "cfb:258": {
+   "name": "Virginia",
+   "short": "Virginia",
    "lg": "cfb",
-   "id": "238",
-   "logo": "https://cdn.collegefootballdata.com/logos/500/238.png"
+   "id": "258",
+   "logo": "https://cdn.collegefootballdata.com/logos/500/258.png"
   },
   "cfb:275": {
    "name": "Wisconsin",
@@ -501,15 +501,285 @@
  },
  "items": [
   {
-   "title": "6 NFL trades we want to see at the deadline, including a Bears blockbuster",
-   "url": "https://www.sbnation.com/nfl/1133303/nfl-trades-that-makes-too-much-sense-bears-packers-giants-khalil-mack",
-   "source": "SB Nation",
-   "league": "nfl",
-   "published": "2026-10-23T12:00:00Z",
-   "summary": "We are a mere two weeks away from the mid-way point of the NFL season because time is a make-believe construct placed upon us by the man, which I believe is one of the reasons why the people of…",
-   "image": "https://platform.sbnation.com/wp-content/uploads/sites/2/2026/10/gettyimages-2255087107.jpg?quality=90&strip=all&crop=0,0,100,100",
+   "title": "How to watch Rutgers vs. No. 24 Northwestern: Live stream, preview for Saturday's game",
+   "url": "https://sports.yahoo.com/articles/watch-rutgers-vs-no-24-123700591.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-23T12:37:00Z",
+   "summary": "Live coverage begins at 7:00 PM ET on NBC and Peacock.",
+   "image": "https://media.zenfs.com/en/nbcsports.com/aa39e7c83625d3b316c6c8688234b46a.jpg",
    "teams": [
-    "nfl:3"
+    "cfb:77",
+    "cfb:164"
+   ]
+  },
+  {
+   "title": "Big Ten football players due for a big performance in Week 8",
+   "url": "https://sports.yahoo.com/articles/big-ten-football-players-due-123518841.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-23T12:35:18Z",
+   "summary": "Multiple Big Ten quarterbacks need to deliver great performances for their teams in Week 8, while the LA schools need more from their ground games",
+   "image": "",
+   "teams": []
+  },
+  {
+   "title": "Could Washington GM Adam Peters try to build around Jayden Daniels at the trade deadline? - Daily Slop",
+   "url": "https://sports.yahoo.com/articles/could-washington-gm-adam-peters-123000076.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-23T12:30:00Z",
+   "summary": "2 games behind 1st place Giants and with the league’s 2nd-easiest remaining schedule, could Washington become buyers at the trade deadline?",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/8a4c07b4e121cd7d096c0cc7a36bdfc1.jpg",
+   "teams": [
+    "nfl:19"
+   ]
+  },
+  {
+   "title": "Lions vs. Packers preview, prediction: On Paper",
+   "url": "https://sports.yahoo.com/articles/lions-vs-packers-preview-prediction-123000324.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-23T12:30:00Z",
+   "summary": "A preview, prediction and statistical breakdown for Detroit Lions vs. Green Bay Packers.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/afc2817349da63a6de824667897a197b.jpg",
+   "teams": [
+    "nfl:9",
+    "nfl:8"
+   ]
+  },
+  {
+   "title": "Report: Jaguars OT Anton Harrison out for year with a torn ACL",
+   "url": "https://sports.yahoo.com/articles/report-jaguars-ot-anton-harrison-122837910.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-23T12:28:37Z",
+   "summary": "When Jaguars left tackle Anton Harrison was placed on injured reserve earlier this month, word was that the results of knee surgery would determine how long he'll be out.",
+   "image": "",
+   "teams": [
+    "nfl:30"
+   ]
+  },
+  {
+   "title": "Alabama Football 2026 vs Texas A&M: Previewing the Aggie Defense",
+   "url": "https://sports.yahoo.com/articles/alabama-football-2026-vs-texas-122600040.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-23T12:26:00Z",
+   "summary": "A Mike Elko defense may not be the best thing for a “get right” game for the Alabama offense.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/02dd77f9f901756286ad09a0f509be4a.jpg",
+   "teams": [
+    "cfb:245",
+    "cfb:333"
+   ]
+  },
+  {
+   "title": "Kirby Smart names 'biggest weakness' for Georgia football",
+   "url": "https://sports.yahoo.com/articles/kirby-smart-names-biggest-weakness-122325354.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-23T12:23:25Z",
+   "summary": "UGA coach Kirby Smart identifies a specific special teams struggle that is hindering Georgia football's field position this season",
+   "image": "",
+   "teams": [
+    "cfb:61"
+   ]
+  },
+  {
+   "title": "Five Plays: Syracuse Fourth Quarter",
+   "url": "https://sports.yahoo.com/articles/five-plays-syracuse-fourth-quarter-122000629.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-23T12:20:00Z",
+   "summary": "Louisville survived a trip to Syracuse to get a solid road win in the ACC. Below are some of the key plays in the fourth quarter, with some thoughts from me. Louisville turned up the pressure in the…",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/8e365b24ac7a31a409b719ec34e08ed5.jpg",
+   "teams": []
+  },
+  {
+   "title": "How to watch No. 7 Ole Miss at No. 19 Texas: Kickoff time, TV schedule and streaming options",
+   "url": "https://sports.yahoo.com/articles/watch-no-7-ole-miss-122000142.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-23T12:20:00Z",
+   "summary": "For the first time in almost 30 years, Ole Miss will play against a quarterback with the last name Manning. And just like that 1997 bout against Peyton and the Volunteers, the Rebs will be on the…",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/565e223e123c5d05687fe664e498fb7f.jpg",
+   "teams": [
+    "cfb:251",
+    "cfb:2633",
+    "cfb:145"
+   ]
+  },
+  {
+   "title": "Jaguars LT Anton Harrison Reportedly Out For The Year",
+   "url": "https://sports.yahoo.com/articles/jaguars-lt-anton-harrison-reportedly-121633734.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-23T12:16:33Z",
+   "summary": "Recent reports confirm the worst-case scenario Jaguars LT Anton Harrison. The 2026 season is over for the fourth year OT",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/adec66d80ea09749667dbc8b790d3cc3.jpg",
+   "teams": [
+    "nfl:30"
+   ]
+  },
+  {
+   "title": "Bills news: The good, the bad and the ugly at the bye week.",
+   "url": "https://sports.yahoo.com/articles/bills-news-good-bad-ugly-120955801.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-23T12:09:55Z",
+   "summary": "Josh Allen and the offense have been elite through six weeks. The defense has been a problem, especially on third down.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/25ecff25c1c275010762efdbc588bd68.jpg",
+   "teams": [
+    "nfl:2"
+   ]
+  },
+  {
+   "title": "Former Maryland HC Mike Locksley shares honest admission after his firing",
+   "url": "https://sports.yahoo.com/articles/former-maryland-hc-mike-locksley-120851781.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-23T12:08:51Z",
+   "summary": "Mike Locksley cleared out his office in College Park on Wednesday, the same day Maryland announced it was parting ways with him after a 2-5 start. In an interview with ESPN the following day, he…",
+   "image": "https://media.zenfs.com/en/gridiron_heroics_307/5868b2000e77b408e88755f603a2c423.jpg",
+   "teams": [
+    "cfb:120"
+   ]
+  },
+  {
+   "title": "Fleur-de-Links: Players grateful for extra time in Paris",
+   "url": "https://sports.yahoo.com/articles/fleur-links-players-grateful-extra-120713466.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-23T12:07:13Z",
+   "summary": "Here are today's Saints news links",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/71eeea612256ed3ea1428841e8cb9183.jpg",
+   "teams": [
+    "nfl:18"
+   ]
+  },
+  {
+   "title": "Steelers don't expect T.J. Watt's calf injury to affect Sunday availability",
+   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/steelers-dont-expect-t-j-watts-calf-injury-to-affect-sunday-availability",
+   "source": "Pro Football Talk",
+   "league": "nfl",
+   "published": "2026-10-23T12:06:19Z",
+   "summary": "Steelers linebacker T.J.",
+   "image": "https://nbcsports.brightspotcdn.com/dims4/default/480207b/2147483647/strip/false/crop/8256x4644+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F4d%2F3b%2Fc31050d2487bba8f2e5127fc65cc%2F2299401099.jpg",
+   "teams": [
+    "nfl:23"
+   ]
+  },
+  {
+   "title": "How to watch No. 16 USC vs Wisconsin: TV, live stream, preview for Saturday's game",
+   "url": "https://sports.yahoo.com/articles/watch-no-16-usc-vs-120600070.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-23T12:06:00Z",
+   "summary": "Live coverage begins at 7:00 PM ET on NBC and Peacock.",
+   "image": "https://media.zenfs.com/en/nbcsports.com/aa39e7c83625d3b316c6c8688234b46a.jpg",
+   "teams": [
+    "cfb:275",
+    "cfb:30"
+   ]
+  },
+  {
+   "title": "Picking Week 8 of college football in the Big Ten",
+   "url": "https://sports.yahoo.com/articles/picking-week-8-college-football-120449981.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-23T12:04:49Z",
+   "summary": "Who can we expect to see win in the Big Ten this week?",
+   "image": "",
+   "teams": []
+  },
+  {
+   "title": "Big Ten power rankings after college football Week 7 | Buckeyes Wire",
+   "url": "https://sports.yahoo.com/articles/big-ten-power-rankings-college-120410722.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-23T12:04:10Z",
+   "summary": "It was another crazy weekend of college football. Here's how it all impacted our Big Ten power rankings after Week 7 of the season.",
+   "image": "https://media.zenfs.com/en/buckeyes_wire_usa_today_articles_592/28e53f26fbeb814857ac8e50acd0449e.jpg",
+   "teams": [
+    "cfb:194"
+   ]
+  },
+  {
+   "title": "Auburn football's latest bowl projections following upset win over UGA",
+   "url": "https://sports.yahoo.com/articles/auburn-footballs-latest-bowl-projections-120341898.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-23T12:03:41Z",
+   "summary": "How much did Auburn football's postseason trajectory change following its win over Georgia?",
+   "image": "",
+   "teams": [
+    "cfb:61",
+    "cfb:2"
+   ]
+  },
+  {
+   "title": "Three keys for Colorado QB Isaac Wilson against Oklahoma State",
+   "url": "https://sports.yahoo.com/articles/three-keys-colorado-qb-isaac-120331560.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-23T12:03:31Z",
+   "summary": "Isaac Wilson has beaten Oklahoma State before, and Colorado needs him to limit turnovers and find a passing rhythm to beat the Cowboys again.",
+   "image": "https://media.zenfs.com/en/buffaloes_wire_usa_today_articles_968/95dcef7ce2f7a008b34926317f45bf45.jpg",
+   "teams": [
+    "cfb:197",
+    "cfb:38"
+   ]
+  },
+  {
+   "title": "Friday Flakes: Time For Nebraska Football to Look at the Great Opportunity Right in Front of Them",
+   "url": "https://sports.yahoo.com/articles/friday-flakes-time-nebraska-football-120100087.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-23T12:01:00Z",
+   "summary": "Nebraska currently sits at 5-2 after two disappointing losses to Indiana and Oregon. As fans, we have bickered and gone back and forth at each other about the failures and inadequacies of this…",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/64fa7a0a73e52b71110023ad2209bff2.jpg",
+   "teams": [
+    "cfb:158",
+    "cfb:84",
+    "cfb:2483"
+   ]
+  },
+  {
+   "title": "Duke vs. Virginia odds, picks, betting preview, kickoff time for Friday Week 8 college football",
+   "url": "https://www.cbssports.com/betting/news/duke-vs-virginia-odds-picks-betting-preview-kickoff-time-for-friday-week-8-college-football/",
+   "source": "CBS Sports",
+   "league": "cfb",
+   "published": "2026-10-23T12:00:52Z",
+   "summary": "The Cavaliers host the Blue Devils in an ACC title game rematch Friday night",
+   "image": "https://sportshub.cbsistatic.com/i/2026/10/21/96366e47-c290-4d52-b19b-59cae1d835f7/duke-fb-imagn.jpg",
+   "teams": [
+    "cfb:150",
+    "cfb:258"
+   ]
+  },
+  {
+   "title": "Bills trade deadline candidate: Eagles cornerback Tariq Woolen",
+   "url": "https://sports.yahoo.com/articles/bills-trade-deadline-candidate-eagles-120036559.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-23T12:00:36Z",
+   "summary": "The fourth installment in the series examining possible Bills trade targets before the deadline",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/b33b1be537f47c96fdaee290c1839631.jpg",
+   "teams": [
+    "nfl:21",
+    "nfl:2"
+   ]
+  },
+  {
+   "title": "Will Pitt's Defense Contain Miami Hurricanes' Malachi Toney From Igniting?",
+   "url": "https://sports.yahoo.com/articles/pitts-defense-contain-miami-hurricanes-120006229.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-23T12:00:06Z",
+   "summary": "Senior cornerback Raion Strader and the Pitt Panthers' secondary aim to stifle Miami Hurricanes elite playmaker Malachi Toney, testing whether a disciplined scheme can ground the versatile offensive…",
+   "image": "",
+   "teams": [
+    "cfb:2390"
    ]
   },
   {
@@ -523,6 +793,82 @@
    "teams": [
     "cfb:87",
     "cfb:130"
+   ]
+  },
+  {
+   "title": "Bears send a message to the NFL with the win over Patriots",
+   "url": "https://sports.yahoo.com/articles/bears-send-message-nfl-win-120000844.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-23T12:00:00Z",
+   "summary": "The Bears picked up a key win over the Patriots on Thursday, and @jacobinfante24 shares his notes from the game.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/a2de81065e70216d0a90e5253c21e1b9.jpg",
+   "teams": [
+    "nfl:17",
+    "nfl:3"
+   ]
+  },
+  {
+   "title": "6 NFL trades we want to see at the deadline, including a Bears blockbuster",
+   "url": "https://sports.yahoo.com/articles/6-nfl-trades-want-see-120000962.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-23T12:00:00Z",
+   "summary": "Trade targets with connective tissue to certain teams.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/cbc2406f193fc5b5620cbd0560dbdbd1.jpg",
+   "teams": [
+    "nfl:3"
+   ]
+  },
+  {
+   "title": "Stampede Blue Reacts results (Week 7): Colts fans show signs of optimism after Ballard firing",
+   "url": "https://sports.yahoo.com/articles/stampede-blue-reacts-results-week-120000738.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-23T12:00:00Z",
+   "summary": "The latest SB Nation Reacts survey suggests Colts fans may not be ready to give up on the 2026 season just yet.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/f3b29be71a209137ea9b1cd356a9acf5.jpg",
+   "teams": [
+    "nfl:11"
+   ]
+  },
+  {
+   "title": "Scouting the Enemy: Arizona Cardinals",
+   "url": "https://sports.yahoo.com/articles/scouting-enemy-arizona-cardinals-120000069.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-23T12:00:00Z",
+   "summary": "The Denver Broncos battle the Arizona Cardinals on Sunday. Here is a deeper look at their Week 7 opponent.",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/5ccb65dce306754a7f85dac6896c8642.jpg",
+   "teams": [
+    "nfl:22",
+    "nfl:7"
+   ]
+  },
+  {
+   "title": "Missed tackles tell the story of the Patriots’ loss to the Bears",
+   "url": "https://sports.yahoo.com/articles/missed-tackles-tell-story-patriots-120000828.html",
+   "source": "Yahoo Sports",
+   "league": "nfl",
+   "published": "2026-10-23T12:00:00Z",
+   "summary": "New England missed 16 tackles in Thursday’s loss",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/28ab28bd852e128006c53a87c870ebb3.jpg",
+   "teams": [
+    "nfl:17",
+    "nfl:3"
+   ]
+  },
+  {
+   "title": "Staff Predictions: Michigan Football vs Indiana",
+   "url": "https://sports.yahoo.com/articles/staff-predictions-michigan-football-vs-120000342.html",
+   "source": "Yahoo Sports",
+   "league": "cfb",
+   "published": "2026-10-23T12:00:00Z",
+   "summary": "In this week’s Roundtable, we discuss the QB change, takeaways from last week’s win, bold predictions for the Indiana game, and much more:",
+   "image": "https://media.zenfs.com/en/sb_nation_articles_115/549bbd99d06b7fbdbe918ae2474b204c.jpg",
+   "teams": [
+    "cfb:130",
+    "cfb:84"
    ]
   },
   {
@@ -755,29 +1101,6 @@
    ]
   },
   {
-   "title": "NCAAF Picks, Predictions: 3 Team Totals to Bet for College Football Week 8",
-   "url": "https://sports.yahoo.com/articles/ncaaf-picks-predictions-3-team-110134020.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-23T11:01:34Z",
-   "summary": "Read our NCAAF picks and predictions, including Kyle Hunter's top three team totals for college football Week 8 on Saturday, Oct. 24.",
-   "image": "https://media.zenfs.com/en/action_network_147/943cdec29f43fd29046378b576cbdff5.png",
-   "teams": []
-  },
-  {
-   "title": "Behind enemy lines: USC expert previews Week 8 matchup at Wisconsin",
-   "url": "https://sports.yahoo.com/articles/behind-enemy-lines-usc-expert-110058885.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-23T11:00:58Z",
-   "summary": "The Wisconsin Badgers return to Madison on Saturday, Oct. 24, for a primetime showdown against No. 15 USC.",
-   "image": "",
-   "teams": [
-    "cfb:275",
-    "cfb:30"
-   ]
-  },
-  {
    "title": "Tennessee Titans news: A chance at a win streak",
    "url": "https://sports.yahoo.com/articles/tennessee-titans-news-chance-win-110000531.html",
    "source": "Yahoo Sports",
@@ -826,65 +1149,6 @@
    ]
   },
   {
-   "title": "Serving up numbers for the Texas game",
-   "url": "https://sports.yahoo.com/articles/serving-numbers-texas-game-110000053.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-23T11:00:00Z",
-   "summary": "Matchup numbers fresh out of the industrial strength Red Cup ovens.",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/bfb83fbd462fe6c42ce661e0a8bd2f9f.jpg",
-   "teams": [
-    "cfb:251"
-   ]
-  },
-  {
-   "title": "Iowa Hawkeyes Football: Minnesota Golden Gophers Game Preview",
-   "url": "https://sports.yahoo.com/articles/iowa-hawkeyes-football-minnesota-golden-110000408.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-23T11:00:00Z",
-   "summary": "The Iowa Hawkeyes travel to the Twin Cities to play the Minnesota Golden Gophers for the Battle for Floyd of Rosedale.",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/ce50785003e6d00cd0ef8845150365cb.png",
-   "teams": [
-    "cfb:135",
-    "cfb:2294"
-   ]
-  },
-  {
-   "title": "‘He’ll Get an Opportunity’ — Willie McGinest Explains What Shedeur Sanders Must Do to Earn Browns’ QB Job",
-   "url": "https://sports.yahoo.com/articles/ll-opportunity-willie-mcginest-explains-105337833.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-23T10:53:37Z",
-   "summary": "Shedeur Sanders is still waiting for his chance to become the Cleveland Browns’ starting quarterback. Despite all the buzz surrounding the young quarterback, Browns head coach Todd Monken has stuck…",
-   "image": "https://media.zenfs.com/en/gridiron_heroics_307/72354a6698bdb0b05bcb710eda3c987b.jpg",
-   "teams": [
-    "nfl:5"
-   ]
-  },
-  {
-   "title": "Will Kamario Taylor play for MSU vs OU football? Brent Venables certainly thinks so",
-   "url": "https://sports.yahoo.com/articles/kamario-taylor-play-msu-vs-104538746.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-23T10:45:38Z",
-   "summary": "OU football was forced to prepare for two quarterbacks this week as Mississippi State star Kamario Taylor's status remains up in the air.",
-   "image": "https://media.zenfs.com/en/the_oklahoman_natl_articles_469/5c899bca0eb59e9bb4f046bbcc2e808e.jpg",
-   "teams": [
-    "cfb:344"
-   ]
-  },
-  {
-   "title": "College Football Player Props: Picks for Jekail Middlebrook, Jordan Ovaonughe, Keenan Jackson on Friday, Oct. 23",
-   "url": "https://sports.yahoo.com/articles/college-football-player-props-picks-104517923.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-23T10:45:17Z",
-   "summary": "Read for college football player props, including picks for Jekail Middlebrook, Jordan Ovaonughe, and Keenan Jackson on Friday, October 23.",
-   "image": "https://media.zenfs.com/en/action_network_147/a791bdb81740785d43bc76d765025c7c.jpg",
-   "teams": []
-  },
-  {
    "title": "Mike Macdonald: Kenneth Walker is playing at the highest level in the league right now",
    "url": "https://sports.yahoo.com/articles/mike-macdonald-kenneth-walker-playing-104415722.html",
    "source": "Yahoo Sports",
@@ -898,44 +1162,6 @@
    ]
   },
   {
-   "title": "Three reasons Wisconsin football struggles vs. USC in Week 8",
-   "url": "https://sports.yahoo.com/articles/three-reasons-wisconsin-football-struggles-104016248.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-23T10:40:16Z",
-   "summary": "Here are the three biggest reasons that the Badgers will struggle to attain their fifth win of the season.",
-   "image": "",
-   "teams": [
-    "cfb:275",
-    "cfb:30"
-   ]
-  },
-  {
-   "title": "David Pollack Predicts Massive Week 8 Upset for Ranked SEC Team",
-   "url": "https://sports.yahoo.com/articles/david-pollack-predicts-massive-week-103500309.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-23T10:35:00Z",
-   "summary": "Tennessee just embarrassed Alabama 26-10, but apparently, that still isn’t enough to silence its doubters. Despite three straight wins and a No.",
-   "image": "https://media.zenfs.com/en/essentiallysports_articles_591/faf8fc4e1ea9d37dfe3f234c004b8bc6.jpg",
-   "teams": [
-    "cfb:2633",
-    "cfb:333"
-   ]
-  },
-  {
-   "title": "Could a top ACC school follow Notre Dame to football independence",
-   "url": "https://sports.yahoo.com/articles/could-top-acc-school-notre-103125232.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-23T10:31:25Z",
-   "summary": "Notre Dame football has set the standard for independent football teams, and one from the ACC could be joining them in the future.",
-   "image": "",
-   "teams": [
-    "cfb:87"
-   ]
-  },
-  {
    "title": "Lions vs. Packers preview: 3 key matchups",
    "url": "https://sports.yahoo.com/articles/lions-vs-packers-preview-3-103000753.html",
    "source": "Yahoo Sports",
@@ -946,218 +1172,6 @@
    "teams": [
     "nfl:9",
     "nfl:8"
-   ]
-  },
-  {
-   "title": "The Bills can’t win this week, but the right teams can lose",
-   "url": "https://sports.yahoo.com/articles/bills-t-win-week-teams-103000191.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-23T10:30:00Z",
-   "summary": "The Bills are on their bye, but a few losses around the AFC could make their week off even better",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/b0c9abca75d305b05df1f9e5a59e83d6.jpg",
-   "teams": [
-    "nfl:2"
-   ]
-  },
-  {
-   "title": "DJ Turner tabbed NFL’s most underrated player",
-   "url": "https://sports.yahoo.com/articles/dj-turner-tabbed-nfl-most-103000168.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-23T10:30:00Z",
-   "summary": "Cincinnati has a star at the cornerback position.",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/47d16e331c8cecb5e8a9656d71634e71.jpg",
-   "teams": []
-  },
-  {
-   "title": "Joel Klatt Names 3 True National Title Contenders Despite Week 8 Losses, Snubs Undefeated Miami and Ohio State",
-   "url": "https://sports.yahoo.com/articles/joel-klatt-names-3-true-103000096.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-23T10:30:00Z",
-   "summary": "Apparently, losing is no longer a problem when Joel Klatt decides who’s championship material. The FOX Sports analyst has identified just three teams he trusts to compete for a national title in…",
-   "image": "https://media.zenfs.com/en/essentiallysports_articles_591/ade8cdc5c9029ac2cbd45f0ff8074fb5.jpg",
-   "teams": [
-    "cfb:194",
-    "cfb:2390"
-   ]
-  },
-  {
-   "title": "Kentucky vs. Vanderbilt viewing info, what to watch for, odds, and predictions",
-   "url": "https://sports.yahoo.com/articles/kentucky-vs-vanderbilt-viewing-watch-103000731.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-23T10:30:00Z",
-   "summary": "How to watch and follow the Kentucky Wildcats take on the Vanderbilt Commodores.",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/f6344c5e630d27891054f28a6ef8eacc.jpg",
-   "teams": [
-    "cfb:238",
-    "cfb:96"
-   ]
-  },
-  {
-   "title": "Wisconsin predicted to face Alabama in major Big Ten vs. SEC bowl game",
-   "url": "https://sports.yahoo.com/articles/wisconsin-predicted-face-alabama-major-102017751.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-23T10:20:17Z",
-   "summary": "ESPN’s latest bowl projections, the 4-2 Badgers were selected to land in the Liberty Mutual Music City Bowl against the Alabama Crimson Tide.",
-   "image": "",
-   "teams": [
-    "cfb:333",
-    "cfb:275",
-    "cfb:2335"
-   ]
-  },
-  {
-   "title": "Dolphins Quarterback Crisis: 3 College QBs Miami Must Watch for 2027!",
-   "url": "https://sports.yahoo.com/articles/dolphins-quarterback-crisis-3-college-101741314.html",
-   "source": "Yahoo Sports",
-   "league": "cfb",
-   "published": "2026-10-23T10:17:41Z",
-   "summary": "Are the Miami Dolphins facing a quarterback crisis? Meet 3 college quarterbacks to watch for the 2027 NFL Draft: Drew Mestemaker, Darian Mensah, and Trinidad Chambliss. Through five games, Malik…",
-   "image": "https://media.zenfs.com/en/stadium_rant_681/a6f4b63dd8744a63964961215e678bcd.jpg",
-   "teams": [
-    "nfl:15",
-    "cfb:2390"
-   ]
-  },
-  {
-   "title": "Trey Hendrickson trying to downplay his first game vs. the Bengals",
-   "url": "https://sports.yahoo.com/articles/trey-hendrickson-trying-downplay-first-101500474.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-23T10:15:00Z",
-   "summary": "This is a major storyline going into Sunday’s game.",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/62cfc93b34345ec1a5b6c010d675e91d.jpg",
-   "teams": [
-    "nfl:4"
-   ]
-  },
-  {
-   "title": "DK Metcalf has prime chance to spark Steelers offense in Paris vs. Saints",
-   "url": "https://sports.yahoo.com/articles/dk-metcalf-prime-chance-spark-100620790.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-23T10:06:20Z",
-   "summary": "The Steelers got off to a slow start in Week 6 against Tampa Bay but played well early in their last international game against the Vikings in 2025.",
-   "image": "",
-   "teams": [
-    "nfl:23",
-    "nfl:16",
-    "nfl:18"
-   ]
-  },
-  {
-   "title": "10 things we learned from Patriots vs. Bears",
-   "url": "https://sports.yahoo.com/articles/10-things-learned-patriots-vs-100459159.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-23T10:04:59Z",
-   "summary": "What we learned from the Patriots’ Week 7 loss to the Bears.",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/fd8589ceb90410537c5a047e09fa7053.jpg",
-   "teams": [
-    "nfl:17",
-    "nfl:3"
-   ]
-  },
-  {
-   "title": "Giants news: DC Dennard Wilson calls out defense, Giants double-digit underdogs, more",
-   "url": "https://sports.yahoo.com/articles/giants-news-dc-dennard-wilson-100000435.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-23T10:00:00Z",
-   "summary": "New York Giants headlines for Thursday",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/d44ce3e9417cd952adc0ebc713e5cd34.jpg",
-   "teams": [
-    "nfl:19"
-   ]
-  },
-  {
-   "title": "Cleveland Browns news: Some rough news on the injury front",
-   "url": "https://sports.yahoo.com/articles/cleveland-browns-news-rough-news-100000831.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-23T10:00:00Z",
-   "summary": "The latest Cleveland Browns news and notes from around the NFL in the October 23 edition of the Daily Dawg Chow.",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/9c18f8be4bf4a344045c251427d58c17.jpg",
-   "teams": [
-    "nfl:5"
-   ]
-  },
-  {
-   "title": "The Bear’s Den: Williams lead Bears to win over New England Patriots",
-   "url": "https://sports.yahoo.com/articles/bear-den-williams-lead-bears-100000245.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-23T10:00:00Z",
-   "summary": "In a game billed as a duel between Chicago Bears QB Caleb Williams and New England Patriots QB Drake Maye, Williams won!",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/addb1401af16668d4a13644e48a73976.jpg",
-   "teams": [
-    "nfl:17",
-    "nfl:3"
-   ]
-  },
-  {
-   "title": "Will Jessie Bates be moved ahead of NFL Trade Deadline?",
-   "url": "https://sports.yahoo.com/articles/jessie-bates-moved-ahead-nfl-100000533.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-23T10:00:00Z",
-   "summary": "Could an old face be just what the doctor ordered?",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/baba2dc33894b6aef28d3393295c9528.jpg",
-   "teams": []
-  },
-  {
-   "title": "Ben Johnson originally called a punt, but Cairo Santos asked to try a 58-yard field goal",
-   "url": "https://sports.yahoo.com/articles/ben-johnson-originally-called-punt-094227101.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-23T09:42:27Z",
-   "summary": "After Bears head coach Ben Johnson initially called for a punt late in Thursday night's win over the Patriots, Bears kicker Cairo Santos convinced his coaches to let him try the 58-yard field goal…",
-   "image": "",
-   "teams": [
-    "nfl:17",
-    "nfl:3"
-   ]
-  },
-  {
-   "title": "Golden Nuggets: Romello Height is in a special club",
-   "url": "https://sports.yahoo.com/articles/golden-nuggets-romello-height-special-090900387.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-23T09:09:00Z",
-   "summary": "Your daily San Francisco 49ers news for Friday, October 23rd, 2026",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/6da4bb69933068066e59ee301a01f3da.jpg",
-   "teams": [
-    "nfl:25"
-   ]
-  },
-  {
-   "title": "NFL tells teams that uncalled hip-drop tackle on Aaron Rodgers was clear example of penalty",
-   "url": "https://sports.yahoo.com/articles/nfl-tells-teams-uncalled-hip-090055836.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-23T09:00:55Z",
-   "summary": "In Week 4, Browns defensive lineman Adin Huntington committed a textbook example of a hip-drop tackle on Steelers quarterback Aaron Rodgers.",
-   "image": "",
-   "teams": [
-    "nfl:23",
-    "nfl:5"
-   ]
-  },
-  {
-   "title": "6 winners and losers from Patriots’ loss to the Bears",
-   "url": "https://sports.yahoo.com/articles/6-winners-losers-patriots-loss-090000643.html",
-   "source": "Yahoo Sports",
-   "league": "nfl",
-   "published": "2026-10-23T09:00:00Z",
-   "summary": "Drake Maye, Hunter Henry, and other noteworthy players from Week 7.",
-   "image": "https://media.zenfs.com/en/sb_nation_articles_115/3231cac115965a292ae61c1df6f05557.jpg",
-   "teams": [
-    "nfl:17",
-    "nfl:3"
    ]
   },
   {
@@ -1183,6 +1197,19 @@
    ]
   },
   {
+   "title": "Thursday Night Football: Bears fend off Patriots 30-24",
+   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/thursday-night-football-bears-fend-off-patriots-30-24",
+   "source": "Pro Football Talk",
+   "league": "nfl",
+   "published": "2026-10-23T03:31:21Z",
+   "summary": "Caleb Williams was 22-of-33 for 308 yards and two touchdowns.",
+   "image": "https://nbcsports.brightspotcdn.com/dims4/default/3cd312b/2147483647/strip/false/crop/4024x2264+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F0e%2Fd0%2F51ad51fe40edac96cac8a2e40297%2F2301564326.jpg",
+   "teams": [
+    "nfl:17",
+    "nfl:3"
+   ]
+  },
+  {
    "title": "Marlon Humphrey complains about \"slander\" of Lamar Jackson",
    "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/marlon-humphrey-complains-about-slander-of-qb-lamar-jackson",
    "source": "Pro Football Talk",
@@ -1192,6 +1219,18 @@
    "image": "https://nbcsports.brightspotcdn.com/dims4/default/f4b93ab/2147483647/strip/false/crop/4265x2399+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2Fde%2F8f%2Fa9eea1f645c38bd2b7aee6faf889%2F2300040070.jpg",
    "teams": [
     "nfl:33"
+   ]
+  },
+  {
+   "title": "Bears TE Kmet carted off with a knee injury",
+   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/bears-te-cole-kmet-carted-off-with-a-knee-injury",
+   "source": "Pro Football Talk",
+   "league": "nfl",
+   "published": "2026-10-23T03:10:33Z",
+   "summary": "The Bears quickly ruled him out.",
+   "image": "https://nbcsports.brightspotcdn.com/dims4/default/a3b41b6/2147483647/strip/false/crop/4986x2805+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F89%2Fae%2F5eca37c548fea347022a487235d9%2F2301564929.jpg",
+   "teams": [
+    "nfl:3"
    ]
   },
   {
@@ -1205,6 +1244,18 @@
    "teams": [
     "cfb:197",
     "cfb:38"
+   ]
+  },
+  {
+   "title": "Bears DB Malik Muhammad doubtful to return with toe injury",
+   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/bears-db-malik-muhammad-doubtful-to-return-with-toe-injury",
+   "source": "Pro Football Talk",
+   "league": "nfl",
+   "published": "2026-10-23T02:49:17Z",
+   "summary": "Bears rookie defensive back Malik Muhammad is doubtful to return tonight.",
+   "image": "https://nbcsports.brightspotcdn.com/dims4/default/a8149cf/2147483647/strip/false/crop/7458x4195+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F9d%2F6a%2Fcfe393414807a8e165eb81d20ed9%2F2300536138.jpg",
+   "teams": [
+    "nfl:3"
    ]
   },
   {
@@ -1579,18 +1630,6 @@
    ]
   },
   {
-   "title": "Patriots say Christian Gonzalez is questionable tonight with an illness",
-   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/patriots-say-christian-gonzalez-is-questionable-tonight-with-an-illness",
-   "source": "Pro Football Talk",
-   "league": "nfl",
-   "published": "2026-10-22T22:20:43Z",
-   "summary": "New England's star cornerback might not play tonight in Chicago.",
-   "image": "https://nbcsports.brightspotcdn.com/dims4/default/7185815/2147483647/strip/false/crop/5540x3116+0+288/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2Fce%2F71%2F2e8daccb4db2921cd521d1a30638%2F2301227079.jpg",
-   "teams": [
-    "nfl:17"
-   ]
-  },
-  {
    "title": "NFL legend Marshall Faulk diagnosed with Parkinson's disease, says he is 'in a good place'",
    "url": "https://www.cbssports.com/nfl/news/marshall-faulk-parkinsons-diagnosis-nfl/",
    "source": "CBS Sports",
@@ -1651,30 +1690,6 @@
    ]
   },
   {
-   "title": "Tyler Warren, Sauce Gardner remain out of practice for Colts",
-   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/tyler-warren-sauce-gardner-remain-out-of-practice-for-colts",
-   "source": "Pro Football Talk",
-   "league": "nfl",
-   "published": "2026-10-22T21:47:27Z",
-   "summary": "The Colts got a few players back at practice on Thursday, but they remained without starters on both sides of the ball.",
-   "image": "https://nbcsports.brightspotcdn.com/dims4/default/b077c60/2147483647/strip/false/crop/5038x2834+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2F4d%2F27%2Fdd872a9e4232a8a7105b9d7f226b%2F2299198450.jpg",
-   "teams": [
-    "nfl:11"
-   ]
-  },
-  {
-   "title": "Nick Sirianni again says little about Jalen Hurts",
-   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/nick-sirianni-again-says-little-about-jalen-hurts",
-   "source": "Pro Football Talk",
-   "league": "nfl",
-   "published": "2026-10-22T21:46:31Z",
-   "summary": "The Eagles continue to make coach Nick Sirianni available for regular press conferences.",
-   "image": "https://nbcsports.brightspotcdn.com/dims4/default/ff4f9a2/2147483647/strip/false/crop/6824x3839+0+0/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2Fb0%2F61%2F6512a40a4f65b340adf34ceb9e8c%2F2300899012.jpg",
-   "teams": [
-    "nfl:21"
-   ]
-  },
-  {
    "title": "NFL best bets, predictions: Who will be last winless team? Evaluating odds, schedules for Dolphins, Chargers",
    "url": "https://www.cbssports.com/betting/news/nfl-best-bets-predictions-who-will-be-last-winless-team-evaluating-odds-schedules-for-dolphins-chargers/",
    "source": "CBS Sports",
@@ -1723,18 +1738,6 @@
     "cfb:278",
     "cfb:254",
     "cfb:30"
-   ]
-  },
-  {
-   "title": "George Pickens limited in Thursday's practice with shoulder injury",
-   "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/george-pickens-limited-in-thursdays-practice-with-shoulder-injury",
-   "source": "Pro Football Talk",
-   "league": "nfl",
-   "published": "2026-10-22T20:47:37Z",
-   "summary": "Cowboys wide receiver George Pickens popped up on the injury report for the first time this season.",
-   "image": "https://nbcsports.brightspotcdn.com/dims4/default/e08e337/2147483647/strip/false/crop/3210x1806+0+167/resize/1920x1080!/quality/90/?url=https%3A%2F%2Fnbc-sports-production-nbc-sports.s3.us-east-1.amazonaws.com%2Fbrightspot%2Fcf%2Ff5%2F2a808e7d4b0cb44f3847625e53ef%2F2301189897.jpg",
-   "teams": [
-    "nfl:6"
    ]
   },
   {
@@ -2262,19 +2265,6 @@
    ]
   },
   {
-   "title": "Big Ten midseason grades: UCLA aces first half, while Penn State has failed every test",
-   "url": "https://www.cbssports.com/college-football/news/big-ten-midseason-grades-ucla-penn-state/",
-   "source": "CBS Sports",
-   "league": "cfb",
-   "published": "2026-10-21T19:30:01Z",
-   "summary": "Individual grades on the midseason report card for all 18 teams in the Big Ten",
-   "image": "https://sportshub.cbsistatic.com/i/2026/10/21/21b9142c-3936-4d0c-9652-e8c8f76bd20f/bruins.jpg",
-   "teams": [
-    "cfb:213",
-    "cfb:26"
-   ]
-  },
-  {
    "title": "NFL surges ahead with Saints-Steelers in Paris for their ‘let them eat cake’ moment",
    "url": "https://www.sbnation.com/nfl/1133171/nfl-france-game-protests-saints-steelers-paris",
    "source": "SB Nation",
@@ -2343,6 +2333,19 @@
    "teams": [
     "cfb:194",
     "cfb:84"
+   ]
+  },
+  {
+   "title": "NFLPA calls for an investigation into how Jalen Hurts’ blood clots were handled",
+   "url": "https://www.sbnation.com/nfl/1133115/nflpa-jalen-hurts",
+   "source": "SB Nation",
+   "league": "nfl",
+   "published": "2026-10-21T00:12:39Z",
+   "summary": "The NFL Players Association is calling for a “full investigation” into how the NFL and the Philadelphia Eagles handled the medical care of quarterback Jalen Hurts. Hurts played for the Eagles in the…",
+   "image": "https://platform.sbnation.com/wp-content/uploads/sites/2/2026/10/gettyimages-2299158081.jpg?quality=90&strip=all&crop=0,0,100,100",
+   "teams": [
+    "nfl:30",
+    "nfl:21"
    ]
   },
   {
