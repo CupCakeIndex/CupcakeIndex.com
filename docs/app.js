@@ -254,7 +254,7 @@ function renderGames() {
   const games = [
     { href: "#/daily", name: "daily_player", title: "Daily player", desc: "Guess today's mystery NFL player in 8 tries. Each guess shows how close you are on team, division, position, age, college and number. A new player every day at midnight.", status: Daily.status() },
     { href: "#/hilo", name: "higher_or_lower", title: "Higher or Lower", desc: "Two real NFL seasons side by side: who had more passing yards, sacks, points, wins...? Keep picking right to build a streak. The numbers get closer the longer you last.", status: Hilo.status() },
-    { href: "#/dynasty", name: "dynasty_draft", title: "Dynasty Draft", desc: "Build a team from real NFL seasons since 1999: the 2007 Patriots' passing, the 2000 Ravens' run defense... Six picks, then our model plays your team through a season and the playoffs. Rack up rings.", status: Dynasty.status() },
+    { href: "#/dynasty", name: "dynasty_draft", title: "Dynasty Draft", desc: "Build a team from real NFL seasons since 1999: the 2007 Patriots' passing, the 2000 Ravens' run defense... Pick the year from memory, then our model plays your team through a season and the playoffs. Rack up rings.", status: Dynasty.status() },
   ];
   $("#view-games").innerHTML = `<div class="card">
     <h2>Games</h2>
@@ -273,7 +273,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "426"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "427"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });

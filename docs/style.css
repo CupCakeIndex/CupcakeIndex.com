@@ -3221,7 +3221,11 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .dy-unit:hover { border-color: var(--accent); }
 .dy-unit:active { transform: scale(.98); }
 .dy-unit[disabled] { opacity: .35; cursor: not-allowed; transform: none; }
-.dy-cap { color: var(--accent) !important; }
+.dy-yr { font: inherit; font-size: 13px; padding: 7px 8px; background: var(--card); color: var(--ink); border: 1px solid var(--line); }
+.dy-yr:focus { border-color: var(--accent); outline: none; }
+.dy-last { margin: 4px 0 0; font-size: 14px; animation: dyIn .3s ease-out both; }
+.dy-pick.fresh { animation: dyFlash 1s ease-out; }
+@keyframes dyFlash { from { background: color-mix(in srgb, var(--accent) 30%, transparent); } to { background: transparent; } }
 .dy-g { font-variant-numeric: tabular-nums; min-width: 2.2em; text-align: right; }
 .dy-g.hi { color: var(--hl-g); }
 .dy-g.md { color: #f5c542; }
