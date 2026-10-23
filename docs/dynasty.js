@@ -6,6 +6,8 @@
 // many points a game each unit is worth. Your rings add up across drafts (localStorage, synced when signed in).
 const Dynasty = (() => {
   const STATS = "dynasty-stats", ROUNDS = 6, OFFERS = 3, GAMES = 17;
+  // game-day luck, in points: about half of real NFL games' (D.sd, ~13), so the better roster usually wins
+  const LUCK = 7;
   const LABEL = { pass: "Passing offense", run: "Run game", rush: "Pass rush", cover: "Coverage", rund: "Run defense", st: "Special teams" };
   const ROUND_NAMES = ["Wild Card", "Divisional", "Conference title", "Super Bowl"];
   let D, run, FR; // FR: franchise abbreviation -> its seasons (indexes into D.teams), oldest first
@@ -86,10 +88,10 @@ const Dynasty = (() => {
 
   // one game: the margin is your edge plus game-day noise; a believable score around it
   function game(opp) {
-    const edge = mine() - strength(opp), m = Math.round(edge + normal() * D.sd) || (Math.random() < phi(edge / D.sd) ? 3 : -3);
+    const edge = mine() - strength(opp), m = Math.round(edge + normal() * LUCK) || (Math.random() < phi(edge / LUCK) ? 3 : -3);
     const total = Math.max(Math.abs(m) + 3, Math.round(44 + normal() * 10));
     const a = Math.round((total + m) / 2), b = a - m;
-    return { opp, win: m > 0, us: Math.max(a, 0), them: Math.max(b, 0), chance: phi(edge / D.sd) };
+    return { opp, win: m > 0, us: Math.max(a, 0), them: Math.max(b, 0), chance: phi(edge / LUCK) };
   }
 
   function playSeason() {
@@ -124,14 +126,14 @@ const Dynasty = (() => {
   function seasonHtml() {
     const r = run.season, s = stats();
     return `<div class="dy-season">
-      <p class="dy-rec">${r.w}-${r.l} <span class="${r.champ ? "dy-champ" : ""}">${r.champ ? "🏆 " : ""}${esc(r.result)}</span></p>
+      <p class="dy-rec">${r.w}-${r.l} <span class="${r.champ ? "dy-champ" : ""}">${r.champ ? "🏆 " : ""}${esc(r.result)}</span> <small class="dy-pr">power rating ${mine() > 0 ? "+" : ""}${mine().toFixed(1)}</small></p>
       <h3>Regular season</h3><div class="dy-games">${r.games.map(chip).join("")}</div>
       ${r.inP ? `<h3>Playoffs${r.bye ? " <small class='muted'>(first-round bye)</small>" : ""}</h3><div class="dy-games">${r.playoffs.map((g, i) => chip(g, GAMES + i)).join("")}</div>` : ""}
       <div class="dg-end">
         <p class="hl-over">Your dynasty${s.newBest && s.played > 1 ? " (new best season!)" : ""}</p>
         <div class="dg-stats"><div><b>${s.rings}</b><small>rings</small></div><div><b>${s.played}</b><small>seasons</small></div><div><b>${s.trips}</b><small>playoff trips</small></div><div><b>${s.best ? `${s.best.w}-${s.best.l}` : "–"}</b><small>best season</small></div></div>
         <div class="hl-btns"><button type="button" class="btn primary" id="dy-again">Draft again</button><button type="button" class="btn" id="dy-share">Copy result</button><span class="muted" id="dy-copied"></span></div>
-        <p class="note">Each game: your power rating against theirs plus game-day luck, the same spread of results real NFL games have. Hover a game for your chance going in.</p>
+        <p class="note">Each game: your power rating against theirs plus some game-day luck (half as much as real NFL games, so the better roster usually wins). Hover a game for your chance going in.</p>
       </div></div>`;
   }
 

@@ -5,7 +5,7 @@
 const Account = (() => {
   const CFG = window.FIREBASE_CONFIG;
   const SDK = "https://www.gstatic.com/firebasejs/10.12.2/";
-  const SYNCED = (k) => /^pickem-/.test(k) || k === "daily-nfl" || k === "daily-nfl-stats" || k === "hilo-stats" || k === "dynasty-stats" || k === "fantasy-team" || k === "cupcake-profile" || k === "viz-presets" || k === "lb-name";
+  const SYNCED = (k) => /^pickem-/.test(k) || k === "daily-nfl" || k === "daily-nfl-stats" || k === "hilo-stats" || k === "dynasty-stats" || k === "mock-gm" || k === "fantasy-team" || k === "cupcake-profile" || k === "viz-presets" || k === "lb-name";
   let fb = null, user = null, status = "", timer = null, ready = null;
 
   const enabled = () => !!(CFG && CFG.apiKey && CFG.projectId);

@@ -3234,6 +3234,7 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .dy-rec { font-size: 26px; font-weight: 800; margin: 6px 0 12px; }
 .dy-rec span { font-size: 16px; font-weight: 600; color: var(--muted); margin-left: 8px; }
 .dy-rec .dy-champ { color: var(--accent); }
+.dy-rec .dy-pr { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 8px; }
 .dy-season h3 { margin: 12px 0 6px; font-size: 14px; }
 .dy-games { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px; }
 .dy-gm { display: flex; gap: 8px; align-items: baseline; padding: 5px 8px; border-left: 3px solid var(--line); background: var(--bg); font-size: 13px; font-variant-numeric: tabular-nums; animation: dyIn .3s ease-out both; min-width: 0; }
@@ -3251,4 +3252,39 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
   .dy .hl-bar { gap: 12px; }
   .dy .hl-bar span { white-space: nowrap; }
   .dy .hl-lv { display: none; }
+}
+
+/* Mock draft (mock.js): our picks, and Be the GM */
+.mk h2 small { font-size: 13px; font-weight: 400; margin-left: 6px; }
+.mk .seg { display: inline-flex; margin: 10px 0 12px; }
+.mk-list { display: flex; flex-direction: column; gap: 4px; }
+.mk-pick, .mk-prow { display: grid; grid-template-columns: 2.2em auto 24px 1fr; gap: 10px; align-items: center; padding: 7px 10px; border: 1px solid var(--line); background: var(--bg); min-width: 0; }
+.mk-prow { grid-template-columns: 2.2em 24px 1fr auto; }
+.mk-pick.you { border-color: var(--accent); }
+.mk-n { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; font-size: 13px; }
+.mk-tm { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; text-decoration: none; min-width: 64px; }
+.mk-who { min-width: 0; line-height: 1.35; }
+.mk-who a { text-decoration: none; }
+.mk-pos { display: inline-block; font-size: 11px; font-weight: 700; color: var(--accent); border: 1px solid var(--accent); padding: 0 5px; margin: 0 2px; }
+.mk-why { display: block; color: var(--muted); font-size: 12px; }
+.mk-teams { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; }
+.mk-tbtn { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.mk-tbtn small { color: var(--muted); font-weight: 400; font-size: 10.5px; }
+.mk-tbtn:hover, .mk-tbtn.fav { border-color: var(--accent); }
+.mk-clock { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--accent); margin-bottom: 10px; }
+.mk-clock b { display: block; font-size: 16px; }
+.mk-pos-f { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.mk-pos-f button { border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; font-size: 12px; padding: 4px 9px; cursor: pointer; }
+.mk-pos-f button.on { border-color: var(--accent); color: var(--accent); }
+.mk-board { display: flex; flex-direction: column; gap: 4px; max-height: 560px; overflow-y: auto; }
+.mk-take { padding: 5px 12px; font-size: 12px; }
+.mk-h3 { margin: 14px 0 6px; font-size: 14px; }
+.linkbtn { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; }
+@media (max-width: 600px) {
+  .mk-pick { grid-template-columns: 1.8em auto 1fr; gap: 8px; padding: 7px 8px; }
+  .mk-pick .mk-sch { display: none; }
+  .mk-tm span { display: none; }
+  .mk-tm { min-width: 0; }
+  .mk-prow { grid-template-columns: 1.8em 1fr auto; gap: 8px; }
+  .mk-prow .mk-sch { display: none; }
 }

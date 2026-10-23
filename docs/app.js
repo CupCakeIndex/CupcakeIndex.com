@@ -22,7 +22,7 @@ const BASE_PRESETS = {
 const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", recent: "FORM", cupcake: "CUP", luck: "UNLK" };
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
 const RANK_VIEWS = new Set(["rankings", "schedules", "resume"]);
-const VIEWS = new Set(["rankings", "picks", "schedules", "resume", "shame", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "trades", "daily", "hilo", "dynasty", "fantasy", "news", "takes", "coaches", "coach", "admin", "breakdown", "games", "settings", "privacy"]);
+const VIEWS = new Set(["rankings", "picks", "schedules", "resume", "shame", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "trades", "daily", "hilo", "dynasty", "mock", "fantasy", "news", "takes", "coaches", "coach", "admin", "breakdown", "games", "settings", "privacy"]);
 // The 5 tabs and the pages inside each, shown in a drop-down when you tap the tab (like More). An item is
 // [view, label, params, league]: params pick a page that shares a view (Stats ?show=visualize), league hides it in the
 // other league. "also" = pages with no pill of their own that still light up the tab (a game's box score -> Scores).
@@ -30,7 +30,7 @@ const GROUPS = [
   { tab: "rankings", items: [["rankings", "Rankings"], ["resume", "Résumé Check"], ["schedules", "Schedules"], ["shame", "Hall of Shame"], ["coaches", "Coaches"], ["compare", "Compare", null, "cfb"]], also: ["breakdown", "coach"] },
   { tab: "scores", items: [["scores", "Scores"], ["standings", "Standings"], ["standings", "Playoff picture", { show: "playoff" }]], also: ["game"] },
   { tab: "stats", items: [["stats", "Leaders"], ["stats", "Visualize", { show: "visualize" }], ["stats", "Injuries", { show: "injuries" }], ["fantasy", "Fantasy", null, "nfl"], ["stats", "Projected", { show: "projected" }], ["stats", "Frauds", { show: "frauds" }, "nfl"]] },
-  { tab: "play", items: [["picks", "Pick'em"], ["daily", "Daily player"], ["hilo", "Higher or Lower"], ["dynasty", "Dynasty Draft"], ["picks", "Leaderboard", { board: 1 }]], also: ["games"] },
+  { tab: "play", items: [["picks", "Pick'em"], ["daily", "Daily player"], ["hilo", "Higher or Lower"], ["dynasty", "Dynasty Draft"], ["mock", "Mock draft"], ["picks", "Leaderboard", { board: 1 }]], also: ["games"] },
   { tab: "news", items: [["news", "Headlines"], ["takes", "Takes"], ["trades", "Trade watch", null, "nfl"], ["freeagents", "Free agents", null, "nfl"], ["trades", "Portal watch", null, "cfb"]] },
 ];
 // the page's pill: same view, and its params match (the plain pill, e.g. Leaders, takes any page no other pill claims)
@@ -185,6 +185,8 @@ async function route() {
     Hilo.render();
   } else if (r.view === "dynasty") {
     Dynasty.render();
+  } else if (r.view === "mock") {
+    Mock.render(r.params);
   } else if (r.view === "games") {
     renderGames();
   } else if (r.view === "settings") {
@@ -255,6 +257,7 @@ function renderGames() {
     { href: "#/daily", name: "daily_player", title: "Daily player", desc: "Guess today's mystery NFL player in 8 tries. Each guess shows how close you are on team, division, position, age, college and number. A new player every day at midnight.", status: Daily.status() },
     { href: "#/hilo", name: "higher_or_lower", title: "Higher or Lower", desc: "Two real NFL seasons side by side: who had more passing yards, sacks, points, wins...? Keep picking right to build a streak. The numbers get closer the longer you last.", status: Hilo.status() },
     { href: "#/dynasty", name: "dynasty_draft", title: "Dynasty Draft", desc: "Build a team from real NFL seasons since 1999: the 2007 Patriots' passing, the 2000 Ravens' run defense... Pick the year from memory, then our model plays your team through a season and the playoffs. Rack up rings.", status: Dynasty.status() },
+    { href: "#/mock?gm=1", name: "mock_draft", title: "Be the GM", desc: "Run your team's first two rounds of next spring's NFL Draft. The other 31 teams pick on their own from our prospect board, and you get a grade when it's done.", status: Mock.status() },
   ];
   $("#view-games").innerHTML = `<div class="card">
     <h2>Games</h2>
@@ -273,7 +276,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "427"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "428"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
