@@ -12,7 +12,8 @@ For every team-season since 1999 (nflverse weekly player stats, regular season),
 Offensive linemen never show up in play-by-play text, so they aren't listed.
 Each player is [full name, short name ("P.Manning"), position, headshot id, weight]; the weight is how often the
 play text should name him (his share of the targets, carries, sacks...). Headshot ids are nflverse's NFL.com
-image ids (https://static.www.nfl.com/image/private/f_auto,q_auto/league/<id>), blank when there is none.
+image ids (https://static.www.nfl.com/image/private/f_auto,q_auto/league/<id>; "u/<id>" for .../image/upload/...),
+blank when there is none.
 
 Run: python src/dynasty_rosters.py          (only seasons without a file yet)
      python src/dynasty_rosters.py --all    (rebuild every season)
@@ -28,6 +29,7 @@ from viz_data import NFLV, nflverse_csv  # noqa: E402
 OUT = os.path.join(os.path.dirname(__file__), "..", "docs", "data", "dynasty")
 DYN = os.path.join(os.path.dirname(__file__), "..", "docs", "data", "dynasty.json")
 SHOT = "https://static.www.nfl.com/image/private/f_auto,q_auto/league/"
+UPLOAD = "https://static.www.nfl.com/image/upload/f_auto,q_auto/league/"  # newer photos: stored as "u/<id>"
 NUM = ["attempts", "sacks_suffered", "carries", "targets", "receptions", "def_sacks", "def_qb_hits", "def_pass_defended", "def_interceptions",
        "def_tackles_solo", "def_tackle_assists", "def_tackles_with_assist", "fg_att", "pat_att", "pt_att", "punt_returns", "kickoff_returns"]
 
@@ -50,7 +52,8 @@ def season(yr, colors):
         t = tot[k]
         for c in NUM:
             t[c] += f(r.get(c))
-        shot = (r.get("headshot_url") or "").rsplit("/", 1)[-1] if SHOT in (r.get("headshot_url") or "") else ""
+        u = r.get("headshot_url") or ""
+        shot = u.rsplit("/", 1)[-1] if u.startswith(SHOT) else "u/" + u.rsplit("/", 1)[-1] if u.startswith(UPLOAD) else ""
         who[k] = (r["player_display_name"], r["player_name"], r["position"] or r["position_group"], r["position_group"], shot)
     by_team = defaultdict(list)
     for (team, pid), t in tot.items():

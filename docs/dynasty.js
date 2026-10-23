@@ -142,7 +142,7 @@ const Dynasty = (() => {
     return `<div class="dy-season">
       <p class="dy-rec">${r.w}-${r.l} <span class="${r.champ && !wait ? "dy-champ" : ""}">${wait ? "Made the playoffs" : `${r.champ ? "🏆 " : ""}${esc(r.result)}`}</span> <small class="dy-pr">power rating ${mine() > 0 ? "+" : ""}${mine().toFixed(1)}</small></p>
       <h3>Regular season</h3><div class="dy-games">${r.games.map(chip).join("")}</div>
-      ${r.inP ? `<h3>Playoffs${r.bye ? " <small class='muted'>(first-round bye)</small>" : ""}</h3>${r.shown ? `<div class="dy-games">${r.playoffs.slice(0, r.shown).map((g, i) => chip(g, i)).join("")}</div>` : ""}` : ""}
+      ${r.inP ? `<h3>Playoffs${r.bye ? " <small class='muted'>(first-round bye)</small>" : ""}</h3>${bracket(null)}${r.shown ? `<div class="dy-games">${r.playoffs.slice(0, r.shown).map((g, i) => chip(g, i)).join("")}</div>` : ""}` : ""}
       ${wait ? `<div class="dy-next">
         <p class="dy-q">${r.shown ? "Next up" : "You're in!"}: the <b>${esc(nx.round)}</b> vs the ${esc(T(nx.opp)[0])} ${esc(T(nx.opp)[1])} (${esc(T(nx.opp)[3])}).</p>
         <div class="hl-btns"><button type="button" class="btn primary" id="dy-watch">▶ Watch the ${esc(nx.round)} game</button><button type="button" class="btn" id="dy-simrest">Sim the rest</button></div>
@@ -163,7 +163,8 @@ const Dynasty = (() => {
       ${run.watch ? watchHtml() : `${roster()}
       ${run.season ? seasonHtml() : done ? readyHtml() : draftHtml()}`}
     </div>`;
-    if (run.watch) { paint(); later(); }
+    // a playoff game: the field waits for kickoff while the intro is up
+    if (run.watch) { paint(); if (run.watch.intro) intro(); else later(); }
     const offersEl = v.querySelector(".dy-offers");
     // a year picked: that card's unit buttons wake up
     offersEl?.addEventListener("change", (e) => {
@@ -198,7 +199,8 @@ const Dynasty = (() => {
   // Each side's real players: yours from the team-season behind each unit you drafted, theirs from their season.
   const ROS = {};
   const rosterOf = (yr) => (ROS[yr] ||= getJSON(`data/dynasty/rosters_${yr}.json`).catch((e) => { delete ROS[yr]; throw e; }));
-  const SHOT = "https://static.www.nfl.com/image/private/f_auto,q_auto/league/";
+  // headshots: NFL.com image ids (src/dynasty_rosters.py); "u/<id>" is in their newer folder
+  const shot = (id) => (!id ? "" : id.startsWith("u/") ? `https://static.www.nfl.com/image/upload/f_auto,q_auto/league/${id.slice(2)}` : `https://static.www.nfl.com/image/private/f_auto,q_auto/league/${id}`);
   const LISTS = { pass: ["qb", "rec"], run: ["rb"], rush: ["rush"], cover: ["cov"], rund: ["tak"], st: ["k", "p", "ret"] };
   async function sides(g) {
     const yrs = [...new Set([...Object.values(run.picks), g.opp].map((i) => T(i)[0]))];
@@ -220,7 +222,7 @@ const Dynasty = (() => {
       : /^(CB|DB)$/.test(pos) ? "cb" : pos === "SS" ? "ss" : /^(FS|S|SAF)$/.test(pos) ? "fs" : null;
     Object.entries(side.R).forEach(([key, list]) => Array.isArray(list) && list.forEach((p, i) => {
       const k = slot(p[2], key), id = `${side.id}-${key}-${i}`;
-      const pl = { id, name: p[0], num: "", pos: k === "pk" ? "K" : p[2], pic: p[3] ? SHOT + p[3] : "", out: false };
+      const pl = { id, name: p[0], num: "", pos: k === "pk" ? "K" : p[2], pic: shot(p[3]), out: false };
       byId.set(id, pl); byName.set(p[0].toLowerCase(), pl); byName.set(p[1].toLowerCase(), pl);
       if (k && !(depth[k] ||= []).some((x) => byId.get(x).name === p[0])) depth[k].push(id);
     }));
@@ -242,8 +244,8 @@ const Dynasty = (() => {
       if (btn) { btn.disabled = false; btn.textContent = `Couldn't load the rosters (${e.message}). Try again`; }
       return;
     }
-    const sim = DynastySim.build(sd.me, sd.them, g.us, g.them, g.edge ?? 0);
-    run.watch = { gi, g, sd, sim, all: sim.drives.flatMap((d) => d.plays), k: 1, speed: store.get("dynasty-speed") === 2 ? 2 : 1, paused: false,
+    const sim = DynastySim.build(sd.me, sd.them, g.us, g.them, g.edge ?? 0, LUCK);
+    run.watch = { gi, g, sd, sim, all: sim.drives.flatMap((d) => d.plays), k: 1, speed: store.get("dynasty-speed") === 2 ? 2 : 1, paused: false, intro: true,
       gid: `dyn-${Date.now()}`, home: teamOf(sd.me, g), away: teamOf(sd.them, g), people: { home: people(sd.me), away: people(sd.them) } };
     draw();
     document.querySelector("#view-dynasty .dy-watch")?.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -269,7 +271,7 @@ const Dynasty = (() => {
       <button type="button" class="btn" data-dy="skip">Skip to final</button><button type="button" class="btn" data-dy="rest">Sim the rest</button></div>`;
     const won = w.g.win;
     return `<div class="hl-btns dy-ctl">${won && nx ? `<button type="button" class="btn primary" data-dy="next">▶ Watch the ${esc(nx.round)} game</button><button type="button" class="btn" data-dy="rest">Sim the rest</button>`
-      : `<button type="button" class="btn primary" data-dy="back">${won ? "🏆 See your season" : "See your season"}</button>`}
+      : `<button type="button" class="btn primary" data-dy="back">${won ? "🏆 See your season" : "See your season"}</button>${won ? `<button type="button" class="btn" data-dy="ring">Share your ring</button>` : ""}`}
       <span class="note">${won ? (nx ? `On to the ${esc(nx.round)}.` : "Super Bowl champions!") : "The run ends here."}</span></div>`;
   }
   function lineupHtml() {
@@ -279,25 +281,177 @@ const Dynasty = (() => {
     return `<details class="dy-lineup"><summary>Lineups: your units' real players vs the ${esc(T(w.g.opp)[0])} ${esc(T(w.g.opp)[1])}</summary>
       <table><thead><tr><th></th><th>You</th><th>${esc(short(w.g.opp))}</th></tr></thead><tbody>${rows}</tbody></table></details>`;
   }
-  const watchHtml = () => `<div class="dy-watch"><div class="dy-bugbox"></div><div class="dy-ctlbox"></div><div class="dy-field"></div>${lineupHtml()}
+  const watchHtml = () => `<div class="dy-watch">${bracket(run.watch.gi)}<div class="dy-bugbox"></div>
+    <div class="dy-wp" title="Win chance after each play: the score, the time left and the two teams' power ratings"><i></i><span class="a"></span><span class="b"></span></div>
+    <div class="dy-ctlbox"></div><div class="dy-fieldwrap"><div class="dy-field"></div><div class="dy-fx"></div></div>${lineupHtml()}
     <p class="note">The final score comes from the same model as the regular season (power ratings plus game-day luck). The plays come from the matchups: your passing vs their coverage and pass rush, your run game vs their run defense. Offensive linemen aren't in play-by-play, so they aren't named.</p></div>`;
   // draw the field at the current play (keeps the play-by-play list where you scrolled it)
   function paint() {
     const w = run.watch, v = document.getElementById("view-dynasty"), box = v.querySelector(".dy-field");
     if (!box) return;
     const st = state(w), top = box.querySelector(".gcv-pbp")?.scrollTop || 0;
-    box.innerHTML = Live.simField(st.s, st.comp, st.home, st.away, w.gid, w.people, st.done);
+    box.innerHTML = w.intro ? "" : Live.simField(st.s, st.comp, st.home, st.away, w.gid, w.people, st.done);
     const pbp = box.querySelector(".gcv-pbp");
     if (pbp) pbp.scrollTop = top;
     v.querySelector(".dy-bugbox").innerHTML = bugHtml(st);
-    v.querySelector(".dy-ctlbox").innerHTML = ctlHtml(st);
-    if (st.done && run.season.shown <= w.gi) run.season.shown = w.gi + 1; // this game's result is out now
+    // your win chance after this play (100 or 0 at the final)
+    const wp = st.done ? (w.g.win ? 100 : 0) : Math.round(100 * (w.intro || w.k === 1 ? w.g.chance : w.sim.winprobability.find((x) => x.playId === st.last.id)?.homeWinPercentage ?? w.g.chance));
+    const bar = v.querySelector(".dy-wp"), pct = Math.min(99, Math.max(1, wp));
+    bar.querySelector("i").style.width = `${st.done ? wp : pct}%`;
+    bar.querySelector(".a").textContent = `You ${st.done ? wp : pct}%`;
+    bar.querySelector(".b").textContent = `${st.done ? 100 - wp : 100 - pct}% ${short(w.g.opp)}`;
+    bar.classList.toggle("fav", wp >= 50);
+    if (st.done && run.season.shown <= w.gi) { run.season.shown = w.gi + 1; v.querySelector(".dy-brk").outerHTML = bracket(w.gi); } // this game's result is out now
+    v.querySelector(".dy-ctlbox").innerHTML = ctlHtml(st) + (st.done ? potgHtml() : "");
+    if (st.done && !w.ended) { w.ended = true; ending(); }
+  }
+
+  // ---- Before kickoff: the tale of the tape (key players on a podium, unit grades, your chance) ----
+  const UNIT_OF = { qb: "pass", rec: "pass", rb: "run", rush: "rush", cov: "cover", tak: "rund", k: "st", p: "st", ret: "st" };
+  // a player's card: [full name, short name, position, headshot id], his team-season, and a face (or his initials)
+  function face(p, cls = "") {
+    const ini = p[0].split(" ").map((x) => x[0]).filter((c) => /[A-Z]/.test(c)).slice(0, 2).join("");
+    return `<span class="dy-face ${cls}">${p[3] ? `<img src="${esc(shot(p[3]))}" alt="" loading="lazy" onerror="this.remove()">` : ""}<b>${esc(ini)}</b></span>`;
+  }
+  function keyPlayers(side, mine) {
+    const w = run.watch, from = (k) => (mine ? short(run.picks[UNIT_OF[k]]) : short(w.g.opp));
+    return [["rec", 0], ["qb", 0], ["rush", 0]].map(([k, i]) => { const p = side.R[k]?.[i] || (k === "rec" ? side.R.rb?.[0] : null); return p ? { p, from: from(k) } : null; });
+  }
+  function introHtml() {
+    const w = run.watch, { me, them } = w.sd, pct = Math.round(100 * w.g.chance);
+    const podium = (side, mine) => `<div class="dy-pod">${keyPlayers(side, mine).map((x, i) => !x ? `<div class="dy-step s${i}"></div>`
+      : `<div class="dy-step s${i}" style="--d:${(mine ? 0 : 0.45) + i * 0.15}s">${face(x.p)}<b>${esc(x.p[0])}</b><small>${esc(x.from)} · ${esc(x.p[2])}</small><i></i></div>`).join("")}</div>`;
+    const rows = D.units.map((u, k) => {
+      const a = grade(me.z[u]), b = grade(them.z[u]);
+      return `<div class="dy-tg" style="--d:${1.1 + k * 0.08}s"><b class="${a > b ? "up" : ""}">${a}</b><span class="dy-tb l"><i style="width:${a}%"></i></span><small>${LABEL[u]}</small><span class="dy-tb"><i style="width:${b}%"></i></span><b class="${b > a ? "up" : ""}">${b}</b></div>`;
+    }).join("");
+    return `<div class="dy-intro" role="dialog" aria-label="Before kickoff">
+      <p class="dy-ihead">${esc(w.g.round)} · tale of the tape</p>
+      <div class="dy-tape"><div class="dy-tside"><h4><img src="icon-192.png" alt="" width="26" height="26">Your dynasty</h4>${podium(me, true)}</div>
+        <div class="dy-vs">VS</div>
+        <div class="dy-tside"><h4><img src="${esc(flogo(T(w.g.opp)[2]))}" alt="" width="26" height="26">${esc(T(w.g.opp)[0])} ${esc(T(w.g.opp)[1])}</h4>${podium(them, false)}</div></div>
+      <div class="dy-tgs">${rows}</div>
+      <p class="dy-ichance">Your chance: <b data-to="${pct}">0</b>%</p>
+      <button type="button" class="btn primary" data-dy="kick">Kickoff ▸</button></div>`;
+  }
+  function intro() {
+    const w = run.watch, fx = document.querySelector("#view-dynasty .dy-fx");
+    if (!fx) return;
+    fx.innerHTML = introHtml();
+    fx.classList.add("on");
+    const num = fx.querySelector("[data-to]"), to = +num.dataset.to, t0 = performance.now() + 1700;
+    const count = (t) => { if (!num.isConnected) return; const f = Math.min(1, Math.max(0, (t - t0) / 900)); num.textContent = Math.round(to * f); if (f < 1) requestAnimationFrame(count); };
+    requestAnimationFrame(count);
+    clearTimeout(w.timer);
+    w.timer = setTimeout(kickoff, 7000);
+  }
+  function kickoff() {
+    const w = run.watch, fx = document.querySelector("#view-dynasty .dy-fx");
+    if (!w?.intro) return;
+    w.intro = false;
+    if (fx) { fx.classList.remove("on"); fx.innerHTML = ""; }
+    paint();
+    later();
+  }
+
+  // ---- After the final: confetti and a stamp when you win, a dim field when you don't ----
+  function ending() {
+    const w = run.watch, fx = document.querySelector("#view-dynasty .dy-fx"), sb = w.g.round === "Super Bowl";
+    if (!fx) return;
+    const confetti = w.g.win ? Array.from({ length: 36 }, (_, i) => `<i style="left:${(i * 37) % 100}%;--c:${["var(--accent)", "#fff", "#f5c542", "var(--accent)"][i % 4]};--dl:${((i * 13) % 10) / 10}s;--dr:${(i % 7) - 3}"></i>`).join("") : "";
+    const nx = run.season.playoffs[w.gi + 1];
+    fx.innerHTML = `<div class="dy-end ${w.g.win ? "win" : "loss"}">${confetti ? `<div class="dy-conf">${confetti}</div>` : ""}
+      ${sb && w.g.win ? `<div class="dy-trophy">🏆</div>` : ""}
+      <div class="dy-stamp">${w.g.win ? (sb ? "CHAMPIONS" : "ADVANCES") : "SEASON OVER"}</div>
+      <p>${w.g.win ? (sb ? `Ring #${stats().rings}` : `On to the ${esc(nx?.round || "")}`) : `${w.g.us}-${w.g.them} in the ${esc(w.g.round)}`}</p></div>`;
+    fx.classList.add("on", "end");
+    clearTimeout(w.fxTimer);
+    w.fxTimer = setTimeout(() => { fx.classList.remove("on", "end"); fx.innerHTML = ""; }, 4600);
+    if (sb && w.g.win) { // the ring count ticks up in the bar
+      const b = document.querySelector("#view-dynasty .hl-bar b");
+      if (b) { b.textContent = shownStats().rings; b.classList.add("dy-tick"); }
+    }
+  }
+
+  // ---- Player of the game: the best stat line, from this game's own plays ----
+  function boxScore() {
+    const w = run.watch, P = new Map(), get = (side, nm) => { const k = `${side}|${nm}`; if (!P.has(k)) P.set(k, { side, nm, att: 0, cmp: 0, py: 0, ptd: 0, int: 0, car: 0, ry: 0, rtd: 0, rec: 0, cy: 0, ctd: 0, sk: 0, pick: 0 }); return P.get(k); };
+    for (const pl of w.all) {
+      const t = pl.st;
+      if (!t) continue;
+      const def = t.side === "1" ? "2" : "1";
+      if (t.k === "pass" || t.k === "inc" || t.k === "int") {
+        if (t.qb) { const q = get(t.side, t.qb); q.att++; if (t.k === "pass") { q.cmp++; q.py += t.y; q.ptd += t.td || 0; } if (t.k === "int") q.int++; }
+        if (t.k === "pass" && t.to) { const r = get(t.side, t.to); r.rec++; r.cy += t.y; r.ctd += t.td || 0; }
+      }
+      if ((t.k === "run" || t.k === "fum") && t.to) { const r = get(t.side, t.to); r.car++; r.ry += t.y; r.rtd += t.td || 0; }
+      if (t.k === "sack" && t.def) get(def, t.def).sk++;
+      if (t.k === "int" && t.def) get(def, t.def).pick++;
+    }
+    return [...P.values()];
+  }
+  function potgHtml() {
+    const w = run.watch, winner = w.g.win ? "1" : "2";
+    const score = (x) => (x.py / 25 + 4 * x.ptd - 2 * x.int + x.ry / 10 + 6 * x.rtd + x.cy / 10 + 6 * x.ctd + 4 * x.sk + 6 * x.pick) * (x.side === winner ? 1 : 0.6);
+    const best = boxScore().sort((a, b) => score(b) - score(a))[0];
+    if (!best || score(best) <= 0) return "";
+    const side = best.side === "1" ? w.sd.me : w.sd.them;
+    let p = null, key = null;
+    for (const [k, list] of Object.entries(side.R)) if (Array.isArray(list)) { const f = list.find((x) => x[1] === best.nm); if (f) { p = f; key = k; break; } }
+    if (!p) return "";
+    const from = best.side === "1" ? short(run.picks[UNIT_OF[key]]) : short(w.g.opp), n = (v, one, many) => `${v} ${v === 1 ? one : many}`;
+    const parts = [];
+    if (best.att) parts.push(`${best.cmp}/${best.att}, ${best.py} yds${best.ptd ? `, ${best.ptd} TD` : ""}${best.int ? `, ${best.int} INT` : ""}`);
+    if (best.car) parts.push(`${n(best.car, "carry", "carries")}, ${best.ry} yds${best.rtd ? `, ${best.rtd} TD` : ""}`);
+    if (best.rec) parts.push(`${n(best.rec, "catch", "catches")}, ${best.cy} yds${best.ctd ? `, ${best.ctd} TD` : ""}`);
+    if (best.sk) parts.push(n(best.sk, "sack", "sacks"));
+    if (best.pick) parts.push(n(best.pick, "interception", "interceptions"));
+    w.potg = { name: p[0], from, line: parts.join(" · ") };
+    return `<div class="dy-potg">${face(p)}<div><small>Player of the game</small><b>${esc(p[0])}</b> <span class="muted">${esc(from)} · ${esc(p[2])}</span><p>${esc(w.potg.line)}</p></div></div>`;
+  }
+
+  // ---- The bracket: Wild Card to Super Bowl, filling in as you go (watching: that round is lit) ----
+  function bracket(now) {
+    const r = run.season, at = (rn) => r.playoffs.findIndex((g) => g.round === rn);
+    return `<ol class="dy-brk">${ROUND_NAMES.map((rn) => {
+      const i = at(rn), g = r.playoffs[i], lg = g ? `<img src="${esc(logo(g.opp))}" alt="" width="18" height="18" onerror="this.style.visibility='hidden'">` : "";
+      // (a round you won't reach stays TBD until the loss that ends the run has been shown)
+      const [cls, body] = r.bye && rn === "Wild Card" ? ["bye", "Bye"]
+        : i < 0 ? (pending() ? ["tbd", "TBD"] : ["out", "–"])
+        : i < r.shown ? [g.win ? "w" : "l", `${lg}<b>${g.win ? "W" : "L"}</b> ${g.us}-${g.them}`]
+        : i === now || i === r.shown ? ["now", `${lg}${esc(short(g.opp))}`]
+        : ["tbd", "TBD"];
+      return `<li class="${cls}"><small>${esc(rn === "Conference title" ? "Conference" : rn)}</small><span>${body}</span></li>`;
+    }).join("")}</ol>`;
+  }
+
+  // ---- A picture of a Super Bowl run, for Share ▾ ----
+  async function ringImage() {
+    const w = run.watch, r = run.season, s = shownStats();
+    const blob = await Share.png({
+      title: "DYNASTY DRAFT · SUPER BOWL CHAMPIONS",
+      sub: `${r.w}-${r.l}, then ${r.playoffs.map((g) => `${g.us}-${g.them}`).join(", ")} in the playoffs. Ring #${s.rings}.`,
+      logoUrls: new Map(D.units.map((u) => [u, logo(run.picks[u])])),
+      paint: ({ x, text, F, C, logos }) => {
+        text("🏆", 1340, 330, F(400, 190), C.ink, "center");
+        D.units.forEach((u, k) => {
+          const i = run.picks[u], Y = 190 + k * 78, lg = logos.get(u);
+          text(LABEL[u], 48, Y + 30, F(400, 22), C.muted);
+          if (lg) x.drawImage(lg, 330, Y + 2, 40, 40);
+          text(`${T(i)[0]} ${T(i)[1]}`, 386, Y + 32, F(700, 26), C.ink, "left", 620);
+          text(String(grade(z(i, u))), 1040, Y + 32, F(700, 26), C.accent, "right");
+        });
+        if (w?.potg) text(`Player of the Super Bowl: ${w.potg.name} (${w.potg.line})`, 48, 700, F(400, 22), C.ink, "left", 1500);
+        text(`Super Bowl: ${r.playoffs.at(-1).us}-${r.playoffs.at(-1).them} over the ${T(r.playoffs.at(-1).opp)[0]} ${T(r.playoffs.at(-1).opp)[1]}`, 48, 750, F(700, 24), C.accent, "left", 1500);
+      },
+    });
+    return { blob, name: "cupcake-index-dynasty-ring.png" };
   }
   // the next play once this one has had time to run (touchdowns and kickoffs take longer)
   function later() {
     const w = run.watch;
     clearTimeout(w.timer);
-    if (w.k >= w.all.length || w.paused) return;
+    if (w.k >= w.all.length || w.paused || w.intro) return;
     const p = w.all[w.k - 1], td = /TOUCHDOWN/.test(p.text), t = td ? 6200 : /kickoff/i.test(p.type.text) ? 4400 : /punt|field goal/i.test(p.type.text) ? 4000 : 3000;
     w.timer = setTimeout(() => {
       const box = document.querySelector("#view-dynasty .dy-field");
@@ -319,10 +473,16 @@ const Dynasty = (() => {
     const ctl = () => { document.querySelector("#view-dynasty .dy-ctlbox").innerHTML = ctlHtml(state(w)); later(); };
     if (k === "pause") { w.paused = !w.paused; ctl(); }
     else if (k === "spd") { w.speed = +b.dataset.v === 2 ? 2 : 1; store.set("dynasty-speed", w.speed); ctl(); }
-    else if (k === "skip") { clearTimeout(w.timer); w.k = w.all.length; paint(); }
+    else if (k === "skip") { w.intro = false; document.querySelector("#view-dynasty .dy-fx")?.classList.remove("on"); clearTimeout(w.timer); w.k = w.all.length; paint(); }
     else if (k === "rest") simRest();
     else if (k === "next") watch(w.gi + 1);
     else if (k === "back") { run.watch = null; draw(); }
+    else if (k === "kick") kickoff();
+    else if (k === "ring") {
+      b.textContent = "Drawing…";
+      ringImage().then(({ blob, name }) => { Share.download(blob, name); b.textContent = "Share your ring"; })
+        .catch(() => { b.textContent = "Couldn't draw it"; });
+    }
   });
 
   async function render() {

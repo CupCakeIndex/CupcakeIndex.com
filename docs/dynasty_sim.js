@@ -35,7 +35,8 @@ const DynastySim = (() => {
 
   // side: { id, abbr, z: {pass, run, rush, cover, rund, st}, R: {qb, rec, rb, rush, cov, tak, k, p, ret} (roster lists) }
   // home attacks toward yard line 100 (yard lines are measured from the home goal line, like ESPN's)
-  function build(home, away, homePts, awayPts, edge) {
+  // sd: game-day luck in points (Dynasty's LUCK), for the win chance after each play
+  function build(home, away, homePts, awayPts, edge, sd = 13) {
     const T = [home, away];
     const nm = (side, key, alt) => (pickW(side.R[key]) || pickW(side.R[alt] || []) || [`${side.abbr} ${key.toUpperCase()}`, `${side.abbr}-${key.toUpperCase()}`])[1];
     const spot = (abs) => (abs === 50 ? "50" : abs < 50 ? `${home.abbr} ${Math.round(abs)}` : `${away.abbr} ${Math.round(100 - abs)}`);
@@ -86,13 +87,15 @@ const DynastySim = (() => {
     // the text, ESPN style: "C.Palmer pass deep right to L.Fitzgerald to NE 20 for 31 yards (D.McCourty)."
     function playText(o, d, r, from, to) {
       const qb = nm(o, "qb"), at = spot(absOf(o, to));
-      if (r.k === "sack") return `${qb} sacked at ${at} for ${r.y} yards (${nm(d, "rush", "tak")}).`;
-      if (r.k === "inc") return `${qb} pass incomplete ${r.deep ? "deep" : "short"} ${PDIR[rand(3)]} to ${nm(o, "rec")}${R() < 0.3 ? ` (${nm(d, "cov")})` : ""}.`;
+      r.qb = qb;
+      if (r.k === "sack") { r.def = nm(d, "rush", "tak"); return `${qb} sacked at ${at} for ${r.y} yards (${r.def}).`; }
+      if (r.k === "inc") { r.to = nm(o, "rec"); return `${qb} pass incomplete ${r.deep ? "deep" : "short"} ${PDIR[rand(3)]} to ${r.to}${R() < 0.3 ? ` (${nm(d, "cov")})` : ""}.`; }
       if (r.k === "pass") {
         r.to = nm(o, "rec");
         return `${qb} pass ${r.deep ? "deep" : "short"} ${PDIR[rand(3)]} to ${r.to} to ${at} for ${r.y} ${Math.abs(r.y) === 1 ? "yard" : "yards"} (${nm(d, r.y > 15 ? "cov" : R() < 0.5 ? "cov" : "tak")}).`;
       }
       if (r.k === "kneel") return `${qb} kneels to ${at} for -1 yards.`;
+      r.qb = null;
       r.to = nm(o, "rb");
       return `${r.to} ${DIRS[rand(7)]} to ${at} for ${r.y} ${Math.abs(r.y) === 1 ? "yard" : "yards"} (${nm(d, "tak")}).`;
     }
@@ -101,6 +104,8 @@ const DynastySim = (() => {
     const TYPE = { run: ["5", "Rush"], pass: ["24", "Pass Reception"], inc: ["3", "Pass Incompletion"], sack: ["7", "Sack"], kneel: ["5", "Rush"] };
     const sit = (s, down, dist, p) => ({ down, distance: dist, yardLine: absOf(s, p), team: { id: s.id }, possessionText: spot(absOf(s, p)),
       downDistanceText: down ? `${["", "1st", "2nd", "3rd", "4th"][down]} & ${dist > 100 - p ? "Goal" : dist} at ${spot(absOf(s, p))}` : "" });
+    const stat = (o, r) => ({ side: o.id, k: r.k, qb: r.qb, to: r.to, y: r.y, def: r.def });
+    const callout = (r) => (r.k === "sack" ? r.def : (r.k === "pass" || r.k === "run") && r.y >= 20 ? `${r.to} · ${r.y} yds` : undefined);
     const push = (pl) => { pl.id = String(++pid); pl.homeScore = score[home.id]; pl.awayScore = score[away.id]; plays.push(pl); return pl; };
 
     function drive(o, p, mode, dPlays) {
@@ -116,10 +121,11 @@ const DynastySim = (() => {
         if (turnAt && n >= turnAt) {
           const isInt = mode === "int", y = isInt ? 8 + rand(16) : rand(5), at = Math.min(95, p + y), ret = rand(isInt ? 25 : 8);
           const tk = nm(d, isInt ? "cov" : "tak"), back = clamp(at - ret, 2, 98);
-          const text = isInt ? `${nm(o, "qb")} pass ${R() < 0.4 ? "deep" : "short"} ${PDIR[rand(3)]} INTERCEPTED by ${tk} at ${spot(absOf(o, at))}. ${tk} to ${spot(absOf(o, back))} for ${ret} yards (${nm(o, "rec")}).`
-            : `${nm(o, "rb")} ${DIRS[rand(7)]} to ${spot(absOf(o, at))} for ${y} yards (${tk}). FUMBLES (${tk}), RECOVERED by ${d.abbr}-${nm(d, "tak")} at ${spot(absOf(o, at))}. ${ret ? `${nm(d, "tak")} to ${spot(absOf(o, back))} for ${ret} yards.` : ""}`.trim();
+          const qb = isInt ? nm(o, "qb") : null, rb = isInt ? null : nm(o, "rb");
+          const text = isInt ? `${qb} pass ${R() < 0.4 ? "deep" : "short"} ${PDIR[rand(3)]} INTERCEPTED by ${tk} at ${spot(absOf(o, at))}. ${tk} to ${spot(absOf(o, back))} for ${ret} yards (${nm(o, "rec")}).`
+            : `${rb} ${DIRS[rand(7)]} to ${spot(absOf(o, at))} for ${y} yards (${tk}). FUMBLES (${tk}), RECOVERED by ${d.abbr}-${nm(d, "tak")} at ${spot(absOf(o, at))}. ${ret ? `${nm(d, "tak")} to ${spot(absOf(o, back))} for ${ret} yards.` : ""}`.trim();
           dPlays.push(push({ type: { id: isInt ? "26" : "29", text: isInt ? "Pass Interception Return" : "Fumble Recovery (Opponent)" }, text, statYardage: y,
-            start: sit(o, down, dist, p), end: sit(d, 1, 10, 100 - back), t: 12 }));
+            start: sit(o, down, dist, p), end: sit(d, 1, 10, 100 - back), t: 12, st: { side: o.id, k: isInt ? "int" : "fum", qb, to: rb, y: isInt ? 0 : y, def: tk }, callout: tk }));
           result = isInt ? "Interception" : "Fumble"; end = at; next = { side: d, p: 100 - back }; break;
         }
         if (mode === "end" && kneelTeam && p > 3) { // the winner runs out the clock
@@ -134,7 +140,7 @@ const DynastySim = (() => {
           const yds = 100 - p + 17, good = mode === "fg", k = nm(o, "k");
           dPlays.push(push({ type: { id: good ? "59" : "60", text: good ? "Field Goal Good" : "Field Goal Missed" }, scoringPlay: good,
             text: `${k} ${yds} yard field goal is ${good ? "GOOD" : `No Good, Wide ${R() < 0.5 ? "Left" : "Right"}`}, Holder-${nm(o, "p")}.`,
-            statYardage: 0, start: sit(o, down, dist, p), end: sit(o, 0, 0, p), t: 5 }));
+            statYardage: 0, start: sit(o, down, dist, p), end: sit(o, 0, 0, p), t: 5, st: { side: o.id, k: "fg", kick: k, good, y: yds }, callout: yds >= 50 ? `${k} · ${yds} yds` : undefined }));
           if (good) { score[o.id] += 3; dPlays.at(-1).homeScore = score[home.id]; dPlays.at(-1).awayScore = score[away.id]; }
           result = good ? "Field Goal" : "Missed FG"; end = p; next = good ? { kick: o } : { side: d, p: 100 - Math.max(p - 7, 20) }; break;
         }
@@ -168,26 +174,27 @@ const DynastySim = (() => {
         if (scoreMode && n > 14 && p + r.y < 100) r = { k: R() < 0.5 ? "pass" : "run", y: 100 - p };
         const np = Math.min(100, p + r.y);
         if (np >= 100) { // touchdown
-          const y = 100 - p, pass = r.k === "pass", txt = pass ? `${nm(o, "qb")} pass ${y > 15 ? "deep" : "short"} ${PDIR[rand(3)]} to ${nm(o, "rec")} for ${y} yds, TOUCHDOWN.`
-            : `${nm(o, "rb")} ${DIRS[rand(7)]} for ${y} yds, TOUCHDOWN.`;
+          const y = 100 - p, pass = r.k === "pass", qb = pass ? nm(o, "qb") : null, who = pass ? nm(o, "rec") : nm(o, "rb");
+          const txt = pass ? `${qb} pass ${y > 15 ? "deep" : "short"} ${PDIR[rand(3)]} to ${who} for ${y} yds, TOUCHDOWN.` : `${who} ${DIRS[rand(7)]} for ${y} yds, TOUCHDOWN.`;
           score[o.id] += 6;
           let pat;
           if (mode === "td-two") { pat = ` TWO-POINT CONVERSION ATTEMPT. ${nm(o, "qb")} pass to ${nm(o, "rec")} is complete. ATTEMPT SUCCEEDS.`; score[o.id] += 2; }
           else if (mode === "td-miss") pat = ` ${nm(o, "k")} extra point is No Good, Wide ${R() < 0.5 ? "Left" : "Right"}, Holder-${nm(o, "p")}.`;
           else { pat = ` ${nm(o, "k")} extra point is GOOD, Holder-${nm(o, "p")}.`; score[o.id] += 1; }
           dPlays.push(push({ type: pass ? { id: "67", text: "Passing Touchdown" } : { id: "68", text: "Rushing Touchdown" }, scoringPlay: true, text: txt + pat,
-            statYardage: y, start: sit(o, down, dist, p), end: { ...sit(o, 0, 0, 100), down: -1 }, t: 8 }));
+            statYardage: y, start: sit(o, down, dist, p), end: { ...sit(o, 0, 0, 100), down: -1 }, t: 8,
+            st: { side: o.id, k: pass ? "pass" : "run", qb, to: who, y, td: 1 }, callout: `${who} · ${y} yd${y === 1 ? "" : "s"}` }));
           result = "Touchdown"; end = 100; next = { kick: o }; break;
         }
         const conv = r.y >= dist && r.k !== "inc";
         const nd = conv ? 1 : down + 1, ndist = conv ? Math.min(10, 100 - np) : dist - (r.k === "inc" ? 0 : r.y);
         if (!conv && down === 4) { // turnover on downs
           dPlays.push(push({ type: { id: TYPE[r.k][0], text: TYPE[r.k][1] }, text: playText(o, d, r, p, np), statYardage: r.y, start: sit(o, down, dist, p), end: sit(d, 1, 10, 100 - np),
-            t: r.k === "inc" ? 6 : 30 }));
+            t: r.k === "inc" ? 6 : 30, st: stat(o, r), callout: callout(r) }));
           result = "Downs"; end = np; next = { side: d, p: 100 - np }; break;
         }
         dPlays.push(push({ type: { id: TYPE[r.k][0], text: TYPE[r.k][1] }, text: playText(o, d, r, p, np), statYardage: r.y, start: sit(o, down, dist, p), end: sit(o, nd, Math.max(1, ndist), np),
-          t: r.k === "inc" ? 6 : r.k === "sack" ? 34 : 28 + rand(14) }));
+          t: r.k === "inc" ? 6 : r.k === "sack" ? 34 : 28 + rand(14), st: stat(o, r), callout: callout(r) }));
         p = np; down = nd; dist = Math.max(1, ndist); end = p;
       }
       return { result, next, yards: end - startP };
@@ -241,7 +248,7 @@ const DynastySim = (() => {
     const wp = [];
     for (const p of plays) {
       const left = Math.max(1, 3600 - p.wallclock - p.dur) / 3600, lead = p.homeScore - p.awayScore;
-      wp.push({ playId: p.id, homeWinPercentage: phi((lead + edge * left) / (13 * Math.sqrt(left) + 0.5)) });
+      wp.push({ playId: p.id, homeWinPercentage: phi((lead + edge * left) / (sd * Math.sqrt(left) + 0.5)) });
       delete p.wallclock; delete p.dur;
     }
     return { drives, winprobability: wp, final: { home: score[home.id], away: score[away.id] } };

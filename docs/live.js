@@ -797,11 +797,13 @@ const Live = (() => {
         replay += `<g opacity="0"${flagTag}>${flagHit(0, 0)}${flagSprite(0, 0)}<set attributeName="opacity" to="1" begin=".35s" fill="freeze"/>
           <animateMotion path="M${rx + 8},24 Q${(rx + land) / 2},-50 ${land},176" begin=".35s" dur=".95s" fill="freeze"/></g>`;
       }
-      const big = isTD ? "TOUCHDOWN!" : isFG ? (fgGood ? "IT'S GOOD!" : /blocked/.test(type + txt) ? "BLOCKED!" : "NO GOOD!")
+      let big = isTD ? "TOUCHDOWN!" : isFG ? (fgGood ? "IT'S GOOD!" : /blocked/.test(type + txt) ? "BLOCKED!" : "NO GOOD!")
         : isInt ? "PICKED OFF!" : /fumble/.test(type + txt) && /recover/.test(txt) ? "FUMBLE!" : isSack ? "SACK!" : /safety/.test(type + txt) ? "SAFETY!"
           : isFlag ? "FLAG!" : incomplete ? "INCOMPLETE" : /touchback/.test(txt) ? "TOUCHBACK" : /fair catch/.test(txt) ? "FAIR CATCH"
             : isKneel ? "TAKE A KNEE" : isSpike ? "SPIKE!" : play.end?.down === 1 && (play.start?.down || 0) > 0 && moved && !isKick ? "FIRST DOWN!" : "";
-      const sub = big === "FLAG!" ? flagInfo : "";
+      // a Dynasty Draft game names the player on a big play (play.callout, docs/dynasty_sim.js); ESPN's plays have none
+      if (play.callout && !big) big = "BIG PLAY!";
+      const sub = big === "FLAG!" ? flagInfo : play.callout && big ? play.callout.toUpperCase() : "";
       if (big) {
         banner = `<g opacity="0"><rect x="@BX0@" y="${sub ? 92 : 105}" width="@BW@" height="${sub ? 116 : 90}" fill="#000" opacity=".78"/>
           <text x="@BXC@" y="${sub ? 136 : 152}" class="tf-big">${big}</text>${sub ? `<text x="@BXC@" y="182" class="tf-sub">${esc(sub)}</text>` : ""}
@@ -1183,13 +1185,14 @@ const Live = (() => {
     // the call for the latest play, shown over the field while it's the newest (it pops in when the play is new)
     const pm = /penalty on ([a-z]{2,4})-[^,]*,\s*([^,]+?),\s*(\d+)\s*yards?/i.exec(play.text || "");
     const isPen = /penalty/.test(ptype), isInc = /incomplete/.test(ptype) && !isPen && !isTD;
-    const call = isTD ? "Touchdown"
+    let call = isTD ? "Touchdown"
       : /field goal|extra point/.test(ptype) ? (/no good|missed|blocked/.test(ptype) ? "No good" : "It's good")
       : /intercept/.test(ptype) ? "Intercepted" : /fumble/.test(ptype) && /recover/.test(ptype) ? "Fumble" : /safety/.test(ptype) ? "Safety"
       : isPen ? `Flag${pm ? ` · ${pm[2]} · ${pm[1].toUpperCase()} · ${pm[3]} yds` : ""}${/declined/.test(ptype) ? " · declined" : /offsetting/.test(ptype) ? " · offsetting" : ""}`
       : /sack/.test(ptype) ? "Sack" : isInc ? "Incomplete" : /timeout/.test(ptype) ? "Timeout" : /touchback/.test(ptype) ? "Touchback"
       : /fair catch/.test(ptype) ? "Fair catch" : /turnover on downs/.test(ptype) ? "Turnover on downs"
       : play.end?.down === 1 && (play.start?.down || 0) > 1 && moved && !/punt|kickoff/.test(ptype) ? "First down" : "";
+    if (play.callout && !isPen) call = call ? `${call} · ${play.callout}` : play.callout; // Dynasty Draft: who made the big play
     const callHtml = call ? `<div class="gcv-call${freshPlay ? " pop" : ""}${isPen ? " flag" : ""}">${esc(call)}</div>` : "";
     // where across the field the play went, from the play text: "pass short right", "pass deep left", "left end", "up the middle"...
     // (the offense's left or right; on screen that depends on which way they're going). The ball goes there, then is spotted back.
