@@ -1980,12 +1980,16 @@ const Viz = (() => {
       const pctile = (s, k) => { const q = qualify(s).filter((x) => regulars.includes(x)), v = val(s, k); if (v == null) return null; const vals = q.map((x) => val(s, x)).filter((x) => x != null);
         const below = vals.filter((x) => (s[3].low ? x > v : x < v)).length; return Math.round((100 * below) / Math.max(1, vals.length - 1)); };
       // his rank on that stat among the same group the percentile uses (ties share a rank)
-      const rankOn = (s, k) => { const v = val(s, k); if (v == null) return null;
-        return 1 + qualify(s).filter((x) => regulars.includes(x) && x !== k).map((x) => val(s, x)).filter((x) => x != null && (s[3].low ? x < v : x > v)).length; };
+      // how many in that group are better and worse (ties count as neither): the rank, and BEST / TOP 5 / BOTTOM 5 / WORST
+      const standing = (s, k) => { const v = val(s, k); if (v == null) return null;
+        const vs = qualify(s).filter((x) => regulars.includes(x) && x !== k).map((x) => val(s, x)).filter((x) => x != null);
+        const better = vs.filter((x) => (s[3].low ? x < v : x > v)).length, worse = vs.filter((x) => (s[3].low ? x > v : x < v)).length;
+        const n = vs.length + 1, five = n >= 15; // top / bottom 5 only mean something in a big enough group
+        return { rank: better + 1, tag: !better ? "BEST" : !worse ? "WORST" : five && better < 5 ? "TOP 5" : five && worse < 5 ? "BOTTOM 5" : "" }; };
       title = `${who === "teams" ? "Team" : "Player"} profiles (percentile among ${who}${st.pos ? ` at ${st.pos}` : ""})`;
       // the numbers sit on a second line under each stat's name: one pill per team/player ("87%", comparing: "87% #4")
       const rc = teamPal ? teamCols(sers) : null, rcol = (i) => (rc ? rc[i].line : PAL[i % PAL.length]);
-      const both = sers.length > 1, pillTxt = (s, k) => { const p = pctile(s, k); return p == null ? null : `${p}%${both ? ` #${rankOn(s, k)}` : ""}`; };
+      const both = sers.length > 1, pillTxt = (s, k) => { const p = pctile(s, k), r = standing(s, k); return p == null ? null : `${p}%${both ? ` #${r.rank}` : ""}${r.tag ? ` ${r.tag}` : ""}`; };
       const pills = axes.map((s) => sers.map((k, i) => ({ i, t: pillTxt(s, k) })).filter((o) => o.t));
       const pw = (t) => t.length * 0.6 * px(9) + 8, gap = 4; // JetBrains Mono: every character is 0.6em wide
       const rowW = (row) => row.reduce((a, o) => a + pw(o.t), 0) + gap * Math.max(0, row.length - 1);
