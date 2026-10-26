@@ -1,0 +1,44 @@
+# Keeps the Analyst chat's data (docs/data/analyst.json) in step with the site: rebuilt in seconds
+# (src/analyst_data.py --quick) right after any job that changes the site's data, and every 2 hours for
+# injuries and other live lists. The full build (depth charts, rare plays) still runs in viz.yml each morning.
+# A new data job? Add its name under workflows: below.
+name: Analyst data refresh
+
+on:
+  workflow_run:
+    workflows: ["Weekly rankings", "Cupcake stat post", "Trade watch", "College Bully of the Week", "Visualize data"]
+    types: [completed]
+  schedule:
+    - cron: "37 */2 * * *"
+  workflow_dispatch:          # "Run workflow" button on GitHub
+
+permissions:
+  contents: write
+
+concurrency:
+  group: analyst-refresh
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main           # the newest data, not the commit the finished job started from
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Rebuild the Analyst data
+        run: python src/analyst_data.py --quick && python src/bot_tools.py
+      - name: Publish
+        run: |
+          git config user.name "rankings-bot"
+          git config user.email "rankings-bot@users.noreply.github.com"
+          git add analyst/data/rankings.json docs/data/analyst.json docs/bot-tools.js
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "Analyst data $(date -u +%Y-%m-%dT%H:%MZ)"
+          for try in 1 2 3; do git pull --rebase -q && git push -q && exit 0; sleep 10; done
+          exit 1

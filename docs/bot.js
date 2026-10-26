@@ -152,12 +152,15 @@ const Bot = (() => {
   // ---------- the instructions ----------
   async function prompt() {
     const R = await BotTools.base(), S = BotTools.seasons, T = BotTools.teamSeasons;
+    // the site's rankings can land a few minutes before the chat's copy is rebuilt (analyst_refresh.yml): say so
+    const idx = await getJSON(`data/index.json?_=${Date.now()}`).catch(() => null);
+    const behind = ["nfl", "cfb"].filter((lg) => { const ss = idx?.leagues?.[lg]?.seasons || {}, k = Object.keys(ss).sort().at(-1); return k && ss[k].weeks.at(-1) > R[lg].week; });
     return `You are the Cupcake Analyst, the stat desk inside The Cupcake Index (cupcakeindex.com), a college football and NFL power rankings and analytics site. Motto: "Bullying cupcakes isn't a résumé." A member is chatting with you in a small panel on the site.
 
-Today is ${new Date().toISOString().slice(0, 10)}. Our data: weekly stats for NFL players ${S("nfl").at(-1)}-${S("nfl")[0]} and college ${S("cfb").at(-1)}-${S("cfb")[0]} (regular season; the current seasons are partial), NFL team game stats back to ${T("nfl").at(-1)}, our model's rankings (NFL after week ${R.nfl.week}, college after week ${R.cfb.week} of ${R.cfb.season}), and the NFL injury report and depth charts.
+Today is ${new Date().toISOString().slice(0, 10)}. Our data: weekly stats for NFL players ${S("nfl").at(-1)}-${S("nfl")[0]} and college ${S("cfb").at(-1)}-${S("cfb")[0]} (regular season; the current seasons are partial), NFL team game stats back to ${T("nfl").at(-1)}, our model's rankings (NFL after week ${R.nfl.week}, college after week ${R.cfb.week} of ${R.cfb.season}), and the NFL injury report and depth charts.${behind.length ? ` Our ${behind.map((x) => x.toUpperCase()).join(" and ")} rankings were just updated and our_rankings may still show last week's for a few minutes: say so if they ask about rankings. game_prediction, scores, standings and news are always current.` : ""}
 
 How to answer:
-- Use the tools for every number. find_player before player_stats; leaderboard to rank someone among peers; team_stats and our_rankings for teams, schedules and cupcake padding; team_status for injuries and starters; site_tab for our Injuries / Frauds / Over-achievers tabs; pace_to for "on pace for" questions; stat_menu to find the right stat; site_lists for coaches, records, Trade watch and our Heisman race; rare_plays for specific plays; how_we_count for how OUR stats and rankings are defined (call it before explaining any of our numbers). Make several calls in one round when you can.
+- Use the tools for every number. find_player before player_stats; leaderboard to rank someone among peers; team_stats and our_rankings for teams, schedules and cupcake padding; team_status for injuries and starters (the same list as our Injuries tab); site_tab for our Injuries / Frauds / Over-achievers tabs; pace_to for "on pace for" questions; stat_menu to find the right stat; site_lists for coaches, records, Trade watch and our Heisman race; rare_plays for specific plays; how_we_count for how OUR stats and rankings are defined (call it before explaining any of our numbers). Make several calls in one round when you can.
 - Only state numbers that came from a tool result in this conversation. Never use numbers from memory. If our data can't answer it, say what's missing in one line.
 - Charts: when a chart would help or the member asks for one, call chart_stats to find the Visualize stats, then show_chart. It opens the chart on the site behind this panel. Match the chart to the question:
   - Comparing specific players ("Toney vs Smith"): a radar with players = both player_ids from find_player, position set, and radar_stats = 5-7 stats that matter for that position (a WR: catches, receiving yards, yards per catch, receiving TDs, catch rate, yards after the catch...). Every chart about named players passes their ids in players, so they're on it.
@@ -168,12 +171,40 @@ How to answer:
   To send them to a page (rankings, a team page, Injuries...), use open_page.
 - Leaderboard stat names: any column (pass_yds, rush_td, tackles, def_sacks, pressure, pen, pts...) or a rate. Player rates: ${Object.keys(BotTools.RATES).join(", ")}, passer_rating, passer_rating_vs_blitz. Team rates: ${Object.keys(BotTools.TEAM_RATES).join(", ")}.
 - "Who wins", "who do you have", "predict this game": call game_prediction and answer with our pick, the win chance and the predicted score, then the one or two reasons that matter most. Never say we don't have a prediction without calling it.
+- "What's the score", "did they win", "when do they play": scores. Standings, division leaders, playoff seeds: standings. Recent news on a team or player: news.
+- Our site is the source of truth. If no tool covers what they asked, say "I can't look that up yet" and point to the page with open_page; never say the site doesn't have something, and never guess.
 - No betting content: no spreads, lines, odds, over/unders or picks against a line. Our win chance and predicted score are fine.
 
 Style: a sharp fan who knows the numbers, talking to another fan. Lead with the answer in one sentence, then the two or three numbers that back it (with ranks), then stop. Usually under 120 words; a list only when they asked for one. Write stats in plain words ("yards per carry", not ypc or column names). Take a side when the numbers point one way. No em dashes, no "Great question", no wrap-up sentence, no hashtags, no emoji. Plain text; **bold** sparingly; "- " for list items.`;
   }
 
   // ---------- the tools: the Analyst's (bot-tools.js) plus the site's own ----------
+  // The site's own tools read the same files and ESPN feeds the pages read, at the moment they're asked, so the chat
+  // and the site can't disagree. (bot-tools.js reads data/analyst.json, rebuilt by analyst_refresh.yml.)
+  const ESPN = (lg, path) => `https://site.web.api.espn.com/apis/${path}/sports/football/${lg === "nfl" ? "nfl" : "college-football"}`;
+  const getJSON = async (u) => { const r = await fetch(u); if (!r.ok) throw new Error(`Couldn't reach ${u.includes("espn") ? "ESPN" : "the site's data"} (${r.status}). Try again.`); return r.json(); };
+  const matchTeam = (q, names) => { // best match first, so "Washington" finds Washington before Washington State
+    q = BotTools.norm(q);
+    for (const t of [(n) => n === q, (n) => n.split(" ").includes(q), (n) => n.includes(q)]) { const n = names.find((x) => t(BotTools.norm(x))); if (n) return n; }
+    return null;
+  };
+  // one week of ESPN's scoreboard (this week if w is empty), team names the way our pages show them:
+  // "Washington Commanders" (NFL), "Washington" (college: no mascot)
+  async function espnWeek(lg, w) {
+    const nm = (t) => (lg === "nfl" ? t?.displayName : t?.location || t?.displayName), q = new URLSearchParams();
+    if (lg === "cfb") { q.set("groups", "80"); q.set("limit", "300"); }
+    if (w) { q.set("seasontype", "2"); q.set("week", String(w)); }
+    const sb = await getJSON(`${ESPN(lg, "site/v2")}/scoreboard?${q}`);
+    const games = (sb.events || []).map((e) => {
+      const c = e.competitions?.[0] || {}, st = e.status?.type || {};
+      const side = (h) => { const t = (c.competitors || []).find((x) => x.homeAway === h) || {};
+        return { team: nm(t.team), score: st.state === "pre" ? undefined : +t.score, record: t.records?.[0]?.summary, ap_rank: t.curatedRank?.current < 99 ? t.curatedRank.current : undefined }; };
+      return { week: sb.week?.number, away: side("away"), home: side("home"), status: st.state === "pre" ? "not started" : st.completed ? "final" : "live",
+        detail: st.shortDetail, kickoff: e.date, tv: (c.broadcasts || []).flatMap((b) => b.names || []).join(", ") || undefined };
+    });
+    return { n: sb.week?.number, games, bye: (sb.week?.teamsOnBye || []).map(nm) };
+  }
+  const gameOf = (W, team) => { const hit = matchTeam(team, W.games.flatMap((g) => [g.home.team, g.away.team]).filter(Boolean)); return hit && W.games.filter((g) => g.home.team === hit || g.away.team === hit); };
   const SITE = [
     {
       name: "game_prediction",
@@ -182,14 +213,17 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
       async execute(a) {
         const lg = String(a.league), idx = await (await fetch("data/index.json", { cache: "no-store" })).json();
         const seasons = idx.leagues[lg].seasons, season = Object.keys(seasons).sort().at(-1), weeks = seasons[season].weeks;
-        // the rankings file from week N holds the picks for week N + 1 (like the game page)
-        const file = a.week && weeks.includes(+a.week - 1) ? +a.week - 1 : weeks.at(-1);
+        // which game: the week they named, else their game this week if it hasn't finished (tonight's game, not next
+        // week's), else the newest picks. The rankings file from week N holds the picks for week N + 1 (like the game page).
+        let want = a.week ? +a.week : null;
+        if (!want) {
+          const W = await espnWeek(lg).catch(() => null), g = W && gameOf(W, a.team);
+          if (g?.length && g[0].status !== "final") want = W.n;
+        }
+        const file = want && weeks.includes(want - 1) ? want - 1 : weeks.at(-1);
         const W = await (await fetch(`data/${lg}/${season}/week_${file}.json`)).json();
-        // best match first, so "Washington" finds Washington before Washington State
-        const q = BotTools.norm(a.team), P = W.predictions || [];
-        const tests = [(n) => n === q, (n) => n.split(" ").includes(q), (n) => n.includes(q)];
-        let p = null;
-        for (const t of tests) if (!p) p = P.find((x) => t(BotTools.norm(x.home)) || t(BotTools.norm(x.away)));
+        const P = W.predictions || [], hit = matchTeam(a.team, P.flatMap((x) => [x.home, x.away]));
+        const p = hit && P.find((x) => x.home === hit || x.away === hit);
         if (!p) throw new Error(`No ${lg} prediction for "${a.team}" in week ${file + 1} (a bye, or not a team we rank).`);
         const hp = p.home_win_prob;
         // what the game page shows; never the spread, book lines or "edge" (the site's own betting-style numbers stay off)
@@ -197,6 +231,55 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
           win_chance: { [p.home]: Math.round(100 * hp), [p.away]: Math.round(100 - 100 * hp) },
           predicted_score: p.home_pts != null ? { [p.home]: p.home_pts, [p.away]: p.away_pts } : null, qbs: { [p.home]: p.home_qb, [p.away]: p.away_qb },
           why: p.notes || (p.why ? [p.why] : []) };
+      },
+    },
+    {
+      name: "scores",
+      description: "Live from ESPN, same as our Scores page: this week's games (or a given week) with kickoff time, TV, live score and clock, or the final. With team: just that team's game. Use it for 'did they win', 'what's the score', 'when do they play', 'who plays tonight'.",
+      input_schema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, team: { type: "string" }, week: { type: "integer" } }, required: ["league"] },
+      async execute(a) {
+        const lg = String(a.league);
+        let W = await espnWeek(lg, a.week);
+        if (!a.team) return { as_of: new Date().toISOString(), week: W.n, games: W.games.slice(0, 60), on_bye: W.bye.length ? W.bye : undefined };
+        const find = (W) => gameOf(W, a.team);
+        let games = find(W), bye = matchTeam(a.team, W.bye);
+        // a bye (or this week already played and they're asking what's next): look one week ahead
+        if (!games && !a.week && W.n) { const N = await espnWeek(lg, W.n + 1); games = find(N); if (games) W = N; }
+        if (!games) throw new Error(bye ? `${bye} are on a bye in week ${W.n}.` : `No ${lg} game for "${a.team}" on ESPN's scoreboard${a.week ? ` in week ${a.week}` : ""}.`);
+        return { as_of: new Date().toISOString(), week: W.n, ...(bye ? { note: `${bye} had a bye in week ${W.n - 1}; this is their next game.` } : {}), games };
+      },
+    },
+    {
+      name: "standings",
+      description: "Live from ESPN, same as our Standings page: each division (NFL) or conference (college) with records, points for and against, streak and NFL playoff seed (1-7 make it), plus our rank. Optional team to get just its group.",
+      input_schema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, team: { type: "string" } }, required: ["league"] },
+      async execute(a) {
+        const lg = String(a.league), d = await getJSON(`${ESPN(lg, "v2")}/standings?${lg === "nfl" ? "level=3" : "group=80"}`);
+        const groupsOf = (n) => (n.standings?.entries ? [{ name: n.name, entries: n.standings.entries }] : (n.children || []).flatMap(groupsOf));
+        const st = (e, k) => e.stats.find((s) => s.type === k || s.name === k)?.displayValue;
+        const ours = Object.fromEntries((BotTools.data()?.[lg]?.teams || []).map((t) => [BotTools.norm(t.team), t.rank]));
+        let groups = groupsOf(d).map((g) => ({ group: g.name, teams: g.entries.map((e) => {
+          const name = lg === "nfl" ? e.team.displayName : e.team.location || e.team.displayName;
+          return { team: name, our_rank: ours[BotTools.norm(name)], record: st(e, "total"), conf: lg === "nfl" ? st(e, "vs. Conf.") : st(e, "vsconf"),
+            pts_for: st(e, lg === "nfl" ? "pointsFor" : "pointsfor"), pts_against: st(e, lg === "nfl" ? "pointsAgainst" : "pointsagainst"), streak: st(e, "streak"),
+            ...(lg === "nfl" ? { seed: +(e.stats.find((s) => s.type === "playoffseed" || s.name === "playoffseed")?.value || 0) || undefined } : {}) }; }) }));
+        if (a.team) {
+          const hit = matchTeam(a.team, groups.flatMap((g) => g.teams.map((t) => t.team)));
+          if (!hit) throw new Error(`No ${lg} team matching "${a.team}" in the standings.`);
+          groups = groups.filter((g) => g.teams.some((t) => t.team === hit));
+        }
+        return { groups };
+      },
+    },
+    {
+      name: "news",
+      description: "Our News page: the latest headlines (title, source, time, one-line summary), newest first. Optional search words (a team, a player, 'trade'). Use it for 'what happened with', 'any news on', 'why is he out'.",
+      input_schema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, search: { type: "string" } }, required: [] },
+      async execute(a) {
+        const n = await getJSON(`data/news.json?_=${Date.now()}`), w = BotTools.norm(a.search || "").split(" ").filter(Boolean);
+        const items = (n.items || []).filter((x) => (!a.league || x.league === a.league) && w.every((t) => BotTools.norm(`${x.title} ${x.summary || ""}`).includes(t)));
+        if (!items.length) throw new Error(`No headlines on our News page match "${a.search || ""}" right now.`);
+        return { updated: n.updated, headlines: items.slice(0, 12).map((x) => ({ title: x.title, source: x.source, published: x.published, summary: x.summary || undefined })) };
       },
     },
     {

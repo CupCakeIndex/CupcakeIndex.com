@@ -7,11 +7,14 @@ win chance), plus NFL injury reports and depth charts (nflverse) and the list of
 (analyst/data/hist/, built by `python src/viz_data.py --history`). Spreads, book lines and "edge" numbers are left
 out on purpose (Terry's no-betting rule).
 
-    python src/analyst_data.py      # then republish the page (ask Claude: "refresh the analyst")
+    python src/analyst_data.py          # then republish the page (ask Claude: "refresh the analyst")
+    python src/analyst_data.py --quick  # seconds: reuses the slow parts (depth charts, rare plays) from the last build;
+                                        # analyst_refresh.yml runs it after every job that changes the site's data
 """
 import json
 import os
 import re
+import sys
 
 from site_rank import site_rank  # the ranking exactly as the website shows it
 
@@ -80,6 +83,18 @@ def nfl_status():
     return {"injury_week": wk, "teams": out}
 
 
+def site_injuries(status, tab):
+    """Use the site's Injuries tab list (ESPN's report merged with the official one, what the site shows) for each team's
+    injuries; nflverse's report lags a week and misses teams (Washington showed none in week 7)."""
+    for t in (tab or {}).get("teams", []):
+        rows = [{k: v for k, v in {"name": h["name"], "pos": h.get("pos"), "game_status": h.get("status"), "note": h.get("note")}.items() if v}
+                for h in t.get("hurt", [])]
+        status["teams"].setdefault(t["team"], {"injuries": [], "depth": {}})["injuries"] = rows
+    if tab:
+        status["injuries_as_of"] = tab.get("as_of")
+    return status
+
+
 def _load(*path):
     with open(os.path.join(DATA, *path), encoding="utf-8") as f:
         return json.load(f)
@@ -119,7 +134,11 @@ def rare_plays(seasons):
     return out
 
 
-def extras():
+def extras_quick():
+    return extras(plays=False)
+
+
+def extras(plays=True):
     """The site's other lists, so the page can cite more than yards and EPA: NFL records held by current players,
     Trade watch, Heisman popularity (the page runs the Heisman model itself) and coaches (score, hot seat, scheme)."""
     import re
@@ -141,7 +160,7 @@ def extras():
     out["glossary"] = stat_glossary.build()
     from viz_data import season_now
     now = season_now()
-    out["plays"] = {"seasons": [now - 1, now], "list": rare_plays([now - 1, now])}
+    out["plays"] = {"seasons": [now - 1, now], "list": rare_plays([now - 1, now])} if plays else {}
     out["coaches"] = {}
     for lg in ("nfl", "cfb"):
         for c in co[lg]["coaches"]:
@@ -158,6 +177,13 @@ def extras():
 
 def main():
     os.makedirs(OUT, exist_ok=True)
+    path = os.path.join(OUT, "rankings.json")
+    old = {}
+    if "--quick" in sys.argv:
+        try:
+            old = json.load(open(path, encoding="utf-8"))
+        except (OSError, ValueError):
+            print("  no earlier build to reuse: doing the full build")
     out = {lg: rankings(lg) for lg in ("nfl", "cfb")}
     out["facts"] = {lg: json.load(open(os.path.join(DATA, lg, "facts.json"), encoding="utf-8")).get("teams", {}) for lg in ("nfl", "cfb")}
     # the page reads "viz" as the seasons WITH player stats; the site's index also lists its team-only seasons
@@ -177,16 +203,15 @@ def main():
         except Exception as e:
             print(f"  ! site tab {k} unavailable ({e})")
     try:
-        out["extra"] = extras()
+        out["extra"] = extras() if not old else {**extras_quick(), "plays": old.get("extra", {}).get("plays", {})}
     except Exception as e:  # a missing file just means the page's "extras" lookup says it has none
         print(f"  ! extras unavailable ({e})")
         out["extra"] = {}
     try:
-        out["status"] = {"nfl": nfl_status()}
+        out["status"] = {"nfl": site_injuries(old["status"]["nfl"] if old.get("status") else nfl_status(), out["site"].get("injuries"))}
     except Exception as e:  # nflverse down: the page just says it has no injury/depth data
         print(f"  ! injuries/depth charts unavailable ({e})")
         out["status"] = {"nfl": {"injury_week": 0, "teams": {}}}
-    path = os.path.join(OUT, "rankings.json")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(out, f, separators=(",", ":"), ensure_ascii=False)
     print(f"{path}: {os.path.getsize(path) // 1024} KB (NFL week {out['nfl']['week']}, college week {out['cfb']['week']})")
