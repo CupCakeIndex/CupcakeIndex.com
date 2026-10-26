@@ -3608,7 +3608,8 @@ a.gl-row:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); 
 .ad-cost .ad-sub td { padding-top: 4px; }
 .ad-sub-top { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); }
 .ad-sub-top b { font-size: 14px; }
-.ad-sub-top b.up, .ad-cost .up, .ad-dt .up { color: var(--good); }
+.ad-sub b.up, .ad-cost .up, .ad-dt .up { color: var(--good); }
+.ad-sub b.down { color: var(--bad); }
 .ad-sub-top b.down { color: var(--bad); }
 .ad-subs { list-style: none; margin: 6px 0 0; padding: 0; }
 .ad-subs li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 12px; padding: 4px 0; font-size: 12px; }

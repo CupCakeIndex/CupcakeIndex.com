@@ -299,11 +299,11 @@ const Admin = (() => {
     if (!chat.tiers) return `<tr class="ad-sub"><td colspan="4"><small>Money in vs the chat's cost needs the newest
       workers/analyst.js in Cloudflare (Workers > cupcake-analyst > Edit code > Deploy).</small></td></tr>`;
     const inn = moneyIn(chat), profit = inn - used, pct = inn ? used / inn * 100 : used ? 100 : 0;
-    return `<tr class="ad-sub"><td colspan="4"><div class="ad-sub-top"><span>Money in vs the chat's cost <span class="muted">this month</span></span>
-        <span>${money(used)} cost of ${money(inn)} in <b class="${profit >= 0 ? "up" : "down"}">${profit >= 0 ? "+" : "−"}${money(Math.abs(profit))}</b></span></div>
+    const diff = (n) => `<b class="${n >= 0 ? "up" : "down"}">${n >= 0 ? "+" : "−"}${money(Math.abs(n))}</b>`;
+    return `<tr class="ad-sub"><td colspan="4"><div class="ad-sub-top"><span>Money in vs the chat's cost <span class="muted">this month</span></span></div>
       <div class="ad-sub-bar${profit < 0 ? " over" : ""}"><i style="width:${Math.min(100, pct).toFixed(1)}%"></i></div>
       <ul class="ad-subs">${chat.tiers.map((t) => `<li><span>${esc(t.name)} contributions <span class="muted">$${t.price} a month</span></span>
-        <span class="muted">${num(t.members)} ${t.members === 1 ? "member" : "members"} · used ${money(t.usd)}</span><b>${money(t.in)}</b></li>`).join("")}</ul>
+        <span class="muted">${num(t.members)} ${t.members === 1 ? "member" : "members"} · ${money(t.in)} in · used ${money(t.usd)}</span>${diff(t.in - t.usd)}</li>`).join("")}</ul>
       ${chat.unsorted?.usd ? `<small>${money(chat.unsorted.usd)} of the cost is from questions asked before the chat kept track of who asked.</small>` : ""}</td></tr>`;
   }
   function costs(db, el, today, mon, rows, err, mine = {}, chat = null) {
