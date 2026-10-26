@@ -3646,7 +3646,9 @@ a.gl-row:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); 
 .bot-fab { position: fixed; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 62; display: flex; align-items: center; gap: 10px;
   min-height: 52px; padding: 0 16px 0 8px; border: 1px solid var(--accent); border-radius: 10px; cursor: pointer; background: var(--card); color: var(--ink);
   box-shadow: 0 8px 24px rgba(0,0,0,.45), 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); font: 800 13px/1 var(--font-head, var(--font-body)); letter-spacing: .08em; text-transform: uppercase;
-  transition: transform .15s, box-shadow .15s; }
+  transition: transform .3s cubic-bezier(.2, .8, .2, 1), opacity .25s, box-shadow .15s; }
+/* a team window (the drawer) slides in from the right: the button slides out the same way, and back when it closes */
+body.drawer-open .bot-fab { transform: translateX(calc(100% + 40px)); opacity: 0; pointer-events: none; }
 .bot-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,.5), 0 0 0 4px color-mix(in srgb, var(--accent) 28%, transparent); }
 /* the cupcake mark in a rounded badge */
 .bot-mark { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 36px; height: 36px; border-radius: 9px;
@@ -3711,7 +3713,7 @@ body:has(#view-rankings:not(.hidden) .weights-fab) .bot.max .bot-panel { height:
 .bot-msg.wait p { font-size: 13px; }
 .bot-dots::after { content: ""; animation: bot-dots 1.2s steps(4) infinite; }
 @keyframes bot-dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
-@media (prefers-reduced-motion: reduce) { .bot-dots::after { animation: none; content: "..."; } .bot-panel, .bot-panel.closing, .bot-msg, .bot-word i { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .bot-dots::after { animation: none; content: "..."; } .bot-panel, .bot-panel.closing, .bot-msg, .bot-word i { animation: none; } .bot-fab { transition: none; } }
 .bot-link { font-weight: 700; color: var(--accent); }
 .bot-err { color: var(--bad); }
 .bot-ask { display: flex; gap: 8px; align-items: flex-end; padding: 10px; border-top: 1px solid var(--line); }
