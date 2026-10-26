@@ -28,6 +28,13 @@ service cloud.firestore {
     match /admin_ledger/{id} {
       allow read: if isOwner();
     }
+    // admin tab: the fixed costs typed in on the Costs section (X Premium, the domain). Only the owner, only numbers.
+    match /admin_settings/costs {
+      allow read: if isOwner();
+      allow write: if isOwner() && request.resource.data.keys().hasOnly(["xPremium", "domainYear"])
+        && (!("xPremium" in request.resource.data) || request.resource.data.xPremium is number)
+        && (!("domainYear" in request.resource.data) || request.resource.data.domainYear is number);
+    }
     // "on the site now": each open browser checks in with the server's own time; only the owner can read them
     match /live/{id} {
       allow read: if isOwner();

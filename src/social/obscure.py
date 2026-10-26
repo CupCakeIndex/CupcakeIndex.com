@@ -1288,6 +1288,9 @@ def main():
     ap.add_argument("--ok-empty", action="store_true", help="no stat qualifies: exit quietly (no today.json) instead of failing")
     ap.add_argument("--all", action="store_true", help="render every stat")
     ap.add_argument("--out", default=os.path.join(ROOT, "out", "social"))
+    # the admin tab's preview of the evening run (brief.py): that run's rotation slot, minus what the 1 PM run picks
+    ap.add_argument("--at", help="rotate as if it were this UTC time (ISO), e.g. 2026-10-26T23:02")
+    ap.add_argument("--skip", action="append", default=[], help="leave this stat out (repeatable)")
     a = ap.parse_args()
     if a.list:
         print("\n".join(STATS))
@@ -1304,8 +1307,9 @@ def main():
     elif a.stat == "rotate":
         # skip anything posted in the last 14 days, so a stat that falls through to the next one in line
         # doesn't get posted again on the next run (that's how repeats happened)
-        recent = posted.recent_stats(14)
-        keys = [k for k in rotation() if k not in recent] or rotation()
+        recent = posted.recent_stats(14) | set(a.skip)
+        at = dt.datetime.fromisoformat(a.at).replace(tzinfo=dt.timezone.utc) if a.at else None
+        keys = [k for k in rotation(at) if k not in recent] or rotation(at)
         # then most relevant first, and only the ones worth posting (Terry: "prioritized based on relevance")
         scored = by_relevance(keys)
         for sc, k, _ in scored[:8]:

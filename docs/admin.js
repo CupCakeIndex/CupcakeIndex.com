@@ -1,7 +1,9 @@
 // Admin page (#/admin): only for thecupcakeindex.support@gmail.com, signed in with Google. The database rules
 // (firestore.rules) enforce it too, so nobody else can read anything here even from the browser console, and none of
 // it is in the public repo or the site's files: this week's posts (admin_brief, src/social/brief.py), the cost log and
-// quality checks (admin_ledger, src/social/ledger.py + check_post.py), and the visitor analytics below.
+// quality checks (admin_ledger, src/social/ledger.py + check_post.py), the fixed costs Terry types in
+// (admin_settings/costs), and the visitor analytics below. The page opens on a dashboard of tiles (Terry's sketch,
+// Oct 26): Alerts, Costs, Analytics, Calendar, Next post, Right now; tap one to open its full section under it.
 // Numbers come from stats.js: daily counters (stats/<day>), who checked in during the last 5 minutes (live/*),
 // plus totals of accounts (users/*) and devices with alerts on (push/*).
 const Admin = (() => {
@@ -53,16 +55,100 @@ const Admin = (() => {
       el.innerHTML = `<div class="card"><h2>Admin</h2><p class="muted">This page is only for the site's owner account. ${me ? "You're signed in with a different account." : "Sign in from Settings."}</p></div>`;
       return;
     }
-    el.innerHTML = `<div id="ad-posts">${loadingHtml()}</div><div id="ad-costs"></div><div id="ad-analytics"></div>`;
+    el.innerHTML = `<div class="ad-dash">${DASH.map(([id, label]) => `<button type="button" class="ad-dt" data-sec="${id}" aria-expanded="false">
+        <h3>${label}</h3><div class="ad-dv"><span class="muted">Loading…</span></div></button>`).join("")}</div>
+      ${["alerts", "costs", "analytics", "posts"].map((id) => `<div id="ad-${id}" class="ad-sec" hidden></div>`).join("")}`;
+    el.querySelectorAll(".ad-dt").forEach((b) => b.addEventListener("click", () => open(b.dataset.sec)));
     const today = day(new Date()), t = new Date(today + "T12:00:00");
     const mon = day(new Date(t.getTime() - ((t.getDay() + 6) % 7) * 864e5));
     const from = [today.slice(0, 8) + "01", mon].sort()[0]; // the month so far, or this week if it began last month
-    let rows = null, err = null;
+    let rows = null, err = null, fixed = {};
     try { rows = await ledger(from); } catch (e) { err = e; }
-    posts(db, $("#ad-posts"), mon, today, rows, err);
-    costs($("#ad-costs"), today, mon, rows, err);
+    try { fixed = (await db.collection("admin_settings").doc("costs").get()).data() || {}; } catch (e) { fixed = {}; }
+    const cal = posts(db, $("#ad-posts"), mon, today, rows, err);
+    costs(db, $("#ad-costs"), today, mon, rows, err, fixed);
     analytics(db, $("#ad-analytics"));
+    alerts($("#ad-alerts"), await cal);
+    const was = sessionStorage.getItem("ad-open");
+    if (was && was !== "next") open(was, false);
   }
+
+  // ---------- the dashboard: tiles that open their section ----------
+  const DASH = [["alerts", "Alerts"], ["costs", "Costs"], ["analytics", "Analytics"], ["posts", "Calendar"], ["next", "Next post"], ["now", "Right now"]];
+  const tile = (id, html, cls = "") => {
+    const b = document.querySelector(`.ad-dt[data-sec="${id}"]`);
+    if (!b) return;
+    b.querySelector(".ad-dv").innerHTML = html;
+    b.classList.toggle("bad", cls === "bad");
+    b.classList.toggle("good", cls === "good");
+  };
+  let openPost = null, nextPost = null; // set by posts(): opens one calendar entry's preview; the next one to go out
+  function open(id, scroll = true) {
+    if (id === "next") { if (nextPost && openPost) openPost(nextPost); else open("posts", scroll); return; }
+    const sec = id === "now" ? "analytics" : id;
+    const box = $(`#ad-${sec}`), shut = box && !box.hidden;
+    document.querySelectorAll(".ad-sec").forEach((x) => { x.hidden = true; });
+    document.querySelectorAll(".ad-dt").forEach((x) => x.setAttribute("aria-expanded", "false"));
+    if (!box || shut) { sessionStorage.removeItem("ad-open"); return; }
+    box.hidden = false;
+    document.querySelector(`.ad-dt[data-sec="${id}"]`)?.setAttribute("aria-expanded", "true");
+    sessionStorage.setItem("ad-open", id);
+    if (sec === "posts") { // the week scrolls sideways: start at today
+      const wk = box.querySelector(".ad-week"), col = wk?.querySelector(".ad-day.today");
+      if (col) wk.scrollLeft = Math.max(0, col.getBoundingClientRect().left - wk.getBoundingClientRect().left + wk.scrollLeft);
+    }
+    if (scroll) box.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  // ---------- alerts: posts the check stopped, previews that failed, GitHub jobs whose last run failed ----------
+  const REPO = "CupCakeIndex/CupcakeIndex.com";
+  async function failedJobs() {
+    // the repo is public, so its Actions history is too: no key needed. Newest first; a job counts while its latest
+    // finished run is a failure from the last 7 days (a later success clears it).
+    try {
+      const r = await fetch(`https://api.github.com/repos/${REPO}/actions/runs?per_page=100&exclude_pull_requests=true`);
+      if (!r.ok) return null;
+      const latest = {};
+      for (const x of (await r.json()).workflow_runs || []) if (x.status === "completed" && !latest[x.workflow_id]) latest[x.workflow_id] = x;
+      return Object.values(latest).filter((x) => x.conclusion === "failure" && Date.now() - new Date(x.updated_at) < 7 * 864e5);
+    } catch (e) { return null; }
+  }
+  async function alerts(el, cal) {
+    const jobs = await failedJobs();
+    const seen = new Set(JSON.parse(localStorage.getItem("ad-seen") || "[]"));
+    const list = [];
+    if (cal.err) list.push({ id: "rules", title: "Can't read the admin data", why: rulesNote(cal.err), html: true });
+    if (cal.stale) list.push({ id: "brief-" + cal.today, title: "Today's post previews weren't made",
+      why: `The 7 AM "Morning post brief" job didn't run (or hasn't yet). GitHub > Actions > Morning post brief > Run workflow.` });
+    for (const e of cal.all || []) {
+      if (e.status === "blocked") list.push({ id: `p-${e.day}-${e.t}-${e.title}-blocked`, title: `Stopped by the check: ${e.title}`, when: e, why: e.reason, post: e });
+      if (e.status === "error") list.push({ id: `p-${e.day}-${e.t}-${e.title}-error`, title: `Preview failed: ${e.title}`, when: e, why: e.reason, post: e });
+    }
+    for (const j of jobs || []) list.push({ id: "gh-" + j.id, title: `GitHub job failed: ${j.name}`, at: j.updated_at,
+      why: "Its last run failed. Open it to see the error, or tell Claude.", url: j.html_url });
+    const fresh = list.filter((a) => !seen.has(a.id));
+    const missed = (cal.all || []).filter((e) => e.status === "missed");
+    tile("alerts", `<b class="ad-big">${fresh.length}</b><small>${fresh.length ? (fresh.length === 1 ? "new problem" : "new problems") : "all clear"}</small>`, fresh.length ? "bad" : "good");
+    const when = (a) => a.when ? `${new Date(a.when.day + "T12:00:00").toLocaleDateString("en-US", { weekday: "short" })} ${a.when.t ? time12(a.when.t) : ""}`
+      : a.at ? new Date(a.at).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" }) : "";
+    const row = (a, i) => `<li class="ad-al${seen.has(a.id) ? " seen" : ""}"><div><b>${esc(a.title)}</b> <span class="muted">${esc(when(a))}</span>
+        ${a.why ? `<p>${a.html ? a.why : esc(a.why)}</p>` : ""}</div>
+        ${a.post ? `<button type="button" class="btn" data-a="${i}">See the post</button>` : a.url ? `<a class="btn" href="${esc(a.url)}" target="_blank" rel="noopener">Open ↗</a>` : ""}</li>`;
+    el.innerHTML = `<div class="card">
+      <div class="sc-bar"><h2>Alerts</h2><span class="muted">this week · only you can see this</span>
+        ${fresh.length ? `<button type="button" class="btn ad-seen">Mark all as seen</button>` : ""}</div>
+      ${list.length ? `<ul class="ad-alerts">${list.map(row).join("")}</ul>` : `<p>Nothing wrong this week: every post passed the check, every preview worked, and every GitHub job's last run went fine.</p>`}
+      ${jobs == null ? `<p class="note">Couldn't reach GitHub to check the jobs this time.</p>` : ""}
+      ${missed.length ? `<h3>Didn't post <span class="muted">not counted: often on purpose (the day's post limit, or nothing new to say)</span></h3>
+        <ul class="ad-alerts">${missed.map((e) => `<li class="ad-al seen"><div><b>${esc(e.title)}</b> <span class="muted">${esc(when({ when: e }))}</span></div></li>`).join("")}</ul>` : ""}
+    </div>`;
+    el.querySelectorAll("[data-a]").forEach((b) => b.addEventListener("click", () => openPost?.(list[+b.dataset.a].post)));
+    el.querySelector(".ad-seen")?.addEventListener("click", () => {
+      localStorage.setItem("ad-seen", JSON.stringify([...new Set([...seen, ...list.map((a) => a.id)])].slice(-300)));
+      alerts(el, cal);
+    });
+  }
+  const time12 = (x) => { if (!x) return ""; const h = +x.slice(0, 2); return `${h % 12 || 12}:${x.slice(3)} ${h < 12 ? "AM" : "PM"}`; };
 
   // what a logged post was (its posting-log stat) -> the calendar slot family (brief.py ids) and a title
   const family = (w) => /^(mon|tue|wed|thu|fri|sat|sun)$/.test(w) ? "daily" : w === "bully_cfb" ? "bully" : w.startsWith("primetime-") ? "prime"
@@ -80,7 +166,12 @@ const Admin = (() => {
       const got = await db.collection("admin_brief").where(FP.documentId(), ">=", days[0]).where(FP.documentId(), "<=", days[6]).get();
       brief = Object.fromEntries(got.docs.map((d) => [d.id, d.data()]));
     } catch (e) { err = err || e; }
-    if (err) { el.innerHTML = `<div class="card"><h2>Posts this week</h2><p>${rulesNote(err)}</p></div>`; return; }
+    if (err) {
+      el.innerHTML = `<div class="card"><h2>Posts this week</h2><p>${rulesNote(err)}</p></div>`;
+      tile("posts", `<span class="muted">Couldn't read it</span>`, "bad");
+      tile("next", `<span class="muted">Couldn't read it</span>`);
+      return { err, all: [], today };
+    }
     const mins = (hm) => +hm.slice(0, 2) * 60 + +hm.slice(3, 5);
     const hm = (iso) => new Date(iso).toLocaleTimeString("en-GB", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hour12: false });
     const items = {}; // day -> entries
@@ -123,7 +214,6 @@ const Admin = (() => {
     }
     const LABEL = { scheduled: "", planned: "Preview ready", skip: "Won't post", posted: "Posted", blocked: "Stopped by the check",
       error: "Preview failed", none: "Nothing to post", missed: "Didn't post" };
-    const time12 = (x) => { if (!x) return ""; const h = +x.slice(0, 2); return `${h % 12 || 12}:${x.slice(3)} ${h < 12 ? "AM" : "PM"}`; };
     const all = [];
     const cell = (e) => {
       all.push(e);
@@ -141,11 +231,9 @@ const Admin = (() => {
       <dialog class="ad-dlg"><div class="ad-dlg-in"></div></dialog></div>`;
     const dlg = el.querySelector(".ad-dlg"), inner = el.querySelector(".ad-dlg-in");
     dlg.addEventListener("click", (ev) => { if (ev.target === dlg || ev.target.closest("[data-close]")) dlg.close(); });
-    const wk = el.querySelector(".ad-week"), col = wk.querySelector(".ad-day.today");
-    if (col) wk.scrollLeft = Math.max(0, col.getBoundingClientRect().left - wk.getBoundingClientRect().left);
     const pic = (b64) => `<img alt="The post's picture" src="data:image/jpeg;base64,${b64}">`;
-    el.querySelectorAll(".ad-p").forEach((b) => b.addEventListener("click", async () => {
-      const e = all[+b.dataset.i];
+    el.querySelectorAll(".ad-p").forEach((b) => b.addEventListener("click", () => openPost(all[+b.dataset.i])));
+    openPost = async (e) => {
       const status = LABEL[e.status] || (e.maybe ? "Only if there's something to post" : "Scheduled");
       const why = e.reason ? `<p class="ad-why${e.status === "blocked" ? " bad" : ""}">${e.status === "blocked" ? "Why: " : e.status === "posted" ? "Check: " : ""}${esc(e.reason)}</p>` : "";
       inner.innerHTML = `<div class="sc-bar"><h3>${esc(e.title)}</h3><span class="muted">${esc(name(e.day))}${e.t ? " · " + time12(e.t) : ""}</span>
@@ -162,19 +250,38 @@ const Admin = (() => {
         const box = inner.querySelector(".ad-img");
         if (box) box.innerHTML = img ? pic(img) : `<p class="muted">No picture saved for this one.</p>`;
       }
-    }));
+    };
+    // the Calendar and Next post tiles
+    const td = items[today] || [], out = td.filter((e) => e.status === "posted").length;
+    const ahead = td.filter((e) => (e.status === "scheduled" || e.status === "planned") && e.t && mins(e.t) >= nowM);
+    nextPost = ahead.find((e) => !e.maybe && e.status === "planned") || ahead.find((e) => e.status === "planned") || ahead[0] || null;
+    tile("posts", `<b class="ad-big">${out}</b><small>posted today · ${ahead.length} still to come</small>`);
+    tile("next", nextPost ? `<b class="ad-mid">${time12(nextPost.t)}</b><small>${esc(nextPost.title)}${nextPost.maybe ? " (only if)" : ""}</small>
+      ${nextPost.text ? `<span class="ad-snip">${esc(nextPost.text)}</span>` : ""}` : `<span class="muted">Nothing else today</span>`);
+    const m = +today.slice(5, 7), stale = (m >= 8 || m === 1) && nowM > 7 * 60 + 30 && !brief[today]?.preview;
+    return { all, today, stale };
   }
 
   // ---------- what it all costs (src/social/ledger.py), plus the fixed costs ----------
-  const FIXED = [ // dollars a month; null = not known yet
-    ["X Premium (@CupcakeIndex)", null, "your X subscription"],
-    ["cupcakeindex.com domain", null, "yearly renewal, shown per month"],
+  // [label, dollars a month (null = not known yet), note, the key Terry's own number is saved under, its period]
+  // Keyed ones are typed in on this page and saved to admin_settings/costs (owner only); the domain is typed per year.
+  const FIXED = [
+    ["X Premium (@CupcakeIndex)", null, "your X subscription", "xPremium", "month"],
+    ["cupcakeindex.com domain", null, "yearly renewal, shown per month", "domainYear", "year"],
     ["Firebase (accounts, alerts, analytics)", 0, "free Spark plan"],
     ["GitHub (site + all the automatic jobs)", 0, "free for a public repo"],
     ["CollegeFootballData", 0, "free plan"],
   ];
-  function costs(el, today, mon, rows, err) {
-    if (err) { el.innerHTML = `<div class="card"><h2>Costs</h2><p>${rulesNote(err)}</p></div>`; return; }
+  function costs(db, el, today, mon, rows, err, mine = {}) {
+    if (err) {
+      el.innerHTML = `<div class="card"><h2>Costs</h2><p>${rulesNote(err)}</p></div>`;
+      tile("costs", `<span class="muted">Couldn't read it</span>`, "bad");
+      return;
+    }
+    const FX = FIXED.map(([l, v, note, k, per]) => {
+      const typed = k && typeof mine[k] === "number" ? mine[k] : null;
+      return [l, typed == null ? v : per === "year" ? typed / 12 : typed, note, k, per, typed];
+    });
     const month = today.slice(0, 7), r = rows.filter((x) => x.usd);
     const dayOf = (x) => day(new Date(x.at));
     const sum = (f) => r.filter(f).reduce((a, x) => a + x.usd, 0);
@@ -182,8 +289,9 @@ const Admin = (() => {
     const t = new Date(today + "T12:00:00"), dim = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate(), done = t.getDate();
     const mtd = sum(inMonth), wk = sum((x) => dayOf(x) >= mon), td = sum((x) => dayOf(x) === today);
     const yd = sum((x) => dayOf(x) === day(new Date(t.getTime() - 864e5)));
-    const fixed = FIXED.reduce((a, f) => a + (f[1] || 0), 0), unknown = FIXED.some((f) => f[1] == null);
-    const tile = (big, label) => `<div class="ad-tile"><b>${big}</b><small>${esc(label)}</small></div>`;
+    const fixed = FX.reduce((a, f) => a + (f[1] || 0), 0), unknown = FX.some((f) => f[1] == null);
+    tile("costs", `<b class="ad-big">${money(mtd + fixed)}${unknown ? "+" : ""}</b><small>this month so far, fixed costs included · today ${money(td)}</small>`);
+    const tile2 = (big, label) => `<div class="ad-tile"><b>${big}</b><small>${esc(label)}</small></div>`;
     const CATS = [
       ["Posts on X", (x) => x.kind === "x", "posts", "$0.015 a post (X's API price, no links)"],
       ["Quality checks (Claude)", (x) => x.what === "check", "checks", "about 2 cents each; a cheaper model past $4.50 a month"],
@@ -193,16 +301,34 @@ const Admin = (() => {
     const checkM = sum((x) => inMonth(x) && x.what === "check");
     el.innerHTML = `<div class="card">
       <div class="sc-bar"><h2>Costs</h2><span class="muted">only you can see this · Eastern days</span></div>
-      <div class="ad-tiles">${tile(money(td), "today so far")}${tile(money(yd), "yesterday")}${tile(money(wk), "this week (since Monday)")}${tile(money(mtd), "this month so far")}${tile(money(mtd / done), "per day, this month")}${tile(money((mtd / done) * dim), "month at this pace")}</div>
+      <div class="ad-tiles">${tile2(money(td), "today so far")}${tile2(money(yd), "yesterday")}${tile2(money(wk), "this week (since Monday)")}${tile2(money(mtd), "this month so far")}${tile2(money(mtd / done), "per day, this month")}${tile2(money((mtd / done) * dim), "month at this pace")}</div>
       <h3>By what it's for</h3>
       <div class="table-wrap"><table class="ad-cost"><thead><tr><th>What</th><th class="n">This month</th><th class="n">This week</th><th class="n">Cost this month</th></tr></thead><tbody>
         ${CATS.map(([l, f, unit, note]) => `<tr><td>${esc(l)}<small>${esc(note)}</small></td><td class="n">${r.filter((x) => inMonth(x) && f(x)).length} ${unit}</td>
           <td class="n">${money(sum((x) => dayOf(x) >= mon && f(x)))}</td><td class="n">${money(sum((x) => inMonth(x) && f(x)))}</td></tr>`).join("")}
-        ${FIXED.map(([l, v, note]) => `<tr><td>${esc(l)}<small>${esc(note)}</small></td><td class="n">fixed</td><td class="n"></td><td class="n">${v == null ? "?" : money(v)}</td></tr>`).join("")}
+        ${FX.map(([l, v, note, k, per, typed]) => `<tr><td>${esc(l)}<small>${esc(note)}</small>${k ? `<label class="ad-fx">$<input type="number" min="0" step="0.01" inputmode="decimal"
+            data-k="${k}" value="${typed ?? ""}" placeholder="?" aria-label="${esc(l)}, dollars a ${per}"> a ${per}</label>` : ""}</td>
+          <td class="n">fixed</td><td class="n"></td><td class="n">${v == null ? "?" : money(v)}</td></tr>`).join("")}
       </tbody><tfoot><tr><td>Total</td><td></td><td class="n">${money(wk)}</td><td class="n"><b>${money(mtd + fixed)}${unknown ? " + ?" : ""}</b></td></tr></tfoot></table></div>
+      <p class="ad-fx-row"><button type="button" class="btn ad-fx-save">Save my costs</button> <span class="muted ad-fx-msg">Type what you pay for X Premium and the domain, then Save.</span></p>
       <p class="note">Quality checks this month: ${money(checkM)} of the $4.50 budget${checkM >= 4.5 ? " (on the cheaper model until the 1st)" : ""}.
-        Claude calls are counted from Oct 26, 2026; X posts from Oct 1 (from the posting log). These are estimates from list prices; the real bills are at console.anthropic.com (Usage) and the X developer console (Billing). For the "?" rows, tell Claude what you pay and they'll be filled in.</p>
+        Claude calls are counted from Oct 26, 2026; X posts from Oct 1 (from the posting log). These are estimates from list prices; the real bills are at console.anthropic.com (Usage) and the X developer console (Billing).</p>
       <div class="ad-chart"><canvas id="ad-cost-chart"></canvas></div></div>`;
+    el.querySelector(".ad-fx-save").addEventListener("click", async () => {
+      const msg = el.querySelector(".ad-fx-msg"), got = {};
+      for (const i of el.querySelectorAll(".ad-fx input")) {
+        const v = i.value.trim();
+        if (v !== "" && !(+v >= 0)) { msg.textContent = "Numbers only, like 8 or 12.99."; return; }
+        got[i.dataset.k] = v === "" ? firebase.firestore.FieldValue.delete() : Math.round(+v * 100) / 100;
+      }
+      msg.textContent = "Saving…";
+      try {
+        await db.collection("admin_settings").doc("costs").set(got, { merge: true });
+        const now = (await db.collection("admin_settings").doc("costs").get()).data() || {};
+        costs(db, el, today, mon, rows, err, now);
+        el.querySelector(".ad-fx-msg").textContent = "Saved.";
+      } catch (e) { msg.innerHTML = rulesNote(e); }
+    });
     const days = [...Array(done)].map((_, i) => `${month}-${String(i + 1).padStart(2, "0")}`);
     drawLater("ad-cost-chart", (C) => ({ type: "bar", data: { labels: days.map((d) => d.slice(5).replace("-", "/")),
       datasets: [["Posts on X", (x) => x.kind === "x", C("--accent")], ["Claude", (x) => x.kind === "claude", "#4cc9f0"]]
@@ -238,10 +364,18 @@ const Admin = (() => {
       ]);
     } catch (e) {
       el.innerHTML = `<div class="card"><h2>Analytics</h2><p>${rulesNote(e)}</p></div>`;
+      tile("analytics", `<span class="muted">Couldn't read it</span>`, "bad");
+      tile("now", `<span class="muted">Couldn't read it</span>`, "bad");
       return;
     }
     const by = Object.fromEntries(rows.docs.map((d) => [d.id, d.data()]));
     const series = (k) => days.map((d) => by[d]?.[k] || 0);
+    // dashboard: the last three days' visitors as little bars, and who's here right now
+    const last3 = days.slice(-3).map((d, i) => [new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday: "short" }), series("visitors").slice(-3)[i]]);
+    const top = Math.max(1, ...last3.map((x) => x[1]));
+    tile("analytics", `<div class="ad-mini">${last3.map(([l, v]) => `<div><i><span style="height:${Math.max(2, Math.round((100 * v) / top))}%"></span></i><b>${num(v)}</b><small>${l}</small></div>`).join("")}</div>
+      <small>visitors, last 3 days</small>`);
+    tile("now", `<b class="ad-big">${num(live)}</b><small>on the site now · ${num(accounts)} accounts · ${num(devices)} alert devices</small>`);
     // total of the last n days (back = 0), or of the n days before that (back = 1)
     const sum = (k, n, back = 0) => series(k).slice(days.length - n * (back + 1), days.length - n * back).reduce((a, b) => a + b, 0);
     // change vs the period before: "+12 · +15%" (no % when the period before was 0)
@@ -250,12 +384,12 @@ const Admin = (() => {
       const pct = then ? ` · ${d >= 0 ? "+" : ""}${Math.round((100 * d) / then)}%` : "";
       return `<i class="ad-d ${cls}">${d >= 0 ? "+" : ""}${num(d)}${pct}</i>`;
     };
-    const tile = (big, label, change = "") => `<div class="ad-tile"><b>${big}</b>${change}<small>${esc(label)}</small></div>`;
+    const tile2 = (big, label, change = "") => `<div class="ad-tile"><b>${big}</b>${change}<small>${esc(label)}</small></div>`;
     const KEYS = [["visitors", "visitors"], ["newVisitors", "new visitors"], ["views", "page views"], ["charts", "charts made"], ["downloads", "charts downloaded"]];
-    const row = (n) => KEYS.map(([k, l]) => tile(num(sum(k, n)), n === 30 && k === "visitors" ? "visits (one per person per day)" : l, delta(sum(k, n), sum(k, n, 1)))).join("");
+    const row = (n) => KEYS.map(([k, l]) => tile2(num(sum(k, n)), n === 30 && k === "visitors" ? "visits (one per person per day)" : l, delta(sum(k, n), sum(k, n, 1)))).join("");
     el.innerHTML = `<div class="card">
       <div class="sc-bar"><h2>Analytics</h2><span class="muted">only you can see this · Eastern time</span></div>
-      <h3>Right now</h3><div class="ad-tiles">${tile(num(live), "on the site now (last 5 min)")}${tile(num(accounts), "accounts")}${tile(num(devices), "devices with alerts on")}</div>
+      <h3>Right now</h3><div class="ad-tiles">${tile2(num(live), "on the site now (last 5 min)")}${tile2(num(accounts), "accounts")}${tile2(num(devices), "devices with alerts on")}</div>
       <h3>Today <span class="muted">vs yesterday</span></h3><div class="ad-tiles">${row(1)}</div>
       <h3>Last 7 days <span class="muted">vs the 7 days before</span></h3><div class="ad-tiles">${row(7)}</div>
       <h3>Last 30 days <span class="muted">vs the 30 days before</span></h3><div class="ad-tiles">${row(30)}</div>

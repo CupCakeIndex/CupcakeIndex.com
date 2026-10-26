@@ -37,16 +37,21 @@ SLOTS = [
      ["render.py"], False),
     ("stat1", "stat", "Stat / hot take", "Or a take on the day's NFL news, when Claude finds a good one", "17:02", None, SEASON, None,
      ["obscure.py", "--stat", "rotate"], False),
-    ("stat2", "stat", "Stat / hot take", "The next stat in the rotation after 1 PM's", "23:02", None, SEASON, None, None, False),
+    ("stat2", "stat", "Stat / hot take", "The next stat in the rotation after 1 PM's", "23:02", None, SEASON, None,
+     ["obscure.py", "--stat", "rotate"], False),
     ("injuries", "stat", "NFL injury report", "Most banged-up teams, after Friday's final reports", "14:30", {6}, SEPT_ON, None,
      ["obscure.py", "--stat", "nfl_injuries"], False),
     ("frauds", "stat", "NFL Fraud watch", "Weekly, vs ESPN's projections", "18:17", {3}, SEPT_ON, None,
      ["obscure.py", "--stat", "weekly_frauds"], False),
     ("overach", "stat", "NFL Over-achievers", "Weekly", "18:17", {4}, SEPT_ON, None,
      ["obscure.py", "--stat", "weekly_overachievers"], False),
-    ("cup_wk", "cup", "Cupcake stat", "The strongest one not posted yet", "19:03", {1, 2, 3, 4, 5}, SEASON, None, None, True),
-    ("cup_sat", "cup", "Cupcake stat", "This week's college droughts, before kickoff", "13:30", {6}, SEASON, None, None, True),
-    ("cup_sun", "cup", "Cupcake stat", "This week's NFL series and droughts", "13:30", {0}, SEASON, None, None, True),
+    # cupcake_stats.yml tries these in order; the first one with something new to say posts
+    ("cup_wk", "cup", "Cupcake stat", "The strongest one not posted yet", "19:03", {1, 2, 3, 4, 5}, SEASON, None,
+     [["cupcake_stats.py", "--stat", "best"]], True),
+    ("cup_sat", "cup", "Cupcake stat", "This week's college droughts, before kickoff", "13:30", {6}, SEASON, None,
+     [["cupcake_stats.py", "--stat", k] for k in ("week_drought", "series_week", "top10_drought", "best")], True),
+    ("cup_sun", "cup", "Cupcake stat", "This week's NFL series and droughts", "13:30", {0}, SEASON, None,
+     [["cupcake_stats.py", "--stat", k] for k in ("nfl_series_week", "nfl_playoff_drought", "nfl_primetime_record", "best")], True),
     ("prime", "night", "Prime-time matchup", "Offense + Defense radars, when there's a key night game", "20:00", None, SEASON, None,
      ["primetime.py"], True),
     ("tip", "tip", "Home screen tip", "Plus the stat of the day", "20:04", None, None, "every3", ["app_tip.py"], False),
@@ -85,19 +90,26 @@ def occurrences(day):
     return sorted(out, key=lambda x: x[1])
 
 
-def preview(cmd, out, when):
-    """Run a post maker into its own folder; {status, text, img, reason}."""
+def preview(cmd, out, when, maybe=False):
+    """Run a post maker into its own folder; {status, text, img, reason}. cmd can be a list of commands to try in
+    order (the first one that makes a post wins). An "only if" slot that makes nothing is "skip", not an error."""
     os.makedirs(out, exist_ok=True)
-    args = [sys.executable, str(ROOT / "src" / "social" / cmd[0]), *cmd[1:], "--out", out]
-    if cmd[0] in ("primetime.py", "tonight.py", "render.py"):
-        args += ["--date", when.isoformat()]
-    try:
-        r = subprocess.run(args, capture_output=True, text=True, timeout=600, encoding="utf-8", errors="replace")
-    except subprocess.TimeoutExpired:
-        return {"status": "error", "reason": "the preview took too long"}
     meta_path = Path(out) / "today.json"
+    for c in (cmd if isinstance(cmd[0], list) else [cmd]):
+        meta_path.unlink(missing_ok=True)
+        args = [sys.executable, str(ROOT / "src" / "social" / c[0]), *c[1:], "--out", out]
+        if c[0] in ("primetime.py", "tonight.py", "render.py"):
+            args += ["--date", when.date().isoformat()]
+        try:
+            r = subprocess.run(args, capture_output=True, text=True, timeout=600, encoding="utf-8", errors="replace")
+        except subprocess.TimeoutExpired:
+            return {"status": "error", "reason": "the preview took too long"}
+        if meta_path.exists():
+            break
     if not meta_path.exists():
         tail = (r.stderr or r.stdout or "").strip().splitlines()[-1:] or ["no output"]
+        if maybe:
+            return {"status": "skip", "reason": tail[0][:200]}
         return {"status": "error", "reason": f"the preview failed: {tail[0][:200]}"}
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
     if meta.get("skip"):
@@ -135,14 +147,18 @@ def main():
         day = monday + dt.timedelta(days=i)
         if day < today:
             continue  # earlier days keep the brief they had
-        slots = []
+        slots, made = [], {}  # made: slot id -> the preview's post (stat2 leaves out what stat1 picked)
         for (sid, kind, title, sub, *_rest), when in occurrences(day):
             cmd, maybe = _rest[-2], _rest[-1]
             row = {"id": sid, "t": when.strftime("%H:%M"), "kind": kind, "title": title, "sub": sub, "maybe": maybe,
                    "status": "scheduled"}
             if day == today and cmd:
-                got = preview(cmd, os.path.join(a.out, sid), day)
+                if sid == "stat2":  # the evening run's own rotation slot, after the 1 PM one
+                    cmd = cmd + ["--at", when.astimezone(UTC).strftime("%Y-%m-%dT%H:%M")]
+                    cmd += ["--skip", made["stat1"]["stat"]] if made.get("stat1", {}).get("stat") else []
+                got = preview(cmd, os.path.join(a.out, sid), when, maybe)
                 meta = got.pop("meta", None)
+                made[sid] = meta or {}
                 row.update(got)
                 if a.check and meta and got["status"] == "planned":
                     import check_post
