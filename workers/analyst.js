@@ -10,14 +10,15 @@
 // Setup (Cloudflare dashboard > Workers > this worker > Settings):
 //   Variables and Secrets: ANTHROPIC_API_KEY  a Claude API key (console.anthropic.com > API keys), as a Secret
 //                          MEMBERS            emails allowed to use it, comma-separated, as Text (later: paid members)
+//                          MODEL (optional)   claude-sonnet-5-5 to try the smarter, ~20x pricier model; blank = Haiku
 //   Bindings: KV namespace, variable name USAGE (Storage > KV > create one called analyst-usage)
 // Stripe (paid members) comes later; for now MEMBERS is the list.
 
 const ALLOWED = ["https://cupcakeindex.com", "https://www.cupcakeindex.com", "http://localhost:8765"];
 const PROJECT = "cupcake-index"; // Firebase project: whose sign-in tokens we accept
 const OWNER = "thecupcakeindex.support@gmail.com"; // testing: no question limit, only the dollar backstop
-const MODEL = "claude-haiku-5-5";
-const PRICE_IN = 0.10, PRICE_OUT = 0.50; // $ per million tokens (Haiku 5.5, prompts under 100K tokens)
+// $ per million tokens [in, out] (list prices, Oct 2026; Haiku's is for prompts under 100K tokens)
+const PRICES = { "claude-haiku-5-5": [0.10, 0.50], "claude-sonnet-5-5": [2, 10] };
 const LIMIT = 300; // questions a month a member gets
 const DAY_LIMIT = 40; // and a day, so nobody uses the month in one night
 const MONTH_CAP_USD = 5; // backstop per person, the owner included: past this, it stops until the 1st
@@ -89,10 +90,11 @@ export default {
     if (b.newQuestion && !owner && u.days[d].q >= DAY_LIMIT) return json({ error: `That's ${DAY_LIMIT} questions today. More tomorrow.`, usage: summary(u, me) }, 429);
 
     // raw HTTP, not the SDK: this Worker is pasted into the Cloudflare dashboard, which has no package install step
+    const model = PRICES[env.MODEL] ? env.MODEL : "claude-haiku-5-5", [pin, pout] = PRICES[model];
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: 4000, output_config: { effort: "medium" }, cache_control: { type: "ephemeral" },
+      body: JSON.stringify({ model, max_tokens: 8000, output_config: { effort: "high" }, cache_control: { type: "ephemeral" },
         system: [{ type: "text", text: b.system, cache_control: { type: "ephemeral" } }], tools, messages: b.messages }),
     });
     const out = await r.json().catch(() => ({}));
@@ -101,10 +103,10 @@ export default {
       return json({ error: busy ? "Claude is busy right now. Try again in a minute." : `Claude said no (${out.error?.message || r.status}).` }, busy ? 503 : 502);
     }
     const t = out.usage || {};
-    const usd = ((t.input_tokens || 0) + (t.cache_creation_input_tokens || 0) * 1.25 + (t.cache_read_input_tokens || 0) * 0.1) * PRICE_IN / 1e6 + (t.output_tokens || 0) * PRICE_OUT / 1e6;
+    const usd = ((t.input_tokens || 0) + (t.cache_creation_input_tokens || 0) * 1.25 + (t.cache_read_input_tokens || 0) * 0.1) * pin / 1e6 + (t.output_tokens || 0) * pout / 1e6;
     u.usd += usd; u.days[d].usd += usd;
     if (b.newQuestion) { u.q++; u.days[d].q++; }
     await env.USAGE.put(`u:${me.uid}:${month()}`, JSON.stringify(u), { expirationTtl: 60 * 60 * 24 * 400 });
-    return json({ content: out.content, stop_reason: out.stop_reason, cost: usd, usage: summary(u, me) });
+    return json({ content: out.content, stop_reason: out.stop_reason, cost: usd, model, usage: summary(u, me) });
   },
 };

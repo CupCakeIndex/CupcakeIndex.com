@@ -159,7 +159,13 @@ Today is ${new Date().toISOString().slice(0, 10)}. Our data: weekly stats for NF
 How to answer:
 - Use the tools for every number. find_player before player_stats; leaderboard to rank someone among peers; team_stats and our_rankings for teams, schedules and cupcake padding; team_status for injuries and starters; site_tab for our Injuries / Frauds / Over-achievers tabs; pace_to for "on pace for" questions; stat_menu to find the right stat; site_lists for coaches, records, Trade watch and our Heisman race; rare_plays for specific plays; how_we_count for how OUR stats and rankings are defined (call it before explaining any of our numbers). Make several calls in one round when you can.
 - Only state numbers that came from a tool result in this conversation. Never use numbers from memory. If our data can't answer it, say what's missing in one line.
-- Charts: when a chart would help or the member asks for one, call chart_stats to find the Visualize stat, then show_chart. It opens the chart on the site behind this panel. To send them to a page (rankings, a team page, Injuries...), use open_page.
+- Charts: when a chart would help or the member asks for one, call chart_stats to find the Visualize stats, then show_chart. It opens the chart on the site behind this panel. Match the chart to the question:
+  - Comparing specific players ("Toney vs Smith"): a radar with players = both player_ids from find_player, position set, and radar_stats = 5-7 stats that matter for that position (a WR: catches, receiving yards, yards per catch, receiving TDs, catch rate, yards after the catch...). Every chart about named players passes their ids in players, so they're on it.
+  - Comparing teams: a radar or bar with highlight = those teams.
+  - Who leads a stat: a bar, top 10, with the player or team they asked about in players / highlight.
+  - Two stats against each other: a scatter, with the named players or teams highlighted.
+  When they ask to change the chart ("make it a radar"), keep the same players or teams and redo show_chart; don't drop who they asked about. Never say the chart tool can't do something before trying it.
+  To send them to a page (rankings, a team page, Injuries...), use open_page.
 - Leaderboard stat names: any column (pass_yds, rush_td, tackles, def_sacks, pressure, pen, pts...) or a rate. Player rates: ${Object.keys(BotTools.RATES).join(", ")}, passer_rating, passer_rating_vs_blitz. Team rates: ${Object.keys(BotTools.TEAM_RATES).join(", ")}.
 - No betting content: no spreads, lines, odds, over/unders or picks against a line. Our win chance from our_rankings is fine.
 
@@ -182,19 +188,26 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
     },
     {
       name: "show_chart",
-      description: "Open a Stats > Visualize chart on the site. stat (and y_stat for a scatter) must be keys from chart_stats. who: players or teams. type: bar, line (week by week), scatter (stat across, y_stat up), pie, radar or table. team: show only that team's players. highlight: teams to color (teams charts). position: QB RB WR TE K OL EDGE IDL LB CB S (players). top: 5, 10, 15, 25 or all. season_from/season_to, weeks_from/weeks_to: the range (default: this season, every week). per: game or total.",
+      description: "Open a Stats > Visualize chart on the site. stat (and y_stat for a scatter) must be keys from chart_stats. who: players or teams. type: bar, line (week by week), scatter (stat across, y_stat up), pie, radar or table. players: player_ids from find_player (up to 5): a radar then shows exactly them, other charts highlight them. highlight: team names (teams charts: a radar shows exactly them; others color them). radar_stats: 4-8 chart_stats keys for the radar's spokes (leave out for the position's usual profile). team: only that team's players. position: QB RB WR TE K OL EDGE IDL LB CB S (players; set it for a player radar so percentiles compare like with like). top: 5, 10, 15, 25 or all. season_from/season_to, weeks_from/weeks_to: the range (default: this season, every week). per: game or total.",
       input_schema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, who: { type: "string", enum: ["players", "teams"] }, type: { type: "string", enum: ["bar", "line", "scatter", "pie", "radar", "table"] },
-        stat: { type: "string" }, y_stat: { type: "string" }, team: { type: "string" }, highlight: { type: "array", items: { type: "string" } }, position: { type: "string" }, top: { type: "string" },
+        stat: { type: "string" }, y_stat: { type: "string" }, team: { type: "string" }, players: { type: "array", items: { type: "string" } }, highlight: { type: "array", items: { type: "string" } },
+        radar_stats: { type: "array", items: { type: "string" } }, position: { type: "string" }, top: { type: "string" },
         season_from: { type: "integer" }, season_to: { type: "integer" }, weeks_from: { type: "integer" }, weeks_to: { type: "integer" }, per: { type: "string", enum: ["game", "total"] }, title: { type: "string" } }, required: ["league", "who", "type", "stat"] },
       async execute(a, links) {
         const lg = String(a.league), C = await Viz.catalog(lg), list = C[a.who === "teams" ? "teams" : "players"];
-        for (const k of [a.stat, a.y_stat].filter(Boolean)) if (!list.some((s) => s[0] === k)) throw new Error(`"${k}" isn't a Visualize stat. Call chart_stats first.`);
+        for (const k of [a.stat, a.y_stat, ...(a.radar_stats || [])].filter(Boolean)) if (!list.some((s) => s[0] === k)) throw new Error(`"${k}" isn't a Visualize stat. Call chart_stats first.`);
         const D = await BotTools.load(lg, BotTools.seasons(lg)[0]);
         const key = (n) => { const k = BotTools.teamKey(D, n); if (!k) throw new Error(`No ${lg} team matching "${n}".`); return k; };
         const o = { league: lg, show: "visualize", who: a.who, type: a.type, stat: a.stat };
         if (a.y_stat) o.y = a.y_stat;
         if (a.team && a.who === "players") o.team = key(a.team);
-        if (a.highlight?.length) o.pick = a.highlight.slice(0, 6).map(key).join(",");
+        if (a.who === "players" && a.players?.length) {
+          const bad = a.players.filter((id) => !D.pmeta[String(id)]);
+          if (bad.length) throw new Error(`No ${lg} ${D.season || ""} games for player_id ${bad.join(", ")}. Use the player_id from find_player.`);
+          o.pick = a.players.slice(0, 5).map(String).join(",");
+        }
+        if (a.who === "teams" && a.highlight?.length) o.pick = a.highlight.slice(0, 6).map(key).join(",");
+        if (a.type === "radar" && a.radar_stats?.length) o.radar = a.radar_stats.slice(0, 8).join(",");
         if (a.position && a.who === "players") o.pos = String(a.position).toUpperCase();
         if (a.top) o.top = String(a.top);
         if (a.season_from) o.from = String(a.season_from);
