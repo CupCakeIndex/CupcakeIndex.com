@@ -891,19 +891,11 @@ def _():
 # --- historic pace: a player on pace for (or near) a single-season record --------------------------
 # Posted on their own after the games (.github/workflows/pace.yml): college Saturday night, NFL Sunday night.
 # Pace = season total / team games played x the regular season (12 college games, 17 NFL), the usual "on pace".
-# Records checked Oct 2026 (FBS counts bowl games since 2002; NFL is the regular season).
-RECORDS = {
-    "cfb": {"passingYards": (5967, "Bailey Zappe", "Western Kentucky", 2021), "passingTouchdowns": (62, "Bailey Zappe", "Western Kentucky", 2021),
-            "rushingYards": (2628, "Barry Sanders", "Oklahoma State", 1988), "rushingTouchdowns": (37, "Barry Sanders", "Oklahoma State", 1988),
-            "receivingYards": (2060, "Trevor Insley", "Nevada", 1999), "receptions": (158, "Zay Jones", "East Carolina", 2016),
-            "receivingTouchdowns": (27, "Troy Edwards", "Louisiana Tech", 1998)},
-    "nfl": {"passingYards": (5477, "Peyton Manning", "Broncos", 2013), "passingTouchdowns": (55, "Peyton Manning", "Broncos", 2013),
-            "rushingYards": (2105, "Eric Dickerson", "Rams", 1984), "rushingTouchdowns": (28, "LaDainian Tomlinson", "Chargers", 2006),
-            "receivingYards": (1964, "Calvin Johnson", "Lions", 2012), "receptions": (149, "Michael Thomas", "Saints", 2019),
-            "receivingTouchdowns": (23, "Randy Moss", "Patriots", 2007)},
-}
+# Records live in docs/data/season_records.json (the Analyst chat reads the same file): only the stats posted here.
 PACE_LABEL = {"passingYards": "passing yards", "passingTouchdowns": "passing TDs", "rushingYards": "rushing yards",
               "rushingTouchdowns": "rushing TDs", "receivingYards": "receiving yards", "receptions": "catches", "receivingTouchdowns": "receiving TDs"}
+RECORDS = {lg: {k: (r["value"], r["who"], r["team"], r["season"]) for k, r in recs.items() if k in PACE_LABEL}
+           for lg, recs in json.load(open(os.path.join(ROOT, "docs", "data", "season_records.json"), encoding="utf-8")).items() if lg in ("nfl", "cfb")}
 SEASON_GAMES = {"cfb": 12, "nfl": 17}
 PACE_MIN = 0.9  # within 10% of the record (or past it) counts as historic; otherwise no post that week
 # team games before a pace counts: yards and catches settle fast, TD paces are silly until mid-season

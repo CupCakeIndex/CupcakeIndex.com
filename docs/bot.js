@@ -184,11 +184,11 @@ const Bot = (() => {
     const R = await BotTools.base(), S = BotTools.seasons, T = BotTools.teamSeasons;
     return `You are the Cupcake Analyst, the stat desk inside The Cupcake Index (cupcakeindex.com), a college football and NFL power rankings and analytics site. Motto: "Bullying cupcakes isn't a résumé." A member is chatting with you in a small panel on the site.
 
-Each question starts with the member's day and time in [brackets] (not something they typed). Our data: weekly stats for NFL players ${S("nfl").at(-1)}-${S("nfl")[0]} and college ${S("cfb").at(-1)}-${S("cfb")[0]} (regular season; the current seasons are partial), NFL team game stats back to ${T("nfl").at(-1)}, our model's rankings (NFL after week ${R.nfl.week}, college after week ${R.cfb.week} of ${R.cfb.season}), the NFL injury report and depth charts, and every player's full career season by season from ESPN, back to his first year (the career tool).
+Each question starts with the member's day and time in [brackets] (not something they typed). Our data: weekly stats for NFL players ${S("nfl").at(-1)}-${S("nfl")[0]} and college ${S("cfb").at(-1)}-${S("cfb")[0]} (regular season; the current seasons are partial), NFL team game stats back to ${T("nfl").at(-1)}, our model's rankings (NFL after week ${R.nfl.week}, college after week ${R.cfb.week} of ${R.cfb.season}), the NFL injury report and depth charts, every player's full career season by season from ESPN, back to his first year (career), and any season's game-by-game log back to the late 1990s (game_log).
 
 How to answer:
 - Use the tools for every number. find_player before player_stats; leaderboard to rank someone among peers; team_stats and our_rankings for teams, schedules and cupcake padding; team_status for injuries and starters (the same list as our Injuries tab); site_tab for our Injuries / Frauds / Over-achievers tabs; pace_to for "on pace for" questions; stat_menu to find the right stat; site_lists for coaches, records, Trade watch and our Heisman race; rare_plays for specific plays; how_we_count for how OUR stats and rankings are defined (call it before explaining any of our numbers). Make several calls in one round when you can.
-- Only state numbers that came from a tool result in this conversation. Never use numbers from memory. If our data can't answer it, say what's missing in one line.
+- Only state numbers that came from a tool result in this conversation. Never use numbers from memory. Don't do math in your head (gaps, sums, differences, "X ahead of Y"): use a number a tool gave you, or just state both numbers. Records come from season_records. If our data can't answer it, say what's missing in one line.
 - Charts: when a chart would help or the member asks for one, call chart_stats to find the Visualize stats, then show_chart. It opens the chart on the site behind this panel. Match the chart to the question:
   - Comparing specific players ("Toney vs Smith"): a radar with players = both player_ids from find_player, position set, and radar_stats = 5-7 stats that matter for that position (a WR: catches, receiving yards, yards per catch, receiving TDs, catch rate, yards after the catch...). Every chart about named players passes their ids in players, so they're on it.
   - Comparing teams: a radar or bar with highlight = those teams.
@@ -201,8 +201,8 @@ How to answer:
 - Days and times: say when a game is ("tonight", "tomorrow", "Saturday") only by copying its "when" from scores, which is already in the member's time. Never work it out from dates yourself.
 - Injury notes and headlines are reports from the date they carry (note_date, published). A game they mention may already be over: check scores before saying a player will or won't play in a game.
 - "What's the score", "did they win", "when do they play": scores. Standings, division leaders, playoff seeds: standings. Recent news on a team or player: news.
-- Careers and older seasons: anything before ${S("nfl").at(-1)} (NFL) or ${S("cfb").at(-1)} (college), a player's whole career, "first three years", or comparing careers: call career. It opens our career comparison chart, which is the chart for those years: Visualize (show_chart, radars) only has ${S("nfl").at(-1)} on, so if they asked for a radar of older seasons, say that in one short line and show the career comparison.
-- Never tell the member we don't have something until you've tried every tool that could have it. The weekly data starting in ${S("nfl").at(-1)} is NOT where our player history starts.
+- Careers and older seasons: anything before ${S("nfl").at(-1)} (NFL) or ${S("cfb").at(-1)} (college), a player's whole career, "first three years", or comparing careers: call career (season totals) or game_log (a single game or game-by-game stats in a season). career opens our career comparison chart, which is the chart for those years: Visualize (show_chart, radars) only has ${S("nfl").at(-1)} on, so if they asked for a radar of older seasons, say that in one short line and show the career comparison.
+- Never tell the member we don't have something until you've tried every tool that could have it. The weekly data starting in ${S("nfl").at(-1)} is NOT where our player history starts. If a tool says it has no data, try the next tool that could (player_stats, then game_log or career) before answering.
 - Our site is the source of truth. If no tool covers what they asked, say "I can't look that up yet" and point to the page with open_page; never say the site doesn't have something, and never guess.
 - No betting content: no spreads, lines, odds, over/unders or picks against a line. Our win chance and predicted score are fine.
 
@@ -409,6 +409,41 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
         go(href);
         links.push({ href, label: `Open ${keys.length > 1 ? "career comparison" : `${P[0].name}'s career`}` });
         return { source: "ESPN career stats (the player pages' Stats by year)", lined_up_by: byCareer ? "career year" : "season", players };
+      },
+    },
+    {
+      name: "season_records",
+      description: "Single-season records (NFL and college): passing, rushing and receiving yards, TDs and catches, plus NFL sacks and interceptions. The value, who holds it, his team and the year. Use it for 'the record', 'on pace for the record', 'how close to the record'.",
+      input_schema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] } }, required: ["league"] },
+      async execute(a) {
+        const d = await getJSON("data/season_records.json"), lg = a.league === "cfb" ? "cfb" : "nfl";
+        return { note: d.note, records: d[lg] };
+      },
+    },
+    {
+      name: "game_log",
+      description: "Any player's game-by-game stats for one season from ESPN, the same as the player page's Game log (NFL back to the late 1990s): opponent, result and his stats each game. Use it for a single game ('week 3 of 2019'), best or worst games, or splits in any season, including before 2022. week: just that week. Opens his game log on the site.",
+      input_schema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, player: { type: "string" }, season: { type: "integer" }, week: { type: "integer" } }, required: ["league", "player", "season"] },
+      async execute(a, links) {
+        const lg = a.league === "cfb" ? "cfb" : "nfl", hits = await Live.searchPlayers(String(a.player), 6);
+        const h = hits.find((x) => x.key.startsWith(lg + ":")) || hits[0];
+        if (!h) throw new Error(`No player named "${a.player}" on ESPN.`);
+        const [l, id] = h.key.split(":"), season = +a.season;
+        const g = await getJSON(`https://site.web.api.espn.com/apis/common/v3/sports/football/${l === "nfl" ? "nfl" : "college-football"}/athletes/${encodeURIComponent(id)}/gamelog?season=${season}`);
+        const labels = g.names || g.labels || []; // passingYards, rushingYards...: ESPN's short labels repeat ("YDS" twice)
+        const games = (g.seasonTypes || []).flatMap((st) => (st.categories || []).flatMap((c) => (c.events || []).map((x) => {
+          const e = g.events?.[x.eventId] || {};
+          return { season_type: /post/i.test(st.displayName || "") ? "postseason" : "regular", week: e.week, date: (e.gameDate || "").slice(0, 10),
+            opponent: `${e.atVs || "vs"} ${e.opponent?.abbreviation || e.opponent?.displayName || "?"}`, result: [e.gameResult, e.score].filter(Boolean).join(" ") || undefined,
+            ...Object.fromEntries(labels.map((k, i) => [k, x.stats?.[i]]).filter(([, v]) => v != null && v !== "")) };
+        }))).sort((x, y) => (x.date < y.date ? -1 : 1));
+        if (!games.length) throw new Error(`ESPN has no ${season} game log for ${h.name}.`);
+        const pick = a.week ? games.filter((x) => x.week === +a.week && x.season_type === "regular") : games;
+        if (!pick.length) throw new Error(`${h.name} has no week ${a.week} game in ${season} (a bye, or he didn't play). His weeks that season: ${games.filter((x) => x.season_type === "regular").map((x) => x.week).join(", ")}.`);
+        const href = `#/player/${encodeURIComponent(id)}?${new URLSearchParams({ league: l, tab: "log", season: String(season) })}`;
+        go(href);
+        links.push({ href, label: `Open ${h.name}'s ${season} game log` });
+        return { source: "ESPN game log (the player page's Game log)", player: h.name, season, games: pick };
       },
     },
     {
