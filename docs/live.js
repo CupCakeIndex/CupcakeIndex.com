@@ -895,6 +895,8 @@ const Live = (() => {
   const zoomStyle = (gid) => { const z = gcvZoom.get(gid); return z && z.s > 1 ? `--zs:${z.s.toFixed(3)};--zx:${z.x.toFixed(1)}px;--zy:${z.y.toFixed(1)}px` : ""; };
   const standsStyle = (gid) => { const z = gcvZoom.get(gid); return z && z.s > 1 && z.h ? `height:${z.h}px` : ""; };
   const gcvOpen = new Set(); // play-by-play drives you opened (kept open through the refresh)
+  // the play-by-play list starts folded up (Terry, Oct 26: it took up so much space); games you opened it on stay open
+  const gcvPbpOpen = new Set();
   const gcvReplay = new Map();
   const gcvPause = new Map(); // game id -> { at, left }: replay paused at this time, with this long left before the next play
   const gcvStep = new Map();  // game id -> { fn, start, wait }: the replay's next step (so a pause can hold it)
@@ -990,6 +992,8 @@ const Live = (() => {
     document.addEventListener("touchend", (e) => { if (zs && e.touches.length === 0) zs = null; });
     // remember which past drives are open in the play-by-play
     document.addEventListener("toggle", (e) => {
+      const w = e.target.closest?.("details[data-pbpg]");
+      if (w === e.target) { w.open ? gcvPbpOpen.add(w.dataset.pbpg) : gcvPbpOpen.delete(w.dataset.pbpg); return; }
       const d = e.target.closest?.("details[data-dk]");
       if (!d || d.closest(".gcv-drv.cur")) return;
       d.open ? gcvOpen.add(d.dataset.dk) : gcvOpen.delete(d.dataset.dk);
@@ -1308,7 +1312,7 @@ const Live = (() => {
       <div class="gcv-stands${gcvZoom.get(gameId)?.s > 1 ? " zoomed" : ""}" style="${standsStyle(gameId)}">${callHtml}${popsHtml}<div class="gcv-zoom" style="${zoomStyle(gameId)}"><div class="gcv-3d"><svg class="gcv-field" viewBox="0 0 1200 ${H}" role="img" aria-label="${esc([off ? `${off.team.abbreviation} ball` : "", ddText, at.possessionText ? `ball on ${at.possessionText}` : ""].filter(Boolean).join(", "))}">${svg.join("")}</svg>${posts}${flag}${ghost}${fgBall}${twoBall}${stand}</div></div></div>
       ${sims.some((p) => gcvTip.get(gameId) === `${dd(p) ? dd(p) + ": " : ""}${clean(p.text)}`) ? `<div class="gcv-tip">${esc(gcvTip.get(gameId))}</div>` : `<div class="gcv-tip" hidden></div>`}
       <div class="gcv-key"><span><i class="los"></i>Line of scrimmage</span>${fd != null ? `<span><i class="fd"></i>First down</span>` : ""}${sims.length ? `<span class="muted">Bars: this drive's plays, hover or tap one</span>` : ""}</div>
-      ${pbp ? `<div class="gcv-pbp"><ol class="gcv-drives">${pbp}</ol></div>` : ""}
+      ${pbp ? `<details class="gcv-pbpw" data-pbpg="${esc(gameId)}"${gcvPbpOpen.has(String(gameId)) ? " open" : ""}><summary>Play-by-play <span class="muted">${allDr.length} drive${allDr.length > 1 ? "s" : ""}</span></summary><div class="gcv-pbp"><ol class="gcv-drives">${pbp}</ol></div></details>` : ""}
     </div>`;
   }
 
@@ -3911,49 +3915,79 @@ const Live = (() => {
       return { name: c.name, label: GL_GROUP_LABEL[c.name] || c.displayName, cols };
     }).filter((g) => g.cols.length);
   }
-  function gameLogHtml(gl, cats, lg, primary) {
-    const evsOf = (stp) => stp.categories.flatMap((c) => c.events || []);
-    const all = gl.seasonTypes.flatMap(evsOf);
+  // The top line ("spotlight"): which stats each group shows big. The first one gets the bar and the SEASON HIGH mark.
+  // Defaults per group (Terry: passing = yards, TDs, INTs, completion %); the Stats button changes them, saved per group.
+  const GL_SPOT = { passing: ["passingYards", "passingTouchdowns", "interceptions", "completionPct"], rushing: ["rushingYards", "rushingTouchdowns"],
+    receiving: ["receivingYards", "receivingTouchdowns", "receptions"], tackles: ["totalTackles", "sacks"], defensive: ["totalTackles", "sacks"],
+    interceptions: ["interceptions", "interceptionYards"], defensiveInterceptions: ["interceptions", "interceptionYards"], fieldgoals: ["fieldGoalsMade-fieldGoalAttempts", "longFieldGoalMade"],
+    pats: ["extraPointsMade-extraPointAttempts"], fumbles: ["fumbles", "fumblesLost"] };
+  let glDocWired = false;
+  const glPrefs = () => store.get("gl-spot") || {};
+  const glLabel = (c) => GL_KEY_LABEL[c.name] && GL_KEY[c.group] === c.name ? GL_KEY_LABEL[c.name]
+    : c.label === "LNG" ? "long" : /^(TD|INT|QBR|RTG|FF|FUM|XP|FG|KB|PD)$/.test(c.label) ? c.label : c.label.toLowerCase();
+  function glSpot(g) {
+    const saved = glPrefs()[g.name], names = g.cols.map((c) => c.name);
+    const want = (saved || GL_SPOT[g.name] || [GL_KEY[g.name], ...names.filter((n) => /Touchdowns$/.test(n))]).filter((n) => names.includes(n));
+    if (want.length) return want;
+    const kc = g.cols.find((c) => /Yards$/.test(c.name)) || g.cols[0];
+    return [kc.name];
+  }
+  // st: {gl, cats, lg, primary, open}. Draws the open group only; the switch and the Stats button redraw it.
+  function glGroupsUsed(st) {
+    const all = st.gl.seasonTypes.flatMap((stp) => stp.categories.flatMap((c) => c.events || []));
     // groups he actually did something in this season (no all-dash Fumbles tab for a QB who never fumbled)
-    const used = cats.filter((g) => all.some((ev) => g.cols.some((c) => (num(ev.stats[c.i]) || 0) !== 0)));
-    const groups = used.length ? used : cats.slice(0, 1);
-    const open = (groups.find((g) => g.name === primary) || groups[0]).name;
+    const used = st.cats.filter((g) => all.some((ev) => g.cols.some((c) => (num(ev.stats[c.i]) || 0) !== 0)));
+    const groups = used.length ? used : st.cats.slice(0, 1);
+    const open = groups.find((g) => g.name === st.open) || groups.find((g) => g.name === st.primary) || groups[0];
+    return { all, groups, open };
+  }
+  function gameLogHtml(st) {
+    const { gl, lg } = st, { all, groups, open: g } = glGroupsUsed(st);
+    const evsOf = (stp) => stp.categories.flatMap((c) => c.events || []);
     const fmt = (v) => esc(v ?? "–");
-    const panel = (g) => {
-      const kc = g.cols.find((c) => c.name === GL_KEY[g.name]) || g.cols.find((c) => /Yards$/.test(c.name)) || g.cols[0];
-      const keyLabel = GL_KEY_LABEL[kc.name] || kc.label.toLowerCase();
-      const rest = g.cols.filter((c) => c !== kc);
-      const line = (stats) => rest.map((c) => {
-        const v = stats[c.i];
-        // kickers: a distance he didn't try (0-0) drops out, the others read "1-2 from 40-49"
-        if (v == null || v === "-" || v === "" || (/^\d+(-\d+|\+)$/.test(c.label) && v === "0-0")) return "";
-        if (/^\d+(-\d+|\+)$/.test(c.label)) return `${fmt(v)} <span>from ${esc(c.label)}</span>`;
-        const td = /Touchdowns$/.test(c.name) && num(v) > 0;
-        const lab = c.label === "LNG" ? "long" : /^(TD|INT|QBR|RTG|FF|FUM|XP|FG|KB|PD)$/.test(c.label) ? c.label : c.label.toLowerCase();
-        return td ? `<b class="gl-td">${fmt(v)} ${esc(lab)}</b>` : `${fmt(v)} <span>${esc(lab)}</span>`;
-      }).filter(Boolean).join(" · ");
-      const vals = all.map((ev) => num(ev.stats[kc.i]) ?? 0), max = Math.max(0, ...vals);
-      return gl.seasonTypes.map((stp) => {
-        const evs = evsOf(stp);
-        if (!evs.length) return "";
-        const rows = evs.map((ev) => {
-          const m = gl.events?.[ev.eventId] || {}, v = num(ev.stats[kc.i]) ?? 0, high = max > 0 && v === max;
-          const res = m.gameResult === "W" ? "W" : m.gameResult === "L" ? "L" : m.gameResult === "T" ? "T" : "";
-          return `<a class="gl-row${high ? " gl-high" : ""}" href="${link("game", ev.eventId, { league: lg })}">
-            <span class="gl-wk">${m.week != null ? `Wk ${esc(m.week)}` : ""}</span>
-            <span class="gl-opp">${esc(m.atVs || "")} ${img(m.opponent?.logo, "xs")} ${esc(m.opponent?.abbreviation || "")}</span>
-            <span class="gl-res ${res}">${esc(res)} ${esc(m.score || "")}</span>
-            <span class="gl-key"><b>${fmt(ev.stats[kc.i])}</b> <small>${esc(keyLabel)}</small>${high ? ` <em>SEASON HIGH</em>` : ""}<i style="--w:${max > 0 && v > 0 ? Math.max(2, Math.round((100 * v) / max)) : 0}%"></i></span>
-            <span class="gl-rest">${line(ev.stats)}</span></a>`;
-        }).join("");
-        const tot = stp.summary?.stats?.[0]?.stats;
-        return `<h4>${esc(stp.displayName.replace(/ Stats$/, ""))}</h4><div class="gl-list">${rows}
-          ${tot ? `<div class="gl-row gl-tot"><span class="gl-wk">Total</span><span class="gl-opp">${evs.length} game${evs.length > 1 ? "s" : ""}</span><span class="gl-res"></span>
-            <span class="gl-key"><b>${fmt(tot[kc.i])}</b> <small>${esc(keyLabel)}</small></span><span class="gl-rest">${line(tot)}</span></div>` : ""}</div>`;
+    const spot = glSpot(g).map((n) => g.cols.find((c) => c.name === n)).filter(Boolean).map((c) => ({ ...c, group: g.name }));
+    const kc = spot[0];
+    const rest = g.cols.filter((c) => !spot.some((x) => x.name === c.name)).map((c) => ({ ...c, group: g.name }));
+    const isTd = (c, v) => /Touchdowns$/.test(c.name) && num(v) > 0;
+    const top = (stats, high) => spot.map((c, j) => {
+      const v = stats[c.i];
+      if (j === 0) return `<span class="gl-big"><b>${fmt(v)}</b> <small>${esc(glLabel(c))}</small>${high ? ` <em>SEASON HIGH</em>` : ""}</span>`;
+      return `<span class="gl-sp${isTd(c, v) ? " gl-td" : ""}"><b>${fmt(v)}</b> <small>${esc(glLabel(c))}</small></span>`;
+    }).join("");
+    const line = (stats) => rest.map((c) => {
+      const v = stats[c.i];
+      // kickers: a distance he didn't try (0-0) drops out, the others read "1-2 from 40-49"
+      if (v == null || v === "-" || v === "" || (/^\d+(-\d+|\+)$/.test(c.label) && v === "0-0")) return "";
+      if (/^\d+(-\d+|\+)$/.test(c.label)) return `${fmt(v)} <span>from ${esc(c.label)}</span>`;
+      return isTd(c, v) ? `<b class="gl-td">${fmt(v)} ${esc(glLabel(c))}</b>` : `${fmt(v)} <span>${esc(glLabel(c))}</span>`;
+    }).filter(Boolean).join(" · ");
+    const vals = all.map((ev) => num(ev.stats[kc.i]) ?? 0), max = Math.max(0, ...vals);
+    const body = gl.seasonTypes.map((stp) => {
+      const evs = evsOf(stp);
+      if (!evs.length) return "";
+      const rows = evs.map((ev) => {
+        const m = gl.events?.[ev.eventId] || {}, v = num(ev.stats[kc.i]) ?? 0, high = max > 0 && v === max;
+        const res = m.gameResult === "W" ? "W" : m.gameResult === "L" ? "L" : m.gameResult === "T" ? "T" : "";
+        return `<a class="gl-row${high ? " gl-high" : ""}" href="${link("game", ev.eventId, { league: lg })}">
+          <span class="gl-wk">${m.week != null ? `Wk ${esc(m.week)}` : ""}</span>
+          <span class="gl-opp">${esc(m.atVs || "")} ${img(m.opponent?.logo, "xs")} ${esc(m.opponent?.abbreviation || "")}</span>
+          <span class="gl-res ${res}">${esc(res)} ${esc(m.score || "")}</span>
+          <span class="gl-key">${top(ev.stats, high)}<i style="--w:${max > 0 && v > 0 ? Math.max(2, Math.round((100 * v) / max)) : 0}%"></i></span>
+          <span class="gl-rest">${line(ev.stats)}</span></a>`;
       }).join("");
-    };
-    return (groups.length > 1 ? `<div class="seg gl-cats">${groups.map((g) => `<button data-glc="${esc(g.name)}" class="${g.name === open ? "active" : ""}">${esc(g.label)}</button>`).join("")}</div>` : "")
-      + groups.map((g) => `<div class="gl-panel${g.name === open ? "" : " hidden"}" data-glc="${esc(g.name)}">${panel(g)}</div>`).join("");
+      const tot = stp.summary?.stats?.[0]?.stats;
+      return `<h4>${esc(stp.displayName.replace(/ Stats$/, ""))}</h4><div class="gl-list">${rows}
+        ${tot ? `<div class="gl-row gl-tot"><span class="gl-wk">Total</span><span class="gl-opp">${evs.length} game${evs.length > 1 ? "s" : ""}</span><span class="gl-res"></span>
+          <span class="gl-key">${top(tot, false)}</span><span class="gl-rest">${line(tot)}</span></div>` : ""}</div>`;
+    }).join("");
+    return (groups.length > 1 ? `<div class="seg gl-cats">${groups.map((x) => `<button data-glc="${esc(x.name)}" class="${x === g ? "active" : ""}">${esc(x.label)}</button>`).join("")}</div>` : "") + body;
+  }
+  // the Stats button's list: every stat in the open group, ticked = on the top line
+  function glFilterHtml(st) {
+    const { open: g } = glGroupsUsed(st), on = glSpot(g);
+    return `<p class="gl-pop-h">${esc(g.label)}: show on the top line</p>
+      ${g.cols.map((c) => `<label><input type="checkbox" data-gls="${esc(c.name)}"${on.includes(c.name) ? " checked" : ""}> ${esc(GL_KEY_LABEL[c.name] || c.label)}</label>`).join("")}
+      <button type="button" class="gl-reset" data-glreset="${esc(g.name)}">Reset</button>`;
   }
 
   async function player(id, params) {
@@ -4013,7 +4047,8 @@ const Live = (() => {
 
     let log = "";
     const glCats = glGroups(logGl);
-    if (glCats.length) log = gameLogHtml(logGl, glCats, logLg, PRIMARY(a.position?.abbreviation));
+    const glSt = glCats.length ? { gl: logGl, cats: glCats, lg: logLg, primary: PRIMARY(a.position?.abbreviation), open: null } : null;
+    if (glSt) log = `<div id="gl-box">${gameLogHtml(glSt)}</div>`;
     else if (logGl?.seasonTypes?.length) {
       const groups = (logGl.categories || []).map((c) => `<th colspan="${c.count}" class="grp">${esc(c.displayName)}</th>`).join("");
       log = logGl.seasonTypes.map((stp) => {
@@ -4100,7 +4135,7 @@ const Live = (() => {
       : ptab === "career" ? `<div id="career-slot">${loadingHtml("Loading stats by year…")}</div>`
       : ptab === "charts" ? `${hasPc ? `<div id="pc-slot">${loadingHtml("Loading pass chart…")}</div>` : ""}${kicker ? `<div id="kc-slot">${hasPc ? "" : loadingHtml("Loading kick chart…")}</div>` : ""}`
       : `<div class="card"><div class="sc-bar"><h3>Game log</h3>
-        <select id="pl-season"${noLogs ? ` class="hidden"` : ""}>${years.filter((y) => !cYears.includes(y)).map((y) => `<option${!cseason && y === shown ? " selected" : ""}>${y}</option>`).join("")}${cYears.map((y) => `<option value="c${y}"${String(y) === cseason ? " selected" : ""}>${y} (college)</option>`).join("")}</select></div>
+        <select id="pl-season"${noLogs ? ` class="hidden"` : ""}>${years.filter((y) => !cYears.includes(y)).map((y) => `<option${!cseason && y === shown ? " selected" : ""}>${y}</option>`).join("")}${cYears.map((y) => `<option value="c${y}"${String(y) === cseason ? " selected" : ""}>${y} (college)</option>`).join("")}</select>${glSt ? `<details class="gl-filter" id="gl-filter"><summary>☰ Stats</summary><div class="gl-pop" id="gl-pop">${glFilterHtml(glSt)}</div></details>` : ""}</div>
         ${log || (noLogs ? `<p class="muted">ESPN doesn't have game-by-game logs for this player's career. Season totals, where ESPN has them, are in Stats by year above.</p>` : shown < 2000 ? `<p class="muted">ESPN doesn't have game-by-game logs for ${shown} (older seasons are spotty before the late 1990s). Season totals are in Stats by year above.</p>`
           : `<p class="muted">No games logged for this season.</p>`)}</div>`);
     fillFaces(view("player"));
@@ -4122,13 +4157,34 @@ const Live = (() => {
       return;
     }
     if (ptab === "log") {
-      const gl = view("player").querySelector(".gl-cats");
-      if (gl) gl.onclick = (e) => {
+      const box = $("#gl-box"), pop = $("#gl-pop");
+      const redraw = () => { box.innerHTML = gameLogHtml(glSt); pop.innerHTML = glFilterHtml(glSt); };
+      if (box) box.onclick = (e) => {
         const k = e.target.closest("[data-glc]")?.dataset.glc;
-        if (!k) return;
-        gl.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b.dataset.glc === k));
-        view("player").querySelectorAll(".gl-panel").forEach((el) => el.classList.toggle("hidden", el.dataset.glc !== k));
+        if (k) { glSt.open = k; redraw(); }
       };
+      if (pop) {
+        pop.onchange = (e) => {
+          const g = glGroupsUsed(glSt).open, n = e.target.dataset.gls;
+          if (!n) return;
+          // keep the group's column order, so the first ticked stat (the bar) stays the main one
+          const on = new Set(glSpot(g)); e.target.checked ? on.add(n) : on.delete(n);
+          const list = g.cols.map((c) => c.name).filter((x) => on.has(x));
+          const key = GL_KEY[g.name];
+          if (list.includes(key)) list.splice(list.indexOf(key), 1), list.unshift(key);
+          if (!list.length) { e.target.checked = true; return; } // at least one stat on the top line
+          store.set("gl-spot", { ...glPrefs(), [g.name]: list });
+          box.innerHTML = gameLogHtml(glSt);
+        };
+        pop.onclick = (e) => {
+          const g = e.target.dataset.glreset;
+          if (!g) return;
+          const p = glPrefs(); delete p[g]; store.set("gl-spot", p);
+          redraw();
+        };
+        // tap anywhere else to close the list
+        if (!glDocWired) { glDocWired = true; document.addEventListener("pointerdown", (e) => { const f = $("#gl-filter"); if (f?.open && !f.contains(e.target)) f.open = false; }); }
+      }
       $("#pl-season").onchange = (e) => { const v = e.target.value; location.hash = link("player", id, { tab: "log", ...(v[0] === "c" ? { cseason: v.slice(1) } : { season: v }) }); };
       return;
     }

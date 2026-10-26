@@ -287,7 +287,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "437"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "438"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -359,7 +359,15 @@ async function init() {
   $("#week").onchange = () => loadWeek(true);
   ["#search", "#conf", "#top25", "#profile"].forEach((s) => $(s).addEventListener("input", render));
   ["#sp-show", "#sp-conf"].forEach((s) => $(s).addEventListener("input", renderSchedules));
-  const closeDrawer = () => { $("#drawer").classList.add("hidden"); document.body.classList.remove("drawer-open"); history.replaceState(history.state, "", link("rankings")); };
+  // the panel slides back out to the right (style.css .drawer.closing), then hides
+  const closeDrawer = () => {
+    const d = $("#drawer");
+    if (d.classList.contains("closing")) return;
+    d.classList.add("closing");
+    document.body.classList.remove("drawer-open");
+    history.replaceState(history.state, "", link("rankings"));
+    setTimeout(() => { d.classList.add("hidden"); d.classList.remove("closing"); }, matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 220);
+  };
   $("#drawer").onclick = (e) => { if ("close" in e.target.dataset) closeDrawer(); };
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#drawer").classList.contains("hidden")) closeDrawer(); });
   $("#table tbody").onclick = (e) => {

@@ -3482,11 +3482,14 @@ a.gl-row:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); 
 .gl-opp { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; font-size: 13px; white-space: nowrap; }
 .gl-res { font-size: 12.5px; white-space: nowrap; }
 .gl-res.W { color: var(--good); } .gl-res.L { color: var(--bad); }
+.gl-key { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; }
 .gl-key b { font-size: 20px; font-weight: 800; }
 .gl-key small { color: var(--muted); font-size: 11px; }
+.gl-key .gl-sp b { font-size: 16px; font-weight: 700; }
+.gl-key .gl-sp.gl-td b, .gl-key .gl-sp.gl-td small { color: var(--accent); }
 .gl-key em { font-style: normal; font-size: 9.5px; font-weight: 800; letter-spacing: .06em; color: var(--accent); margin-left: 4px; }
-.gl-key i { display: block; height: 4px; width: var(--w); max-width: 100%; margin-top: 4px; border-radius: 2px; background: color-mix(in srgb, var(--accent) 55%, transparent); }
-.gl-high .gl-key b { color: var(--accent); }
+.gl-key i { display: block; flex-basis: 100%; height: 4px; width: var(--w); max-width: var(--w); margin-top: 4px; border-radius: 2px; background: color-mix(in srgb, var(--accent) 55%, transparent); }
+.gl-high .gl-big b { color: var(--accent); }
 .gl-high .gl-key i { background: var(--accent); }
 .gl-rest { color: var(--ink); font-size: 12.5px; line-height: 1.5; }
 .gl-rest span { color: var(--muted); }
@@ -3506,3 +3509,32 @@ a.gl-row:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); 
 .pl-acts .btn { display: inline-block; }
 .pl-sum .stats { margin: 0; }
 .subtab:hover, .rec-tag:hover, a.gl-row:hover, .rec-card li > a:hover { text-decoration: none; }
+/* Game log "Stats" button (top right): pick the stats on each game's top line */
+.gl-filter { position: relative; margin-left: auto; }
+.gl-filter > summary { list-style: none; cursor: pointer; padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.gl-filter > summary::-webkit-details-marker { display: none; }
+.gl-filter[open] > summary { border-color: var(--accent); color: var(--accent); }
+.gl-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; width: 230px; max-height: 60vh; overflow: auto; padding: 10px 12px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, .45); }
+.gl-pop-h { margin: 0 0 6px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.gl-pop label { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13px; cursor: pointer; }
+.gl-pop input { accent-color: var(--accent); width: 16px; height: 16px; }
+.gl-reset { margin-top: 6px; background: none; border: 0; color: var(--accent); font-size: 12px; cursor: pointer; padding: 4px 0; }
+/* Rankings team panel slides in from the right (Terry, Oct 26: "slide out not just spawn"), and back out on close */
+.drawer:not(.hidden) .drawer-bg { animation: drawer-fade .25s ease-out both; }
+.drawer:not(.hidden) .drawer-panel { animation: drawer-in .3s cubic-bezier(.2, .8, .2, 1) both; }
+.drawer.closing .drawer-bg { animation: drawer-fade-out .22s ease-in both; }
+.drawer.closing .drawer-panel { animation: drawer-out .22s ease-in both; }
+@keyframes drawer-fade { from { opacity: 0; } }
+@keyframes drawer-fade-out { to { opacity: 0; } }
+@keyframes drawer-in { from { transform: translateX(100%); } }
+@keyframes drawer-out { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .drawer .drawer-bg, .drawer .drawer-panel { animation: none !important; } }
+/* Game page play-by-play folds up (closed by default): tap "Play-by-play" to open it */
+.gcv-pbpw { margin-top: 10px; border-top: 1px solid var(--line); }
+.gcv-pbpw > summary { display: flex; align-items: center; gap: 8px; padding: 10px 0; cursor: pointer; list-style: none; font-weight: 700; font-size: 13px; }
+.gcv-pbpw > summary::-webkit-details-marker { display: none; }
+.gcv-pbpw > summary::before { content: "▸"; color: var(--accent); transition: transform .15s; }
+.gcv-pbpw[open] > summary::before { transform: rotate(90deg); }
+.gcv-pbpw > summary .muted { font-weight: 400; font-size: 12px; }
+.gcv-pbpw .gcv-pbp { margin-top: 0; }
