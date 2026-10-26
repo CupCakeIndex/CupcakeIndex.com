@@ -63,10 +63,13 @@ def tonight_games(league, day):
 
 
 def card(day):
+    from primetime import pick_game  # the game the 4 PM prime-time post covered
+    _, covered = pick_game(day)
+    covered = str(covered[0]["id"]) if covered else None
     games, curs = [], {}
     for lg in ("nfl", "cfb"):
         g, cur = tonight_games(lg, day)
-        games += [(lg,) + x for x in g if big_game(lg, x[0], x[1])]
+        games += [(lg,) + x for x in g if big_game(lg, x[0], x[1]) and str(x[0]["espn_id"]) != covered]
         if cur:
             curs[lg] = cur
     if not games:

@@ -1995,9 +1995,11 @@ const Viz = (() => {
       // the numbers sit on a second line under each stat's name: one pill per team/player ("87%", comparing: "87% #4")
       const rc = teamPal ? teamCols(sers) : null, rcol = (i) => (rc ? rc[i].line : PAL[i % PAL.length]);
       const both = sers.length > 1, pillTxt = (s, k) => { const p = pctile(s, k), r = standing(s, k); return p == null ? null : `${p}%${both ? ` #${r.rank}` : ""}${r.tag ? ` ${r.tag}` : ""}`; };
-      const pills = axes.map((s) => sers.map((k, i) => ({ i, t: pillTxt(s, k) })).filter((o) => o.t));
+      // ts: the same tag shorter for narrow charts ("BOT 5"), so the web isn't squeezed on phones
+      const pills = axes.map((s) => sers.map((k, i) => ({ i, t: pillTxt(s, k) })).filter((o) => o.t).map((o) => ({ ...o, ts: o.t.replace("BOTTOM 5", "BOT 5") })));
       const pw = (t) => t.length * 0.6 * px(9) + 8, gap = 4; // JetBrains Mono: every character is 0.6em wide
-      const rowW = (row) => row.reduce((a, o) => a + pw(o.t), 0) + gap * Math.max(0, row.length - 1);
+      const txt = (o, nar) => (nar ? o.ts : o.t);
+      const rowW = (row, nar) => row.reduce((a, o) => a + pw(txt(o, nar)), 0) + gap * Math.max(0, row.length - 1);
       // a narrow chart (phones, and the picture made from one): long stat names wrap and the pills stack, so nothing runs off the edge
       const narrow = (ch) => ch.width < 520, stackOn = (ch) => narrow(ch) && sers.length > 1;
       const nameLines = (lbl, nar) => !nar || lbl.length <= 12 ? [lbl] : lbl.split(" ").reduce((a, w) => (a.length && (a.at(-1) + " " + w).length <= 12 ? (a[a.length - 1] += " " + w) : a.push(w), a), []);
@@ -2006,24 +2008,24 @@ const Viz = (() => {
         borderColor: rcol(i), backgroundColor: rcol(i) + "33", pointBackgroundColor: rc ? rc[i].dot : rcol(i), pointBorderColor: rcol(i), borderWidth: 2, pointRadius: rc ? 3 : 2 })) },
         options: { ...base, scales: { r: { min: 0, max: 100, ticks: { display: false, stepSize: 25 }, grid: { color: line }, angleLines: { color: line },
           pointLabels: { color: ink, font: { family: "JetBrains Mono", size: px(10), lineHeight: 1.7 }, // blank second line = room for the pills
-            callback(lbl, j) { const ch = this.chart; return [...nameLines(lbl, narrow(ch)), ...(numsOn && pills[j]?.length ? (stackOn(ch) ? pills[j].map((o) => blank(pw(o.t))) : [blank(rowW(pills[j]))]) : [])]; } } } },
+            callback(lbl, j) { const ch = this.chart; return [...nameLines(lbl, narrow(ch)), ...(numsOn && pills[j]?.length ? (stackOn(ch) ? pills[j].map((o) => blank(pw(o.ts))) : [blank(rowW(pills[j], narrow(ch)))]) : [])]; } } } },
           plugins: { ...base.plugins, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${c.dataset.label}: ${axes[c.dataIndex][1]} ${fmt(axes[c.dataIndex], val(axes[c.dataIndex], sers[c.datasetIndex]), st.per)} (better than ${c.raw}%)` } } } },
         plugins: [{ id: "vzRadar", afterDatasetsDraw(c) {
           const items = c.scales.r._pointLabelItems;
           if (!numsOn || !items) return;
-          const { ctx } = c, h = px(9) + 6, stack = stackOn(c);
+          const { ctx } = c, h = px(9) + 6, stack = stackOn(c), nar = narrow(c);
           ctx.save(); ctx.font = `bold ${px(9)}px JetBrains Mono`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
           pills.forEach((row, j) => {
             const it = items[j], shown = row.filter((o) => !c.getDatasetMeta(o.i).hidden);
             if (!it || !shown.length) return;
             const nm = nameLines(c.data.labels[j], narrow(c)).length, lh = (it.bottom - it.top) / (nm + (stack ? row.length : 1)), at = (w) => it.textAlign === "left" ? it.left : it.textAlign === "right" ? it.right - w : (it.left + it.right) / 2 - w / 2;
-            let x = at(rowW(shown)), y = it.top + lh * (nm + 0.5); // middle of the line under the name
+            let x = at(rowW(shown, nar)), y = it.top + lh * (nm + 0.5); // middle of the line under the name
             shown.forEach((o) => {
-              const ww = pw(o.t), col = rcol(o.i);
+              const ww = pw(txt(o, nar)), col = rcol(o.i);
               if (stack) x = at(ww);
               const lum = parseInt(col.slice(1, 3), 16) * 0.3 + parseInt(col.slice(3, 5), 16) * 0.59 + parseInt(col.slice(5, 7), 16) * 0.11;
               ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(x, y - h / 2, ww, h, 3); ctx.fill();
-              ctx.fillStyle = lum > 140 ? "#000" : "#fff"; ctx.fillText(o.t, x + ww / 2, y + 0.5);
+              ctx.fillStyle = lum > 140 ? "#000" : "#fff"; ctx.fillText(txt(o, nar), x + ww / 2, y + 0.5);
               if (stack) y += lh; else x += ww + gap;
             });
           });
@@ -2049,7 +2051,7 @@ const Viz = (() => {
     // The same controls either way: Simple keeps them under "Edit".
     const adv = st.mode === "adv";
     const shownPos = st.role ? `${st.role}s` : st.pos ? (st.pos === "DEF" ? "Defense" : FINE[st.pos] || (st.pos === "WR" ? "WRs and TEs" : `${st.pos}s`)) : "";
-    const readout = [`${stat[1]}${st.type === "scatter" ? ` vs ${lc(ystat[1])}` : st.type === "pie" ? "" : perTxt(stat)}`,
+    const readout = [st.type === "radar" ? `${rview || "Radar"} ${rview ? "radar" : "profile"}` : `${stat[1]}${st.type === "scatter" ? ` vs ${lc(ystat[1])}` : st.type === "pie" ? "" : perTxt(stat)}`,
       who === "players" ? [st.team ? tm(st.team)[0] : "", shownPos || "players"].filter(Boolean).join(" ") : st.group ? `${st.group} teams` : "Teams",
       seasonTxt, ...(st.opp ? [OPP.find(([k]) => k === st.opp)?.[1]] : []), ...(+st.last ? [`last ${st.last} games`] : []), ...(condTxt ? [condTxt] : [])];
     // filters that are on, each with an ✕ to take it off

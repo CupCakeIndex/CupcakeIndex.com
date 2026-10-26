@@ -117,8 +117,10 @@ def punch_up(meta):
     text, lg = meta["text"], league(meta)
     allowed = allowed_tags(text, lg)
     must = "for fun, not betting advice" if "betting advice" in text.lower() else ""
+    keep = [k for k in meta.get("keep", []) if k in text]  # words the post asks to keep exactly as written (primetime's "BUT")
     got = ask(STYLE, f"""Rewrite this post so it lands harder and gets people replying. Keep every fact and number exactly as given; add no new numbers or claims.
 {f'Keep the words "{must}" in it.' if must else ''}
+{''.join(f'Keep the word "{k}" exactly as written, in capitals. ' for k in keep)}
 League: {lg.upper() or 'unknown'}
 Allowed tags: {' '.join(sorted(allowed))}
 
@@ -128,6 +130,8 @@ Post:
     why = problem(new, allowed, text) if new else "no answer"
     if not why and must and must not in new.lower():
         why = "dropped the betting disclaimer"
+    if not why and any(k not in new for k in keep):
+        why = "dropped " + ", ".join(f'"{k}"' for k in keep if k not in new)
     if why:
         if got:
             print(f"Not using Claude's version ({why}).")

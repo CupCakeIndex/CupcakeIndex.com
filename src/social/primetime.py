@@ -240,15 +240,17 @@ def card(day):
     said = gap[1] if gap[1][:3].isupper() else gap[1][0].lower() + gap[1][1:]  # "EPA per play", "yards per play"
     text = (f"{show}: {nick(away)} @ {nick(home)}. The radars split hardest on {said}, where {who(lead)} {verb} "
             f"#{rl} and {who(trail)} {verb} #{rt}. {edge}")
-    cur, _, _ = latest(league)
-    p = next((x for x in cur.get("predictions", []) if str(x.get("espn_id")) == str(e["id"])), None)
+    cur, prev, _ = latest(league)
+    # the latest file predicts next week; the last game of this week (Monday night) is in the one before it
+    p = next((x for f in (cur, prev or {}) for x in f.get("predictions", []) if str(x.get("espn_id")) == str(e["id"])), None)
+    upset = False
     if p:
         hp = p["home_win_prob"]
         fav, pr = (home, hp) if hp >= 0.5 else (away, 1 - hp)
         # the radars favor one team and the model the other: say so (Terry: "BUT our model likes the Eagles at 53%")
         upset = n * 2 > len(stats) and big is not fav
         text += f" {'BUT our' if upset else 'Our'} model likes {who(fav)} at {chance(pr)}."
-    return img, text, is_stale(cur, day), f"primetime-{e['id']}"
+    return img, text, is_stale(cur, day), f"primetime-{e['id']}", upset
 
 
 def main():
@@ -261,10 +263,10 @@ def main():
     png = os.path.join(a.out, "primetime.png")
     made = card(day)
     if made:
-        img, text, stale, key = made
+        img, text, stale, key, upset = made
         img.convert("RGB").save(png, optimize=True)
         text = tweet(text, "", with_link=False)  # never a link (Terry's rule)
-        meta = {"day": "primetime", "stat": f"primetime-{day.isoformat()}", "key": key, "image": png, "text": text,
+        meta = {"day": "primetime", "stat": f"primetime-{day.isoformat()}", "key": key, "image": png, "text": text, "keep": ["BUT"] if upset else [],
                 "skip": stale, "reason": "rankings data is stale" if stale else ""}
     else:
         meta = {"day": "primetime", "image": png, "text": "", "skip": True, "reason": f"no key prime-time game ({day:%A})"}
