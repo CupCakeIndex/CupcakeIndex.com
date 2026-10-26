@@ -1952,29 +1952,36 @@ const Viz = (() => {
       const rankOn = (s, k) => { const v = val(s, k); if (v == null) return null;
         return 1 + qualify(s).filter((x) => regulars.includes(x) && x !== k).map((x) => val(s, x)).filter((x) => x != null && (s[3].low ? x < v : x > v)).length; };
       title = `${who === "teams" ? "Team" : "Player"} profiles (percentile among ${who}${st.pos ? ` at ${st.pos}` : ""})`;
+      // the numbers sit on a second line under each stat's name: one pill per team/player ("87%", comparing: "87% #4")
+      const both = sers.length > 1, pillTxt = (s, k) => { const p = pctile(s, k); return p == null ? null : `${p}%${both ? ` #${rankOn(s, k)}` : ""}`; };
+      const pills = axes.map((s) => sers.map((k, i) => ({ i, t: pillTxt(s, k) })).filter((o) => o.t));
+      const pw = (t) => t.length * 0.6 * px(9) + 8, gap = 4; // JetBrains Mono: every character is 0.6em wide
+      const rowW = (row) => row.reduce((a, o) => a + pw(o.t), 0) + gap * Math.max(0, row.length - 1);
+      const stack = innerWidth < 600 && sers.length > 1; // phones: side by side gets cut off at the edges, so one pill per line
+      const blank = (w) => " ".repeat(Math.ceil(w / (0.6 * px(10))));
       cfg = { type: "radar", data: { labels: axes.map((s) => s[1].replace(/ \(.+\)/, "")), datasets: sers.map((k, i) => ({ label: short(k), data: axes.map((s) => pctile(s, k)),
         borderColor: PAL[i % PAL.length], backgroundColor: PAL[i % PAL.length] + "33", borderWidth: 2, pointRadius: 2 })) },
-        options: { ...base, scales: { r: { min: 0, max: 100, ticks: { display: false, stepSize: 25 }, grid: { color: line }, angleLines: { color: line }, pointLabels: { color: ink, font: { family: "JetBrains Mono", size: px(10) } } } },
+        options: { ...base, scales: { r: { min: 0, max: 100, ticks: { display: false, stepSize: 25 }, grid: { color: line }, angleLines: { color: line },
+          pointLabels: { color: ink, font: { family: "JetBrains Mono", size: px(10), lineHeight: 1.7 }, // blank second line = room for the pills
+            callback: (lbl, j) => numsOn && pills[j]?.length ? [lbl, ...(stack ? pills[j].map((o) => blank(pw(o.t))) : [blank(rowW(pills[j]))])] : lbl } } },
           plugins: { ...base.plugins, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${c.dataset.label}: ${axes[c.dataIndex][1]} ${fmt(axes[c.dataIndex], val(axes[c.dataIndex], sers[c.datasetIndex]), st.per)} (better than ${c.raw}%)` } } } },
-        plugins: [{ id: "vzRadar", afterDatasetsDraw(c) { // each corner's percentile on screen; comparing two or more, its rank too ("87% #4")
-          if (!numsOn) return;
-          const { ctx } = c, r = c.scales.r, both = sers.length > 1, h = px(9) + 6;
+        plugins: [{ id: "vzRadar", afterDatasetsDraw(c) {
+          const items = c.scales.r._pointLabelItems;
+          if (!numsOn || !items) return;
+          const { ctx } = c, h = px(9) + 6;
           ctx.save(); ctx.font = `bold ${px(9)}px JetBrains Mono`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-          axes.forEach((s, j) => {
-            const ang = r.getIndexAngle(j) - Math.PI / 2, ux = Math.cos(ang), uy = Math.sin(ang);
-            // one label per series, pushed out past its point, then spread along the spoke so they never sit on each other
-            const labs = sers.map((k, i) => ({ i, p: c.data.datasets[i].data[j], k })).filter((o) => o.p != null && !c.getDatasetMeta(o.i).hidden)
-              .map((o) => ({ ...o, d: r.getDistanceFromCenterForValue(o.p) + 12, t: `${o.p}%${both ? ` #${rankOn(s, o.k)}` : ""}` })).sort((a, b) => a.d - b.d);
-            const wMax = Math.max(0, ...labs.map((o) => ctx.measureText(o.t).width + 8));
-            const step = Math.min(Math.abs(uy) > 0.05 ? (h + 1) / Math.abs(uy) : 1e9, Math.abs(ux) > 0.05 ? (wMax + 2) / Math.abs(ux) : 1e9); // boxes clear each other on a slanted spoke
-            labs.forEach((o, n) => { if (n && o.d - labs[n - 1].d < step) o.d = labs[n - 1].d + step; });
-            const over = labs.length ? labs.at(-1).d - (r.drawingArea - h / 2) : 0; // near 100: slide the stack inside the web, off the stat names
-            if (over > 0) labs.forEach((o) => { o.d = Math.max(0, o.d - over); });
-            labs.forEach((o) => {
-              const x = r.xCenter + ux * o.d, y = r.yCenter + uy * o.d, w = ctx.measureText(o.t).width + 8, col = PAL[o.i % PAL.length];
+          pills.forEach((row, j) => {
+            const it = items[j], shown = row.filter((o) => !c.getDatasetMeta(o.i).hidden);
+            if (!it || !shown.length) return;
+            const lh = (it.bottom - it.top) / (1 + (stack ? row.length : 1)), at = (w) => it.textAlign === "left" ? it.left : it.textAlign === "right" ? it.right - w : (it.left + it.right) / 2 - w / 2;
+            let x = at(rowW(shown)), y = it.top + lh * 1.5; // middle of the line under the name
+            shown.forEach((o) => {
+              const ww = pw(o.t), col = PAL[o.i % PAL.length];
+              if (stack) x = at(ww);
               const lum = parseInt(col.slice(1, 3), 16) * 0.3 + parseInt(col.slice(3, 5), 16) * 0.59 + parseInt(col.slice(5, 7), 16) * 0.11;
-              ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(x - w / 2, y - h / 2, w, h, 3); ctx.fill();
-              ctx.fillStyle = lum > 140 ? "#000" : "#fff"; ctx.fillText(o.t, x, y + 0.5);
+              ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(x, y - h / 2, ww, h, 3); ctx.fill();
+              ctx.fillStyle = lum > 140 ? "#000" : "#fff"; ctx.fillText(o.t, x + ww / 2, y + 0.5);
+              if (stack) y += lh; else x += ww + gap;
             });
           });
           ctx.restore(); } }] };
