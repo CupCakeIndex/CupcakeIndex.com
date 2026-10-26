@@ -288,27 +288,23 @@ const Admin = (() => {
     ["CollegeFootballData", 0, "free plan"],
     ["Cloudflare (runs the Analyst chat)", 0, "free plan"],
   ];
-  // the chat's cost against what comes in: what each member pays a month, typed in below and kept by the chat's
-  // Worker (workers/analyst.js /admin/subs; Stripe later). Green +$ = profit, red = the chat costs more than comes in.
+  // the chat's cost against what comes in: each tier's members × its price, counted by the chat's Worker
+  // (workers/analyst.js /admin; tiers come from its MEMBERS list, Stripe later). Totals only, no emails.
+  // Green +$ = profit, red = the chat costs more than comes in.
   const CHAT = "https://cupcake-analyst.thecupcakeindex-support.workers.dev";
-  const moneyIn = (chat) => Array.isArray(chat?.members) ? chat.members.reduce((a, m) => a + ((chat.subs || {})[m] || 0), 0) : 0;
+  const moneyIn = (chat) => (chat?.tiers || []).reduce((a, t) => a + t.in, 0);
   // a net total: costs minus what comes in. Below zero is a profit: green, with a +
   const net = (n, q = "") => n > 0 ? `${money(n)}${q}` : `<span class="up">+${money(-n)}${q}</span>`;
   function subRow(chat, used) {
-    if (!Array.isArray(chat.members)) return `<tr class="ad-sub"><td colspan="4"><small>Money in vs the chat's cost needs the newest
+    if (!chat.tiers) return `<tr class="ad-sub"><td colspan="4"><small>Money in vs the chat's cost needs the newest
       workers/analyst.js in Cloudflare (Workers > cupcake-analyst > Edit code > Deploy).</small></td></tr>`;
-    const pays = chat.subs || {}, inn = moneyIn(chat);
-    const profit = inn - used, pct = inn ? used / inn * 100 : used ? 100 : 0;
-    const usedBy = Object.fromEntries((chat.people || []).map((p) => [p.email, p]));
+    const inn = moneyIn(chat), profit = inn - used, pct = inn ? used / inn * 100 : used ? 100 : 0;
     return `<tr class="ad-sub"><td colspan="4"><div class="ad-sub-top"><span>Money in vs the chat's cost <span class="muted">this month</span></span>
         <span>${money(used)} cost of ${money(inn)} in <b class="${profit >= 0 ? "up" : "down"}">${profit >= 0 ? "+" : "−"}${money(Math.abs(profit))}</b></span></div>
       <div class="ad-sub-bar${profit < 0 ? " over" : ""}"><i style="width:${Math.min(100, pct).toFixed(1)}%"></i></div>
-      <ul class="ad-subs">${chat.members.map((m) => `<li><span>${esc(m)}</span>
-        <span class="muted">used ${money(usedBy[m]?.usd || 0)} (${num(usedBy[m]?.questions || 0)} questions)</span>
-        <label class="ad-fx">pays $<input type="number" min="0" step="0.01" inputmode="decimal" data-sub="${esc(m)}" value="${pays[m] ?? ""}" placeholder="0"
-          aria-label="What ${esc(m)} pays a month"> a month</label></li>`).join("")}</ul>
-      ${usedBy["(before Oct 26)"] ? `<small>${money(usedBy["(before Oct 26)"].usd)} of the cost is from questions asked before the chat started keeping names.</small>` : ""}
-      <small class="ad-sub-msg"></small></td></tr>`;
+      <ul class="ad-subs">${chat.tiers.map((t) => `<li><span>${esc(t.name)} contributions <span class="muted">$${t.price} a month</span></span>
+        <span class="muted">${num(t.members)} ${t.members === 1 ? "member" : "members"} · used ${money(t.usd)}</span><b>${money(t.in)}</b></li>`).join("")}</ul>
+      ${chat.unsorted?.usd ? `<small>${money(chat.unsorted.usd)} of the cost is from questions asked before the chat kept track of who asked.</small>` : ""}</td></tr>`;
   }
   function costs(db, el, today, mon, rows, err, mine = {}, chat = null) {
     if (err) {
@@ -349,15 +345,15 @@ const Admin = (() => {
       <div class="table-wrap"><table class="ad-cost"><thead><tr><th>What</th><th class="n">This month</th><th class="n">This week</th><th class="n">Cost this month</th></tr></thead><tbody>
         ${CATS.map(([l, f, unit, note]) => `<tr><td>${esc(l)}<small>${esc(note)}</small></td><td class="n">${r.filter((x) => inMonth(x) && f(x)).length} ${unit}</td>
           <td class="n">${money(sum((x) => dayOf(x) >= mon && f(x)))}</td><td class="n">${money(sum((x) => inMonth(x) && f(x)))}</td></tr>`).join("")}
-        <tr><td>Analyst chat (Claude)<small>${chat ? `members' questions, pictures included; ${(chat.people || []).filter((p) => p.email.includes("@")).length} ${(chat.people || []).filter((p) => p.email.includes("@")).length === 1 ? "person" : "people"} this month, $5 cap each`
+        <tr><td>Analyst chat (Claude)<small>${chat ? `members' questions, pictures included; $5 of Claude a month at most per person`
           : "couldn't reach the chat's counter: re-paste workers/analyst.js into Cloudflare (Workers > cupcake-analyst > Edit code > Deploy)"}</small></td>
           <td class="n">${chat ? `${num(chatSum(() => true, "q"))} questions` : "?"}</td><td class="n">${chat ? money(wkChat) : "?"}</td><td class="n">${chat ? money(mtdChat) : "?"}</td></tr>
         ${chat ? subRow(chat, mtdChat) : ""}
         ${FX.map(([l, v, note, k, per, typed]) => `<tr><td>${esc(l)}<small>${esc(note)}</small>${k ? `<label class="ad-fx">$<input type="number" min="0" step="0.01" inputmode="decimal"
             data-k="${k}" value="${typed ?? ""}" placeholder="?" aria-label="${esc(l)}, dollars a ${per}"> a ${per}</label>` : ""}</td>
           <td class="n">fixed</td><td class="n"></td><td class="n">${v == null ? "?" : money(v)}</td></tr>`).join("")}
-      ${inn ? `<tr><td>Money in: Analyst subscriptions<small>what members pay a month (set under the Analyst chat row); takes away from the total</small></td>
-          <td class="n">${chat.members.filter((m) => chat.subs?.[m]).length} paying</td><td class="n"></td><td class="n"><span class="up">−${money(inn)}</span></td></tr>` : ""}
+      ${inn ? `<tr><td>Money in: Analyst subscriptions<small>every tier's members × its price; takes away from the total</small></td>
+          <td class="n">${num(chat.tiers.reduce((a, t) => a + t.members, 0))} paying</td><td class="n"></td><td class="n"><span class="up">−${money(inn)}</span></td></tr>` : ""}
       </tbody><tfoot><tr><td>Total${inn ? " after money in" : ""}</td><td></td><td class="n">${money(wk)}</td><td class="n"><b>${net(mtd + fixed - inn, unknown || !chat ? " + ?" : "")}</b></td></tr></tfoot></table></div>
       <p class="ad-fx-row"><button type="button" class="btn ad-fx-save">Save my costs</button> <span class="muted ad-fx-msg">Type what you pay for X Premium and the domain; it saves when you leave the box.</span></p>
       <p class="note">Quality checks this month: ${money(checkM)} of the $4.50 budget${checkM >= 4.5 ? " (on the cheaper model until the 1st)" : ""}.
@@ -390,22 +386,6 @@ const Admin = (() => {
       i.addEventListener("keydown", (ev) => { if (ev.key === "Enter") i.blur(); });
     });
     el.querySelector(".ad-fx-save").addEventListener("click", save);
-    el.querySelectorAll("[data-sub]").forEach((i) => {
-      i.addEventListener("keydown", (ev) => { if (ev.key === "Enter") i.blur(); });
-      i.addEventListener("change", async () => {
-        const msg = el.querySelector(".ad-sub-msg"), v = i.value.replace(/[$,\s]/g, "");
-        if (!(+v >= 0)) { msg.textContent = "Numbers only, like 5 or 9.99."; return; }
-        msg.textContent = "Saving…";
-        try {
-          const r = await fetch(CHAT + "/admin/subs", { method: "POST", body: JSON.stringify({ email: i.dataset.sub, usd: +v }),
-            headers: { Authorization: `Bearer ${await firebase.auth().currentUser.getIdToken()}`, "Content-Type": "application/json" } });
-          if (!r.ok) throw new Error(r.status);
-          chat.subs = (await r.json()).subs;
-          costs(db, el, today, mon, rows, err, mine, chat);
-          el.querySelector(".ad-sub-msg").textContent = "Saved.";
-        } catch (e) { msg.textContent = `Couldn't save it (${e.message}). Try again in a minute.`; }
-      });
-    });
     const days = [...Array(done)].map((_, i) => `${month}-${String(i + 1).padStart(2, "0")}`);
     drawLater("ad-cost-chart", (C) => ({ type: "bar", data: { labels: days.map((d) => d.slice(5).replace("-", "/")),
       datasets: [["Posts on X", (x) => x.kind === "x", C("--accent")], ["Claude", (x) => x.kind === "claude", "#4cc9f0"]]

@@ -5,14 +5,14 @@
 //
 //   GET  /me    -> { member, questions, usd, limit, today, days }   (the chat button only shows for members)
 //   POST /chat  -> one Claude turn: { content, stop_reason, usage }  body: { system, tools, messages, newQuestion }
-//   GET  /admin -> the owner only: this month's chat cost for everyone together { month, usd, questions, days, people,
-//                  members, subs } (the site's Admin page > Costs)
-//   POST /admin/subs -> the owner only: set what one member pays a month  body: { email, usd }
+//   GET  /admin -> the owner only: this month's chat cost and money in by tier { month, usd, questions, days, tiers,
+//                  unsorted } (the site's Admin page > Costs)
 //   Both need "Authorization: Bearer <Firebase ID token>" (the site's Sign in with Google).
 //
 // Setup (Cloudflare dashboard > Workers > this worker > Settings):
 //   Variables and Secrets: ANTHROPIC_API_KEY  a Claude API key (console.anthropic.com > API keys), as a Secret
-//                          MEMBERS            emails allowed to use it, comma-separated, as Text (later: paid members)
+//                          MEMBERS            emails allowed to use it, comma-separated, as Text; add :2 for Tier 2
+//                                             (you@x.com, friend@y.com:2). Later: Stripe
 //                          MODEL (optional)   claude-sonnet-5-5 to try the smarter, ~20x pricier model; blank = Haiku
 //   Bindings: KV namespace, variable name USAGE (Storage > KV > create one called analyst-usage)
 // Stripe (paid members) comes later; for now MEMBERS is the list.
@@ -51,7 +51,7 @@ async function signedIn(req) {
   if (!ok || body.aud !== PROJECT || body.iss !== "https://securetoken.google.com/" + PROJECT || body.exp < now || body.iat > now + 60 || !body.sub) return null;
   return { uid: body.sub, email: String(body.email || "").toLowerCase(), verified: !!body.email_verified };
 }
-const isMember = (u, env) => u.verified && (env.MEMBERS || "").toLowerCase().split(/[,\s]+/).filter(Boolean).includes(u.email);
+const isMember = (u, env) => u.verified && memberList(env).some((x) => x.email === u.email);
 
 // ---------- usage: one KV entry per person per month ----------
 const month = () => new Date().toISOString().slice(0, 7);
@@ -59,14 +59,15 @@ const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/
 async function usage(env, uid) {
   return (await env.USAGE.get(`u:${uid}:${month()}`, "json")) || { q: 0, usd: 0, days: {} };
 }
-// what each member pays a month, typed in on the Admin page (later: from Stripe). The owner counts as $5 until set.
-async function subs(env) {
-  return { [OWNER]: 5, ...((await env.USAGE.get("subs", "json")) || {}) };
-}
-// everyone's entries for this month added up, for the Admin page (KV's free plan allows 1,000 lists a day)
+// membership tiers: [name, $ a month]. A MEMBERS entry is an email (Tier 1) or email:2 (Tier 2); Stripe sets it later.
+const TIERS = [["Tier 1", 5], ["Tier 2", 10]];
+const memberList = (env) => (env.MEMBERS || "").toLowerCase().split(/[,\s]+/).filter(Boolean)
+  .map((x) => { const [email, t] = x.split(":"); return { email, tier: Math.min(TIERS.length, Math.max(1, +t || 1)) - 1 }; });
+// this month's chat cost and money in, by tier, for the Admin page: totals only, no emails (KV's free plan allows 1,000 lists a day)
 async function everyone(env) {
-  const members = (env.MEMBERS || "").toLowerCase().split(/[,\s]+/).filter(Boolean);
-  const m = month(), out = { month: m, usd: 0, questions: 0, days: {}, people: [], members, subs: await subs(env) };
+  const members = memberList(env), tierOf = Object.fromEntries(members.map((x) => [x.email, x.tier]));
+  const tiers = TIERS.map(([name, price], i) => { const n = members.filter((x) => x.tier === i).length; return { name, price, members: n, in: n * price, usd: 0, questions: 0 }; });
+  const m = month(), out = { month: m, usd: 0, questions: 0, days: {}, tiers, unsorted: { usd: 0, questions: 0 } };
   let cursor;
   do {
     const page = await env.USAGE.list({ prefix: "u:", cursor });
@@ -74,7 +75,8 @@ async function everyone(env) {
       const u = await env.USAGE.get(k.name, "json");
       if (!u) continue;
       out.usd += u.usd; out.questions += u.q;
-      out.people.push({ email: u.email || "(before Oct 26)", questions: u.q, usd: Math.round(u.usd * 10000) / 10000 });
+      const t = tiers[tierOf[u.email]] || out.unsorted; // no email yet (asked before it was kept) or no longer a member
+      t.usd += u.usd; t.questions += u.q;
       for (const [d, x] of Object.entries(u.days || {})) {
         const t = (out.days[d] ||= { q: 0, usd: 0 });
         t.q += x.q; t.usd += x.usd;
@@ -82,7 +84,6 @@ async function everyone(env) {
     }
     cursor = page.list_complete ? null : page.cursor;
   } while (cursor);
-  out.usd = Math.round(out.usd * 10000) / 10000;
   return out;
 }
 const summary = (u, me) => ({ member: true, questions: u.q, usd: Math.round(u.usd * 10000) / 10000, limit: LIMIT, day_limit: me.email === OWNER ? null : DAY_LIMIT,
@@ -102,14 +103,6 @@ export default {
     if (url.pathname === "/me") return json(isMember(me, env) ? summary(await usage(env, me.uid), me) : { member: false });
     if (url.pathname.startsWith("/admin") && !(me.email === OWNER && me.verified)) return json({ error: "not allowed" }, 403);
     if (url.pathname === "/admin") return json(await everyone(env));
-    if (url.pathname === "/admin/subs" && req.method === "POST") { // { email, usd }: what one member pays a month
-      const b = await req.json().catch(() => ({})), email = String(b.email || "").toLowerCase(), usd = +b.usd;
-      if (!email.includes("@") || !(usd >= 0 && usd < 10000)) return json({ error: "bad request" }, 400);
-      const s = await subs(env);
-      s[email] = Math.round(usd * 100) / 100;
-      await env.USAGE.put("subs", JSON.stringify(s));
-      return json({ subs: s });
-    }
     if (url.pathname !== "/chat" || req.method !== "POST") return json({ error: "not found" }, 404);
     if (!isMember(me, env)) return json({ error: "The Analyst is for members." }, 403);
 

@@ -3612,7 +3612,8 @@ a.gl-row:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); 
 .ad-sub-top b.down { color: var(--bad); }
 .ad-subs { list-style: none; margin: 6px 0 0; padding: 0; }
 .ad-subs li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 12px; padding: 4px 0; font-size: 12px; }
-.ad-subs .ad-fx { margin-top: 0; }
+.ad-subs li b { min-width: 64px; text-align: right; font-variant-numeric: tabular-nums; }
+.ad-subs li > span:first-child { flex: 1; }
 .ad-sub-bar { height: 8px; margin: 6px 0 4px; background: var(--line); }
 .ad-sub-bar i { display: block; height: 100%; background: #b388ff; transition: width .4s ease; }
 .ad-sub-bar.over i { background: var(--bad, #ff4d4d); }
