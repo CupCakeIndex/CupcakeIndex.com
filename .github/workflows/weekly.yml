@@ -105,12 +105,19 @@ jobs:
       - name: AP poll from ESPN
         if: ${{ !cancelled() && !(github.event_name == 'schedule' && (startsWith(github.event.schedule, '37 ') || startsWith(github.event.schedule, '47 5 '))) }}
         run: python src/espn_polls.py || echo "ESPN poll skipped this time"
+      # the Analyst chat (docs/bot.js) and Terry's Analyst page read a snapshot of the rankings: rebuild it with the new
+      # week, so "who do we have winning" has this week's predictions (the morning viz.yml run comes before the rankings)
+      - name: Analyst data (the new rankings and predictions)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: python src/analyst_data.py && python src/bot_tools.py
       - name: Publish
         if: ${{ !cancelled() }}
         run: |
           git config user.name "rankings-bot"
           git config user.email "rankings-bot@users.noreply.github.com"
           git add docs/data data/history
+          git add analyst/data/rankings.json docs/bot-tools.js 2>/dev/null || true
           git diff --cached --quiet && echo "No changes" && exit 0
           git commit -m "Rankings update $(date -u +%Y-%m-%d)"
           git pull --rebase

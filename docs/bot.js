@@ -167,13 +167,38 @@ How to answer:
   When they ask to change the chart ("make it a radar"), keep the same players or teams and redo show_chart; don't drop who they asked about. Never say the chart tool can't do something before trying it.
   To send them to a page (rankings, a team page, Injuries...), use open_page.
 - Leaderboard stat names: any column (pass_yds, rush_td, tackles, def_sacks, pressure, pen, pts...) or a rate. Player rates: ${Object.keys(BotTools.RATES).join(", ")}, passer_rating, passer_rating_vs_blitz. Team rates: ${Object.keys(BotTools.TEAM_RATES).join(", ")}.
-- No betting content: no spreads, lines, odds, over/unders or picks against a line. Our win chance from our_rankings is fine.
+- "Who wins", "who do you have", "predict this game": call game_prediction and answer with our pick, the win chance and the predicted score, then the one or two reasons that matter most. Never say we don't have a prediction without calling it.
+- No betting content: no spreads, lines, odds, over/unders or picks against a line. Our win chance and predicted score are fine.
 
 Style: a sharp fan who knows the numbers, talking to another fan. Lead with the answer in one sentence, then the two or three numbers that back it (with ranks), then stop. Usually under 120 words; a list only when they asked for one. Write stats in plain words ("yards per carry", not ypc or column names). Take a side when the numbers point one way. No em dashes, no "Great question", no wrap-up sentence, no hashtags, no emoji. Plain text; **bold** sparingly; "- " for list items.`;
   }
 
   // ---------- the tools: the Analyst's (bot-tools.js) plus the site's own ----------
   const SITE = [
+    {
+      name: "game_prediction",
+      description: "Our model's pick for a team's next game (or a given week), read live from the site: who we have winning, each side's win chance, our predicted score, both QBs, and the reasons the game page lists. Use it for any 'who wins', 'who do you have', 'predict', 'what's the score going to be' question.",
+      input_schema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, team: { type: "string" }, week: { type: "integer" } }, required: ["league", "team"] },
+      async execute(a) {
+        const lg = String(a.league), idx = await (await fetch("data/index.json", { cache: "no-store" })).json();
+        const seasons = idx.leagues[lg].seasons, season = Object.keys(seasons).sort().at(-1), weeks = seasons[season].weeks;
+        // the rankings file from week N holds the picks for week N + 1 (like the game page)
+        const file = a.week && weeks.includes(+a.week - 1) ? +a.week - 1 : weeks.at(-1);
+        const W = await (await fetch(`data/${lg}/${season}/week_${file}.json`)).json();
+        // best match first, so "Washington" finds Washington before Washington State
+        const q = BotTools.norm(a.team), P = W.predictions || [];
+        const tests = [(n) => n === q, (n) => n.split(" ").includes(q), (n) => n.includes(q)];
+        let p = null;
+        for (const t of tests) if (!p) p = P.find((x) => t(BotTools.norm(x.home)) || t(BotTools.norm(x.away)));
+        if (!p) throw new Error(`No ${lg} prediction for "${a.team}" in week ${file + 1} (a bye, or not a team we rank).`);
+        const hp = p.home_win_prob;
+        // what the game page shows; never the spread, book lines or "edge" (the site's own betting-style numbers stay off)
+        return { season: +season, week: p.week, away: p.away, home: p.home, our_pick: p.pick,
+          win_chance: { [p.home]: Math.round(100 * hp), [p.away]: Math.round(100 - 100 * hp) },
+          predicted_score: p.home_pts != null ? { [p.home]: p.home_pts, [p.away]: p.away_pts } : null, qbs: { [p.home]: p.home_qb, [p.away]: p.away_qb },
+          why: p.notes || (p.why ? [p.why] : []) };
+      },
+    },
     {
       name: "chart_stats",
       description: "Find the Stats > Visualize stat key for a chart. search = plain words ('yards per carry', 'sacks', 'epa'). who = players or teams. Returns up to 25 [key, label, group, position].",
