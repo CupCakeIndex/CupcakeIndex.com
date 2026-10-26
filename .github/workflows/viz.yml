@@ -66,6 +66,9 @@ jobs:
       - name: NFL records players hold (gold on player pages; from Wikipedia's record lists)
         continue-on-error: true
         run: python src/nfl_records.py
+      - name: NFL record leaderboards (Stats > Records; Wikipedia's lists, active players' totals from ESPN)
+        continue-on-error: true
+        run: python src/record_boards.py
       - name: Heisman race popularity (Wikipedia page views for college stars)
         continue-on-error: true
         run: python src/heisman_buzz.py
@@ -87,6 +90,7 @@ jobs:
           git add docs/data/dynasty.json 2>/dev/null || true
           git add docs/data/dynasty 2>/dev/null || true
           git add docs/data/nfl/records.json 2>/dev/null || true
+          git add docs/data/nfl/record_boards.json 2>/dev/null || true
           git add docs/data/nfl/ol_stats.json 2>/dev/null || true
           git add docs/data/cfb/heisman_buzz.json 2>/dev/null || true
           git add docs/data/nfl/trade_watch.json 2>/dev/null || true

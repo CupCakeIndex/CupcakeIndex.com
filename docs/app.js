@@ -29,7 +29,7 @@ const VIEWS = new Set(["rankings", "picks", "schedules", "resume", "shame", "com
 const GROUPS = [
   { tab: "rankings", items: [["rankings", "Rankings"], ["resume", "Résumé Check"], ["schedules", "Schedules"], ["shame", "Hall of Shame"], ["coaches", "Coaches"], ["compare", "Compare", null, "cfb"]], also: ["breakdown", "coach"] },
   { tab: "scores", items: [["scores", "Scores"], ["standings", "Standings"], ["standings", "Playoff picture", { show: "playoff" }]], also: ["game"] },
-  { tab: "stats", items: [["stats", "Leaders"], ["stats", "Visualize", { show: "visualize" }], ["stats", "Injuries", { show: "injuries" }], ["fantasy", "Fantasy", null, "nfl"], ["stats", "Projected", { show: "projected" }], ["stats", "Frauds", { show: "frauds" }, "nfl"]] },
+  { tab: "stats", items: [["stats", "Leaders"], ["stats", "Visualize", { show: "visualize" }], ["stats", "Injuries", { show: "injuries" }], ["fantasy", "Fantasy", null, "nfl"], ["stats", "Projected", { show: "projected" }], ["stats", "Frauds", { show: "frauds" }, "nfl"], ["stats", "Records", { show: "records" }, "nfl"]] },
   { tab: "play", items: [["picks", "Pick'em"], ["daily", "Daily player"], ["hilo", "Higher or Lower"], ["dynasty", "Dynasty Draft"], ["mock", "Mock draft"], ["picks", "Leaderboard", { board: 1 }]], also: ["games"] },
   { tab: "news", items: [["news", "Headlines"], ["takes", "Takes"], ["trades", "Trade watch", null, "nfl"], ["freeagents", "Free agents", null, "nfl"], ["trades", "Portal watch", null, "cfb"]] },
 ];
@@ -276,7 +276,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "433"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "434"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });

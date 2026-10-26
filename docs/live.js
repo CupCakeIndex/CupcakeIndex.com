@@ -2038,6 +2038,10 @@ const Live = (() => {
   // NFL records held by a player (src/nfl_records.py, from Wikipedia's record lists): [[record, value, when], ...]
   let recordsP = null;
   const nflRecords = (id) => (recordsP ||= getJSON("data/nfl/records.json").catch(() => ({}))).then((d) => d?.players?.[id] || []);
+  // Record leaderboards (src/record_boards.py): Wikipedia's career lists + QB rushing + the 2,000/5,000-yard clubs,
+  // active players' career totals from ESPN. {boards: {key: {title, kind, unit, through, page, rows}}, records: {record name: key}}
+  let boardsP = null;
+  const recordBoards = () => (boardsP ||= getJSON("data/nfl/record_boards.json").catch(() => ({ boards: {}, records: {} })));
   async function kickChartInto(a, season, slot) {
     const id = encodeURIComponent(a.id);
     // his NFL record kick, if he has one (Cam Little's 68-yarder): drawn in gold
@@ -2605,6 +2609,7 @@ const Live = (() => {
     if (params.get("show") === "projected") return projected(params);
     if (params.get("show") === "injuries") return injuries(params);
     if (params.get("show") === "visualize") return Viz.render(params); // viz.js
+    if (params.get("show") === "records") return recordsPage(params);
     const lg = league, my = token;
     const cat = STAT_CATS.find((c) => c.key === params.get("cat")) || STAT_CATS[0];
     const sort = params.get("sort") || cat.sort, dir = params.get("dir") || "desc";
@@ -2723,6 +2728,43 @@ const Live = (() => {
     }
     cache.set(url, { t: Date.now(), data: { y, list } });
     return { y, list };
+  }
+
+  // Stats > Records: one leaderboard at a time (?board=rush_td), the player you came from highlighted (?hl=ESPN id).
+  // Active players show how far they are from the next spot up.
+  async function recordsPage(params) {
+    const my = token;
+    if (league !== "nfl") {
+      view("stats").innerHTML = `<div class="card">Records are NFL only for now. <a href="${link("stats", null, { show: "records", league: "nfl" })}">See NFL records →</a></div>`;
+      return;
+    }
+    view("stats").innerHTML = `<div class="card muted">Loading…</div>`;
+    const d = await recordBoards();
+    if (my !== token) return;
+    const keys = Object.keys(d.boards || {});
+    if (!keys.length) { view("stats").innerHTML = `<div class="card">The record lists aren't available right now. Try again later.</div>`; return; }
+    const k = keys.includes(params.get("board")) ? params.get("board") : keys[0], b = d.boards[k], hl = params.get("hl") || "";
+    const opts = (kind) => keys.filter((x) => d.boards[x].kind === kind).map((x) => `<option value="${x}"${x === k ? " selected" : ""}>${esc(d.boards[x].title)}</option>`).join("");
+    const fmtV = (v) => (typeof v === "number" ? v.toLocaleString("en-US") : esc(v));
+    const season = b.kind === "season";
+    const rows = b.rows.map((r, i) => {
+      // the next spot up, for active players: how far he has to go
+      const up = b.rows.slice(0, i).reverse().find((x) => x.value > r.value);
+      const gap = !season && r.active && up ? `<small class="rb-gap">${fmtV(Math.round((up.value - r.value) * 10) / 10)} behind #${up.rank} ${esc(up.name)}</small>` : "";
+      const who = r.id ? `<a href="${link("player", r.id, { league: "nfl" })}">${esc(r.name)}</a>` : esc(r.name);
+      return `<tr class="${r.id && r.id === hl ? "rb-me" : ""}${r.rank === 1 ? " rb-top" : ""}"><td class="num">${r.rank}</td>
+        <td>${who}${r.active ? ` <span class="pill rb-active" title="Still playing: his total updates after every game">ACTIVE</span>` : ""}${gap}</td>
+        ${season ? `<td class="num">${r.season ?? ""}</td>` : ""}<td class="num rb-val">${fmtV(r.value)}</td></tr>`;
+    }).join("");
+    const wiki = `https://en.wikipedia.org/wiki/${encodeURIComponent(b.page)}`;
+    view("stats").innerHTML = `<div class="card rb-card">
+      <div class="sc-bar"><h3>★ NFL records</h3>
+        <select id="rb-pick" aria-label="Record"><optgroup label="Career">${opts("career")}</optgroup><optgroup label="Single season">${opts("season")}</optgroup></select></div>
+      <div class="table-wrap"><table class="box rb-table"><thead><tr><th class="num">#</th><th>Player</th>${season ? `<th class="num">Season</th>` : ""}<th class="num">${esc(b.title.replace(/ \(.*\)$/, ""))}</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+      <p class="note muted">Regular season only. From <a href="${wiki}" target="_blank" rel="noopener">Wikipedia's list</a>${b.through ? ` (${esc(b.through)})` : ""}, which cites the NFL Record &amp; Fact Book and Pro Football Reference. Active players' totals come from ESPN and update after every game.${season ? " This list only has the seasons that made Wikipedia's list." : ""}</p></div>`;
+    $("#rb-pick").onchange = (e) => { location.hash = link("stats", null, { show: "records", board: e.target.value }); };
+    view("stats").querySelector(".rb-me")?.scrollIntoView({ block: "center" });
   }
 
   async function frauds(params) {
@@ -3853,7 +3895,7 @@ const Live = (() => {
     const season = params.get("season");
     const vs = (params.get("vs") || "").split(",").filter(Boolean).slice(0, 3);
     const careersP = Promise.all([career(lg, id), ...vs.map((v) => { const [l, pid] = v.split(":"); return career(LEAGUE_OF[l] || "nfl", pid); })]).catch(() => null);
-    const ptab = params.get("tab") === "takes" ? "takes" : "";
+    const ptab = ["takes", "records"].includes(params.get("tab")) ? params.get("tab") : "";
     let bio, gl, takes, recs;
     try {
       [bio, gl, takes, recs] = await Promise.all([
@@ -3932,27 +3974,39 @@ const Live = (() => {
           ${face(a.headshot?.href, a.displayName, "headshot", lg === "nfl", born)}
           ${hsLabel ? `<span class="hs-tag">${esc(hsLabel)}</span>` : ""}</div>
         <div>
-          <h2>${esc(a.displayName)}${lg === "nfl" && a.active === false ? ` <span class="retired-tag">Retired</span>` : ""}${recs.length ? ` <a class="rec-tag" href="#pl-recs" title="${esc(recs.map((r) => r[0]).join(" · "))}">★ NFL record${recs.length > 1 ? `s (${recs.length})` : ""}</a>` : ""}</h2>
+          <h2>${esc(a.displayName)}${lg === "nfl" && a.active === false ? ` <span class="retired-tag">Retired</span>` : ""}${recs.length ? ` <a class="rec-tag${ptab === "records" ? " on" : ""}" href="${link("player", id, ptab === "records" ? {} : { tab: "records" })}" title="${esc(recs.map((r) => r[0]).join(" · "))}">★ NFL record${recs.length > 1 ? `s (${recs.length})` : ""}</a>` : ""}</h2>
           <p>${a.team ? `<a href="${link("team", a.team.id)}"><span class="tm">${img(a.team.logos?.[0]?.href || a.team.logo, "xs")} ${esc(a.team.displayName)}</span></a>` : ""}
             ${injInfo(inj) ? ` <span class="inj-line">${injTag(inj, a.id, fa ? "" : a.team?.id)} ${esc(injInfo(inj).tip)}</span>` : ""}</p>
           <p class="muted">${facts.map(esc).join(" · ")}<span id="pl-exp">${exp ? " · " + esc(exp) : ""}</span></p>
           <p class="pl-acts"><a class="btn" href="${link("stats", null, { show: "visualize", him: a.id })}">📈 Chart him</a></p>
         </div>
-      </div>${takes.length ? `
-      <div class="subtabs"><a class="subtab${ptab ? "" : " on"}" href="${link("player", id)}">Stats</a><a class="subtab${ptab ? " on" : ""}" href="${link("player", id, { tab: "takes" })}">Takes <small>${takes.length}</small></a></div>` : ""}`;
+      </div>${takes.length || ptab === "records" ? `
+      <div class="subtabs"><a class="subtab${ptab ? "" : " on"}" href="${link("player", id)}">Stats</a>${takes.length ? `<a class="subtab${ptab === "takes" ? " on" : ""}" href="${link("player", id, { tab: "takes" })}">Takes <small>${takes.length}</small></a>` : ""}</div>` : ""}`;
     if (ptab === "takes") {
       view("player").innerHTML = head + `<div class="card">${takes.length ? Takes.list(takes) : `<p class="muted">No takes about this player yet. <a href="${link("takes")}">See all our Takes →</a></p>`}</div>`;
       fillFaces(view("player"));
       return;
     }
+    if (ptab === "records") { // tapped the gold NFL records tag: the records he holds, each one opening its leaderboard
+      const d = await recordBoards();
+      if (my !== token) return;
+      const recRow = (r) => {
+        const k = d.records?.[r[0]], b = k && d.boards?.[k];
+        // the live number when he's #1 on that board (the record list can be a week behind)
+        const mine = b?.rows.find((x) => x.id === String(id) && x.rank === 1);
+        const val = mine ? mine.value.toLocaleString("en-US") : r[1];
+        const body = `<b>${esc(r[0])}</b><span class="rec-val">${esc(val)}</span>${r[2] ? `<small>${esc(r[2])}</small>` : ""}${b ? `<small class="rec-more">See who's behind him →</small>` : ""}`;
+        return `<li>${b ? `<a href="${link("stats", null, { show: "records", board: k, hl: id })}">${body}</a>` : body}</li>`;
+      };
+      const linked = recs.filter((r) => d.records?.[r[0]]), rest = recs.filter((r) => !d.records?.[r[0]]);
+      view("player").innerHTML = head + `<div class="card rec-card"><h3>★ NFL record${recs.length > 1 ? "s" : ""} he holds</h3><ul>${[...linked, ...rest].map(recRow).join("")}</ul>
+        <p class="note muted">From the NFL's record lists (Wikipedia, citing the NFL Record &amp; Fact Book and Pro Football Reference). Shared records count. <a href="${link("stats", null, { show: "records" })}">All record leaderboards →</a></p></div>`;
+      fillFaces(view("player"));
+      return;
+    }
     const pcModes = { QB: ["pass", "rush"], WR: ["target"], TE: ["target"], RB: ["rush", "target"], FB: ["rush", "target"] }[a.position?.abbreviation] || [];
     const kicker = logLg === "nfl" && !pcModes.includes("pass"); // a kick chart if he tried a field goal this season (kickChartInto drops it otherwise; ESPN's position can be wrong)
-    // NFL records he holds, in gold: the first few, the rest behind "more"
-    const recRow = (r) => `<li><b>${esc(r[0])}</b><span class="rec-val">${esc(r[1])}</span>${r[2] ? `<small>${esc(r[2])}</small>` : ""}</li>`;
-    const recCard = recs.length ? `<div class="card rec-card" id="pl-recs"><h3>★ NFL record${recs.length > 1 ? "s" : ""} he holds</h3><ul>${recs.slice(0, 4).map(recRow).join("")}</ul>
-      ${recs.length > 4 ? `<details><summary>${recs.length - 4} more</summary><ul>${recs.slice(4).map(recRow).join("")}</ul></details>` : ""}
-      <p class="note muted">From the NFL's record lists (Wikipedia, citing the NFL Record & Fact Book and Pro Football Reference). Shared records count.</p></div>` : "";
-    view("player").innerHTML = head + recCard + `
+    view("player").innerHTML = head + `
       ${summary ? `<div class="stats wide">${summary}</div>${caughtUp ? `<p class="note muted">Added up from his game-by-game stats, so it includes his latest game. Ranks come back once the overnight totals update.</p>` : ""}` : ""}
       <div id="career-slot"><div class="card muted">Loading stats by year…</div></div>
       ${pcModes.length && logGl?.events && Object.keys(logGl.events).length ? `<div id="pc-slot"><div class="card muted">Loading pass chart…</div></div>` : ""}
