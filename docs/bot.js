@@ -55,7 +55,7 @@ const Bot = (() => {
           <button type="submit" class="bot-send">Send</button></form>
       </section>`;
     document.body.appendChild(el);
-    // the site's own cupcake mark (from the header logo), in a speech bubble
+    // the site's own cupcake mark (from the header logo), in a rounded badge
     const mark = document.querySelector(".logo-mark");
     if (mark) el.querySelectorAll(".bot-mark").forEach((m) => m.appendChild(mark.cloneNode(true)));
     const fab = el.querySelector(".bot-fab"), panel = el.querySelector(".bot-panel"), ta = el.querySelector("textarea");

@@ -3648,18 +3648,15 @@ a.gl-row:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); 
   box-shadow: 0 8px 24px rgba(0,0,0,.45), 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); font: 800 13px/1 var(--font-head, var(--font-body)); letter-spacing: .08em; text-transform: uppercase;
   transition: transform .15s, box-shadow .15s; }
 .bot-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,.5), 0 0 0 4px color-mix(in srgb, var(--accent) 28%, transparent); }
-/* the cupcake mark in a little speech bubble (the tail is the ::after) */
-.bot-mark { position: relative; display: inline-flex; align-items: center; justify-content: center; flex: none; width: 36px; height: 36px; border-radius: 9px;
+/* the cupcake mark in a rounded badge */
+.bot-mark { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 36px; height: 36px; border-radius: 9px;
   background: var(--accent-soft); border: 1.5px solid var(--accent); color: var(--ink); }
-.bot-mark::after { content: ""; position: absolute; left: 7px; bottom: -5px; width: 8px; height: 8px; background: var(--accent-soft); border: solid var(--accent); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); }
-.bot-fab .bot-mark { margin-bottom: 4px; } /* room for the tail inside the button */
 .bot-mark .logo-mark { height: 25px; width: auto; }
 .bot-word i { font-style: normal; color: var(--accent); animation: bot-blink 1.1s steps(1) infinite; }
 @keyframes bot-blink { 50% { opacity: 0; } }
 .bot-title { display: flex; align-items: center; gap: 9px; font-family: var(--font-head, inherit); font-weight: 800; letter-spacing: -.02em; }
 .bot-title b { color: var(--accent); font-weight: inherit; }
 .bot-title .bot-mark { width: 28px; height: 28px; border-radius: 7px; }
-.bot-title .bot-mark::after { left: 6px; bottom: -4px; width: 6px; height: 6px; }
 .bot-title .bot-mark .logo-mark { height: 19px; }
 .bot-fab:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 .bot.open .bot-fab { background: var(--accent-soft); }
