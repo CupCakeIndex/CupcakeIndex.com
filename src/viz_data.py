@@ -672,6 +672,11 @@ def main():
                 except SystemExit as e:  # no CFBD key
                     print(f"  skipped: {str(e).splitlines()[0]}")
                     continue
+                except requests.HTTPError as e:  # CFBD's free plan out of calls (429): keep the last college file, still save the NFL
+                    if lg != "cfb" or e.response is None or e.response.status_code != 429:
+                        raise
+                    print(f"  skipped, CollegeFootballData said too many requests; {lg}_{s}.json stays as it was")
+                    continue
             if s >= PLAYERS[lg]:  # ESPN's old seasons are patchy; the team-only files come from the same nflverse source
                 check(lg, s)
 

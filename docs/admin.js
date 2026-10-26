@@ -303,7 +303,9 @@ const Admin = (() => {
     return `<tr class="ad-sub"><td colspan="4"><div class="ad-sub-top"><span>Money in vs the chat's cost <span class="muted">this month</span></span></div>
       <div class="ad-sub-bar${profit < 0 ? " over" : ""}"><i style="width:${Math.min(100, pct).toFixed(1)}%"></i></div>
       <ul class="ad-subs">${chat.tiers.map((t) => `<li><span>${esc(t.name)} contributions <span class="muted">$${t.price} a month</span></span>
-        <span class="muted">${num(t.members)} ${t.members === 1 ? "member" : "members"} · ${money(t.in)} in · used ${money(t.usd)}</span>${diff(t.in - t.usd)}</li>`).join("")}</ul>
+        <span class="muted">${num(t.members)} ${t.members === 1 ? "member" : "members"} · ${money(t.in)} in · used ${money(t.usd)}</span>${diff(t.in - t.usd)}</li>`).join("")}
+        ${chat.owner?.usd ? `<li><span>Your own use <span class="muted">free, not a subscription</span></span>
+          <span class="muted">${num(chat.owner.questions)} questions · used ${money(chat.owner.usd)}</span>${diff(-chat.owner.usd)}</li>` : ""}</ul>
       ${chat.unsorted?.usd ? `<small>${money(chat.unsorted.usd)} of the cost is from questions asked before the chat kept track of who asked.</small>` : ""}</td></tr>`;
   }
   function costs(db, el, today, mon, rows, err, mine = {}, chat = null) {
@@ -347,7 +349,7 @@ const Admin = (() => {
           <td class="n">${money(sum((x) => dayOf(x) >= mon && f(x)))}</td><td class="n">${money(sum((x) => inMonth(x) && f(x)))}</td></tr>`).join("")}
         <tr><td>Analyst chat (Claude)<small>${chat ? `members' questions, pictures included; $5 of Claude a month at most per person`
           : "couldn't reach the chat's counter: re-paste workers/analyst.js into Cloudflare (Workers > cupcake-analyst > Edit code > Deploy)"}</small></td>
-          <td class="n">${chat ? `${num(chatSum(() => true, "q"))} questions` : "?"}</td><td class="n">${chat ? money(wkChat) : "?"}</td><td class="n">${chat ? money(mtdChat) : "?"}</td></tr>
+          <td class="n">${chat ? `${num(chatSum(() => true, "q"))} questions${chat.takes ? `<small>${num(chat.takes)} take checks</small>` : ""}` : "?"}</td><td class="n">${chat ? money(wkChat) : "?"}</td><td class="n">${chat ? money(mtdChat) : "?"}</td></tr>
         ${chat ? subRow(chat, mtdChat) : ""}
         ${FX.map(([l, v, note, k, per, typed]) => `<tr><td>${esc(l)}<small>${esc(note)}</small>${k ? `<label class="ad-fx">$<input type="number" min="0" step="0.01" inputmode="decimal"
             data-k="${k}" value="${typed ?? ""}" placeholder="?" aria-label="${esc(l)}, dollars a ${per}"> a ${per}</label>` : ""}</td>

@@ -4,9 +4,9 @@
 // own data, and sends the results back here; this Worker only talks to Claude.
 //
 //   GET  /me    -> { member, questions, usd, limit, today, days }   (the chat button only shows for members)
-//   POST /chat  -> one Claude turn: { content, stop_reason, usage }  body: { system, tools, messages, newQuestion }
-//   GET  /admin -> the owner only: this month's chat cost and money in by tier { month, usd, questions, days, tiers,
-//                  unsorted } (the site's Admin page > Costs)
+//   POST /chat  -> one Claude turn: { content, stop_reason, usage }  body: { system, tools, messages, newQuestion, take }
+//   GET  /admin -> the owner only: this month's chat cost and money in by tier { month, usd, questions, takes, days,
+//                  tiers, owner, unsorted } (the site's Admin page > Costs; the owner doesn't pay, so isn't in a tier)
 //   Both need "Authorization: Bearer <Firebase ID token>" (the site's Sign in with Google).
 //
 // Setup (Cloudflare dashboard > Workers > this worker > Settings):
@@ -61,22 +61,23 @@ async function usage(env, uid) {
 }
 // membership tiers: [name, $ a month]. A MEMBERS entry is an email (Tier 1) or email:2 (Tier 2); Stripe sets it later.
 const TIERS = [["Tier 1", 5], ["Tier 2", 10]];
+const TAKE_LIMITS = [30, 150]; // take checks a month (the chat's "Check a take"), by tier; each one is a few Claude calls
 const memberList = (env) => (env.MEMBERS || "").toLowerCase().split(/[,\s]+/).filter(Boolean)
   .map((x) => { const [email, t] = x.split(":"); return { email, tier: Math.min(TIERS.length, Math.max(1, +t || 1)) - 1 }; });
 // this month's chat cost and money in, by tier, for the Admin page: totals only, no emails (KV's free plan allows 1,000 lists a day)
 async function everyone(env, me) {
-  const members = memberList(env), tierOf = Object.fromEntries(members.map((x) => [x.email, x.tier]));
+  const members = memberList(env).filter((x) => x.email !== OWNER), tierOf = Object.fromEntries(members.map((x) => [x.email, x.tier]));
   const tiers = TIERS.map(([name, price], i) => { const n = members.filter((x) => x.tier === i).length; return { name, price, members: n, in: n * price, usd: 0, questions: 0 }; });
-  const m = month(), out = { month: m, usd: 0, questions: 0, days: {}, tiers, unsorted: { usd: 0, questions: 0 } };
+  const m = month(), out = { month: m, usd: 0, questions: 0, takes: 0, days: {}, tiers, owner: { usd: 0, questions: 0 }, unsorted: { usd: 0, questions: 0 } };
   let cursor;
   do {
     const page = await env.USAGE.list({ prefix: "u:", cursor });
     for (const k of page.keys.filter((k) => k.name.endsWith(":" + m))) {
       const u = await env.USAGE.get(k.name, "json");
       if (!u) continue;
-      out.usd += u.usd; out.questions += u.q;
+      out.usd += u.usd; out.questions += u.q; out.takes += u.t || 0;
       const email = u.email || (k.name.startsWith(`u:${me.uid}:`) ? me.email : ""); // the owner's own, even from before emails were kept
-      const t = tiers[tierOf[email]] || out.unsorted; // no email yet (asked before it was kept) or no longer a member
+      const t = email === OWNER ? out.owner : tiers[tierOf[email]] || out.unsorted; // unsorted: no email yet, or no longer a member
       t.usd += u.usd; t.questions += u.q;
       for (const [d, x] of Object.entries(u.days || {})) {
         const t = (out.days[d] ||= { q: 0, usd: 0 });
@@ -87,8 +88,9 @@ async function everyone(env, me) {
   } while (cursor);
   return out;
 }
-const summary = (u, me) => ({ member: true, questions: u.q, usd: Math.round(u.usd * 10000) / 10000, limit: LIMIT, day_limit: me.email === OWNER ? null : DAY_LIMIT,
-  today: u.days[today()]?.q || 0, days: u.days, cap_usd: MONTH_CAP_USD, testing: me.email === OWNER });
+const takeLimit = (me, env) => TAKE_LIMITS[memberList(env).find((x) => x.email === me.email)?.tier || 0];
+const summary = (u, me, env) => ({ member: true, questions: u.q, usd: Math.round(u.usd * 10000) / 10000, limit: LIMIT, day_limit: me.email === OWNER ? null : DAY_LIMIT,
+  takes: u.t || 0, take_limit: takeLimit(me, env), today: u.days[today()]?.q || 0, days: u.days, cap_usd: MONTH_CAP_USD, testing: me.email === OWNER });
 
 export default {
   async fetch(req, env) {
@@ -105,7 +107,7 @@ export default {
       if (!isMember(me, env)) return json({ member: false });
       const u = await usage(env, me.uid);
       if (u.q && !u.email) { u.email = me.email; await env.USAGE.put(`u:${me.uid}:${month()}`, JSON.stringify(u), { expirationTtl: 60 * 60 * 24 * 400 }); } // so Admin can put it in their tier
-      return json(summary(u, me));
+      return json(summary(u, me, env));
     }
     if (url.pathname.startsWith("/admin") && !(me.email === OWNER && me.verified)) return json({ error: "not allowed" }, 403);
     if (url.pathname === "/admin") return json(await everyone(env, me));
@@ -123,9 +125,10 @@ export default {
 
     const u = await usage(env, me.uid), d = today(), owner = me.email === OWNER;
     u.days[d] ||= { q: 0, usd: 0 };
-    if (u.usd >= MONTH_CAP_USD) return json({ error: `You've hit this month's limit. It resets on the 1st.`, usage: summary(u, me) }, 429);
-    if (b.newQuestion && !owner && u.q >= LIMIT) return json({ error: `You've used all ${LIMIT} questions this month. They reset on the 1st.`, usage: summary(u, me) }, 429);
-    if (b.newQuestion && !owner && u.days[d].q >= DAY_LIMIT) return json({ error: `That's ${DAY_LIMIT} questions today. More tomorrow.`, usage: summary(u, me) }, 429);
+    if (u.usd >= MONTH_CAP_USD) return json({ error: `You've hit this month's limit. It resets on the 1st.`, usage: summary(u, me, env) }, 429);
+    if (b.newQuestion && !owner && u.q >= LIMIT) return json({ error: `You've used all ${LIMIT} questions this month. They reset on the 1st.`, usage: summary(u, me, env) }, 429);
+    if (b.newQuestion && !owner && u.days[d].q >= DAY_LIMIT) return json({ error: `That's ${DAY_LIMIT} questions today. More tomorrow.`, usage: summary(u, me, env) }, 429);
+    if (b.take && !owner && (u.t || 0) >= takeLimit(me, env)) return json({ error: `You've used all ${takeLimit(me, env)} take checks this month. They reset on the 1st.`, usage: summary(u, me, env) }, 429);
 
     // raw HTTP, not the SDK: this Worker is pasted into the Cloudflare dashboard, which has no package install step
     const model = PRICES[env.MODEL] ? env.MODEL : "claude-haiku-5-5", [pin, pout] = PRICES[model];
@@ -144,7 +147,8 @@ export default {
     const usd = ((t.input_tokens || 0) + (t.cache_creation_input_tokens || 0) * 1.25 + (t.cache_read_input_tokens || 0) * 0.1) * pin / 1e6 + (t.output_tokens || 0) * pout / 1e6;
     u.usd += usd; u.days[d].usd += usd; u.email = me.email;
     if (b.newQuestion) { u.q++; u.days[d].q++; }
+    if (b.take) { u.t = (u.t || 0) + 1; u.days[d].t = (u.days[d].t || 0) + 1; }
     await env.USAGE.put(`u:${me.uid}:${month()}`, JSON.stringify(u), { expirationTtl: 60 * 60 * 24 * 400 });
-    return json({ content: out.content, stop_reason: out.stop_reason, cost: usd, model, usage: summary(u, me) });
+    return json({ content: out.content, stop_reason: out.stop_reason, cost: usd, model, usage: summary(u, me, env) });
   },
 };

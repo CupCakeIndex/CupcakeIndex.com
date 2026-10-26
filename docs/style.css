@@ -3756,6 +3756,47 @@ body:has(#view-rankings:not(.hidden) .weights-fab) .bot.max .bot-panel { height:
 .bot-thumbs img { max-width: 160px; max-height: 140px; border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); display: block; }
 .bot-msg.me .bot-thumbs:last-child { margin-bottom: 0; }
 .bot-panel.drop { outline: 2px dashed var(--accent); outline-offset: -6px; }
+/* Check a take (docs/bot.js checkTake): the Ask / Check a take switch, the reply tone, and the verdict card */
+.bot-mode { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px 0; border-top: 1px solid var(--line); }
+.bot-pics:not([hidden]) + .bot-mode { border-top: 0; }
+.bot-mode + .bot-ask { border-top: 0; }
+.bot-mode button { min-height: 32px; padding: 0 10px; background: none; border: 1px solid var(--line); color: var(--muted); cursor: pointer; font: 600 12px/1 inherit; font-family: inherit; }
+.bot-mode button[aria-pressed="true"] { color: var(--ink); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.bot-mode button:hover { color: var(--ink); }
+.bot-tone { display: none; gap: 4px; margin-left: auto; }
+.bot.take .bot-tone { display: inline-flex; }
+.bot-tone button { min-height: 28px; padding: 0 8px; font-size: 11px; }
+.bot-hi-take { display: none; }
+.bot.take .bot-hi-ask { display: none; }
+.bot.take .bot-hi-take { display: block; }
+.bot-tag { display: inline-block; margin-bottom: 4px; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.bot-msg.bot.take { max-width: 100%; width: 100%; }
+.bot-stamp { display: inline-block; margin-bottom: 8px; padding: 4px 10px; border: 2px solid currentColor; font-weight: 800; font-size: 13px; letter-spacing: .1em; transform: rotate(-2deg); }
+.bot-stamp.ok, .bot-ctag.ok { color: #3ccf7e; }
+.bot-stamp.meh, .bot-ctag.meh { color: var(--warn); }
+.bot-stamp.no, .bot-ctag.no { color: var(--bad); }
+.bot-stamp.na, .bot-ctag.na { color: var(--muted); }
+.bot-claims { list-style: none; padding-left: 0; }
+.bot-claims li { padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.bot-ctag { font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+.bot-tchart { margin: 12px 0; padding: 10px; border: 1px solid var(--line); background: var(--bg); }
+.bot-tchart figcaption { margin-bottom: 8px; font-size: 12px; font-weight: 700; }
+.bot-tchart div { display: grid; grid-template-columns: minmax(70px, 30%) 1fr auto; align-items: center; gap: 8px; padding: 2px 0; font-size: 12px; }
+.bot-tchart span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bot-tchart span i { font-style: normal; color: var(--muted); margin-right: 5px; }
+.bot-tchart b { height: 10px; width: var(--w); background: color-mix(in srgb, var(--ink) 30%, transparent); }
+.bot-tchart .hi b { background: var(--accent); }
+.bot-tchart .hi span { color: var(--accent); font-weight: 700; }
+.bot-tchart em { font-style: normal; font-variant-numeric: tabular-nums; }
+.bot-tchart small { display: block; margin-top: 6px; font-size: 10px; }
+.bot-reply { margin-top: 10px; padding: 10px; border: 1px solid var(--line); background: var(--card); }
+.bot-reply .bot-h { margin-top: 0; display: flex; justify-content: space-between; }
+.bot-reply p { margin-bottom: 8px; }
+.bot-ra { display: flex; gap: 8px; }
+.bot-ra button, .bot-ra a { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border: 1px solid var(--line); background: none; color: var(--ink); font: 700 12px inherit; font-family: inherit; cursor: pointer; text-decoration: none; }
+.bot-ra a { border-color: var(--accent); color: var(--accent); }
+.bot-ra button:hover, .bot-ra a:hover { border-color: var(--accent); }
+@media (max-width: 600px) { .bot-mode { gap: 4px; padding: 8px 14px 0; } .bot-mode button { padding: 0 8px; font-size: 11px; } .bot-tone button { padding: 0 6px; } }
 @media (max-width: 600px) {
   /* phones: one small box, the cupcake with ASK_ under it, so it doesn't cover the page */
   .bot-fab { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); flex-direction: column; justify-content: center; gap: 3px;

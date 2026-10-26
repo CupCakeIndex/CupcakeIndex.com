@@ -6,7 +6,8 @@
 const Bot = (() => {
   const URL_ = "https://cupcake-analyst.thecupcakeindex-support.workers.dev";
   const MAX_ROUNDS = 8; // tool rounds per question
-  let me = null, msgs = [], sys = null, busy = false, el = null, user = null, tools = null;
+  let me = null, msgs = [], sys = null, busy = false, el = null, user = null, tools = null, mode = "ask", tone = "straight", quiet = false;
+  const TONES = [["straight", "Straight"], ["funny", "Funny"], ["sarcastic", "Sarcastic"]];
   // the stat tools (57 KB) load only for members, the first time the button shows
   const needTools = () => tools ||= new Promise((ok, bad) => {
     const s = document.createElement("script");
@@ -49,9 +50,12 @@ const Bot = (() => {
           <button type="button" class="bot-max" aria-pressed="false" title="Make the chat bigger" aria-label="Make the chat bigger"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg></button>
           <button type="button" class="bot-new" title="Start a new conversation">New</button>
           <button type="button" class="bot-x" aria-label="Close">✕</button></header>
-        <div class="bot-log" aria-live="polite"><p class="bot-hi muted">Ask about any player, team or stat. I answer from the site's own numbers and can open a chart for you.
-          Try "Who leads the NFL in CPOE?" or "Chart Indiana's offense vs defense".</p></div>
+        <div class="bot-log" aria-live="polite"><p class="bot-hi bot-hi-ask muted">Ask about any player, team or stat. I answer from the site's own numbers and can open a chart for you.
+          Try "Who leads the NFL in CPOE?" or "Chart Indiana's offense vs defense".</p>
+          <p class="bot-hi bot-hi-take muted">Paste a take from X or the group chat, or add a screenshot of it. I check every claim against our numbers, give you the verdict and write two replies you can post.</p></div>
         <div class="bot-pics" hidden></div>
+        <div class="bot-mode" role="group" aria-label="What to do"><button type="button" data-mode="ask">Ask</button><button type="button" data-mode="take">Check a take</button>
+          <span class="bot-tone" role="group" aria-label="Reply tone">${TONES.map(([k, l]) => `<button type="button" data-tone="${k}">${l}</button>`).join("")}</span></div>
         <form class="bot-ask"><label class="bot-attach" title="Add a picture (a screenshot of a post, a stat graphic...)" aria-label="Add a picture">
             <input type="file" accept="image/*" multiple hidden><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 5h16v14H4zM4 15l4.5-4.5 4 4 2.5-2.5L20 17M15.5 9.5h.01"/></svg></label>
           <textarea rows="1" maxlength="600" placeholder="Ask a football question" aria-label="Your question"></textarea>
@@ -94,6 +98,30 @@ const Bot = (() => {
     panel.addEventListener("dragover", (e) => { if ([...(e.dataTransfer?.items || [])].some((x) => x.type.startsWith("image/"))) { e.preventDefault(); panel.classList.add("drop"); } });
     panel.addEventListener("dragleave", (e) => { if (!panel.contains(e.relatedTarget)) panel.classList.remove("drop"); });
     panel.addEventListener("drop", (e) => { panel.classList.remove("drop"); const f = [...(e.dataTransfer?.files || [])].filter((x) => x.type.startsWith("image/")); if (f.length) { e.preventDefault(); addPics(f); } });
+    // Ask / Check a take, and the tone of the take replies (both remembered on this device)
+    const setMode = (m) => {
+      mode = m === "take" ? "take" : "ask";
+      el.classList.toggle("take", mode === "take");
+      el.querySelectorAll("[data-mode]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
+      ta.placeholder = mode === "take" ? "Paste a take, or add a screenshot" : "Ask a football question";
+      try { localStorage.setItem("bot-mode", mode); } catch (e) { /* private mode */ }
+    };
+    const setTone = (t) => {
+      tone = TONES.some(([k]) => k === t) ? t : "straight";
+      el.querySelectorAll("[data-tone]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.tone === tone)));
+      try { localStorage.setItem("bot-tone", tone); } catch (e) { /* private mode */ }
+    };
+    try { setMode(localStorage.getItem("bot-mode")); setTone(localStorage.getItem("bot-tone")); } catch (e) { setMode("ask"); setTone("straight"); }
+    el.querySelector(".bot-mode").addEventListener("click", (e) => {
+      const b = e.target.closest("button");
+      if (b?.dataset.mode) { setMode(b.dataset.mode); ta.focus(); }
+      if (b?.dataset.tone) setTone(b.dataset.tone);
+    });
+    el.querySelector(".bot-log").addEventListener("click", (e) => {
+      const b = e.target.closest(".bot-copy");
+      if (!b) return;
+      navigator.clipboard?.writeText(b.dataset.copy).then(() => { b.textContent = "Copied"; setTimeout(() => { b.textContent = "Copy"; }, 1500); }).catch(() => {});
+    });
     el.querySelector(".bot-pics").addEventListener("click", (e) => { const b = e.target.closest("[data-rm]"); if (b) { pics.splice(+b.dataset.rm, 1); drawPics(); } });
     el.querySelector("form").addEventListener("submit", (e) => {
       e.preventDefault();
@@ -102,7 +130,7 @@ const Bot = (() => {
       ta.value = ""; ta.style.height = "auto";
       const sent = pics.splice(0);
       drawPics();
-      ask(q, sent);
+      (mode === "take" ? checkTake : ask)(q, sent);
     });
   }
   // ---------- pictures ----------
@@ -140,7 +168,7 @@ const Bot = (() => {
     const u = el?.querySelector(".bot-use");
     if (!u || !me) return;
     const over = me.questions > me.limit;
-    u.textContent = `${me.questions}/${me.limit} this month${me.testing ? ` · $${(me.usd || 0).toFixed(2)}` : ""}${over ? " · over" : ""}`;
+    u.textContent = `${me.questions}/${me.limit} this month${me.take_limit ? ` · ${me.takes || 0}/${me.take_limit} takes` : ""}${me.testing ? ` · $${(me.usd || 0).toFixed(2)}` : ""}${over ? " · over" : ""}`;
     u.title = me.testing ? `Testing: today ${me.today} questions. Members get ${me.limit} a month${me.day_limit ? ` and ${me.day_limit} a day` : ""}; you're not stopped at ${me.limit}, only at $${me.cap_usd} a month.` : "";
   }
 
@@ -226,6 +254,215 @@ const Bot = (() => {
     log().scrollTop = log().scrollHeight;
     busy = false;
     el.classList.remove("busy");
+  }
+
+  // ---------- Check a take: Terry's Analyst page, for members ----------
+  // Paste a take (or a screenshot of one): Claude checks every claim with the same tools as the chat, then hands back a
+  // verdict, the claims with our numbers, what the take leaves out, a small chart, and two replies to post. The page
+  // picks each reply's shape and length (so they don't all sound alike), a filter catches the LLM writing habits from
+  // Terry's style note and phrases this member's recent replies already used, and one review call fixes any reply whose
+  // conclusion doesn't follow from its numbers. Each check is its own conversation; the chat's stays as it was.
+  const SHAPES = {
+    compare: "Open with a comparison to one named peer (player or team) on the same stat, then say what it means for the take.",
+    rank: "Open with where they rank and out of how many, then one detail that explains the rank.",
+    drop: "One or two short sentences, under 160 characters total: the single most telling number, then a flat opinion.",
+    skipped: "Open with the thing the take left out (the opponents, the games missed, the split, the sample), then the number that shows it.",
+    story: "Two or three sentences that walk through how it changed over the weeks or seasons, with the number landing in the last sentence.",
+    split: "Open with a split that changes the picture (on 3rd down, in the red zone, vs the blitz, the last few games vs the first few, vs good teams), then the overall number for contrast.",
+    concede: "Grant one part of the take with a number, then turn it with a second, different number.",
+    context: "Open with the situation around the number (schedule strength, injuries, the coach's tendencies, the role), then the number.",
+  };
+  const LENGTHS = { short: "a short burn, under 120 characters (one number, one line)", normal: "a normal reply, about 150-280 characters" };
+  const store = { get: (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* private mode */ } } };
+  function pickShapes() {
+    const last = store.get("take-shapes") || [];
+    const pool = Object.keys(SHAPES).filter((k) => !last.includes(k)).sort(() => Math.random() - 0.5);
+    const len = (k) => k === "drop" || Math.random() < 0.35 ? "short" : "normal";
+    return { agree: pool[0], pushback: pool[1], agree_len: len(pool[0]), pushback_len: len(pool[1]) };
+  }
+  // the writing filter (Terry's LLM Writing Tendencies note), plus 3-word phrases this member's last 30 replies repeated
+  const STOP = new Set("a an the and or but of to in on at for with by from is are was were be been his her their its this that it he she they we you i as so if than then just not no has have had do does did".split(" "));
+  const words = (t) => BotTools.norm(t || "").split(" ").filter(Boolean);
+  function grams(t) {
+    const w = words(t), out = new Set();
+    for (let i = 0; i + 3 <= w.length; i++) { const g = w.slice(i, i + 3); if (!g.every((x) => STOP.has(x)) && !g.some((x) => /\d/.test(x))) out.add(g.join(" ")); }
+    return out;
+  }
+  function repeats() {
+    const c = new Map();
+    for (const r of store.get("take-replies") || []) for (const g of grams(r)) c.set(g, (c.get(g) || 0) + 1);
+    return [...c].filter(([, n]) => n > 1).sort((a, b) => b[1] - a[1]).slice(0, 40).map(([g]) => g);
+  }
+  const BANNED = ["delve", "crucial", "pivotal", "robust", "seamless", "seamlessly", "leverage", "foster", "underscore", "underscores", "bolster", "intricate", "multifaceted", "nuanced", "comprehensive", "holistic", "landscape", "realm", "tapestry", "testament", "navigate", "embark", "showcase", "showcases", "highlights", "emphasizes", "ensures", "enhances", "elevate", "unlock", "empower", "game-changer", "cutting-edge", "truly", "incredibly", "significantly", "remarkably", "fundamentally", "profoundly", "furthermore", "moreover", "additionally", "consequently", "notably", "ultimately", "overall", "bold", "spicy", "respectfully", "receipts"];
+  const BANNED_RE = new RegExp(`\\b(${BANNED.join("|")})\\b`, "i");
+  const PATTERNS = [
+    [/[—]|\s–\s/, "an em dash"],
+    [/\bnot (just|only)\b[^.]{0,60}\b(but|it'?s|it is)\b/i, "a \"not just X, it's Y\" setup"],
+    [/\bisn'?t about\b[^.]{0,60}\bit'?s about\b/i, "an \"isn't about X, it's about Y\" setup"],
+    [/,\s*(highlighting|showcasing|underscoring|proving|ensuring|signaling|reflecting|cementing|showing that)\b/i, "a trailing -ing clause"],
+    [/\b(could potentially|it could be argued|may often|generally tends)\b/i, "stacked hedging"],
+    [/\b(it'?s worth noting|it is important to note|when it comes to|at the end of the day|plays a (key|vital|crucial) role)\b/i, "a stock filler phrase"],
+    [/\b(the result|here'?s the thing|the truth|the reality|bottom line|the kicker|translation|spoiler)\s*:/i, "a colon reveal"],
+    [/\?\s+[A-Za-z]/, "a rhetorical question answered right after"],
+    [/\b(great|interesting|hot) take\b|\blet'?s (be real|look)\b|\bthe numbers say otherwise\b|\bnot the flex\b/i, "a stock reply line"],
+    [/#\w/, "a hashtag"], [/https?:\/\//, "a link"],
+  ];
+  function styleIssues(t, banned) {
+    const out = [], m = String(t || "").match(BANNED_RE);
+    if (m) out.push(`uses "${m[1]}"`);
+    for (const [re, what] of PATTERNS) if (re.test(t || "")) out.push(`has ${what}`);
+    const g = grams(t), hit = banned.filter((x) => g.has(x));
+    if (hit.length) out.push(`repeats ${hit.slice(0, 4).map((x) => `"${x}"`).join(", ")} from your recent replies`);
+    const col = String(t || "").match(/\b[a-z]+_[a-z0-9_]+\b/);
+    if (col) out.push(`uses the column name "${col[0]}" (say it in plain words)`);
+    if (String(t || "").length > 280) out.push(`is ${String(t).length} characters (keep it to 280)`);
+    return out;
+  }
+  const TONE_RULE = {
+    straight: "Straight: confident and a little dry, no jokes.",
+    funny: "Funny, not mean: a light joke, playful comparison or football reference built from this take's details and wrapped around the number.",
+    sarcastic: "Sarcastic: deadpan and mock-sincere; the joke comes from the specific thing the take ignores (the games he missed, the soft schedule, the 2-week sample). Roast the take, never the person.",
+  };
+  const VERDICT = {
+    name: "take_verdict",
+    description: "Deliver the finished take check. Call it once, last, after every lookup. Nothing else is shown to the member.",
+    input_schema: { type: "object", required: ["verdict", "headline", "claims", "replies"], properties: {
+      verdict: { type: "string", enum: ["holds", "mixed", "misleading", "wrong", "cant_check", "question"] },
+      headline: { type: "string", description: "one sentence summing it up" },
+      claims: { type: "array", items: { type: "object", required: ["claim", "verdict", "evidence"], properties: { claim: { type: "string" }, verdict: { type: "string", enum: ["holds", "mixed", "misleading", "wrong", "cant_check"] }, evidence: { type: "string" } } } },
+      missing: { type: "array", items: { type: "string" } },
+      chart: { type: "object", required: ["title", "items"], properties: { title: { type: "string" }, unit: { type: "string" }, lower_is_better: { type: "boolean" }, source: { type: "string" },
+        items: { type: "array", items: { type: "object", required: ["label", "value"], properties: { label: { type: "string" }, value: { type: "number" }, rank: { type: "integer" }, highlight: { type: "boolean" } } } } } },
+      replies: { type: "object", properties: { agree: { type: "string" }, pushback: { type: "string" }, answer: { type: "string" } } },
+    } },
+  };
+  function takeRules(shapes, banned) {
+    return `TAKE CHECK. The member pasted a take (from X, Reddit or a group chat; text and/or a screenshot) and wants it fact-checked like a sharp football statistician would, plus replies they can post themselves.
+
+How to work:
+1. Pull out each checkable claim and get the real numbers with the tools: find_player before player_stats; leaderboard to rank a number among peers; team_stats and our_rankings for teams, schedules and cupcake padding; team_status and site_tab "injuries" for injuries; site_tab "frauds"/"over_achievers" for overrated, bust or breakout takes; pace_to for every "on pace for" or "will he reach X" take; scatter_data for two stats across every team or the top players; stat_menu to find the stat that settles it (reach past yards, touchdowns and EPA when another stat settles it better: success rate, CPOE, first-down rate, YAC, drops, vs the blitz, pressure, red zone, 3rd down, penalties); site_lists for coaches, records, Trade watch and our Heisman race; season_records for record claims; career and game_log for older seasons and careers; schedule_history for schedule strength in past years; rare_plays for specific plays; how_we_count for how our stats are defined. Several calls per round when you can.
+2. Only state numbers that came from a tool result. Never from memory. Don't do math in your head: state both numbers instead of a gap you worked out. A claim our data can't settle is "cant_check", saying what's missing.
+3. Look for the classic flaws: tiny sample, cherry-picked weeks, counting stat vs rate, ignoring opponent quality (our rankings and cupcake data), games missed, different positions or eras, correlation sold as cause.
+4. If the post asks a question instead of making a claim, verdict "question", the headline is the straight answer, and write one reply: replies.answer (use the "agree" shape and length below). A "will he reach X" question: answer from pace_to (ahead of the needed pace leans yes, behind leans no), never from other players' averages.
+5. LOGIC: every yes/no, verdict and "probably" must follow from the numbers you cite.
+6. No betting content: no spreads, lines, odds or picks. Our win chance is fine.
+
+Finish by calling take_verdict once:
+- verdict: holds | mixed | misleading | wrong | cant_check | question. headline: one sentence.
+- claims: each claim, its own verdict, and the numbers that decide it with ranks (one or two sentences). Stats in plain words, never column names.
+- missing: context the take leaves out (0-3 short items).
+- chart (optional): one bar chart that makes the point, only numbers you pulled, 4-10 items sorted best first, the player or team in the take marked highlight; for a ranking give every item its rank (1 = first) so skipped places show. Short labels (last names, team abbreviations).
+- replies.agree backs the take with a stat; replies.pushback corrects it with a different stat. If the take is plainly right, pushback adds the nuance instead. Each at most 280 characters, no links, no hashtags, no @handles.
+REPLY TONE: ${TONE_RULE[tone]} The numbers stay exactly right. No insults about anyone's looks, family or identity, no slurs. Never use "bold" in any form, "hot take", "spicy", "respectfully", "let's be real", "the numbers say otherwise", "the receipts", "imagine", or a cupcake joke unless the take is about a soft schedule. The two replies open differently (different first word and sentence shape).
+REPLY SHAPES (follow them): "agree": ${SHAPES[shapes.agree]} Length: ${LENGTHS[shapes.agree_len]}. "pushback": ${SHAPES[shapes.pushback]} Length: ${LENGTHS[shapes.pushback_len]}. Targets, not quotas; never pad.
+WRITING (headline, evidence, missing, replies): write like a sharp fan typing on X. Plain words. No em dashes. No intensifiers (truly, incredibly, significantly). No "not just X, it's Y", no colon reveals ("Here's the thing:"), no rhetorical questions you answer yourself, no trailing "-ing" clause (", highlighting..."), no stacked hedges, no wrap-up sentence, no "Overall", no formal transitions (furthermore, moreover, additionally, notably, ultimately). Don't default to three of anything. Pick a side and defend it with the number. A line that could sit under any take about any player is a bad line: use a detail only this take has. Don't open by restating the take.${banned.length ? `\nPhrases this member's recent replies already used, don't reuse: ${banned.join(" | ")}` : ""}
+A filter checks the replies after you answer; anything it catches gets rewritten.`;
+  }
+  // the one review call: a logic check on every reply and the headline, plus a rewrite of anything the filter caught
+  async function review(res, banned, system) {
+    const rp = res.replies || {}, keys = ["answer", "agree", "pushback"].filter((k) => rp[k]), issues = {};
+    for (const k of keys) { const i = styleIssues(rp[k], banned); if (i.length) issues[k] = i; }
+    const a = words(rp.agree)[0], b = words(rp.pushback)[0];
+    if (a && a === b) (issues.pushback ||= []).push(`opens with the same word as the other reply ("${a}")`);
+    const ask = `You're reviewing reply drafts before a member posts them. The facts they were built from:
+${JSON.stringify({ headline: res.headline, claims: res.claims })}
+
+${["headline", ...keys].map((k) => `"${k}": ${k === "headline" ? res.headline : rp[k]}${issues[k] ? `\nFilter caught: ${issues[k].join("; ")}` : ""}`).join("\n\n")}
+
+For the headline and each draft: does its conclusion follow from its own numbers and the facts above (a yes/no or "probably" the numbers point the other way on, a comparison that doesn't bear on the question, a number used to mean something it doesn't)? Rewrite ONLY a draft with a logic problem or a filter catch: keep every number, name and fact exactly, roughly the same length and the same opening shape, fix each problem, at most 280 characters, plain words, no em dashes, no hashtags, no links.${banned.length ? ` Phrases that must not appear: ${banned.join(" | ")}.` : ""}
+Reply with ONLY JSON, no other text: ${JSON.stringify(Object.fromEntries(["headline", ...keys].map((k) => [k, "the text, rewritten only if it had a problem"])))}`;
+    try {
+      const out = await call("/chat", { system, tools: [], messages: [{ role: "user", content: ask }], newQuestion: false });
+      me = { ...me, ...out.usage }; usageLine();
+      const t = (out.content || []).filter((x) => x.type === "text").map((x) => x.text).join("");
+      const j = JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1));
+      for (const k of keys) if (typeof j[k] === "string" && j[k].trim() && styleIssues(j[k], banned).length <= (issues[k] || []).length) rp[k] = j[k].trim();
+      if (typeof j.headline === "string" && j.headline.trim()) res.headline = j.headline.trim();
+    } catch (e) { /* keep the drafts as they were */ }
+    res.replies = rp;
+    return res;
+  }
+
+  async function checkTake(q, sent = []) {
+    busy = true;
+    el.classList.add("busy");
+    bubble("me", `<span class="bot-tag">Take check</span>` + (sent.length ? `<div class="bot-thumbs">${sent.map((p) => `<img src="${p.url}" alt="Your picture">`).join("")}</div>` : "") + (q ? `<p>${esc(q)}</p>` : ""));
+    const wait = bubble("bot wait", `<p class="muted"><span class="bot-dots">Reading the take</span></p>`), steps = wait.querySelector("p");
+    try { await needTools(); } catch (e) { wait.innerHTML = `<p class="bot-err">${esc(e.message)}</p>`; busy = false; el.classList.remove("busy"); return; }
+    BotTools.setSay((s) => { steps.innerHTML = `<span class="bot-dots">${esc(s)}</span>`; log().scrollTop = log().scrollHeight; });
+    const shapes = pickShapes(), banned = repeats(), links = [];
+    quiet = true;
+    try {
+      const system = sys ||= await prompt();
+      const tm = [{ role: "user", content: [{ type: "text", text: await now() },
+        ...sent.map((p) => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: p.data } })),
+        { type: "text", text: takeRules(shapes, banned) + "\n\nTHE TAKE:\n" + (q || "(see the screenshot)") + (sent.length ? "\n\nA screenshot is attached: read the take, and any numbers in it, from the picture." : "") }] }];
+      const defs = [...TOOL_DEFS().filter((t) => t.name !== "show_chart" && t.name !== "open_page"), VERDICT];
+      let res = null, last = null;
+      for (let round = 0; round < MAX_ROUNDS + 2 && !res; round++) {
+        last = await call("/chat", { system, tools: defs, messages: tm, newQuestion: false, take: round === 0 });
+        me = { ...me, ...last.usage };
+        usageLine();
+        const v = (last.content || []).find((b) => b.type === "tool_use" && b.name === VERDICT.name);
+        if (v) { res = v.input; break; }
+        tm.push({ role: "assistant", content: last.content });
+        if (last.stop_reason !== "tool_use") break;
+        const results = [];
+        for (const b of last.content.filter((x) => x.type === "tool_use")) {
+          let out, bad = false;
+          try { out = await run(b.name, b.input || {}, links); } catch (e) { out = { error: String(e.message || e) }; bad = true; }
+          let s = JSON.stringify(out);
+          if (s.length > 40000) s = s.slice(0, 40000) + "…(cut: ask for a narrower list)";
+          results.push({ type: "tool_result", tool_use_id: b.id, content: s, ...(bad ? { is_error: true } : {}) });
+        }
+        tm.push({ role: "user", content: results });
+        steps.innerHTML = `<span class="bot-dots">Checking the numbers</span>`;
+      }
+      if (!res?.verdict) {
+        const text = (last?.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n\n").trim();
+        wait.classList.remove("wait");
+        wait.innerHTML = text ? fmt(text) : `<p class="muted">${last?.stop_reason === "refusal" ? "I can't check that one." : "I ran out of steps on that one. Try one claim at a time."}</p>`;
+      } else {
+        steps.innerHTML = `<span class="bot-dots">Checking the replies</span>`;
+        await review(res, banned, system);
+        wait.classList.remove("wait");
+        wait.classList.add("take");
+        wait.innerHTML = verdictCard(res, q);
+        store.set("take-shapes", [shapes.agree, shapes.pushback]);
+        store.set("take-replies", [res.replies?.answer, res.replies?.agree, res.replies?.pushback, ...(store.get("take-replies") || [])].filter(Boolean).slice(0, 30));
+      }
+    } catch (e) {
+      if (e.usage) { me = { ...me, ...e.usage }; usageLine(); }
+      wait.classList.remove("wait");
+      wait.innerHTML = `<p class="bot-err">${esc(e.message || "Something went wrong.")}</p>`;
+    }
+    quiet = false;
+    log().scrollTop = log().scrollHeight;
+    busy = false;
+    el.classList.remove("busy");
+  }
+
+  const VLABEL = { holds: "HOLDS UP", mixed: "MIXED", misleading: "MISLEADING", wrong: "WRONG", cant_check: "CAN'T CHECK", question: "ANSWER" };
+  const vcls = (v) => ({ holds: "ok", question: "ok", mixed: "meh", misleading: "meh", wrong: "no" })[v] || "na";
+  function verdictCard(r, take) {
+    const c = r.chart, items = Array.isArray(c?.items) ? c.items.filter((x) => Number.isFinite(+x.value)).slice(0, 10) : [];
+    const top = Math.max(...items.map((x) => Math.abs(+x.value)), 0) || 1;
+    const fmtV = (v) => Math.abs(v) >= 100 ? Math.round(v).toLocaleString() : String(Math.round(v * 100) / 100);
+    const chart = items.length >= 2 ? `<figure class="bot-tchart"><figcaption>${esc(c.title)}${c.unit ? ` <span class="muted">${esc(c.unit)}${c.lower_is_better ? ", lower is better" : ""}</span>` : ""}</figcaption>
+        ${items.map((x) => `<div class="${x.highlight ? "hi" : ""}"><span>${x.rank ? `<i>${+x.rank}</i>` : ""}${esc(x.label)}</span><b style="--w:${Math.max(2, Math.abs(+x.value) / top * 100).toFixed(1)}%"></b><em>${fmtV(+x.value)}</em></div>`).join("")}
+        ${c.source ? `<small class="muted">${esc(c.source)}</small>` : ""}</figure>` : "";
+    // Post on X: a reply to the post when they pasted its link, else a new post. They still press Post themselves.
+    const id = String(take || "").match(/(?:x|twitter)\.com\/\w+\/status\/(\d+)/i)?.[1];
+    const xUrl = (t) => `https://x.com/intent/post?text=${encodeURIComponent(t)}${id ? `&in_reply_to=${id}` : ""}`;
+    const rp = r.replies || {};
+    const reply = (k, label) => rp[k] ? `<div class="bot-reply"><h4 class="bot-h">${label} <span class="muted">${rp[k].length}/280</span></h4><p>${esc(rp[k])}</p>
+        <div class="bot-ra"><button type="button" class="bot-copy" data-copy="${esc(rp[k])}">Copy</button><a href="${esc(xUrl(rp[k]))}" target="_blank" rel="noopener">${id ? "Reply on X" : "Post on X"} ↗</a></div></div>` : "";
+    return `<div class="bot-stamp ${vcls(r.verdict)}">${VLABEL[r.verdict] || "CAN'T CHECK"}</div>
+      <p class="bot-lead">${esc(r.headline || "")}</p>
+      ${(r.claims || []).length ? `<h4 class="bot-h">The claims</h4><ul class="bot-claims">${r.claims.map((x) => `<li><span class="bot-ctag ${vcls(x.verdict)}">${VLABEL[x.verdict] || "CAN'T CHECK"}</span> <b>${esc(x.claim)}</b><br>${esc(x.evidence)}</li>`).join("")}</ul>` : ""}
+      ${(r.missing || []).length ? `<h4 class="bot-h">What it leaves out</h4><ul>${r.missing.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+      ${chart}
+      ${reply("answer", "Your reply")}${reply("agree", "Reply that backs it")}${reply("pushback", "Reply that pushes back")}`;
   }
 
   // ---------- the instructions ----------
@@ -551,6 +788,7 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
   ];
   // on a phone the panel covers the page: tuck it away so the chart or page is what they see
   function go(href) {
+    if (quiet) return; // a take check looks things up without moving the page behind it
     location.hash = href.slice(1);
     if (window.innerWidth < 600) setTimeout(() => el?.querySelector(".bot-x")?.click(), 900);
   }
