@@ -53,6 +53,7 @@ jobs:
         run: |
           python src/social/cupcake_history.py
           python src/social/team_facts.py || echo "Facts skipped this time"   # team pages: Just the Facts
+          python src/social/schedule_history.py || echo "Schedule history skipped this time"   # the Analyst chat's schedule_history
           python src/social/nfl_facts.py --refresh || echo "NFL facts skipped this time"
       - name: Make the drafts
         env:
@@ -91,7 +92,7 @@ jobs:
         run: |
           git config user.name "rankings-bot"
           git config user.email "rankings-bot@users.noreply.github.com"
-          git add data/history docs/data/cfb/facts.json docs/data/cfb/shame.json docs/data/nfl/facts.json
+          git add data/history docs/data/cfb/facts.json docs/data/cfb/shame.json docs/data/nfl/facts.json docs/data/schedule_history.json
           git add data/social/posted.json 2>/dev/null || true
           for p in docs/data/takes.json docs/takes; do git add "$p" 2>/dev/null; done; true   # the Takes page (src/social/feed.py)
           git diff --cached --quiet && echo "Nothing new" && exit 0

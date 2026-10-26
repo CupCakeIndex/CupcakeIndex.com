@@ -3643,11 +3643,25 @@ a.gl-row:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); 
 }
 
 /* the Cupcake Analyst chat (bot.js): a button in the bottom right for members, and its panel */
-.bot-fab { position: fixed; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 62; display: flex; align-items: center; gap: 8px;
-  min-height: 48px; padding: 0 16px 0 13px; border: 0; border-radius: 24px; cursor: pointer; background: var(--accent-fill, var(--accent)); color: var(--on-accent, #000);
-  box-shadow: 0 8px 24px rgba(0,0,0,.45); font: 700 13px/1 var(--font-body); letter-spacing: .06em; text-transform: uppercase; }
+.bot-fab { position: fixed; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 62; display: flex; align-items: center; gap: 10px;
+  min-height: 52px; padding: 0 16px 0 8px; border: 1px solid var(--accent); border-radius: 10px; cursor: pointer; background: var(--card); color: var(--ink);
+  box-shadow: 0 8px 24px rgba(0,0,0,.45), 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); font: 800 13px/1 var(--font-head, var(--font-body)); letter-spacing: .08em; text-transform: uppercase;
+  transition: transform .15s, box-shadow .15s; }
+.bot-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,.5), 0 0 0 4px color-mix(in srgb, var(--accent) 28%, transparent); }
+/* the cupcake mark in a little speech bubble (the tail is the ::after) */
+.bot-mark { position: relative; display: inline-flex; align-items: center; justify-content: center; flex: none; width: 36px; height: 36px; border-radius: 9px;
+  background: var(--accent-soft); border: 1.5px solid var(--accent); color: var(--ink); }
+.bot-mark::after { content: ""; position: absolute; left: 6px; bottom: -6px; width: 9px; height: 9px; background: var(--accent-soft); border: solid var(--accent); border-width: 0 0 1.5px 1.5px; transform: skewY(-35deg); }
+.bot-mark .logo-mark { height: 25px; width: auto; }
+.bot-word i { font-style: normal; color: var(--accent); animation: bot-blink 1.1s steps(1) infinite; }
+@keyframes bot-blink { 50% { opacity: 0; } }
+.bot-title { display: flex; align-items: center; gap: 9px; font-family: var(--font-head, inherit); font-weight: 800; letter-spacing: -.02em; }
+.bot-title b { color: var(--accent); font-weight: inherit; }
+.bot-title .bot-mark { width: 28px; height: 28px; border-radius: 7px; }
+.bot-title .bot-mark::after { left: 4px; bottom: -5px; width: 7px; height: 7px; }
+.bot-title .bot-mark .logo-mark { height: 19px; }
 .bot-fab:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
-.bot.open .bot-fab { background: var(--ink); color: var(--bg); }
+.bot.open .bot-fab { background: var(--accent-soft); }
 body:has(#view-rankings:not(.hidden) .weights-fab) .bot-fab { bottom: calc(74px + env(safe-area-inset-bottom)); }
 .bot-panel { position: fixed; right: 18px; bottom: calc(78px + env(safe-area-inset-bottom)); z-index: 63; width: min(400px, calc(100vw - 24px)); height: min(560px, calc(100dvh - 110px));
   display: flex; flex-direction: column; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-top: 3px solid var(--accent); box-shadow: 0 16px 48px rgba(0,0,0,.55); }
@@ -3658,10 +3672,19 @@ body:has(#view-rankings:not(.hidden) .weights-fab) .bot-fab { bottom: calc(74px 
 @keyframes bot-pop-out { to { opacity: 0; transform: translateY(10px) scale(.94); } }
 body:has(#view-rankings:not(.hidden) .weights-fab) .bot-panel { bottom: calc(134px + env(safe-area-inset-bottom)); height: min(560px, calc(100dvh - 166px)); }
 .bot-panel header { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; border-bottom: 1px solid var(--line); }
-.bot-panel header b { font-size: 14px; }
+.bot-panel header .bot-title { font-size: 14px; white-space: nowrap; }
 .bot-use { flex: 1; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bot-new, .bot-x { min-height: 36px; min-width: 36px; padding: 0 10px; background: none; border: 1px solid var(--line); color: var(--ink); cursor: pointer; font: inherit; font-size: 12px; }
 .bot-x { font-size: 16px; padding: 0; }
+.bot-max { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; min-width: 36px; padding: 0; background: none; border: 1px solid var(--line); color: var(--ink); cursor: pointer; }
+.bot-max[aria-pressed="true"] svg { transform: rotate(180deg); }
+.bot-max svg { transition: transform .2s; }
+.bot-new:hover, .bot-x:hover, .bot-max:hover { border-color: var(--accent); }
+.bot-panel { transition: width .22s ease, height .22s ease; }
+.bot.max .bot-panel { width: min(960px, calc(100vw - 36px)); height: calc(100dvh - 110px); }
+body:has(#view-rankings:not(.hidden) .weights-fab) .bot.max .bot-panel { height: calc(100dvh - 166px); }
+.bot.max .bot-msg { max-width: 80%; font-size: 15px; }
+.bot.max .bot-log { padding: 16px 24px; }
 .bot-log { flex: 1; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; overscroll-behavior: contain; }
 .bot-hi { margin: 0; font-size: 13px; line-height: 1.5; }
 .bot-msg { max-width: 92%; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
@@ -3690,7 +3713,7 @@ body:has(#view-rankings:not(.hidden) .weights-fab) .bot-panel { bottom: calc(134
 .bot-msg.wait p { font-size: 13px; }
 .bot-dots::after { content: ""; animation: bot-dots 1.2s steps(4) infinite; }
 @keyframes bot-dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
-@media (prefers-reduced-motion: reduce) { .bot-dots::after { animation: none; content: "..."; } .bot-panel, .bot-panel.closing, .bot-msg { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .bot-dots::after { animation: none; content: "..."; } .bot-panel, .bot-panel.closing, .bot-msg, .bot-word i { animation: none; } }
 .bot-link { font-weight: 700; color: var(--accent); }
 .bot-err { color: var(--bad); }
 .bot-ask { display: flex; gap: 8px; align-items: flex-end; padding: 10px; border-top: 1px solid var(--line); }
@@ -3699,10 +3722,19 @@ body:has(#view-rankings:not(.hidden) .weights-fab) .bot-panel { bottom: calc(134
 .bot-send { min-height: 40px; padding: 0 14px; border: 0; cursor: pointer; background: var(--accent-fill, var(--accent)); color: var(--on-accent, #000); font: 700 13px/1 var(--font-body); }
 .bot.busy .bot-send { opacity: .5; cursor: wait; }
 @media (max-width: 600px) {
-  .bot-fab { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); padding: 0 14px 0 12px; }
+  .bot-fab { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); padding: 0 14px 0 7px; min-height: 50px; }
   .bot-panel { right: 0; left: 0; bottom: 0; width: 100%; height: calc(100dvh - 56px); border-left: 0; border-right: 0; padding-bottom: env(safe-area-inset-bottom); }
   body:has(#view-rankings:not(.hidden) .weights-fab) .bot-fab { bottom: calc(66px + env(safe-area-inset-bottom)); }
   body:has(#view-rankings:not(.hidden) .weights-fab) .bot-panel { bottom: 0; height: calc(100dvh - 56px); }
   .bot.open .bot-fab { display: none; }
+  .bot-max { display: none; }
+  .bot-ask { padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); }
+  .bot-log { padding: 12px 16px; }
+  .bot.max .bot-panel { width: 100%; height: calc(100dvh - 56px); }
+  body:has(#view-rankings:not(.hidden) .weights-fab) .bot.max .bot-panel { height: calc(100dvh - 56px); }
   .bot-panel { transform-origin: 50% 100%; }
+}
+@media (max-width: 600px) and (display-mode: standalone) {
+  /* the home-screen app reaches the screen's rounded corners: lift the input row clear of them and the home bar */
+  .bot-ask { padding: 10px 18px 34px; }
 }

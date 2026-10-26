@@ -42,11 +42,11 @@ const Bot = (() => {
   function build() {
     el = document.createElement("div");
     el.className = "bot";
-    el.innerHTML = `<button type="button" class="bot-fab" aria-expanded="false" aria-controls="bot-panel" title="Ask the Cupcake Analyst">
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4v-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm3 6.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm5 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm5 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/></svg>
-        <span>Ask</span></button>
+    el.innerHTML = `<button type="button" class="bot-fab" aria-expanded="false" aria-controls="bot-panel" title="Ask the Cupcake Analyst" aria-label="Ask the Cupcake Analyst">
+        <span class="bot-mark"></span><span class="bot-word">Analyst<i>_</i></span></button>
       <section id="bot-panel" class="bot-panel" hidden aria-label="Cupcake Analyst">
-        <header><b>Cupcake Analyst</b><span class="bot-use muted"></span>
+        <header><b class="bot-title"><span class="bot-mark"></span><span>CUPCAKE<b>_ANALYST</b></span></b><span class="bot-use muted"></span>
+          <button type="button" class="bot-max" aria-pressed="false" title="Make the chat bigger" aria-label="Make the chat bigger"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg></button>
           <button type="button" class="bot-new" title="Start a new conversation">New</button>
           <button type="button" class="bot-x" aria-label="Close">✕</button></header>
         <div class="bot-log" aria-live="polite"><p class="bot-hi muted">Ask about any player, team or stat. I answer from the site's own numbers and can open a chart for you.
@@ -55,6 +55,9 @@ const Bot = (() => {
           <button type="submit" class="bot-send">Send</button></form>
       </section>`;
     document.body.appendChild(el);
+    // the site's own cupcake mark (from the header logo), in a speech bubble
+    const mark = document.querySelector(".logo-mark");
+    if (mark) el.querySelectorAll(".bot-mark").forEach((m) => m.appendChild(mark.cloneNode(true)));
     const fab = el.querySelector(".bot-fab"), panel = el.querySelector(".bot-panel"), ta = el.querySelector("textarea");
     let shut = 0;
     const toggle = (open) => { // the panel grows out of the Ask button, and shrinks back into it (style.css bot-pop)
@@ -67,6 +70,15 @@ const Bot = (() => {
     };
     fab.addEventListener("click", () => toggle(panel.hidden || panel.classList.contains("closing")));
     el.querySelector(".bot-x").addEventListener("click", () => toggle(false));
+    // bigger chat on a computer (phones already get the whole screen); remembered on this device
+    const maxBtn = el.querySelector(".bot-max"), setMax = (on) => {
+      el.classList.toggle("max", on);
+      maxBtn.setAttribute("aria-pressed", String(on));
+      maxBtn.title = maxBtn.ariaLabel = on ? "Make the chat smaller" : "Make the chat bigger";
+      try { localStorage.setItem("bot-max", on ? "1" : ""); } catch (e) { /* private mode */ }
+    };
+    try { setMax(localStorage.getItem("bot-max") === "1"); } catch (e) { /* private mode */ }
+    maxBtn.addEventListener("click", () => { setMax(!el.classList.contains("max")); log().scrollTop = log().scrollHeight; });
     el.querySelector(".bot-new").addEventListener("click", () => { if (busy) return; msgs = []; sys = null; el.querySelector(".bot-log").innerHTML = ""; ta.focus(); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !panel.hidden) toggle(false); });
     ta.addEventListener("input", () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 120) + "px"; });
@@ -202,6 +214,7 @@ How to answer:
 - Injury notes and headlines are reports from the date they carry (note_date, published). A game they mention may already be over: check scores before saying a player will or won't play in a game.
 - "What's the score", "did they win", "when do they play": scores. Standings, division leaders, playoff seeds: standings. Recent news on a team or player: news.
 - Careers and older seasons: anything before ${S("nfl").at(-1)} (NFL) or ${S("cfb").at(-1)} (college), a player's whole career, "first three years", or comparing careers: call career (season totals) or game_log (a single game or game-by-game stats in a season). career opens our career comparison chart, which is the chart for those years: Visualize (show_chart, radars) only has ${S("nfl").at(-1)} on, so if they asked for a radar of older seasons, say that in one short line and show the career comparison.
+- Schedule strength in past seasons ("weakest schedule ever", "toughest in the last 30 years", a team's history): schedule_history. If they don't say college or NFL, answer for both.
 - Never tell the member we don't have something until you've tried every tool that could have it. The weekly data starting in ${S("nfl").at(-1)} is NOT where our player history starts. If a tool says it has no data, try the next tool that could (player_stats, then game_log or career) before answering.
 - Our site is the source of truth. If no tool covers what they asked, say "I can't look that up yet" and point to the page with open_page; never say the site doesn't have something, and never guess.
 - No betting content: no spreads, lines, odds, over/unders or picks against a line. Our win chance and predicted score are fine.
@@ -409,6 +422,26 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
         go(href);
         links.push({ href, label: `Open ${keys.length > 1 ? "career comparison" : `${P[0].name}'s career`}` });
         return { source: "ESPN career stats (the player pages' Stats by year)", lined_up_by: byCareer ? "career year" : "season", players };
+      },
+    },
+    {
+      name: "schedule_history",
+      description: "Schedule strength for every team and season we have games for (college 1979 on, NFL 1999 on): opponents' win share (games vs the team left out), college: cupcakes played (our rule), lower-division games and opponents' average rating in our model; NFL: opponents' average point margin. Ranks the easiest or hardest schedules over a range of seasons, or shows one team's seasons. Use it for 'weakest/toughest schedule ever / since X / in the last N years'.",
+      input_schema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, from: { type: "integer" }, to: { type: "integer" }, team: { type: "string" },
+        order: { type: "string", enum: ["easiest", "hardest"] }, by: { type: "string", enum: ["opp_win_pct", "opp_rating", "opp_margin", "cupcakes"] }, top: { type: "integer" } }, required: ["league"] },
+      async execute(a) {
+        const D = await getJSON("data/schedule_history.json"), lg = a.league === "cfb" ? "cfb" : "nfl", L = D[lg], have = Object.keys(L).map(Number).sort((x, y) => x - y);
+        const from = Math.max(+a.from || have[0], have[0]), to = Math.min(+a.to || have.at(-1), have.at(-1));
+        // college: the model's opponent rating is the fair measure (lower-division teams' records only count their games against FBS teams)
+        const by = a.by || (lg === "cfb" ? "opp_rating" : "opp_win_pct"), easiest = a.order !== "hardest";
+        const minG = lg === "nfl" ? 14 : 10, team = a.team && matchTeam(a.team, [...new Set(Object.values(L).flatMap((s) => s.teams.map((t) => t.team)))]);
+        if (a.team && !team) throw new Error(`No ${lg} team matching "${a.team}" in our schedule history.`);
+        let rows = have.filter((s) => s >= from && s <= to).flatMap((s) => L[s].teams.map((t) => ({ season: s, ...t, ...(L[s].partial || (lg === "nfl" && s === have.at(-1)) ? { season_in_progress: true } : {}) })))
+          .filter((t) => (team ? t.team === team : t.games >= minG) && t[by] != null);
+        const sign = (by === "cupcakes" ? -1 : 1) * (easiest ? 1 : -1); // easiest = the weakest opponents, or the most cupcakes
+        rows.sort((x, y) => sign * (x[by] - y[by]));
+        return { covers: `${lg === "nfl" ? "NFL" : "College (FBS)"} ${from}-${to}${+a.from && +a.from < have[0] ? ` (our games start in ${have[0]})` : ""}`, ranked_by: by, order: easiest ? "easiest" : "hardest",
+          note: D.note, ...(team ? {} : { min_games: minG }), seasons_compared: rows.length, teams: rows.slice(0, Math.min(+a.top || 10, team ? 60 : 25)) };
       },
     },
     {
