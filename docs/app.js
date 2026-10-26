@@ -185,7 +185,7 @@ async function route() {
     await loadWeek();
     const team = r.params.get("team");
     if (r.view === "rankings" && team) openTeam(team);
-    if (r.view === "rankings") $("#daily-st").textContent = Daily.status();
+    if (r.view === "rankings") { $("#daily-st").textContent = Daily.status(); startHere(); }
     if (r.view === "schedules") renderSchedules();
     if (r.view === "resume") renderResume();
   } else if (r.view === "updates") {
@@ -287,7 +287,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "440"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "441"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -1000,8 +1000,28 @@ function apTag(t) {
   return "";
 }
 
+// "Start here" strip on the rankings page for new visitors: your team, this week's games, make a chart.
+// Counts one visit per browser session and hides itself after 5 visits (or for good with its ×).
+const START_VISITS = 5;
+try { if (!sessionStorage.getItem("ci-visit")) { sessionStorage.setItem("ci-visit", "1"); store.set("ci-visits", (store.get("ci-visits") || 0) + 1); } } catch {}
+function startHere() {
+  const box = $("#start-here");
+  if (!box) return;
+  if (store.get("ci-start-off") || (store.get("ci-visits") || 0) > START_VISITS) { box.classList.add("hidden"); return; }
+  const mine = typeof Profile !== "undefined" ? Profile.mine(league) : null;
+  box.innerHTML = `<b class="sh-tag">Start here</b>
+    ${mine ? `<a class="btn" href="${link("team", mine.id, { league })}">★ Your team: ${esc(mine.name)}</a>` : `<button type="button" class="btn" id="sh-team">★ Pick your team</button>`}
+    <a class="btn" href="${link("scores")}">🏈 This week's games</a>
+    <a class="btn" href="${link("stats", null, { show: "visualize" })}">📈 Make a chart</a>
+    <button type="button" class="close-x" id="sh-x" aria-label="Hide this">×</button>`;
+  box.classList.remove("hidden");
+  $("#sh-team")?.addEventListener("click", () => Profile.open(false));
+  $("#sh-x").onclick = () => { store.set("ci-start-off", 1); box.classList.add("hidden"); };
+}
+
 function render() {
   if (!DATA) return;
+  startHere(); // picking your team in the welcome window re-renders: the strip's team button follows
   ranked = rankTeams(DATA.teams);
   const prevRank = PREV ? Object.fromEntries(rankTeams(PREV.teams).map((t) => [t.team, t.rank])) : {};
   const q = $("#search").value.trim().toLowerCase(), conf = $("#conf").value, top = $("#top25").checked, prof = $("#profile").value;

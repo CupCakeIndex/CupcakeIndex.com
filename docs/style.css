@@ -3541,3 +3541,15 @@ a.gl-row:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); 
 .gcv-pbpw[open] > summary::before { transform: rotate(90deg); }
 .gcv-pbpw > summary .muted { font-weight: 400; font-size: 12px; }
 .gcv-pbpw .gcv-pbp { margin-top: 0; }
+
+/* "Start here" strip on the rankings page for new visitors (app.js startHere) */
+.start-here { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--line); border-left: 5px solid var(--accent); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+.start-here .sh-tag { text-transform: uppercase; letter-spacing: .08em; font-size: 10.5px; color: var(--accent); margin-right: 4px; }
+.start-here .btn { font-size: 13px; }
+.start-here .close-x { margin-left: auto; }
+@media (max-width: 560px) {
+  .start-here { display: grid; grid-template-columns: 1fr auto; }
+  .start-here .sh-tag { grid-column: 1; }
+  .start-here .close-x { grid-column: 2; grid-row: 1; }
+  .start-here .btn { grid-column: 1 / -1; text-align: center; }
+}

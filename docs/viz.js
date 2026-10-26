@@ -1948,11 +1948,36 @@ const Viz = (() => {
       const regulars = vol ? keys.filter((x) => picks.includes(x) || (vol(agg[x].S) || 0) >= (st.min !== "" ? +st.min : most * 0.35)) : keys;
       const pctile = (s, k) => { const q = qualify(s).filter((x) => regulars.includes(x)), v = val(s, k); if (v == null) return null; const vals = q.map((x) => val(s, x)).filter((x) => x != null);
         const below = vals.filter((x) => (s[3].low ? x > v : x < v)).length; return Math.round((100 * below) / Math.max(1, vals.length - 1)); };
+      // his rank on that stat among the same group the percentile uses (ties share a rank)
+      const rankOn = (s, k) => { const v = val(s, k); if (v == null) return null;
+        return 1 + qualify(s).filter((x) => regulars.includes(x) && x !== k).map((x) => val(s, x)).filter((x) => x != null && (s[3].low ? x < v : x > v)).length; };
       title = `${who === "teams" ? "Team" : "Player"} profiles (percentile among ${who}${st.pos ? ` at ${st.pos}` : ""})`;
       cfg = { type: "radar", data: { labels: axes.map((s) => s[1].replace(/ \(.+\)/, "")), datasets: sers.map((k, i) => ({ label: short(k), data: axes.map((s) => pctile(s, k)),
         borderColor: PAL[i % PAL.length], backgroundColor: PAL[i % PAL.length] + "33", borderWidth: 2, pointRadius: 2 })) },
         options: { ...base, scales: { r: { min: 0, max: 100, ticks: { display: false, stepSize: 25 }, grid: { color: line }, angleLines: { color: line }, pointLabels: { color: ink, font: { family: "JetBrains Mono", size: px(10) } } } },
-          plugins: { ...base.plugins, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${c.dataset.label}: ${axes[c.dataIndex][1]} ${fmt(axes[c.dataIndex], val(axes[c.dataIndex], sers[c.datasetIndex]), st.per)} (better than ${c.raw}%)` } } } } };
+          plugins: { ...base.plugins, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${c.dataset.label}: ${axes[c.dataIndex][1]} ${fmt(axes[c.dataIndex], val(axes[c.dataIndex], sers[c.datasetIndex]), st.per)} (better than ${c.raw}%)` } } } },
+        plugins: [{ id: "vzRadar", afterDatasetsDraw(c) { // each corner's percentile on screen; comparing two or more, its rank too ("87% #4")
+          if (!numsOn) return;
+          const { ctx } = c, r = c.scales.r, both = sers.length > 1, h = px(9) + 6;
+          ctx.save(); ctx.font = `bold ${px(9)}px JetBrains Mono`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          axes.forEach((s, j) => {
+            const ang = r.getIndexAngle(j) - Math.PI / 2, ux = Math.cos(ang), uy = Math.sin(ang);
+            // one label per series, pushed out past its point, then spread along the spoke so they never sit on each other
+            const labs = sers.map((k, i) => ({ i, p: c.data.datasets[i].data[j], k })).filter((o) => o.p != null && !c.getDatasetMeta(o.i).hidden)
+              .map((o) => ({ ...o, d: r.getDistanceFromCenterForValue(o.p) + 12, t: `${o.p}%${both ? ` #${rankOn(s, o.k)}` : ""}` })).sort((a, b) => a.d - b.d);
+            const wMax = Math.max(0, ...labs.map((o) => ctx.measureText(o.t).width + 8));
+            const step = Math.min(Math.abs(uy) > 0.05 ? (h + 1) / Math.abs(uy) : 1e9, Math.abs(ux) > 0.05 ? (wMax + 2) / Math.abs(ux) : 1e9); // boxes clear each other on a slanted spoke
+            labs.forEach((o, n) => { if (n && o.d - labs[n - 1].d < step) o.d = labs[n - 1].d + step; });
+            const over = labs.length ? labs.at(-1).d - (r.drawingArea - h / 2) : 0; // near 100: slide the stack inside the web, off the stat names
+            if (over > 0) labs.forEach((o) => { o.d = Math.max(0, o.d - over); });
+            labs.forEach((o) => {
+              const x = r.xCenter + ux * o.d, y = r.yCenter + uy * o.d, w = ctx.measureText(o.t).width + 8, col = PAL[o.i % PAL.length];
+              const lum = parseInt(col.slice(1, 3), 16) * 0.3 + parseInt(col.slice(3, 5), 16) * 0.59 + parseInt(col.slice(5, 7), 16) * 0.11;
+              ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(x - w / 2, y - h / 2, w, h, 3); ctx.fill();
+              ctx.fillStyle = lum > 140 ? "#000" : "#fff"; ctx.fillText(o.t, x, y + 0.5);
+            });
+          });
+          ctx.restore(); } }] };
       body = { h: 440 };
       note = "100 = the best among everyone listed, 0 = the worst. Lower-is-better stats are flipped.";
     }
