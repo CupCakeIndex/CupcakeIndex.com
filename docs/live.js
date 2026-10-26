@@ -3949,11 +3949,12 @@ const Live = (() => {
     const kc = spot[0];
     const rest = g.cols.filter((c) => !spot.some((x) => x.name === c.name)).map((c) => ({ ...c, group: g.name }));
     const isTd = (c, v) => /Touchdowns$/.test(c.name) && num(v) > 0;
-    const top = (stats, high) => spot.map((c, j) => {
+    // the main stat (big, with the bar) and the other top-line stats in their own column, each a fixed width so they line up game to game
+    const top = (stats, high) => `<b>${fmt(stats[kc.i])}</b> <small>${esc(glLabel(kc))}</small>${high ? ` <em>SEASON HIGH</em>` : ""}`;
+    const sps = (stats) => `<span class="gl-sps">${spot.slice(1).map((c) => {
       const v = stats[c.i];
-      if (j === 0) return `<span class="gl-big"><b>${fmt(v)}</b> <small>${esc(glLabel(c))}</small>${high ? ` <em>SEASON HIGH</em>` : ""}</span>`;
-      return `<span class="gl-sp${isTd(c, v) ? " gl-td" : ""}"><b>${fmt(v)}</b> <small>${esc(glLabel(c))}</small></span>`;
-    }).join("");
+      return `<span class="gl-sp${isTd(c, v) ? " gl-td" : ""}"><b>${fmt(v)}</b><small>${esc(glLabel(c))}</small></span>`;
+    }).join("")}</span>`;
     const line = (stats) => rest.map((c) => {
       const v = stats[c.i];
       // kickers: a distance he didn't try (0-0) drops out, the others read "1-2 from 40-49"
@@ -3972,13 +3973,13 @@ const Live = (() => {
           <span class="gl-wk">${m.week != null ? `Wk ${esc(m.week)}` : ""}</span>
           <span class="gl-opp">${esc(m.atVs || "")} ${img(m.opponent?.logo, "xs")} ${esc(m.opponent?.abbreviation || "")}</span>
           <span class="gl-res ${res}">${esc(res)} ${esc(m.score || "")}</span>
-          <span class="gl-key">${top(ev.stats, high)}<i style="--w:${max > 0 && v > 0 ? Math.max(2, Math.round((100 * v) / max)) : 0}%"></i></span>
+          <span class="gl-key">${top(ev.stats, high)}<i style="--w:${max > 0 && v > 0 ? Math.max(2, Math.round((100 * v) / max)) : 0}%"></i></span>${sps(ev.stats)}
           <span class="gl-rest">${line(ev.stats)}</span></a>`;
       }).join("");
       const tot = stp.summary?.stats?.[0]?.stats;
       return `<h4>${esc(stp.displayName.replace(/ Stats$/, ""))}</h4><div class="gl-list">${rows}
         ${tot ? `<div class="gl-row gl-tot"><span class="gl-wk">Total</span><span class="gl-opp">${evs.length} game${evs.length > 1 ? "s" : ""}</span><span class="gl-res"></span>
-          <span class="gl-key">${top(tot, false)}</span><span class="gl-rest">${line(tot)}</span></div>` : ""}</div>`;
+          <span class="gl-key">${top(tot, false)}</span>${sps(tot)}<span class="gl-rest">${line(tot)}</span></div>` : ""}</div>`;
     }).join("");
     return (groups.length > 1 ? `<div class="seg gl-cats">${groups.map((x) => `<button data-glc="${esc(x.name)}" class="${x === g ? "active" : ""}">${esc(x.label)}</button>`).join("")}</div>` : "") + body;
   }
