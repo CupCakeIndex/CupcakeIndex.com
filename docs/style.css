@@ -3720,7 +3720,9 @@ body:has(#view-rankings:not(.hidden) .weights-fab) .bot.max .bot-panel { height:
 .bot-send { min-height: 40px; padding: 0 14px; border: 0; cursor: pointer; background: var(--accent-fill, var(--accent)); color: var(--on-accent, #000); font: 700 13px/1 var(--font-body); }
 .bot.busy .bot-send { opacity: .5; cursor: wait; }
 @media (max-width: 600px) {
-  .bot-fab { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); padding: 0 14px 0 7px; min-height: 50px; }
+  /* phones: just the cupcake badge, so it doesn't cover the page */
+  .bot-fab { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); padding: 5px; min-height: 48px; min-width: 48px; justify-content: center; }
+  .bot-fab .bot-word { display: none; }
   .bot-panel { right: 0; left: 0; bottom: 0; width: 100%; height: calc(100dvh - 56px); border-left: 0; border-right: 0; padding-bottom: env(safe-area-inset-bottom); }
   body:has(#view-rankings:not(.hidden) .weights-fab) .bot-fab { bottom: calc(66px + env(safe-area-inset-bottom)); }
   body:has(#view-rankings:not(.hidden) .weights-fab) .bot-panel { bottom: 0; height: calc(100dvh - 56px); }
