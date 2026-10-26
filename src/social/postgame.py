@@ -410,7 +410,12 @@ def make(pick, out, theme=None, photo=None):
     os.makedirs(out, exist_ok=True)
     png = os.path.join(out, f"postgame-{lg}-{p['id']}.png")
     card(lg, p, top, comp, photo, theme).convert("RGB").save(png, optimize=True)
-    return {"day": "postgame", "stat": key, "theme": theme, "image": png, "text": tweet(text, "", with_link=False), "skip": False, "reason": ""}
+    meta = {"day": "postgame", "stat": key, "theme": theme, "image": png, "text": tweet(text, "", with_link=False), "skip": False, "reason": ""}
+    if photo:  # the headshot version, for when the quality check (check_post.py) says the action shot is wrong
+        back = png.replace(".png", "-headshot.png")
+        card(lg, p, top, comp, None, theme).convert("RGB").save(back, optimize=True)
+        meta["fallback_image"] = back
+    return meta
 
 
 def make_numbered(pick, out):

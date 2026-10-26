@@ -1,0 +1,35 @@
+name: Morning post brief
+
+# The admin tab's post calendar: makes today's posts the way the posting jobs will (nothing is posted) and saves them,
+# with this week's schedule, to Firestore, where only the owner account can read them (src/social/brief.py).
+# 7 AM Eastern (6 AM in winter), Aug-Jan. Run it any time: Actions tab > "Morning post brief" > Run workflow.
+
+on:
+  schedule:
+    - cron: "0 11 * 8-12,1 *"
+  workflow_dispatch:
+    inputs:
+      check:
+        description: "Also run the quality check on each preview (about 2 cents each)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  brief:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt -r src/social/requirements.txt
+      - name: Build today's brief
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          ANTHROPIC_API_KEY: ${{ inputs.check && secrets.ANTHROPIC_API_KEY || '' }}
+          CHECK: ${{ inputs.check }}
+        run: |
+          if [ "$CHECK" = "true" ]; then python src/social/brief.py --check; else python src/social/brief.py; fi

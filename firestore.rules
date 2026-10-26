@@ -19,6 +19,15 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(["views", "visitors", "newVisitors", "charts", "downloads"])
         && upBy("views") && upBy("visitors") && upBy("newVisitors") && upBy("charts") && upBy("downloads");
     }
+    // admin tab: the post calendar (src/social/brief.py) and the cost log + quality checks (ledger.py, check_post.py).
+    // Only the owner can read them, and nothing on the site can write them: only the GitHub jobs can, with the
+    // service-account key (rules don't apply to it). Kept out of the public repo on purpose.
+    match /admin_brief/{day} {
+      allow read: if isOwner();
+    }
+    match /admin_ledger/{id} {
+      allow read: if isOwner();
+    }
     // "on the site now": each open browser checks in with the server's own time; only the owner can read them
     match /live/{id} {
       allow read: if isOwner();

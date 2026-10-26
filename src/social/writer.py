@@ -80,8 +80,9 @@ def problem(text, allowed, source):
     return ""
 
 
-def ask(system, prompt, schema, effort="medium"):
-    """One Claude call with a JSON answer, or None (no key, refused, or any error: the post goes out without it)."""
+def ask(system, prompt, schema, effort="medium", what="punch_up"):
+    """One Claude call with a JSON answer, or None (no key, refused, or any error: the post goes out without it).
+    Each call's cost goes in the admin tab's ledger (ledger.py)."""
     if not os.environ.get("ANTHROPIC_API_KEY"):
         return None
     try:
@@ -90,6 +91,11 @@ def ask(system, prompt, schema, effort="medium"):
             model=MODEL, max_tokens=8000, system=system,
             messages=[{"role": "user", "content": prompt}],
             output_config={"effort": effort, "format": {"type": "json_schema", "schema": schema}})
+        try:
+            import ledger
+            ledger.claude(what, MODEL, r.usage)
+        except Exception as e:  # the cost log never stops a post
+            print(f"Couldn't log the cost: {e}")
         if r.stop_reason != "end_turn":
             print(f"Claude stopped early ({r.stop_reason}); keeping the original text.")
             return None
@@ -281,7 +287,7 @@ def take():
     got = ask(STYLE, f"""Here are today's NFL headlines, each with stats from the {season} season about the players and teams in it.
 Write 3 posts, best first, each from a different headline. Each one ties the news to a stat that makes people think twice about the story, then takes a side. Use only numbers from the facts you cite or the headline itself; season ranks are this season only.
 Allowed tags: {' '.join(sorted(allowed))}
-{chr(10).join(lines)}""", schema)
+{chr(10).join(lines)}""", schema, what="take")
     if not got:
         sys.exit("No take from Claude.")
     for c in got.get("candidates", []):

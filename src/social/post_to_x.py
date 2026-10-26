@@ -6,6 +6,7 @@ It only posts when ALL of these are true:
   - render.py didn't mark today's post as "skip" (stale or empty data)
   - it isn't a repeat (posted.py: same text, the same post with new numbers, or the same story key)
   - today isn't full (posted.over_cap: at most 6 posts a day, the lesser kinds stop first)
+  - the quality check passes (check_post.py: Claude looks at the picture and text; if it can't run, no post)
 If ANTHROPIC_API_KEY is set, writer.py has Claude punch up the wording first (same numbers, plus team @'s and
 hashtags); without it the original text goes out with the @'s and hashtags added.
 Otherwise it prints what it WOULD have posted and exits 0.
@@ -64,6 +65,13 @@ def main():
     if missing:
         print("DRY RUN: posting is on but these secrets are missing: " + ", ".join(missing))
         return
+    # Claude looks at the finished picture and text; a bad post (wrong photo, wrong fact, stale news) doesn't go out
+    import check_post
+    ok, why = check_post.check(meta)
+    if not ok:
+        print(f"Not posting: the quality check stopped it ({why}).")
+        return
+    print(f"Quality check passed: {why}")
 
     import requests
     from requests_oauthlib import OAuth1
@@ -89,6 +97,11 @@ def main():
     tid = r.json()["data"]["id"]
     print("Posted: https://x.com/i/web/status/" + tid)
     posted.add(plain)  # the workflow commits this so the next run knows
+    try:  # the admin tab's cost breakdown
+        import ledger
+        ledger.x_post(plain["text"], meta["text"], tid, what=str(meta.get("stat") or meta.get("day") or "post"))
+    except Exception as e:
+        print(f"Couldn't log the cost: {e}")
     try:  # the Takes page on the site; never fails the post over it
         import feed
         feed.add(meta, tid)

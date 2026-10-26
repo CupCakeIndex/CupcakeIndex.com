@@ -96,6 +96,7 @@ jobs:
           # if there's no key or no good take, it makes the usual stat card
           TAKE: ${{ github.event.schedule == '2 17 * 8-12,1 *' && 'yes' || '' }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}   # quality check + cost log, admin tab only (fsadmin.py)
         run: |
           if [ -n "$TAKE" ] && python src/social/writer.py --take; then exit 0; fi
           python src/social/obscure.py --stat "$STAT" --theme "$THEME"
@@ -114,6 +115,7 @@ jobs:
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}   # writer.py: Claude punches up the post (optional)
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}   # quality check + cost log, admin tab only (fsadmin.py)
         run: python src/social/post_to_x.py --meta out/social/today.json
       - name: Save the posting log (so nothing repeats)
         if: success()
