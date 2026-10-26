@@ -81,7 +81,7 @@ export default {
     try { b = JSON.parse(raw); } catch (e) { return json({ error: "bad request" }, 400); }
     const tools = Array.isArray(b.tools) ? b.tools : [];
     if (typeof b.system !== "string" || b.system.length > 60000 || !Array.isArray(b.messages) || !b.messages.length || b.messages.length > 80
-      || tools.length > 24 || tools.some((t) => t.type || !t.name || !t.input_schema)) return json({ error: "bad request" }, 400); // our own tools only (no web search etc.)
+      || tools.length > 40 || tools.some((t) => t.type || !t.name || !t.input_schema)) return json({ error: "bad request" }, 400); // our own tools only (no web search etc.)
 
     const u = await usage(env, me.uid), d = today(), owner = me.email === OWNER;
     u.days[d] ||= { q: 0, usd: 0 };
