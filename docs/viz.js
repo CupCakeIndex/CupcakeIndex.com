@@ -2083,6 +2083,22 @@ const Viz = (() => {
       const out = [], has = (k) => all.some((x) => x[0] === k), add = (l, p) => { if (out.length < 7 && !out.some((o) => o[0] === l)) out.push([l, p]); };
       const lead = rank(stat, qualify(stat))[0];
       if (whole) { add("Each team instead", { scope: "" }); return out; }
+      // a radar: change this web instead of jumping elsewhere. Offense / Defense swap its stats (the first 5 this league has),
+      // Full profile puts the usual ones back, and the game filters narrow the same radar
+      if (st.type === "radar") {
+        const view = (l) => l.filter(has).slice(0, 5);
+        if (who === "teams") {
+          const off = view(["epa_play", "ppa_play", "succ", "ypp", "pts", "third", "pts_drive", "giveaways"]);
+          const def = view(["def_epa_play", "def_succ", "opp_pts", "opp_yds", "def_sacks", "takeaways", "opp_pts_play"]);
+          if (off.length >= 3 && st.radar !== off.join(",")) add(`⚔ Offense only (${off.length} stats)`, { radar: off.join(",") });
+          if (def.length >= 3 && st.radar !== def.join(",")) add(`⛨ Defense only (${def.length} stats)`, { radar: def.join(",") });
+        }
+        if (st.radar) add("↺ Full profile", { radar: "" });
+        if (st.opp !== "good") add("▲ Only vs top-half teams", { opp: "good" });
+        if (st.opp !== "soft") add("▼ Only vs cupcakes", { opp: "soft" });
+        if (st.last !== "3") add("⏱ Last 3 games", { last: "3" });
+        return out;
+      }
       if (st.type !== "line" && st.type !== "radar") add("↗ Week by week", { type: "line", top: "5", cum: "" });
       if (st.type === "line") add("▤ As a bar chart", { type: "bar" });
       if (who === "players" && !st.team && lead && teamOf(lead)) add(`⌂ ${tm(teamOf(lead))[0]}: who gets the ${lc(stat[1]).replace(/ \(.+\)$/, "")}`, { team: teamOf(lead), type: "bar", top: "10", pos: "", role: "", ...(stat[3].count ? { per: "share" } : {}) });
@@ -2165,7 +2181,7 @@ const Viz = (() => {
       </div>`;
     const chipRow = chips.length ? `<div class="vz-on">${chips.map(([l], i) => `<button type="button" data-chip="${i}" title="Take this filter off">${esc(l)} ✕</button>`).join("")}${chips.length > 1 ? `<button type="button" class="vz-clear" data-chip="all">Clear all</button>` : ""}</div>` : "";
     const after = `${takeaway ? `<p class="vz-take"><b>Takeaway:</b> ${esc(takeaway)}</p>` : ""}
-      ${related.length ? `<div class="vz-rel"><h4>Related</h4><div>${related.map(([l], i) => `<button type="button" class="vz-chip" data-rel="${i}">${esc(l)}</button>`).join("")}</div></div>` : ""}
+      ${related.length ? `<div class="vz-rel"><h4>${st.type === "radar" ? "Change this radar" : "Related"}</h4><div>${related.map(([l], i) => `<button type="button" class="vz-chip" data-rel="${i}">${esc(l)}</button>`).join("")}</div></div>` : ""}
       ${topics.length ? `<div class="vz-rel"><h4>More to explore</h4><div>${topics.map(([g, [l]], i) => `<button type="button" class="vz-chip vz-topic" data-topic="${i}"><small>${esc(g)}</small>${esc(l)}</button>`).join("")}</div></div>` : ""}`;
     // My charts: your saved charts as cards, newest first or grouped by team, player or stat, with a filter box
     const myList = mine()[league] || [], pics = thumbs()[league] || {};
