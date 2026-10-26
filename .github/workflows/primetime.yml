@@ -1,0 +1,61 @@
+name: Prime-time matchup post
+
+# Key prime-time games: every NFL night game (Thursday, Sunday, Monday, late-season Saturdays) and college night games
+# between two AP top-25 teams. A card with both teams' radars (season percentiles, like Visualize > Radar), posted at
+# 4 PM Eastern (3 PM in winter). Skips days with no key night game. Aug-Jan.
+# Run it any time: Actions tab > "Prime-time matchup post" > Run workflow (untick "Post to X" to only make the picture).
+# No link, 280 characters max, win chances only (no lines). Same on/off switch as the other posts.
+
+on:
+  schedule:
+    - cron: "0 20 * 8-12,1 *"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Pretend it's this date (YYYY-MM-DD, blank = today)"
+        required: false
+      post:
+        description: "Post to X (untick to only make the picture)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write   # commits data/social/posted.json after a post
+
+concurrency:
+  group: social-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r src/social/requirements.txt
+      - name: Render the prime-time card
+        env:
+          DATE: ${{ inputs.date }}
+        run: |
+          if [ -n "$DATE" ]; then python src/social/primetime.py --date "$DATE"; else python src/social/primetime.py; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: primetime
+          path: out/social/
+          retention-days: 14
+          if-no-files-found: ignore
+      - name: Post to X
+        if: (github.event_name == 'schedule' || inputs.post) && vars.X_POSTING_ENABLED == 'true'
+        env:
+          X_POSTING_ENABLED: ${{ vars.X_POSTING_ENABLED }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}   # writer.py: Claude punches up the post (optional)
+        run: python src/social/post_to_x.py --meta out/social/today.json
+      - name: Save the posting log (so nothing repeats)
+        if: success()
+        run: bash src/social/save_log.sh

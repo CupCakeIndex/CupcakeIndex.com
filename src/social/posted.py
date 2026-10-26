@@ -78,7 +78,7 @@ def repeat(meta):
 DAILY_CAP = 6  # hard max: nothing posts once 6 went out today
 TIER_LIMIT = {1: DAILY_CAP, 2: DAILY_CAP - 1, 3: DAILY_CAP - 2}  # tier 3 posts only while fewer than 4 went out today
 TIER1 = ("mon", "tue", "wed", "thu", "fri", "sat", "sun", "bully", "pace_", "news-")  # the daily post, Bully, records, big news
-TIER2 = ("tonight", "hot_", "weekly_", "nfl_injuries", "take", "series_week", "nfl_series_week", "week_drought",
+TIER2 = ("tonight", "primetime", "hot_", "weekly_", "nfl_injuries", "take", "series_week", "nfl_series_week", "week_drought",
          "top10_drought", "cupcake_streak", "nfl_easiest_left", "nfl_toughest_left", "cfb_easiest_left", "cfb_toughest_left")
 
 
