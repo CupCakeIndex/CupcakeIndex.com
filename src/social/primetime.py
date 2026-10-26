@@ -2,7 +2,8 @@
 
 Runs every afternoon in season and only posts when there's a key night game (kickoff 7 PM Eastern or later):
   - NFL: any prime-time game (Thursday, Sunday and Monday night, Saturday nights late in the season)
-  - college: a night game between two AP top-25 teams (when there's no NFL prime-time game that day)
+  - college: a night game between two AP top-25 teams, or any night game with an AP top-5 team (Terry: "anytime a
+    top 5 team plays"), when there's no NFL prime-time game that day
 Each radar is that team's season so far, as a percentile among every team in its league (100 = best), with its
 rank and BEST / TOP 5 / BOTTOM 5 / WORST tags, in the team's colors. The numbers come from the same files and
 formulas as the site (docs/data/viz, viz.js), the win chance from our model's predictions. No lines, no link.
@@ -72,14 +73,15 @@ def night_games(league, day):
 
 
 def pick_game(day):
-    """The key prime-time game: NFL first; else the college night game between two AP top-25 teams with the best ranks."""
+    """The key prime-time game: NFL first; else a college night game between two AP top-25 teams (best ranks first),
+    else one with an AP top-5 team (the best-ranked one)."""
     nfl = night_games("nfl", day)
     if nfl:
         return "nfl", nfl[0]
     ap = lambda c: (c.get("curatedRank") or {}).get("current") or 99
-    cfb = [g for g in night_games("cfb", day) if ap(g[2]) <= 25 and ap(g[3]) <= 25]
+    cfb = [g for g in night_games("cfb", day) if ap(g[2]) <= 25 and ap(g[3]) <= 25 or min(ap(g[2]), ap(g[3])) <= 5]
     if cfb:
-        return "cfb", min(cfb, key=lambda g: ap(g[2]) + ap(g[3]))
+        return "cfb", min(cfb, key=lambda g: (max(ap(g[2]), ap(g[3])) > 25, ap(g[2]) + ap(g[3]) if max(ap(g[2]), ap(g[3])) <= 25 else min(ap(g[2]), ap(g[3]))))
     return None, None
 
 
@@ -235,7 +237,7 @@ def card(day):
     rl, rt = prof[key(lead)][gap[0]][2], prof[key(trail)][gap[0]][2]
     wins = sum(1 for s in stats if A.get(s[0], (0, 0))[1] > B.get(s[0], (0, 0))[1])
     big, n = (away, wins) if wins * 2 > len(stats) else (home, len(stats) - wins)
-    edge = (f"{who(big)[0].upper() + who(big)[1:]} {'win' if plural else 'wins'} {n} of {len(stats)} spokes." if n * 2 > len(stats)
+    edge = (f"{who(big)[0].upper() + who(big)[1:]} {'win' if plural else 'wins'} {'every spoke' if n == len(stats) else f'{n} of {len(stats)} spokes'}." if n * 2 > len(stats)
             else f"They split the {len(stats)} spokes {n}-{n}.")
     said = gap[1] if gap[1][:3].isupper() else gap[1][0].lower() + gap[1][1:]  # "EPA per play", "yards per play"
     text = (f"{show}: {nick(away)} @ {nick(home)}. The radars split hardest on {said}, where {who(lead)} {verb} "
