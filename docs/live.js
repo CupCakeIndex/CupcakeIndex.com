@@ -3891,6 +3891,71 @@ const Live = (() => {
     box.onclick = (e) => { const a = e.target.closest("[data-add]")?.dataset.add; if (a && !vs.includes(a)) go({ vs: [...vs, a].slice(0, 3).join(",") }); };
   }
 
+  // Game log (Terry, Oct 26: "it just looks like ESPN"): one stat group at a time (Rushing / Receiving / ...), opening
+  // on the player's main one. Each game is a row: week, opponent, result, then his key stat for that group as the big
+  // number with a bar (his best game fills it, marked SEASON HIGH), and the rest of the line in words underneath.
+  const GL_KEY = { passing: "passingYards", rushing: "rushingYards", receiving: "receivingYards", defensive: "totalTackles",
+    defensiveInterceptions: "interceptions", kicking: "totalKickingPoints", punting: "puntYards", returning: "kickReturnYards", fumbles: "fumbles",
+    fieldgoals: "fieldGoalsMade-fieldGoalAttempts", pats: "extraPointsMade-extraPointAttempts", tackles: "totalTackles", interceptions: "interceptions" };
+  const GL_GROUP_LABEL = { fieldgoals: "Field goals", pats: "Extra points" }; // ESPN leaves these two unnamed
+  const GL_KEY_LABEL = { passingYards: "pass yds", rushingYards: "rush yds", receivingYards: "rec yds", totalTackles: "tackles",
+    interceptions: "INT", totalKickingPoints: "points", puntYards: "punt yds", kickReturnYards: "return yds", fumbles: "fumbles",
+    "fieldGoalsMade-fieldGoalAttempts": "field goals", "extraPointsMade-extraPointAttempts": "extra points" };
+  // a game log's stat groups, with the columns that belong to each: [{name, label, cols: [{i, name, label}]}]
+  function glGroups(gl) {
+    if (!gl?.categories?.length || !gl.names?.length) return [];
+    let i = 0;
+    return gl.categories.map((c) => {
+      const cols = Array.from({ length: c.count }, (_, j) => ({ i: i + j, name: gl.names[i + j], label: (gl.labels?.[i + j] || "").trim() }));
+      i += c.count;
+      return { name: c.name, label: GL_GROUP_LABEL[c.name] || c.displayName, cols };
+    }).filter((g) => g.cols.length);
+  }
+  function gameLogHtml(gl, cats, lg, primary) {
+    const evsOf = (stp) => stp.categories.flatMap((c) => c.events || []);
+    const all = gl.seasonTypes.flatMap(evsOf);
+    // groups he actually did something in this season (no all-dash Fumbles tab for a QB who never fumbled)
+    const used = cats.filter((g) => all.some((ev) => g.cols.some((c) => (num(ev.stats[c.i]) || 0) !== 0)));
+    const groups = used.length ? used : cats.slice(0, 1);
+    const open = (groups.find((g) => g.name === primary) || groups[0]).name;
+    const fmt = (v) => esc(v ?? "–");
+    const panel = (g) => {
+      const kc = g.cols.find((c) => c.name === GL_KEY[g.name]) || g.cols.find((c) => /Yards$/.test(c.name)) || g.cols[0];
+      const keyLabel = GL_KEY_LABEL[kc.name] || kc.label.toLowerCase();
+      const rest = g.cols.filter((c) => c !== kc);
+      const line = (stats) => rest.map((c) => {
+        const v = stats[c.i];
+        // kickers: a distance he didn't try (0-0) drops out, the others read "1-2 from 40-49"
+        if (v == null || v === "-" || v === "" || (/^\d+(-\d+|\+)$/.test(c.label) && v === "0-0")) return "";
+        if (/^\d+(-\d+|\+)$/.test(c.label)) return `${fmt(v)} <span>from ${esc(c.label)}</span>`;
+        const td = /Touchdowns$/.test(c.name) && num(v) > 0;
+        const lab = c.label === "LNG" ? "long" : /^(TD|INT|QBR|RTG|FF|FUM|XP|FG|KB|PD)$/.test(c.label) ? c.label : c.label.toLowerCase();
+        return td ? `<b class="gl-td">${fmt(v)} ${esc(lab)}</b>` : `${fmt(v)} <span>${esc(lab)}</span>`;
+      }).filter(Boolean).join(" · ");
+      const vals = all.map((ev) => num(ev.stats[kc.i]) ?? 0), max = Math.max(0, ...vals);
+      return gl.seasonTypes.map((stp) => {
+        const evs = evsOf(stp);
+        if (!evs.length) return "";
+        const rows = evs.map((ev) => {
+          const m = gl.events?.[ev.eventId] || {}, v = num(ev.stats[kc.i]) ?? 0, high = max > 0 && v === max;
+          const res = m.gameResult === "W" ? "W" : m.gameResult === "L" ? "L" : m.gameResult === "T" ? "T" : "";
+          return `<a class="gl-row${high ? " gl-high" : ""}" href="${link("game", ev.eventId, { league: lg })}">
+            <span class="gl-wk">${m.week != null ? `Wk ${esc(m.week)}` : ""}</span>
+            <span class="gl-opp">${esc(m.atVs || "")} ${img(m.opponent?.logo, "xs")} ${esc(m.opponent?.abbreviation || "")}</span>
+            <span class="gl-res ${res}">${esc(res)} ${esc(m.score || "")}</span>
+            <span class="gl-key"><b>${fmt(ev.stats[kc.i])}</b> <small>${esc(keyLabel)}</small>${high ? ` <em>SEASON HIGH</em>` : ""}<i style="--w:${max > 0 && v > 0 ? Math.max(2, Math.round((100 * v) / max)) : 0}%"></i></span>
+            <span class="gl-rest">${line(ev.stats)}</span></a>`;
+        }).join("");
+        const tot = stp.summary?.stats?.[0]?.stats;
+        return `<h4>${esc(stp.displayName.replace(/ Stats$/, ""))}</h4><div class="gl-list">${rows}
+          ${tot ? `<div class="gl-row gl-tot"><span class="gl-wk">Total</span><span class="gl-opp">${evs.length} game${evs.length > 1 ? "s" : ""}</span><span class="gl-res"></span>
+            <span class="gl-key"><b>${fmt(tot[kc.i])}</b> <small>${esc(keyLabel)}</small></span><span class="gl-rest">${line(tot)}</span></div>` : ""}</div>`;
+      }).join("");
+    };
+    return (groups.length > 1 ? `<div class="seg gl-cats">${groups.map((g) => `<button data-glc="${esc(g.name)}" class="${g.name === open ? "active" : ""}">${esc(g.label)}</button>`).join("")}</div>` : "")
+      + groups.map((g) => `<div class="gl-panel${g.name === open ? "" : " hidden"}" data-glc="${esc(g.name)}">${panel(g)}</div>`).join("");
+  }
+
   async function player(id, params) {
     const lg = league, my = token;
     loading("player");
@@ -3947,7 +4012,9 @@ const Live = (() => {
     const summary = sumStats.map((x) => `<div class="stat"><small>${esc(x.displayName)}</small><b>${esc(x.displayValue)}</b>${x.rankDisplayValue ? `<small class="muted">${esc(x.rankDisplayValue)}</small>` : ""}</div>`).join("");
 
     let log = "";
-    if (logGl?.seasonTypes?.length) {
+    const glCats = glGroups(logGl);
+    if (glCats.length) log = gameLogHtml(logGl, glCats, logLg, PRIMARY(a.position?.abbreviation));
+    else if (logGl?.seasonTypes?.length) {
       const groups = (logGl.categories || []).map((c) => `<th colspan="${c.count}" class="grp">${esc(c.displayName)}</th>`).join("");
       log = logGl.seasonTypes.map((stp) => {
         const evs = stp.categories.flatMap((c) => c.events || []);
@@ -4026,7 +4093,7 @@ const Live = (() => {
       return;
     }
     view("player").innerHTML = head + (ptab === "" ? `
-      ${summary ? `<div class="stats wide">${summary}</div>${caughtUp ? `<p class="note muted">Added up from his game-by-game stats, so it includes his latest game. Ranks come back once the overnight totals update.</p>` : ""}` : ""}
+      ${summary ? `<div class="card pl-sum"><div class="stats wide">${summary}</div></div>${caughtUp ? `<p class="note muted">Added up from his game-by-game stats, so it includes his latest game. Ranks come back once the overnight totals update.</p>` : ""}` : ""}
       <div id="ol-slot"></div>
       ${injInfo(inj) ? injCard(inj, a.id, fa ? "" : a.team?.id)
         : params.get("inj") ? `<div class="card inj-card" id="pl-inj"><h3>Injury</h3><p class="muted">ESPN has no injury details on file for this player right now.</p></div>` : ""}`
@@ -4055,6 +4122,13 @@ const Live = (() => {
       return;
     }
     if (ptab === "log") {
+      const gl = view("player").querySelector(".gl-cats");
+      if (gl) gl.onclick = (e) => {
+        const k = e.target.closest("[data-glc]")?.dataset.glc;
+        if (!k) return;
+        gl.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b.dataset.glc === k));
+        view("player").querySelectorAll(".gl-panel").forEach((el) => el.classList.toggle("hidden", el.dataset.glc !== k));
+      };
       $("#pl-season").onchange = (e) => { const v = e.target.value; location.hash = link("player", id, { tab: "log", ...(v[0] === "c" ? { cseason: v.slice(1) } : { season: v }) }); };
       return;
     }

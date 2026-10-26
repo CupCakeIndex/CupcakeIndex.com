@@ -3471,3 +3471,38 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .cc-opts > summary::-webkit-details-marker { display: none; }
 .cc-opts > summary::before { content: "▸ "; color: var(--accent); }
 .cc-opts[open] > summary::before { content: "▾ "; }
+/* Player game log (live.js gameLogHtml): one stat group at a time, his key stat big with a bar, the rest in words */
+.gl-cats { margin: 4px 0 10px; }
+.gl-list { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.gl-row { display: grid; grid-template-columns: 52px 92px 104px minmax(150px, 1fr) minmax(0, 2fr); align-items: center; gap: 4px 12px;
+  padding: 9px 12px; border-top: 1px solid var(--line); color: inherit; text-decoration: none; transition: background-color .15s; }
+.gl-row:first-child { border-top: 0; }
+a.gl-row:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.gl-wk { color: var(--muted); font-size: 12px; }
+.gl-opp { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; font-size: 13px; white-space: nowrap; }
+.gl-res { font-size: 12.5px; white-space: nowrap; }
+.gl-res.W { color: var(--good); } .gl-res.L { color: var(--bad); }
+.gl-key b { font-size: 20px; font-weight: 800; }
+.gl-key small { color: var(--muted); font-size: 11px; }
+.gl-key em { font-style: normal; font-size: 9.5px; font-weight: 800; letter-spacing: .06em; color: var(--accent); margin-left: 4px; }
+.gl-key i { display: block; height: 4px; width: var(--w); max-width: 100%; margin-top: 4px; border-radius: 2px; background: color-mix(in srgb, var(--accent) 55%, transparent); }
+.gl-high .gl-key b { color: var(--accent); }
+.gl-high .gl-key i { background: var(--accent); }
+.gl-rest { color: var(--ink); font-size: 12.5px; line-height: 1.5; }
+.gl-rest span { color: var(--muted); }
+.gl-rest .gl-td { color: var(--accent); }
+.gl-tot { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+.gl-tot .gl-wk, .gl-tot .gl-opp { color: var(--ink); font-weight: 700; }
+@media (max-width: 600px) {
+  .gl-row { grid-template-columns: auto 1fr auto; grid-template-areas: "wk opp res" "key key key" "rest rest rest"; padding: 10px 12px; }
+  .gl-wk { grid-area: wk; } .gl-opp { grid-area: opp; } .gl-res { grid-area: res; text-align: right; }
+  .gl-key { grid-area: key; margin-top: 2px; } .gl-rest { grid-area: rest; }
+}
+/* Player page alignment (Terry, Oct 26): the records pill wraps under the name flush left, "Chart him" no longer
+   overlaps the line above it (an inline link's padding spilled up), the stat tiles sit in a card like Season pace,
+   and tapped pills don't keep the hover underline on iPhone */
+.player-head h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.player-head h2 .rec-tag, .player-head h2 .retired-tag { margin-left: 0; }
+.pl-acts .btn { display: inline-block; }
+.pl-sum .stats { margin: 0; }
+.subtab:hover, .rec-tag:hover, a.gl-row:hover, .rec-card li > a:hover { text-decoration: none; }
