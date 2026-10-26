@@ -3,7 +3,7 @@
 data/social/posted.json is a list of {date, stat, key, text}, newest last. post_to_x.py adds a line after every
 successful post; the workflows commit the file back to the repo so the next run can see it.
 
-over_cap() keeps it to about DAILY_CAP posts a day, best kinds first.
+over_cap() keeps it to at most DAILY_CAP posts a day, best kinds first.
 
 Three kinds of repeat are blocked:
   - the exact same text (X rejects those anyway)
@@ -72,11 +72,11 @@ def repeat(meta):
     return ""
 
 
-# About 4 posts a day overall, and the best kinds win (Terry, Oct 21). Posts go out at fixed times, so a
+# At most 6 posts a day (Terry, Oct 26; it was about 4 from Oct 21), and the best kinds win. Posts go out at fixed times, so a
 # post can't bump one that already went: instead the lesser kinds stop earlier, which leaves room for the
 # better ones still to come that day. Counted per US Eastern day.
-DAILY_CAP = 4
-TIER_LIMIT = {1: DAILY_CAP + 2, 2: DAILY_CAP, 3: DAILY_CAP - 1}  # tier 3 posts only while fewer than 3 went out today
+DAILY_CAP = 6  # hard max: nothing posts once 6 went out today
+TIER_LIMIT = {1: DAILY_CAP, 2: DAILY_CAP - 1, 3: DAILY_CAP - 2}  # tier 3 posts only while fewer than 4 went out today
 TIER1 = ("mon", "tue", "wed", "thu", "fri", "sat", "sun", "bully", "pace_", "news-")  # the daily post, Bully, records, big news
 TIER2 = ("tonight", "hot_", "weekly_", "nfl_injuries", "take", "series_week", "nfl_series_week", "week_drought",
          "top10_drought", "cupcake_streak", "nfl_easiest_left", "nfl_toughest_left", "cfb_easiest_left", "cfb_toughest_left")

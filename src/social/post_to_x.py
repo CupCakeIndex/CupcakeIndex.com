@@ -5,7 +5,7 @@ It only posts when ALL of these are true:
   - X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET are all set (GitHub *secrets*)
   - render.py didn't mark today's post as "skip" (stale or empty data)
   - it isn't a repeat (posted.py: same text, the same post with new numbers, or the same story key)
-  - today isn't full (posted.over_cap: about 4 posts a day, the lesser kinds stop first)
+  - today isn't full (posted.over_cap: at most 6 posts a day, the lesser kinds stop first)
 If ANTHROPIC_API_KEY is set, writer.py has Claude punch up the wording first (same numbers, plus team @'s and
 hashtags); without it the original text goes out with the @'s and hashtags added.
 Otherwise it prints what it WOULD have posted and exits 0.

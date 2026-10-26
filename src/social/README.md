@@ -103,9 +103,9 @@ back, set a repo **variable** `X_INCLUDE_LINK` = `true` (same place as step 4 be
   (regenerate it and update `X_ACCESS_TOKEN` and `X_ACCESS_SECRET`).
 - Posting uses the X API v2 (`/2/media/upload` then `/2/tweets`). The old v1.1 upload that many
   tutorials show was shut off in 2025.
-- About 4 posts a day, best kinds first (`posted.py`, `DAILY_CAP`). The daily post, Bully, record
-  paces and big news always go (up to 6). Hot takes, weekly series, Tonight and the drought posts
-  stop at 4. Deep-cut stat cards, app tips and player game lines stop at 3, which saves room for
+- At most 6 posts a day, best kinds first (`posted.py`, `DAILY_CAP`). The daily post, Bully, record
+  paces and big news go up to the max of 6. Hot takes, weekly series, Tonight and the drought posts
+  stop at 5. Deep-cut stat cards, app tips and player game lines stop at 4, which saves room for
   the better posts later in the day.
 - News posts are only major stories: a season-ending injury, a starting QB out, a head coach
   fired or hired, or a trade. The same story about the same player or team never goes out twice
