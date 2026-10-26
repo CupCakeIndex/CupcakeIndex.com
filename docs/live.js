@@ -3941,6 +3941,60 @@ const Live = (() => {
     const open = groups.find((g) => g.name === st.open) || groups.find((g) => g.name === st.primary) || groups[0];
     return { all, groups, open };
   }
+  // Season totals added up from the games themselves (Terry: ESPN's totals row often lags a game behind the log).
+  // Counts add up, "made-tried" pairs add up both sides, longs take the best game, and rates are worked out again from
+  // the totals (completion %, yards per try, passer rating). ESPN's own number is only used for a rate we can't rebuild
+  // (QBR, average field goal distance), and only when its counts match ours; otherwise that cell shows "–".
+  const GL_RATE = { completionPct: ["completions", "passingAttempts", 100], yardsPerPassAttempt: ["passingYards", "passingAttempts", 1],
+    yardsPerRushAttempt: ["rushingYards", "rushingAttempts", 1], yardsPerReception: ["receivingYards", "receptions", 1],
+    avgInterceptionYards: ["interceptionYards", "interceptions", 1], yardsPerKickReturn: ["kickReturnYards", "kickReturns", 1],
+    yardsPerPuntReturn: ["puntReturnYards", "puntReturns", 1], grossAvgPuntYards: ["puntYards", "punts", 1] };
+  function glTotals(names, evs, espn, lg) {
+    if (!names?.length || !evs?.length) return espn || null;
+    const n = (v) => { const x = parseFloat(String(v ?? "").replace(/,/g, "")); return isNaN(x) ? null : x; };
+    const pair = (v) => { const m = /^(\d+)-(\d+)$/.exec(String(v ?? "")); return m ? [+m[1], +m[2]] : null; };
+    const fmtN = (x, d) => (d ? x.toFixed(d) : Number.isInteger(Math.round(x * 10) / 10) ? Math.round(x).toLocaleString("en-US") : x.toFixed(1));
+    const decs = (i) => { const v = evs.map((ev) => String(ev.stats[i] ?? "")).find((v) => /\.\d/.test(v)); return v ? v.split(".")[1].length : 0; };
+    const out = names.map(() => null), sums = {};
+    names.forEach((nm, i) => {
+      const vals = evs.map((ev) => ev.stats[i]);
+      if (/-/.test(nm)) {
+        const ps = vals.map(pair).filter(Boolean);
+        out[i] = ps.length ? `${ps.reduce((a, q) => a + q[0], 0)}-${ps.reduce((a, q) => a + q[1], 0)}` : "-";
+        return;
+      }
+      const xs = vals.map(n).filter((x) => x != null);
+      if (!xs.length) { out[i] = "-"; return; }
+      if (/^long/.test(nm)) { out[i] = fmtN(Math.max(...xs)); return; }
+      if (GL_RATE[nm] || /Pct|Avg|Average|Per|Rating|QBR/i.test(nm)) return;
+      sums[nm] = xs.reduce((a, b) => a + b, 0);
+      out[i] = fmtN(sums[nm]);
+    });
+    // does ESPN's totals row agree with the games? (then its rates are safe to borrow)
+    const fresh = espn && names.every((nm, i) => sums[nm] == null || n(espn[i]) === Math.round(sums[nm] * 10) / 10);
+    names.forEach((nm, i) => {
+      if (out[i] != null) return;
+      const r = GL_RATE[nm], d = decs(i) || 1;
+      if (r && sums[r[1]] > 0 && sums[r[0]] != null) { out[i] = fmtN((r[2] * sums[r[0]]) / sums[r[1]], d); return; }
+      if (nm === "fieldGoalPct") {
+        const fg = names.indexOf("fieldGoalsMade-fieldGoalAttempts"), q = fg >= 0 && pair(out[fg]);
+        if (q && q[1]) { out[i] = fmtN((100 * q[0]) / q[1], d); return; }
+      }
+      if (nm === "QBRating" && sums.passingAttempts > 0) {
+        const att = sums.passingAttempts, c = sums.completions || 0, y = sums.passingYards || 0, t = sums.passingTouchdowns || 0, x = sums.interceptions || 0;
+        if (lg === "nfl") {
+          const cl = (v) => Math.max(0, Math.min(2.375, v));
+          out[i] = fmtN(((cl((c / att - 0.3) * 5) + cl((y / att - 3) * 0.25) + cl((t / att) * 20) + cl(2.375 - (x / att) * 25)) / 6) * 100, d);
+        } else {
+          // college passer efficiency
+          out[i] = fmtN((8.4 * y + 330 * t + 100 * c - 200 * x) / att, d);
+        }
+        return;
+      }
+      out[i] = fresh ? espn[i] : "–";
+    });
+    return out;
+  }
   function gameLogHtml(st) {
     const { gl, lg } = st, { all, groups, open: g } = glGroupsUsed(st);
     const evsOf = (stp) => stp.categories.flatMap((c) => c.events || []);
@@ -3976,7 +4030,7 @@ const Live = (() => {
           <span class="gl-key">${top(ev.stats, high)}<i style="--w:${max > 0 && v > 0 ? Math.max(2, Math.round((100 * v) / max)) : 0}%"></i></span>${sps(ev.stats)}
           <span class="gl-rest">${line(ev.stats)}</span></a>`;
       }).join("");
-      const tot = stp.summary?.stats?.[0]?.stats;
+      const tot = glTotals(gl.names, evs, stp.summary?.stats?.[0]?.stats, lg);
       return `<h4>${esc(stp.displayName.replace(/ Stats$/, ""))}</h4><div class="gl-list">${rows}
         ${tot ? `<div class="gl-row gl-tot"><span class="gl-wk">Total</span><span class="gl-opp">${evs.length} game${evs.length > 1 ? "s" : ""}</span><span class="gl-res"></span>
           <span class="gl-key">${top(tot, false)}</span>${sps(tot)}<span class="gl-rest">${line(tot)}</span></div>` : ""}</div>`;
@@ -4062,7 +4116,7 @@ const Live = (() => {
             <td><a href="${link("game", ev.eventId, { league: logLg })}"><span class="${m.gameResult === "W" ? "W" : m.gameResult === "L" ? "L" : ""}">${esc(m.gameResult || "")}</span> ${esc(m.score || "")}</a></td>
             ${ev.stats.map((v) => `<td class="num">${esc(v)}</td>`).join("")}</tr>`;
         }).join("");
-        const tot = stp.summary?.stats?.[0]?.stats;
+        const tot = glTotals(logGl.names, evs, stp.summary?.stats?.[0]?.stats, logLg);
         return `<h4>${esc(stp.displayName)}</h4><div class="table-wrap"><table class="box">
           <thead>${groups ? `<tr><th colspan="3"></th>${groups}</tr>` : ""}<tr><th>Wk</th><th>Opp</th><th>Result</th>${(logGl.labels || []).map((l) => `<th class="num">${esc(l)}</th>`).join("")}</tr></thead>
           <tbody>${rows}${tot ? `<tr class="tot"><td colspan="3">Totals</td>${tot.map((v) => `<td class="num">${esc(v)}</td>`).join("")}</tr>` : ""}</tbody></table></div>`;
