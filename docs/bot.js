@@ -51,7 +51,10 @@ const Bot = (() => {
           <button type="button" class="bot-x" aria-label="Close">✕</button></header>
         <div class="bot-log" aria-live="polite"><p class="bot-hi muted">Ask about any player, team or stat. I answer from the site's own numbers and can open a chart for you.
           Try "Who leads the NFL in CPOE?" or "Chart Indiana's offense vs defense".</p></div>
-        <form class="bot-ask"><textarea rows="1" maxlength="600" placeholder="Ask a football question" aria-label="Your question"></textarea>
+        <div class="bot-pics" hidden></div>
+        <form class="bot-ask"><label class="bot-attach" title="Add a picture (a screenshot of a post, a stat graphic...)" aria-label="Add a picture">
+            <input type="file" accept="image/*" multiple hidden><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 5h16v14H4zM4 15l4.5-4.5 4 4 2.5-2.5L20 17M15.5 9.5h.01"/></svg></label>
+          <textarea rows="1" maxlength="600" placeholder="Ask a football question" aria-label="Your question"></textarea>
           <button type="submit" class="bot-send">Send</button></form>
       </section>`;
     document.body.appendChild(el);
@@ -64,6 +67,7 @@ const Bot = (() => {
       clearTimeout(shut);
       fab.setAttribute("aria-expanded", String(open));
       el.classList.toggle("open", open);
+      document.body.classList.toggle("bot-open", open); // the phone back button steps aside (style.css)
       panel.classList.toggle("closing", !open);
       if (open) { panel.hidden = false; setTimeout(() => ta.focus(), 50); }
       else shut = setTimeout(() => { panel.hidden = true; panel.classList.remove("closing"); }, matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 160);
@@ -83,14 +87,55 @@ const Bot = (() => {
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !panel.hidden) toggle(false); });
     ta.addEventListener("input", () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 120) + "px"; });
     ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); el.querySelector("form").requestSubmit(); } });
+    // pictures: the picture button (photos or camera on a phone), paste a screenshot, or drop one on the panel
+    const file = el.querySelector(".bot-attach input");
+    file.addEventListener("change", () => { addPics(file.files); file.value = ""; });
+    ta.addEventListener("paste", (e) => { const f = [...(e.clipboardData?.files || [])].filter((x) => x.type.startsWith("image/")); if (f.length) { e.preventDefault(); addPics(f); } });
+    panel.addEventListener("dragover", (e) => { if ([...(e.dataTransfer?.items || [])].some((x) => x.type.startsWith("image/"))) { e.preventDefault(); panel.classList.add("drop"); } });
+    panel.addEventListener("dragleave", (e) => { if (!panel.contains(e.relatedTarget)) panel.classList.remove("drop"); });
+    panel.addEventListener("drop", (e) => { panel.classList.remove("drop"); const f = [...(e.dataTransfer?.files || [])].filter((x) => x.type.startsWith("image/")); if (f.length) { e.preventDefault(); addPics(f); } });
+    el.querySelector(".bot-pics").addEventListener("click", (e) => { const b = e.target.closest("[data-rm]"); if (b) { pics.splice(+b.dataset.rm, 1); drawPics(); } });
     el.querySelector("form").addEventListener("submit", (e) => {
       e.preventDefault();
       const q = ta.value.trim();
-      if (!q || busy) return;
+      if ((!q && !pics.length) || busy || pics.some((x) => !x.data)) return;
       ta.value = ""; ta.style.height = "auto";
-      ask(q);
+      const sent = pics.splice(0);
+      drawPics();
+      ask(q, sent);
     });
   }
+  // ---------- pictures ----------
+  // Shrunk in the browser before sending (longest side 1280px, JPEG): Claude reads them just as well, the request stays
+  // small (the Worker caps a conversation's size) and each one costs about a tenth of a cent on Haiku.
+  const MAX_PICS = 3, MAX_SIDE = 1280;
+  let pics = []; // [{url (preview), data (base64 JPEG, once shrunk)}]
+  async function shrink(f) {
+    const img = await createImageBitmap(f), k = Math.min(1, MAX_SIDE / Math.max(img.width, img.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+    const g = c.getContext("2d");
+    g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); // transparent PNGs: white, not black
+    g.drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL("image/jpeg", 0.82);
+  }
+  function addPics(files) {
+    for (const f of [...files].filter((x) => x.type.startsWith("image/")).slice(0, MAX_PICS - pics.length)) {
+      const p = { url: URL.createObjectURL(f), data: null };
+      pics.push(p);
+      shrink(f).then((u) => { p.data = u.split(",")[1]; drawPics(); }).catch(() => { pics = pics.filter((x) => x !== p); drawPics(); bubble("bot", `<p class="bot-err">That picture couldn't be read. Try a screenshot or a JPEG.</p>`); });
+    }
+    drawPics();
+    el.querySelector("textarea").focus();
+  }
+  function drawPics() {
+    const box = el.querySelector(".bot-pics");
+    box.hidden = !pics.length;
+    box.innerHTML = pics.map((p, i) => `<span class="bot-pic${p.data ? "" : " loading"}"><img src="${p.url}" alt=""><button type="button" data-rm="${i}" aria-label="Remove this picture">✕</button></span>`).join("")
+      + (pics.length < MAX_PICS ? "" : `<small class="muted">Up to ${MAX_PICS} pictures a question</small>`);
+    el.querySelector(".bot-attach").classList.toggle("full", pics.length >= MAX_PICS);
+  }
+
   function usageLine() {
     const u = el?.querySelector(".bot-use");
     if (!u || !me) return;
@@ -135,10 +180,10 @@ const Bot = (() => {
     }).join("");
   }
 
-  async function ask(q) {
+  async function ask(q, sent = []) {
     busy = true;
     el.classList.add("busy");
-    bubble("me", `<p>${esc(q)}</p>`);
+    bubble("me", (sent.length ? `<div class="bot-thumbs">${sent.map((p) => `<img src="${p.url}" alt="Your picture">`).join("")}</div>` : "") + (q ? `<p>${esc(q)}</p>` : ""));
     const wait = bubble("bot wait", `<p class="muted"><span class="bot-dots">Thinking</span></p>`);
     const steps = wait.querySelector("p");
     try { await needTools(); } catch (e) { wait.innerHTML = `<p class="bot-err">${esc(e.message)}</p>`; busy = false; el.classList.remove("busy"); return; }
@@ -146,7 +191,9 @@ const Bot = (() => {
     const keep = msgs.length;
     const links = [];
     try {
-      msgs.push({ role: "user", content: [{ type: "text", text: await now() }, { type: "text", text: q }] });
+      msgs.push({ role: "user", content: [{ type: "text", text: await now() },
+        ...sent.map((p) => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: p.data } })),
+        { type: "text", text: q || "What do you make of this?" }] });
       const system = sys ||= await prompt();
       let res = null;
       for (let round = 0; round < MAX_ROUNDS; round++) {
@@ -215,6 +262,7 @@ How to answer:
 - "What's the score", "did they win", "when do they play": scores. Standings, division leaders, playoff seeds: standings. Recent news on a team or player: news.
 - Careers and older seasons: anything before ${S("nfl").at(-1)} (NFL) or ${S("cfb").at(-1)} (college), a player's whole career, "first three years", or comparing careers: call career (season totals) or game_log (a single game or game-by-game stats in a season). career opens our career comparison chart, which is the chart for those years: Visualize (show_chart, radars) only has ${S("nfl").at(-1)} on, so if they asked for a radar of older seasons, say that in one short line and show the career comparison.
 - Schedule strength in past seasons ("weakest schedule ever", "toughest in the last 30 years", a team's history): schedule_history. If they don't say college or NFL, answer for both.
+- Pictures: when the member shares one (a screenshot of a post or a take, a stat graphic, a box score), read it closely first. If it makes claims, check each number with the tools and say plainly what holds up and what doesn't, with our numbers. If you can't read part of it, say which part.
 - Never tell the member we don't have something until you've tried every tool that could have it. The weekly data starting in ${S("nfl").at(-1)} is NOT where our player history starts. If a tool says it has no data, try the next tool that could (player_stats, then game_log or career) before answering.
 - Our site is the source of truth. If no tool covers what they asked, say "I can't look that up yet" and point to the page with open_page; never say the site doesn't have something, and never guess.
 - No betting content: no spreads, lines, odds, over/unders or picks against a line. Our win chance and predicted score are fine.

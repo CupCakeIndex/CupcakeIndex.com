@@ -76,7 +76,7 @@ export default {
 
     // the page sends the instructions, its tools and the conversation; we fix the model and the size of the answer
     const raw = await req.text();
-    if (raw.length > 400000) return json({ error: "That conversation got too long. Start a new one." }, 413);
+    if (raw.length > 3000000) return json({ error: "That conversation got too long (pictures add up). Tap New to start a fresh one." }, 413); // ~10 shrunk pictures
     let b;
     try { b = JSON.parse(raw); } catch (e) { return json({ error: "bad request" }, 400); }
     const tools = Array.isArray(b.tools) ? b.tools : [];
