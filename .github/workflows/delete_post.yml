@@ -1,0 +1,46 @@
+name: Delete an X post
+
+# Takes one of our posts down: Actions tab > "Delete an X post" > Run workflow, and paste the post's link.
+# Fill in the log key too (for example primetime-401873009) when the post should be allowed to go out again, corrected.
+
+on:
+  workflow_dispatch:
+    inputs:
+      post:
+        description: "Link to the post (or its number)"
+        required: true
+        type: string
+      key:
+        description: "Posting-log key to forget, so it can be reposted (optional)"
+        required: false
+        type: string
+
+permissions:
+  contents: write   # commits data/social/posted.json when a key is dropped
+
+concurrency:
+  group: social-post
+  cancel-in-progress: false
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r src/social/requirements.txt
+      - name: Delete the post
+        env:
+          POST: ${{ inputs.post }}
+          KEY: ${{ inputs.key }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+        run: |
+          if [ -n "$KEY" ]; then python src/social/delete_post.py "$POST" --key "$KEY"; else python src/social/delete_post.py "$POST"; fi
+      - name: Save the posting log
+        if: success()
+        run: bash src/social/save_log.sh

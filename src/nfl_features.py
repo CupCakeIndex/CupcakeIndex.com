@@ -248,13 +248,29 @@ def fix_upcoming_qbs(games):
     was still listed for Week 7 of 2026 after Tanner McKee had started Week 6). For each game of the next week,
     ESPN's game page lists both teams' injuries: a listed QB who is out, doubtful or on a reserve list is replaced
     by the team's most recent other starter (the backup who just played), so the model applies its QB change.
-    Changes games in place; returns the notes it printed."""
+    First, though, the team's own site: ESPN didn't list Hurts either, but the Eagles' depth chart had McKee at QB1
+    (src/nfl_depth.py, Terry: "pull from the team's site"). Changes games in place; returns the notes it printed."""
     left = [x for x in games if not x["done"] and x.get("espn")]
     if not left:
         return []
     week = min(x["week"] for x in left)
     played = sorted((x for x in games if x["done"]), key=lambda x: (x["season"], x["week"]))
     notes = []
+    try:
+        import nfl_depth
+        qb1 = nfl_depth.refresh()
+    except Exception as e:  # team sites down: ESPN's list below still runs
+        print(f"  QB check: team sites skipped ({e.__class__.__name__})")
+        qb1 = {}
+    ids = {_plain(g.get(f"{s}qb")): g.get(f"{s}qb_id") for g in played for s in "ha" if g.get(f"{s}qb")}
+    for x in (x for x in left if x["week"] == week):
+        for side, team in (("h", x["home"]), ("a", x["away"])):
+            new = qb1.get(team)
+            if new and x.get(f"{side}qb") and _plain(new) != _plain(x[f"{side}qb"]):
+                msg = f"  QB check: {team}: the team site's depth chart has {new} at QB1, not {x[f'{side}qb']}"
+                x[f"{side}qb"], x[f"{side}qb_id"] = new, ids.get(_plain(new))
+                print(msg)
+                notes.append(msg)
     for x in (x for x in left if x["week"] == week):
         try:
             url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event={x['espn']}"
