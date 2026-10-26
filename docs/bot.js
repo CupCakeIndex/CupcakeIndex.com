@@ -6,7 +6,7 @@
 const Bot = (() => {
   const URL_ = "https://cupcake-analyst.thecupcakeindex-support.workers.dev";
   const MAX_ROUNDS = 8; // tool rounds per question
-  let me = null, msgs = [], busy = false, el = null, user = null, tools = null;
+  let me = null, msgs = [], sys = null, busy = false, el = null, user = null, tools = null;
   // the stat tools (57 KB) load only for members, the first time the button shows
   const needTools = () => tools ||= new Promise((ok, bad) => {
     const s = document.createElement("script");
@@ -67,7 +67,7 @@ const Bot = (() => {
     };
     fab.addEventListener("click", () => toggle(panel.hidden || panel.classList.contains("closing")));
     el.querySelector(".bot-x").addEventListener("click", () => toggle(false));
-    el.querySelector(".bot-new").addEventListener("click", () => { if (busy) return; msgs = []; el.querySelector(".bot-log").innerHTML = ""; ta.focus(); });
+    el.querySelector(".bot-new").addEventListener("click", () => { if (busy) return; msgs = []; sys = null; el.querySelector(".bot-log").innerHTML = ""; ta.focus(); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !panel.hidden) toggle(false); });
     ta.addEventListener("input", () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 120) + "px"; });
     ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); el.querySelector("form").requestSubmit(); } });
@@ -132,10 +132,10 @@ const Bot = (() => {
     try { await needTools(); } catch (e) { wait.innerHTML = `<p class="bot-err">${esc(e.message)}</p>`; busy = false; el.classList.remove("busy"); return; }
     BotTools.setSay((s) => { steps.innerHTML = `<span class="bot-dots">${esc(s)}</span>`; log().scrollTop = log().scrollHeight; });
     const keep = msgs.length;
-    msgs.push({ role: "user", content: q });
     const links = [];
     try {
-      const system = await prompt();
+      msgs.push({ role: "user", content: [{ type: "text", text: await now() }, { type: "text", text: q }] });
+      const system = sys ||= await prompt();
       let res = null;
       for (let round = 0; round < MAX_ROUNDS; round++) {
         res = await call("/chat", { system, tools: TOOL_DEFS(), messages: msgs, newQuestion: round === 0 });
@@ -170,14 +170,21 @@ const Bot = (() => {
   }
 
   // ---------- the instructions ----------
-  async function prompt() {
-    const R = await BotTools.base(), S = BotTools.seasons, T = BotTools.teamSeasons;
+  // Built once per conversation and never changed (New starts over): Claude ties its earlier reasoning to the exact
+  // instructions, so a system prompt that changes mid-conversation (a clock in it) gets the next question refused.
+  // Anything that changes over time goes in now() instead, which rides along with each question.
+  async function now() {
+    const R = await BotTools.base();
     // the site's rankings can land a few minutes before the chat's copy is rebuilt (analyst_refresh.yml): say so
     const idx = await getJSON(`data/index.json?_=${Date.now()}`).catch(() => null);
     const behind = ["nfl", "cfb"].filter((lg) => { const ss = idx?.leagues?.[lg]?.seasons || {}, k = Object.keys(ss).sort().at(-1); return k && ss[k].weeks.at(-1) > R[lg].week; });
+    return `[Right now it's ${new Date().toLocaleString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })} for the member.${behind.length ? ` Our ${behind.map((x) => x.toUpperCase()).join(" and ")} rankings were just updated and our_rankings may still show last week's for a few minutes: say so if they ask about rankings. game_prediction, scores, standings and news are always current.` : ""}]`;
+  }
+  async function prompt() {
+    const R = await BotTools.base(), S = BotTools.seasons, T = BotTools.teamSeasons;
     return `You are the Cupcake Analyst, the stat desk inside The Cupcake Index (cupcakeindex.com), a college football and NFL power rankings and analytics site. Motto: "Bullying cupcakes isn't a résumé." A member is chatting with you in a small panel on the site.
 
-Right now it's ${new Date().toLocaleString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })} for the member. Our data: weekly stats for NFL players ${S("nfl").at(-1)}-${S("nfl")[0]} and college ${S("cfb").at(-1)}-${S("cfb")[0]} (regular season; the current seasons are partial), NFL team game stats back to ${T("nfl").at(-1)}, our model's rankings (NFL after week ${R.nfl.week}, college after week ${R.cfb.week} of ${R.cfb.season}), and the NFL injury report and depth charts.${behind.length ? ` Our ${behind.map((x) => x.toUpperCase()).join(" and ")} rankings were just updated and our_rankings may still show last week's for a few minutes: say so if they ask about rankings. game_prediction, scores, standings and news are always current.` : ""}
+Each question starts with the member's day and time in [brackets] (not something they typed). Our data: weekly stats for NFL players ${S("nfl").at(-1)}-${S("nfl")[0]} and college ${S("cfb").at(-1)}-${S("cfb")[0]} (regular season; the current seasons are partial), NFL team game stats back to ${T("nfl").at(-1)}, our model's rankings (NFL after week ${R.nfl.week}, college after week ${R.cfb.week} of ${R.cfb.season}), the NFL injury report and depth charts, and every player's full career season by season from ESPN, back to his first year (the career tool).
 
 How to answer:
 - Use the tools for every number. find_player before player_stats; leaderboard to rank someone among peers; team_stats and our_rankings for teams, schedules and cupcake padding; team_status for injuries and starters (the same list as our Injuries tab); site_tab for our Injuries / Frauds / Over-achievers tabs; pace_to for "on pace for" questions; stat_menu to find the right stat; site_lists for coaches, records, Trade watch and our Heisman race; rare_plays for specific plays; how_we_count for how OUR stats and rankings are defined (call it before explaining any of our numbers). Make several calls in one round when you can.
@@ -194,6 +201,8 @@ How to answer:
 - Days and times: say when a game is ("tonight", "tomorrow", "Saturday") only by copying its "when" from scores, which is already in the member's time. Never work it out from dates yourself.
 - Injury notes and headlines are reports from the date they carry (note_date, published). A game they mention may already be over: check scores before saying a player will or won't play in a game.
 - "What's the score", "did they win", "when do they play": scores. Standings, division leaders, playoff seeds: standings. Recent news on a team or player: news.
+- Careers and older seasons: anything before ${S("nfl").at(-1)} (NFL) or ${S("cfb").at(-1)} (college), a player's whole career, "first three years", or comparing careers: call career. It opens our career comparison chart, which is the chart for those years: Visualize (show_chart, radars) only has ${S("nfl").at(-1)} on, so if they asked for a radar of older seasons, say that in one short line and show the career comparison.
+- Never tell the member we don't have something until you've tried every tool that could have it. The weekly data starting in ${S("nfl").at(-1)} is NOT where our player history starts.
 - Our site is the source of truth. If no tool covers what they asked, say "I can't look that up yet" and point to the page with open_page; never say the site doesn't have something, and never guess.
 - No betting content: no spreads, lines, odds, over/unders or picks against a line. Our win chance and predicted score are fine.
 
@@ -361,6 +370,45 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
         go(href);
         links.push({ href, label: a.title ? `Chart: ${a.title}` : "Open the chart" });
         return { opened: true, note: "The chart is open on the page behind the chat. Say what it shows in a sentence; don't repeat the link." };
+      },
+    },
+    {
+      name: "career",
+      description: "Any NFL or college player's whole career, season by season, from ESPN: the same numbers as the player page's Stats by year, back to his first season (Brady from 2000). Use it for any season before 2022, careers, 'first three years', and comparing careers. Opens our career comparison chart for them. players: 1-4 names. career_years [first, last] lines them up by career year (1 = rookie year); seasons [first, last] picks years instead. category: passing, rushing, receiving, defensive, kicking... (default: each player's main one).",
+      input_schema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, players: { type: "array", items: { type: "string" }, maxItems: 4 },
+        category: { type: "string" }, career_years: { type: "array", items: { type: "integer" }, maxItems: 2 }, seasons: { type: "array", items: { type: "integer" }, maxItems: 2 } }, required: ["league", "players"] },
+      async execute(a, links) {
+        const lg = a.league === "cfb" ? "cfb" : "nfl", keys = [];
+        for (const n of (a.players || []).slice(0, 4)) { // the site's own player search (the header's search box)
+          const hits = await Live.searchPlayers(String(n), 6), h = hits.find((x) => x.key.startsWith(lg + ":")) || hits[0];
+          if (!h) throw new Error(`No player named "${n}" on ESPN.`);
+          keys.push(h.key);
+        }
+        if (!keys.length) throw new Error("Name at least one player.");
+        const P = await Promise.all(keys.map((k) => { const [l, id] = k.split(":"); return Live.career(l, id); }));
+        const byCareer = Array.isArray(a.career_years) && a.career_years.length, win = (byCareer ? a.career_years : a.seasons) || [];
+        const lo = +win[0] || -Infinity, hi = +(win[1] ?? win[0]) || Infinity;
+        const players = P.map((p) => {
+          const lvl = p.lvl, rows = (C) => C.rows.filter((r) => r.level === lvl);
+          const debut = p.debut || Math.min(...Object.values(p.cats).flatMap((C) => rows(C).map((r) => r.year)));
+          const cats = Object.keys(p.cats).filter((c) => rows(p.cats[c]).length);
+          const main = a.category && cats.includes(a.category) ? [a.category]
+            : cats.sort((x, y) => rows(p.cats[y]).length - rows(p.cats[x]).length).slice(0, 3); // his main categories
+          const stats = Object.fromEntries(main.map((c) => { const C = p.cats[c];
+            const seasons = rows(C).map((r) => ({ season: r.year, career_year: r.year - debut + 1, team: r.team.abbr || undefined,
+              ...Object.fromEntries(C.names.map((n) => [C.labels[n] || n, r.vals[n]]).filter(([, v]) => v != null && v !== "")) }))
+              .filter((r) => { const x = byCareer ? r.career_year : r.season; return x >= lo && x <= hi; });
+            return [c, { seasons, ...(win.length ? {} : { career_totals: C.career }) }]; }));
+          return { name: p.name, position: p.pos, first_season: debut, active: p.active, stats };
+        });
+        const [l0, id0] = keys[0].split(":"), params = { league: l0, tab: "career", align: byCareer ? "career" : "season" };
+        if (keys.length > 1) params.vs = keys.slice(1).join(",");
+        if (a.category) params.cat = a.category;
+        if (win.length) { params.from = String(lo); if (isFinite(hi)) params.to = String(hi); }
+        const href = `#/player/${encodeURIComponent(id0)}?${new URLSearchParams(params)}`;
+        go(href);
+        links.push({ href, label: `Open ${keys.length > 1 ? "career comparison" : `${P[0].name}'s career`}` });
+        return { source: "ESPN career stats (the player pages' Stats by year)", lined_up_by: byCareer ? "career year" : "season", players };
       },
     },
     {
