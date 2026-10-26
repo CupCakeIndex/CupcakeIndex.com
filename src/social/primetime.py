@@ -245,7 +245,9 @@ def card(day):
     if p:
         hp = p["home_win_prob"]
         fav, pr = (home, hp) if hp >= 0.5 else (away, 1 - hp)
-        text += f" Our model likes {who(fav)} at {chance(pr)}."
+        # the radars favor one team and the model the other: say so (Terry: "BUT our model likes the Eagles at 53%")
+        upset = n * 2 > len(stats) and big is not fav
+        text += f" {'BUT our' if upset else 'Our'} model likes {who(fav)} at {chance(pr)}."
     return img, text, is_stale(cur, day), f"primetime-{e['id']}"
 
 
