@@ -76,7 +76,8 @@ const Share = (() => {
 
   // Wire the menu inside root (root's content may be redrawn; lookups happen on each click).
   // image() returns { blob, name } or throws an Error whose message is shown on the button.
-  function wire(root, { image }) {
+  // url() (optional): the link Copy Link copies, when it isn't the page's own address (a player's pass chart tab and week).
+  function wire(root, { image, url }) {
     const outside = (e) => { if (!e.target.closest(".share")) menu(false); };
     const escKey = (e) => { if (e.key === "Escape") { menu(false); root.querySelector('[data-act="share"]')?.focus(); } };
     function menu(open) {
@@ -89,7 +90,7 @@ const Share = (() => {
       const btn = e.target.closest(".share button[data-act]"), act = btn?.dataset.act;
       if (act === "share") menu(root.querySelector(".share-menu").hidden);
       if (act === "copy") {
-        await copy(location.href);
+        await copy(url ? url() : location.href);
         btn.textContent = "Copied ✓";
         setTimeout(() => { btn.textContent = "Copy Link"; menu(false); }, 1200);
       }

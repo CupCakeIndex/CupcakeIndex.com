@@ -25,7 +25,7 @@ const Admin = (() => {
   async function render() {
     const el = $("#view-admin");
     if (!Account.enabled()) { el.innerHTML = `<div class="card">Accounts are off, so there's nothing to show.</div>`; return; }
-    el.innerHTML = `<div class="card muted">Loading…</div>`;
+    el.innerHTML = loadingHtml();
     const db = await Account.firestore();
     await Promise.race([new Promise((ok) => { const u = firebase.auth().onAuthStateChanged(() => { u(); ok(); }); }),
       new Promise((ok) => setTimeout(ok, 5000))]); // sign-in settled (or gave up)

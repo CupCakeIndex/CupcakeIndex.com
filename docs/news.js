@@ -71,7 +71,7 @@ const News = (() => {
   async function render(params) {
     const el = $("#view-news");
     const lg = params.get("all") === "1" ? "all" : league;
-    if (!D) el.innerHTML = `<div class="card muted">Loading…</div>`;
+    if (!D) el.innerHTML = loadingHtml();
     try { await load(); } catch (e) {
       el.innerHTML = `<div class="card">Couldn't load the news (${esc(e.message)}). Try again in a minute.</div>`;
       return;

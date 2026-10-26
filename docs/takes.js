@@ -41,7 +41,7 @@ const Takes = (() => {
 
   async function render(params) {
     const el = $("#view-takes");
-    if (!D) el.innerHTML = `<div class="card muted">Loading…</div>`;
+    if (!D) el.innerHTML = loadingHtml();
     await load();
     const lg = params.get("all") === "1" ? "all" : league;
     const rows = D.items.filter((it) => lg === "all" || !it.league || it.league === lg);

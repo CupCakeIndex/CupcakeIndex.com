@@ -88,7 +88,7 @@ const Pickem = (() => {
     if (lg === "cfb") { q.set("groups", "80"); q.set("limit", "300"); }
     const wk = params.get("week"), yr = params.get("season");
     if (wk && /^\d+:\d+$/.test(wk)) { const [st, w] = wk.split(":"); q.set("seasontype", st); q.set("week", w); if (/^\d{4}$/.test(yr || "")) q.set("dates", yr); }
-    if (!refresh) root.innerHTML = `<div class="card muted">Loading…</div>`;
+    if (!refresh) root.innerHTML = loadingHtml();
     let sb, ranks;
     try {
       [sb, ranks] = await Promise.all([K.api(`${K.SITE(lg)}/scoreboard?${q}`, refresh ? 0 : 20000), modelRanks(lg)]);

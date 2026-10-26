@@ -39,7 +39,7 @@ const Coaches = (() => {
 
   async function render(params) {
     const el = $("#view-coaches");
-    if (!D) el.innerHTML = `<div class="card muted">Loading…</div>`;
+    if (!D) el.innerHTML = loadingHtml();
     await load();
     const lg = league, L = D[lg];
     const scope = ["c", "r"].includes(params.get("scope")) ? params.get("scope") : "t", all = params.get("all") === "1"; // t = current team
@@ -140,7 +140,7 @@ const Coaches = (() => {
 
   async function page(s, params) {
     const el = $("#view-coach");
-    el.innerHTML = `<div class="card muted">Loading…</div>`;
+    el.innerHTML = loadingHtml();
     await Promise.all([load(), loadTree(), loadProf(), loadTeams()]);
     const mine = findCoach(s), P = TREE.people || {}, me = P[s];
     if (!mine.length && !me) { el.innerHTML = `<div class="card">Coach not found. <a href="${link("coaches")}">All coaches →</a></div>`; return; }

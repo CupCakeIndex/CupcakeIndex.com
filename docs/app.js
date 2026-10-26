@@ -2,6 +2,12 @@
 // Live ESPN views (scores, stats, standings, game, player, team) live in live.js.
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+// Loading card: the cupcake logo filling up with orange from the bottom (Terry's idea), a copy of the header's logo
+// drawn twice (a faint one, and an orange one that's revealed). Used by every page's "Loading…" placeholder.
+function loadingHtml(text = "Loading…") {
+  const mark = document.querySelector(".logo-mark")?.outerHTML || "";
+  return `<div class="card loading-card" role="status"><span class="ci-load" aria-hidden="true">${mark}${mark}</span><span>${esc(text)}</span></div>`;
+}
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
@@ -164,7 +170,12 @@ async function route() {
   // with the page's height held while it reloads so it can't snap upward
   const page = r.view + "/" + (r.arg || "");
   if (page !== lastPage && typeof Stats !== "undefined") Stats.count("views"); // analytics (stats.js): a new page, not a re-render
-  if (page !== lastPage) window.scrollTo(0, 0);
+  if (page !== lastPage) {
+    window.scrollTo(0, 0);
+    // a quick fade in, so tapping a link doesn't just jump (opacity only: a transform would move fixed pop-ups)
+    const v = $("#view-" + r.view);
+    if (v) { v.classList.remove("view-in"); void v.offsetWidth; v.classList.add("view-in"); }
+  }
   else {
     const v = $("#view-" + r.view);
     if (v) { v.style.minHeight = v.offsetHeight + "px"; clearTimeout(v._mh); v._mh = setTimeout(() => (v.style.minHeight = ""), 3000); }
@@ -276,7 +287,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "434"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "435"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });

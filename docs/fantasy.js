@@ -315,7 +315,7 @@ const Fantasy = (() => {
       location.replace("#/fantasy?league=nfl");
       return;
     }
-    if (!cur) root.innerHTML = `<div class="card muted">Loading…</div>`;
+    if (!cur) root.innerHTML = loadingHtml();
     try {
       const data = await load();
       if (my !== K.token()) return;

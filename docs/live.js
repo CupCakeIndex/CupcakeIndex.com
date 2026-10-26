@@ -34,7 +34,7 @@ const Live = (() => {
   }
 
   const view = (name) => $("#view-" + name);
-  const loading = (name) => { view(name).innerHTML = `<div class="card muted">Loading…</div>`; };
+  const loading = (name) => { view(name).innerHTML = loadingHtml(); };
   const fail = (name, e) => { view(name).innerHTML = `<div class="card">Couldn't load this from ESPN (${esc(e.message)}). Try again in a minute.</div>`; };
   const SIZES = { xs: [18, 18], sm: [22, 22], lg: [28, 28], xl: [56, 56], hero: [96, 96], bigface: [96, 96], hs: [30, 30], leadshot: [52, 52], headshot: [132, 96] }; // CSS display sizes
   let boxTab = "off"; // remembered across live refreshes
@@ -2283,16 +2283,18 @@ const Live = (() => {
           ${modes.length > 1 ? `<div class="seg pc-mode">${modes.map((m) => `<button data-pm="${m}" class="${m === mode ? "active" : ""}">${PC_MODES[m].tab}</button>`).join("")}</div>` : ""}
           <select id="pc-game"><option value="all"${sel === "all" ? " selected" : ""}>All weeks (combined)</option>${games.map((g) => `<option value="${g.gi}"${String(g.gi) === sel ? " selected" : ""}>${esc(g.label)}</option>`).join("")}</select><span class="br-tools pc-share">${Share.menuHtml()}</span></div>
         <div id="pc-body"></div></div>`;
-      Share.wire(slot.querySelector(".pc"), { image });
+      Share.wire(slot.querySelector(".pc"), { image, url: chartUrl });
       slot.querySelector(".pc-mode")?.addEventListener("click", (e) => { const m = e.target.closest("[data-pm]")?.dataset.pm; if (m && m !== mode) { halt(); mode = m; shell(); } });
       $("#pc-game").onchange = (e) => { sel = e.target.value; draw(); };
       draw();
     };
-    // Share: the page's link remembers the tab and week (?chart=pass&cw=<ESPN game id> or all), so Copy Link opens right here.
-    const setUrl = () => {
+    // Copy Link: the page's link plus the tab and week (?chart=pass&cw=<ESPN game id> or all), so it opens right here.
+    // Only the copied link gets them, not the page's own address: that made every later visit (back, refresh, the
+    // home-screen app reopening) jump straight down to the chart (Terry, Oct 26).
+    const chartUrl = () => {
       const [path, q] = location.hash.split("?"), u = new URLSearchParams(q || "");
       u.set("chart", mode); u.set("cw", sel === "all" ? "all" : String(evs[+sel]?.id || "all"));
-      history.replaceState(null, "", `${path}?${u}`);
+      return `${location.origin}${location.pathname}${path}?${u}`;
     };
     // Save Image: the chart's SVG (with its CSS colors copied onto each shape, since a picture can't see the page's styles),
     // drawn on the site's 1600x900 share card with the stat tiles down the side
@@ -2348,7 +2350,6 @@ const Live = (() => {
     };
     const draw = () => {
       halt();
-      setUrl();
       const M = PC_MODES[mode], rush = mode === "rush", games = gamesOf(mode);
       const list = plays[mode].filter((x) => sel === "all" || x.g === +sel), pts = list.filter((x) => x.air != null);
       const caught = pts.filter((x) => !x.inc), avg = (xs) => (xs.length ? xs.reduce((n, x) => n + x.air, 0) / xs.length : null);
@@ -2738,7 +2739,7 @@ const Live = (() => {
       view("stats").innerHTML = `<div class="card">Records are NFL only for now. <a href="${link("stats", null, { show: "records", league: "nfl" })}">See NFL records →</a></div>`;
       return;
     }
-    view("stats").innerHTML = `<div class="card muted">Loading…</div>`;
+    view("stats").innerHTML = loadingHtml();
     const d = await recordBoards();
     if (my !== token) return;
     const keys = Object.keys(d.boards || {});
@@ -2773,7 +2774,7 @@ const Live = (() => {
       view("stats").innerHTML = stSubStats("frauds") + `<div class="card">Frauds are NFL only: they need ESPN's weekly player projections, which don't exist for college. <a href="${link("stats", null, { show: "frauds", league: "nfl" })}">See NFL frauds →</a></div>`;
       return;
     }
-    view("stats").innerHTML = stSubStats("frauds") + `<div class="card muted">Loading…</div>`;
+    view("stats").innerHTML = stSubStats("frauds") + loadingHtml();
     let data, teams;
     try {
       [data, teams] = await Promise.all([frPlayers(), api(`${STAND("nfl")}/standings?level=3`, 86400000).then((d) => new Map(groupsOf(d).flatMap((g) => g.entries).map((e) => [String(e.team.id), e.team]))).catch(() => new Map())]);
@@ -3114,7 +3115,7 @@ const Live = (() => {
 
   async function defProjected(params, pos) {
     const my = token;
-    view("stats").innerHTML = stSubStats("projected") + `<div class="card muted">Loading…</div>`;
+    view("stats").innerHTML = stSubStats("projected") + loadingHtml();
     const [data, teams] = await Promise.all([defPace(), api(`${STAND("nfl")}/standings?level=3`, 86400000).then((d) => new Map(groupsOf(d).flatMap((g) => g.entries).map((e) => [String(e.team.id), e.team]))).catch(() => new Map())]);
     if (my !== token) return;
     if (!data) { view("stats").innerHTML = stSubStats("projected") + `<div class="card">Couldn't load the defensive stats. Try again in a minute.</div>`; return; }
@@ -3159,7 +3160,7 @@ const Live = (() => {
     const my = token;
     if (league !== "nfl") return cfbProjected(params);
     if (DP_POS[params.get("pos")]) return defProjected(params, params.get("pos"));
-    view("stats").innerHTML = stSubStats("projected") + `<div class="card muted">Loading…</div>`;
+    view("stats").innerHTML = stSubStats("projected") + loadingHtml();
     let data, teams;
     try {
       [data, teams] = await Promise.all([pjPlayers(), api(`${STAND("nfl")}/standings?level=3`, 86400000).then((d) => new Map(groupsOf(d).flatMap((g) => g.entries).map((e) => [String(e.team.id), e.team]))).catch(() => new Map())]);
@@ -3237,7 +3238,7 @@ const Live = (() => {
 
   async function cfbProjected(params) {
     const my = token;
-    view("stats").innerHTML = stSubStats("projected") + `<div class="card muted">Loading…</div>`;
+    view("stats").innerHTML = stSubStats("projected") + loadingHtml();
     const pace = params.get("when") === "pace";
     let data = await (pace ? cfbPace() : cfbProj());
     if (my !== token) return;
@@ -4930,7 +4931,7 @@ const Live = (() => {
       view("freeagents").innerHTML = `<div class="card">Free agents are NFL only. <a href="#/freeagents?league=nfl">See NFL free agents →</a></div>`;
       return;
     }
-    view("freeagents").innerHTML = trSub("freeagents") + `<div class="card muted">Loading…</div>`;
+    view("freeagents").innerHTML = trSub("freeagents") + loadingHtml();
     let cands, teams;
     try {
       [cands, teams] = await Promise.all([faCandidates(), api(`${STAND("nfl")}/standings?level=3`, 86400000).then((d) => new Map(groupsOf(d).flatMap((g) => g.entries).map((e) => [String(e.team.id), e.team]))).catch(() => new Map())]);
@@ -5340,7 +5341,7 @@ const Live = (() => {
   async function trades(pid, params) {
     const my = token;
     if (league !== "nfl") return portal(pid, params);
-    view("trades").innerHTML = trSub("trades") + `<div class="card muted">Loading…</div>`;
+    view("trades").innerHTML = trSub("trades") + loadingHtml();
     let D;
     try { D = await getJSON("data/nfl/trade_watch.json"); } catch (e) { return fail("trades", e); }
     if (my !== token) return;
@@ -5462,7 +5463,7 @@ const Live = (() => {
   }
   async function portal(pid, params) {
     const my = token;
-    view("trades").innerHTML = `<div class="card muted">Loading…</div>`;
+    view("trades").innerHTML = loadingHtml();
     let D;
     try { D = await getJSON("data/cfb/portal_watch.json"); } catch (e) { return fail("trades", e); }
     if (my !== token) return;

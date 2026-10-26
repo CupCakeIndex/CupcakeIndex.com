@@ -1215,7 +1215,7 @@ const Viz = (() => {
     if (!params.has("mode")) st.mode = store.get("viz-mode") === "adv" ? "adv" : "";
     const him = params.get("him"); // "Chart him" (player pages, Takes): this player's chart
     if (him) st.who = "players";
-    el.innerHTML = stSub() + `<div class="card muted">Loading…</div>`;
+    el.innerHTML = stSub() + loadingHtml();
     idx = idx || await getJSON("data/viz/index.json").catch(() => ({}));
     const pFrom = idx.players?.[league] || 0; // NFL seasons before this are team-only (smaller files, back to 1999)
     const seasons = (idx[league] || []).filter((s) => st.who !== "players" || s >= pFrom);
