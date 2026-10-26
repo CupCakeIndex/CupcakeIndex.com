@@ -5,6 +5,8 @@
 //
 //   GET  /me    -> { member, questions, usd, limit, today, days }   (the chat button only shows for members)
 //   POST /chat  -> one Claude turn: { content, stop_reason, usage }  body: { system, tools, messages, newQuestion }
+//   GET  /admin -> the owner only: this month's chat cost for everyone together { month, usd, questions, days, people }
+//                  (the site's Admin page > Costs)
 //   Both need "Authorization: Bearer <Firebase ID token>" (the site's Sign in with Google).
 //
 // Setup (Cloudflare dashboard > Workers > this worker > Settings):
@@ -56,6 +58,27 @@ const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/
 async function usage(env, uid) {
   return (await env.USAGE.get(`u:${uid}:${month()}`, "json")) || { q: 0, usd: 0, days: {} };
 }
+// everyone's entries for this month added up, for the Admin page (KV's free plan allows 1,000 lists a day)
+async function everyone(env) {
+  const m = month(), out = { month: m, usd: 0, questions: 0, days: {}, people: [] };
+  let cursor;
+  do {
+    const page = await env.USAGE.list({ prefix: "u:", cursor });
+    for (const k of page.keys.filter((k) => k.name.endsWith(":" + m))) {
+      const u = await env.USAGE.get(k.name, "json");
+      if (!u) continue;
+      out.usd += u.usd; out.questions += u.q;
+      out.people.push({ email: u.email || "(before Oct 26)", questions: u.q, usd: Math.round(u.usd * 10000) / 10000 });
+      for (const [d, x] of Object.entries(u.days || {})) {
+        const t = (out.days[d] ||= { q: 0, usd: 0 });
+        t.q += x.q; t.usd += x.usd;
+      }
+    }
+    cursor = page.list_complete ? null : page.cursor;
+  } while (cursor);
+  out.usd = Math.round(out.usd * 10000) / 10000;
+  return out;
+}
 const summary = (u, me) => ({ member: true, questions: u.q, usd: Math.round(u.usd * 10000) / 10000, limit: LIMIT, day_limit: me.email === OWNER ? null : DAY_LIMIT,
   today: u.days[today()]?.q || 0, days: u.days, cap_usd: MONTH_CAP_USD, testing: me.email === OWNER });
 
@@ -71,6 +94,7 @@ export default {
     try { me = await signedIn(req); } catch (e) { return json({ error: "sign-in check failed" }, 503); }
     if (!me) return json({ error: "sign in first" }, 401);
     if (url.pathname === "/me") return json(isMember(me, env) ? summary(await usage(env, me.uid), me) : { member: false });
+    if (url.pathname === "/admin") return me.email === OWNER && me.verified ? json(await everyone(env)) : json({ error: "not allowed" }, 403);
     if (url.pathname !== "/chat" || req.method !== "POST") return json({ error: "not found" }, 404);
     if (!isMember(me, env)) return json({ error: "The Analyst is for members." }, 403);
 
@@ -104,7 +128,7 @@ export default {
     }
     const t = out.usage || {};
     const usd = ((t.input_tokens || 0) + (t.cache_creation_input_tokens || 0) * 1.25 + (t.cache_read_input_tokens || 0) * 0.1) * pin / 1e6 + (t.output_tokens || 0) * pout / 1e6;
-    u.usd += usd; u.days[d].usd += usd;
+    u.usd += usd; u.days[d].usd += usd; u.email = me.email;
     if (b.newQuestion) { u.q++; u.days[d].q++; }
     await env.USAGE.put(`u:${me.uid}:${month()}`, JSON.stringify(u), { expirationTtl: 60 * 60 * 24 * 400 });
     return json({ content: out.content, stop_reason: out.stop_reason, cost: usd, model, usage: summary(u, me) });

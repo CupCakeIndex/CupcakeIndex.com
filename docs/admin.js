@@ -68,7 +68,7 @@ const Admin = (() => {
     try { fixed = JSON.parse(localStorage.getItem("ad-costs") || "{}"); } catch (e) { fixed = {}; }
     try { fixed = { ...fixed, ...((await db.collection("admin_settings").doc("costs").get()).data() || {}) }; } catch (e) { /* keep this device's */ }
     const cal = posts(db, $("#ad-posts"), mon, today, rows, err);
-    costs(db, $("#ad-costs"), today, mon, rows, err, fixed);
+    costs(db, $("#ad-costs"), today, mon, rows, err, fixed, await chatCosts());
     analytics(db, $("#ad-analytics"));
     alerts($("#ad-alerts"), await cal);
     const was = sessionStorage.getItem("ad-open");
@@ -271,14 +271,24 @@ const Admin = (() => {
   // ---------- what it all costs (src/social/ledger.py), plus the fixed costs ----------
   // [label, dollars a month (null = not known yet), note, the key Terry's own number is saved under, its period]
   // Keyed ones are typed in on this page and saved to admin_settings/costs (owner only); the domain is typed per year.
+  // the Analyst chat's Claude bill: its Worker counts every member's cost in Cloudflare and adds it up for the owner
+  // (workers/analyst.js /admin). null = couldn't get it (most likely the Worker code there is older than this page).
+  async function chatCosts() {
+    try {
+      const r = await fetch("https://cupcake-analyst.thecupcakeindex-support.workers.dev/admin",
+        { headers: { Authorization: `Bearer ${await firebase.auth().currentUser.getIdToken()}` } });
+      return r.ok ? await r.json() : null;
+    } catch (e) { return null; }
+  }
   const FIXED = [
     ["X Premium (@CupcakeIndex)", null, "your X subscription", "xPremium", "month"],
     ["cupcakeindex.com domain", null, "yearly renewal, shown per month", "domainYear", "year"],
     ["Firebase (accounts, alerts, analytics)", 0, "free Spark plan"],
     ["GitHub (site + all the automatic jobs)", 0, "free for a public repo"],
     ["CollegeFootballData", 0, "free plan"],
+    ["Cloudflare (runs the Analyst chat)", 0, "free plan"],
   ];
-  function costs(db, el, today, mon, rows, err, mine = {}) {
+  function costs(db, el, today, mon, rows, err, mine = {}, chat = null) {
     if (err) {
       el.innerHTML = `<div class="card"><h2>Costs</h2><p>${rulesNote(err)}</p></div>`;
       tile("costs", `<span class="muted">Couldn't read it</span>`, "bad");
@@ -293,10 +303,15 @@ const Admin = (() => {
     const sum = (f) => r.filter(f).reduce((a, x) => a + x.usd, 0);
     const inMonth = (x) => dayOf(x).startsWith(month);
     const t = new Date(today + "T12:00:00"), dim = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate(), done = t.getDate();
-    const mtd = sum(inMonth), wk = sum((x) => dayOf(x) >= mon), td = sum((x) => dayOf(x) === today);
-    const yd = sum((x) => dayOf(x) === day(new Date(t.getTime() - 864e5)));
+    // the chat's days (Eastern, like ours), this month only
+    const cd = Object.entries(chat?.month === month ? chat.days || {} : {});
+    const chatSum = (f, k = "usd") => cd.filter(([d]) => f(d)).reduce((a, [, x]) => a + (x[k] || 0), 0);
+    const ydDay = day(new Date(t.getTime() - 864e5));
+    const mtdChat = chatSum(() => true), wkChat = chatSum((d) => d >= mon);
+    const mtd = sum(inMonth) + mtdChat, wk = sum((x) => dayOf(x) >= mon) + wkChat, td = sum((x) => dayOf(x) === today) + chatSum((d) => d === today);
+    const yd = sum((x) => dayOf(x) === ydDay) + chatSum((d) => d === ydDay);
     const fixed = FX.reduce((a, f) => a + (f[1] || 0), 0), unknown = FX.some((f) => f[1] == null);
-    tile("costs", `<b class="ad-big">${money(mtd + fixed)}${unknown ? "+" : ""}</b><small>this month so far, fixed costs included · today ${money(td)}</small>`);
+    tile("costs", `<b class="ad-big">${money(mtd + fixed)}${unknown || !chat ? "+" : ""}</b><small>this month so far, fixed costs included · today ${money(td)}</small>`);
     const tile2 = (big, label) => `<div class="ad-tile"><b>${big}</b><small>${esc(label)}</small></div>`;
     const CATS = [
       ["Posts on X", (x) => x.kind === "x", "posts", "$0.015 a post (X's API price, no links)"],
@@ -312,12 +327,16 @@ const Admin = (() => {
       <div class="table-wrap"><table class="ad-cost"><thead><tr><th>What</th><th class="n">This month</th><th class="n">This week</th><th class="n">Cost this month</th></tr></thead><tbody>
         ${CATS.map(([l, f, unit, note]) => `<tr><td>${esc(l)}<small>${esc(note)}</small></td><td class="n">${r.filter((x) => inMonth(x) && f(x)).length} ${unit}</td>
           <td class="n">${money(sum((x) => dayOf(x) >= mon && f(x)))}</td><td class="n">${money(sum((x) => inMonth(x) && f(x)))}</td></tr>`).join("")}
+        <tr><td>Analyst chat (Claude)<small>${chat ? `members' questions, pictures included; ${(chat.people || []).length} ${(chat.people || []).length === 1 ? "person" : "people"} this month, $5 cap each`
+          : "couldn't reach the chat's counter: re-paste workers/analyst.js into Cloudflare (Workers > cupcake-analyst > Edit code > Deploy)"}</small></td>
+          <td class="n">${chat ? `${num(chatSum(() => true, "q"))} questions` : "?"}</td><td class="n">${chat ? money(wkChat) : "?"}</td><td class="n">${chat ? money(mtdChat) : "?"}</td></tr>
         ${FX.map(([l, v, note, k, per, typed]) => `<tr><td>${esc(l)}<small>${esc(note)}</small>${k ? `<label class="ad-fx">$<input type="number" min="0" step="0.01" inputmode="decimal"
             data-k="${k}" value="${typed ?? ""}" placeholder="?" aria-label="${esc(l)}, dollars a ${per}"> a ${per}</label>` : ""}</td>
           <td class="n">fixed</td><td class="n"></td><td class="n">${v == null ? "?" : money(v)}</td></tr>`).join("")}
-      </tbody><tfoot><tr><td>Total</td><td></td><td class="n">${money(wk)}</td><td class="n"><b>${money(mtd + fixed)}${unknown ? " + ?" : ""}</b></td></tr></tfoot></table></div>
+      </tbody><tfoot><tr><td>Total</td><td></td><td class="n">${money(wk)}</td><td class="n"><b>${money(mtd + fixed)}${unknown || !chat ? " + ?" : ""}</b></td></tr></tfoot></table></div>
       <p class="ad-fx-row"><button type="button" class="btn ad-fx-save">Save my costs</button> <span class="muted ad-fx-msg">Type what you pay for X Premium and the domain; it saves when you leave the box.</span></p>
       <p class="note">Quality checks this month: ${money(checkM)} of the $4.50 budget${checkM >= 4.5 ? " (on the cheaper model until the 1st)" : ""}.
+        ${chat?.people?.length ? `Analyst chat by person: ${chat.people.sort((a, b) => b.usd - a.usd).map((p) => `${esc(p.email)} ${money(p.usd)} (${num(p.questions)} questions)`).join(", ")}. ` : ""}
         Claude calls are counted from Oct 26, 2026; X posts from Oct 1 (from the posting log). These are estimates from list prices; the real bills are at console.anthropic.com (Usage) and the X developer console (Billing).</p>
       <div class="ad-chart"><canvas id="ad-cost-chart"></canvas></div></div>`;
     // saves when you leave a box (or tap Save). The totals update right away from this device's copy, even if the
@@ -350,7 +369,8 @@ const Admin = (() => {
     const days = [...Array(done)].map((_, i) => `${month}-${String(i + 1).padStart(2, "0")}`);
     drawLater("ad-cost-chart", (C) => ({ type: "bar", data: { labels: days.map((d) => d.slice(5).replace("-", "/")),
       datasets: [["Posts on X", (x) => x.kind === "x", C("--accent")], ["Claude", (x) => x.kind === "claude", "#4cc9f0"]]
-        .map(([l, f, c]) => ({ label: l, data: days.map((d) => +sum((x) => dayOf(x) === d && f(x)).toFixed(3)), backgroundColor: c, stack: "s" })) },
+        .map(([l, f, c]) => ({ label: l, data: days.map((d) => +sum((x) => dayOf(x) === d && f(x)).toFixed(3)), backgroundColor: c, stack: "s" }))
+        .concat(chat ? [{ label: "Analyst chat", data: days.map((d) => +chatSum((x) => x === d).toFixed(3)), backgroundColor: "#b388ff", stack: "s" }] : []) },
       options: { responsive: true, maintainAspectRatio: false, devicePixelRatio: Math.max(2, window.devicePixelRatio || 1),
         plugins: { legend: { labels: { color: C("--ink") } }, tooltip: { callbacks: { label: (c) => `${c.dataset.label}: $${c.raw.toFixed(3)}` } } },
         scales: { x: { stacked: true, ticks: { color: C("--muted") }, grid: { color: C("--line") } },
