@@ -1957,24 +1957,26 @@ const Viz = (() => {
       const pills = axes.map((s) => sers.map((k, i) => ({ i, t: pillTxt(s, k) })).filter((o) => o.t));
       const pw = (t) => t.length * 0.6 * px(9) + 8, gap = 4; // JetBrains Mono: every character is 0.6em wide
       const rowW = (row) => row.reduce((a, o) => a + pw(o.t), 0) + gap * Math.max(0, row.length - 1);
-      const stack = innerWidth < 600 && sers.length > 1; // phones: side by side gets cut off at the edges, so one pill per line
+      // a narrow chart (phones, and the picture made from one): long stat names wrap and the pills stack, so nothing runs off the edge
+      const narrow = (ch) => ch.width < 520, stackOn = (ch) => narrow(ch) && sers.length > 1;
+      const nameLines = (lbl, nar) => !nar || lbl.length <= 12 ? [lbl] : lbl.split(" ").reduce((a, w) => (a.length && (a.at(-1) + " " + w).length <= 12 ? (a[a.length - 1] += " " + w) : a.push(w), a), []);
       const blank = (w) => " ".repeat(Math.ceil(w / (0.6 * px(10))));
       cfg = { type: "radar", data: { labels: axes.map((s) => s[1].replace(/ \(.+\)/, "")), datasets: sers.map((k, i) => ({ label: short(k), data: axes.map((s) => pctile(s, k)),
         borderColor: PAL[i % PAL.length], backgroundColor: PAL[i % PAL.length] + "33", borderWidth: 2, pointRadius: 2 })) },
         options: { ...base, scales: { r: { min: 0, max: 100, ticks: { display: false, stepSize: 25 }, grid: { color: line }, angleLines: { color: line },
           pointLabels: { color: ink, font: { family: "JetBrains Mono", size: px(10), lineHeight: 1.7 }, // blank second line = room for the pills
-            callback: (lbl, j) => numsOn && pills[j]?.length ? [lbl, ...(stack ? pills[j].map((o) => blank(pw(o.t))) : [blank(rowW(pills[j]))])] : lbl } } },
+            callback(lbl, j) { const ch = this.chart; return [...nameLines(lbl, narrow(ch)), ...(numsOn && pills[j]?.length ? (stackOn(ch) ? pills[j].map((o) => blank(pw(o.t))) : [blank(rowW(pills[j]))]) : [])]; } } } },
           plugins: { ...base.plugins, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${c.dataset.label}: ${axes[c.dataIndex][1]} ${fmt(axes[c.dataIndex], val(axes[c.dataIndex], sers[c.datasetIndex]), st.per)} (better than ${c.raw}%)` } } } },
         plugins: [{ id: "vzRadar", afterDatasetsDraw(c) {
           const items = c.scales.r._pointLabelItems;
           if (!numsOn || !items) return;
-          const { ctx } = c, h = px(9) + 6;
+          const { ctx } = c, h = px(9) + 6, stack = stackOn(c);
           ctx.save(); ctx.font = `bold ${px(9)}px JetBrains Mono`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
           pills.forEach((row, j) => {
             const it = items[j], shown = row.filter((o) => !c.getDatasetMeta(o.i).hidden);
             if (!it || !shown.length) return;
-            const lh = (it.bottom - it.top) / (1 + (stack ? row.length : 1)), at = (w) => it.textAlign === "left" ? it.left : it.textAlign === "right" ? it.right - w : (it.left + it.right) / 2 - w / 2;
-            let x = at(rowW(shown)), y = it.top + lh * 1.5; // middle of the line under the name
+            const nm = nameLines(c.data.labels[j], narrow(c)).length, lh = (it.bottom - it.top) / (nm + (stack ? row.length : 1)), at = (w) => it.textAlign === "left" ? it.left : it.textAlign === "right" ? it.right - w : (it.left + it.right) / 2 - w / 2;
+            let x = at(rowW(shown)), y = it.top + lh * (nm + 0.5); // middle of the line under the name
             shown.forEach((o) => {
               const ww = pw(o.t), col = PAL[o.i % PAL.length];
               if (stack) x = at(ww);
@@ -2506,6 +2508,43 @@ const Viz = (() => {
         : `Can't chart these together: ${[0, 1].map((i) => { const p = miss.players[i], t = miss.teams[i]; return p && !t ? `“${parts[i]}” is a player stat (${p[1]})` : t && !p ? `“${parts[i]}” is a team stat (${t[1]})` : `“${parts[i]}” is ${p ? p[1] : "?"}`; }).join(" and ")}. A scatter needs two player stats or two team stats.`;
       return { hits: out.sort((a, b) => b[0] - a[0]).slice(0, 4).map((x) => x[1]), note };
     };
+    // Two or more names ("jeremiah smith vs malachi toney", "compare bama, georgia and texas"): when every side is a player, or
+    // every side is a team, a radar of them side by side. Stat pairs ("sacks vs pressures") don't name anyone, so they skip this.
+    const qPeople = (raw) => {
+      const q = norm(raw).replace(/^(compare|chart|show( me)?)\s+/, "").replace(/\s+(radar|profiles?|comparison|compared)$/, "").trim();
+      const parts = q.split(/\s+(?:vs\.?|v\.?|versus|and|or|against|compared (?:to|with))\s+|\s*(?:&|,)\s*/).map((s) => s.trim()).filter(Boolean);
+      if (parts.length < 2 || parts.length > 6) return null;
+      const wordsOf = (s) => s.split(/\s+/);
+      // two words or more: each starts a word of the name ("jer smith"); one word must be a whole name word ("toney"), so stats never match
+      const named = (ws, n) => ws.length > 1 ? ws.every((w) => n.some((x) => x.startsWith(w))) : n.includes(ws[0]) && ws[0].length > 2;
+      const player = (p) => { // every word starts a word of his name; this season's players, then the biggest stat line
+        const ws = wordsOf(p);
+        const hit = plPool.map(([k, m]) => [k, m, norm(m[0]).split(" ")]).filter(([, , n]) => named(ws, n))
+          .sort((a, b) => (D.pmeta?.[b[0]] ? 1 : 0) - (D.pmeta?.[a[0]] ? 1 : 0) || (plSize[b[0]] || 0) - (plSize[a[0]] || 0))[0];
+        return hit && [hit[0], hit[1]];
+      };
+      const team = (p) => { // the full name, the short name, or every word starting a word of the name ("ohio st")
+        const ws = wordsOf(p), T = Object.entries(D.teams);
+        return (T.find(([, t]) => norm(t[0]) === p || norm(t[1] || "") === p)
+          || T.find(([, t]) => named(ws, norm(t[0]).split(" "))) || [])[0];
+      };
+      const pls = parts.map(player), tms = parts.map(team);
+      if (pls.every(Boolean) && new Set(pls.map((x) => x[0])).size === pls.length && !(tms.every(Boolean) && st.who === "teams")) {
+        const pos = [...new Set(pls.map(([k, m]) => (m[1] ? POS_OF(m[1], {}) : agg[k] ? POS_OF("", agg[k].S) : "")))];
+        return [`Compare ${pls.map(([, m]) => m[0]).join(" vs ")}`, "Radar · players", "", () => {
+          st = { ...DEF, from: st.from, to: st.to, mode: st.mode, who: "players", type: "radar", top: "3", pos: pos.length === 1 && RADAR.players[pos[0]] ? pos[0] : "", pick: pls.map((x) => x[0]).join(",") };
+          reload(); }];
+      }
+      if (tms.every(Boolean) && new Set(tms).size === tms.length)
+        return [`Compare ${tms.map((k) => D.teams[k][0]).join(" vs ")}`, "Radar · teams", "", () => {
+          st = { ...DEF, from: st.from, to: st.to, mode: st.mode, who: "teams", type: "radar", top: "3", pick: tms.join(",") };
+          reload(); }];
+      // some sides are players and the rest aren't found: say who's missing (often no stats in these seasons)
+      const lost = parts.filter((p, i) => !pls[i] && !tms[i]);
+      if (lost.length && lost.length < parts.length && pls.some(Boolean)) peopleNote = `No player named ${lost.map((p) => `“${p}”`).join(" or ")} with stats in ${st.from === st.to ? st.to : `${st.from}–${st.to}`}. Try another season.`;
+      return null;
+    };
+    let peopleNote = "";
     let qHits = [], qCur = -1;
     const qShow = () => {
       const raw = qbox.value.trim(), cfbT = league === "cfb" && /target/i.test(raw), q = cfbT ? norm(raw).replace(/targets?/g, "catch") : norm(raw);
@@ -2526,7 +2565,9 @@ const Viz = (() => {
       const asked = ask(raw, !one.some((x) => x[1] < 2));
       // two stats ("drops vs targets"): the scatter comes before single stats that merely contain both words; only an exact name beats it
       const cut = pair?.hits?.length ? 0.5 : 2;
-      qHits = [...plFind(words), ...(asked ? [asked] : []), ...one.filter((x) => x[1] < cut || (x[1] < 2 && x[0][1] === "Preset" && / vs /.test(x[0][0]))).map((x) => x[0]), ...(pair?.hits || []),
+      peopleNote = "";
+      const people = qPeople(raw);
+      qHits = [...(people ? [people] : []), ...plFind(words), ...(asked ? [asked] : []), ...one.filter((x) => x[1] < cut || (x[1] < 2 && x[0][1] === "Preset" && / vs /.test(x[0][0]))).map((x) => x[0]), ...(pair?.hits || []),
         ...one.filter((x) => x[1] >= cut && !(x[1] < 2 && x[0][1] === "Preset" && / vs /.test(x[0][0]))).map((x) => x[0])];
       // nothing at all: drop one word at a time and offer what the rest of the question finds
       if (!qHits.length && words.length > 1) {
@@ -2543,7 +2584,7 @@ const Viz = (() => {
       }
       qCur = -1;
       qs.innerHTML = (cfbT ? `<p class="muted">College stats don't track targets, so these use catches.</p>` : "") + (pair?.note ? `<p class="muted">${esc(pair.note)}</p>` : "") + qHits.map((it, i) => `<button type="button" data-i="${i}">${esc(it[0])} <small>${esc(it[1])}</small></button>`).join("")
-        || `<p class="muted">Nothing matches “${esc(raw)}”. To compare two stats, put “and” or “vs” between them.</p>`;
+        || `<p class="muted">${peopleNote ? esc(peopleNote) : `Nothing matches “${esc(raw)}”. To compare two stats, put “and” or “vs” between them.`}</p>`;
       qs.hidden = false;
     };
     const qPick = (it) => { if (it) { qbox.value = ""; qs.hidden = true; it[3](); } };
