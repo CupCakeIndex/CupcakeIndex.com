@@ -34,13 +34,24 @@ jobs:
       - name: Delete the post
         env:
           POST: ${{ inputs.post }}
-          KEY: ${{ inputs.key }}
           X_API_KEY: ${{ secrets.X_API_KEY }}
           X_API_SECRET: ${{ secrets.X_API_SECRET }}
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
         run: |
-          if [ -n "$KEY" ]; then python src/social/delete_post.py "$POST" --key "$KEY"; else python src/social/delete_post.py "$POST"; fi
-      - name: Save the posting log
-        if: success()
-        run: bash src/social/save_log.sh
+          python src/social/delete_post.py "$POST"
+      - name: Forget it in the posting log, so it can go out again
+        if: inputs.key != ''
+        env:
+          KEY: ${{ inputs.key }}
+        run: |
+          git config user.name "rankings-bot"
+          git config user.email "rankings-bot@users.noreply.github.com"
+          for try in 1 2 3 4; do
+            git fetch -q origin main && git checkout -q -f -B main origin/main
+            python src/social/delete_post.py - --forget-only --key "$KEY"
+            git diff --quiet -- data/social/posted.json && { echo "Log already clear"; exit 0; }
+            git commit -qam "Posting log: forget $KEY" && git push -q origin main && exit 0
+            sleep $((try * 5))
+          done
+          exit 1
