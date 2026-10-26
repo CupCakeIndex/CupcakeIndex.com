@@ -16,12 +16,12 @@ def site_rank(week_json, info):
     return week_json
 
 
-H2H_GAP, H2H_BAD = 10, {"cfb": 50, "nfl": 24}  # same as app.js
+H2H_GAP, H2H_BAD = 5, {"cfb": 50, "nfl": 24}  # same as app.js
 
 
 def head_to_head(order, comp, lg):
     """app.js headToHead: a team that beat another (more wins than losses against it) moves right above it if its
-    blended score is within H2H_GAP and it has no bad loss. One pass from the top down; each team moves at most once."""
+    blended score is within H2H_GAP, it has no bad loss, and it wouldn't pass a team that beat it. One pass from the top down; each team moves at most once."""
     net, bad = {}, set()
     for t in order:
         for g in t.get("schedule") or []:
@@ -37,6 +37,8 @@ def head_to_head(order, comp, lg):
         for j in range(i + 1, len(out)):
             W = out[j]
             if W["team"] in moved or W["team"] in bad or not net.get((W["team"], L["team"]), 0) > 0 or comp[L["team"]] - comp[W["team"]] > H2H_GAP:
+                continue
+            if any(net.get((X["team"], W["team"]), 0) > 0 for X in out[i:j]):  # would pass a team that beat it
                 continue
             moved.add(W["team"])
             out.pop(j)

@@ -1,5 +1,15 @@
 [
   {
+    "version": "1.116.1",
+    "build": 433,
+    "date": "2026-10-26",
+    "items": [
+      "Fixed the college rankings putting Kentucky at #1. A team that wins head to head now only moves above a team it's within 5 points of (it was 10, which could jump a team from 10th to 1st), and never above a team that beat it.",
+      "The AP and Coaches polls now come straight from ESPN, so the new poll shows up Sunday night even when our stats source is slow.",
+      "Rankings keep updating if our stats source is temporarily unavailable, using the last data it sent."
+    ]
+  },
+  {
     "version": "1.116.0",
     "build": 432,
     "date": "2026-10-22",

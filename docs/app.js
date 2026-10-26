@@ -276,7 +276,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "432"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "433"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -733,10 +733,12 @@ function composite(teams, w = weights, factors = LG.factors, h2h = w !== weights
 
 // Head-to-head: a team that beat another this season (more wins than losses against it) ranks right above it,
 // as long as its blended score is within H2H_GAP points (out of 100) and it has no bad loss (to an FCS team or a team
-// ranked below H2H_BAD: college #50, NFL #24). A bigger gap means the loser is still clearly better and stays ahead. One pass from the top of the table down, and each team moves at most once, so results
+// ranked below H2H_BAD: college #50, NFL #24). A bigger gap means the loser is still clearly better and stays ahead.
+// It also never moves above a team that beat it (Kentucky jumped to #1 over LSU while ranked above Alabama, who beat
+// them 45-17; the gap was 10 then, wide enough to cover the whole top 10). One pass from the top of the table down, and each team moves at most once, so results
 // don't chain (A beat B who beat C doesn't carry A over C) and a loop (A beat B, B beat C, C beat A) can't spin.
 // Off when sorting by a single factor. The mover gets t.h2h = the team it moved above (shown as an H2H tag).
-const H2H_GAP = 10, H2H_BAD = { cfb: 50, nfl: 24 };
+const H2H_GAP = 5, H2H_BAD = { cfb: 50, nfl: 24 };
 function headToHead(list, lg = league) {
   const net = new Map(), bad = new Set(); // net: "winner|loser" -> wins minus losses; bad: teams with a bad loss
   for (const t of list) for (const g of t.schedule || []) {
@@ -751,6 +753,8 @@ function headToHead(list, lg = league) {
     for (let j = i + 1; j < list.length; j++) { // the best-scored winner below it gets the spot
       const W = list[j];
       if (moved.has(W.team) || bad.has(W.team) || !(net.get(`${W.team}|${L.team}`) > 0) || L.comp - W.comp > H2H_GAP) continue;
+      // would pass a team that beat it
+      if (list.slice(i, j).some((X) => net.get(`${X.team}|${W.team}`) > 0)) continue;
       moved.add(W.team);
       list.splice(j, 1); list.splice(i, 0, { ...W, h2h: L.team });
       i++; // L is now one spot lower; carry on below it

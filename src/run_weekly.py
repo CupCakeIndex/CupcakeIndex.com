@@ -34,11 +34,11 @@ def default_season():
     return now.year if now.month >= 8 else now.year - 1
 
 
-def run_league(league, season, cfg_league, offline):
+def run_league(league, season, cfg_league, offline, light=False):
     cfg = cfg_league["model"]
     src = LEAGUES[league]
     print(f"{league.upper()} {season}: loading data")
-    d = src.fetch_season(season, refresh=not offline)
+    d = src.fetch_season(season, refresh=not offline, **({"light": True} if light and league == "cfb" else {}))  # light: fewer CFBD calls
     prev = src.fetch_season(season - 1, with_extras=False)
 
     prev_teams = model.fbs_teams(prev["teams"])
@@ -219,7 +219,7 @@ def main():
     failed = []
     for league in (["cfb", "nfl"] if args.league == "all" else [args.league]):
         try:
-            weeks, acc = run_league(league, args.season, cfg_all[league], args.offline)
+            weeks, acc = run_league(league, args.season, cfg_all[league], args.offline, light=args.keep_date)
         except Exception as e:  # one league's outage shouldn't block the other
             print(f"  ERROR building {league}: {e!r}")
             failed.append(league)
