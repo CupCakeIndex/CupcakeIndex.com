@@ -944,7 +944,7 @@ const Viz = (() => {
     }
   }
   // team logos: ESPN's small logos (they allow drawing into a picture, so "Download picture" keeps them)
-  let LOGOS = null;
+  let LOGOS = null, TCOL = {}; // TCOL: "nfl:28" -> [main color, alternate] (Commanders: burgundy, gold)
   const imgs = new Map();
   async function loadLogos() {
     if (LOGOS) return;
@@ -953,6 +953,7 @@ const Viz = (() => {
     for (const lg of ["cfb", "nfl"]) for (const x of t[lg] || []) {
       const path = lg === "nfl" ? (x.logo || "").replace("https://a.espncdn.com", "") : `/i/teamlogos/ncaa/500/${x.id}.png`;
       if (path.startsWith("/i/")) LOGOS[`${lg}:${x.id}`] = `https://a.espncdn.com/combiner/i?img=${path}&w=160&h=160`;
+      TCOL[`${lg}:${x.id}`] = [x.color, x.alt];
     }
   }
   // Witty quadrant names for a scatter nobody named (qa "0" turns them off), built from what each axis means: every stat
@@ -1609,6 +1610,35 @@ const Viz = (() => {
     };
     const [, hi, plain, PAL] = SCHEMES[st.scheme] || SCHEMES[""];
     const color = (k) => plain || (who === "players" && st.team ? hi : tm(teamOf(k))[2]) || "#888"; // one team's players: its color would be every bar, and some are near black
+    // Site colors on lines, radar webs and team pies: each one in its team's colors (a player in his team's). The line is the main
+    // color, lifted just enough to show on the dark card; the dots are the other team color (Commanders: burgundy line, gold dots).
+    // Near-black or near-white colors give way to the other one, and a team that looks like one already on the chart takes its
+    // other color, then a palette color.
+    const hexOk = (h) => /^#[0-9a-f]{6}$/i.test(h || ""), rgb = (h) => [1, 3, 5].map((j) => parseInt(h.slice(j, j + 2), 16));
+    const lumOf = (h) => { const [r, g, b] = rgb(h); return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255; };
+    // lighter in the same hue (HSL lightness up, saturation kept), so burgundy stays a deep red and navy stays blue, not pink or gray
+    const hsl2hex = (H, S, L) => { const f = (n) => { const k = (n + H / 30) % 12, a = S * Math.min(L, 1 - L); return Math.round(255 * (L - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))).toString(16).padStart(2, "0"); }; return `#${f(0)}${f(8)}${f(4)}`; };
+    const lift = (h) => {
+      if (lumOf(h) >= 0.22) return h;
+      const [r, g, b] = rgb(h).map((v) => v / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+      let L = (mx + mn) / 2; const S = d ? Math.min(0.85, d / (1 - Math.abs(2 * L - 1))) : 0;
+      const H = !d ? 0 : mx === r ? 60 * (((g - b) / d) % 6) : mx === g ? 60 * ((b - r) / d + 2) : 60 * ((r - g) / d + 4);
+      let c = h;
+      while (lumOf(c) < 0.22 && L < 0.8) { L += 0.02; c = hsl2hex((H + 360) % 360, S, L); }
+      return c;
+    };
+    const usable = (h) => hexOk(h) && lumOf(h) > 0.06 && lumOf(h) < 0.85;
+    const far = (a, b) => Math.hypot(...rgb(a).map((v, j) => v - rgb(b)[j])) > 90;
+    const teamCols = (ks) => ks.reduce((out, k, i) => {
+      const [c, a] = TCOL[teamOf(k)] || [tm(teamOf(k))[2], null];
+      const free = (x) => out.every((o) => far(o.line, x));
+      const pick = [c, a].filter(usable).map((x) => [x, lift(x)]).find(([, l]) => free(l));
+      const line = pick ? pick[1] : PAL.find(free) || PAL[i % PAL.length];
+      const other = pick && [c, a].find((x) => x !== pick[0] && usable(x));
+      out.push({ line, dot: other ? lift(other) : line });
+      return out;
+    }, []);
+    const teamPal = !st.scheme; // the "Site (team colors)" scheme
     const px = (n) => Math.round(n * (st.big ? 1.3 : 1)); // Bigger text
     // Logo size slider (Look): logos and the team/player names next to them scale together, linearly (100 = normal)
     const LS = Math.min(2.5, Math.max(0.5, (+st.lsz || 100) / 100));
@@ -1801,8 +1831,9 @@ const Viz = (() => {
           });
         };
       }
-      cfg = { type: "line", data: { labels, datasets: sers.map((k, i) => ({ label: short(k), data: data(k), borderColor: PAL[i % PAL.length], backgroundColor: PAL[i % PAL.length],
-        borderWidth: hl(k) || i === 0 ? 3 : 2, pointRadius: 3, spanGaps: true, tension })) },
+      const lineCols = teamPal ? teamCols(sers) : null;
+      cfg = { type: "line", data: { labels, datasets: sers.map((k, i) => ({ label: short(k), data: data(k), borderColor: lineCols ? lineCols[i].line : PAL[i % PAL.length], backgroundColor: lineCols ? lineCols[i].line : PAL[i % PAL.length],
+        pointBackgroundColor: lineCols ? lineCols[i].dot : PAL[i % PAL.length], borderWidth: hl(k) || i === 0 ? 3 : 2, pointRadius: 3, spanGaps: true, tension })) },
         options: { ...base, layout: { padding: { right: showLogo ? 6 + 20 * LS : 0 } }, plugins: { ...base.plugins, legend: { ...base.plugins.legend, display: showNames, labels: { ...base.plugins.legend.labels, font: { family: "JetBrains Mono", size: px(11 * LS) } } }, tooltip: { ...base.plugins.tooltip, callbacks: { label: (c) => `${c.dataset.label}: ${wkPer ? fmt(stat, c.raw, per) : fmt({ 3: { ...stat[3], count: 0 } }, c.raw)}` } } } },
         plugins: [{ id: "vzLine", afterDatasetsDraw(c) { // each line ends in its team's logo
           if (!showLogo) return;
@@ -1820,7 +1851,7 @@ const Viz = (() => {
       const total = list.reduce((a, k) => a + val(s, k), 0);
       title = `${who === "players" && st.team ? tm(st.team)[0] + ": " : ""}share of ${lc(s[1])}`.replace(/^s/, "S");
       cfg = { type: "doughnut", data: { labels: [...shown.map(short), ...(rest ? ["Everyone else"] : [])],
-        datasets: [{ data: [...shown.map((k) => val(s, k)), ...(rest ? [rest] : [])], backgroundColor: [...shown.map((k, i) => PAL[i % PAL.length]), ...(rest ? [line] : [])], borderColor: C("--card"), borderWidth: 2 }] },
+        datasets: [{ data: [...shown.map((k) => val(s, k)), ...(rest ? [rest] : [])], backgroundColor: [...(teamPal && who === "teams" ? teamCols(shown).map((x) => x.line) : shown.map((k, i) => PAL[i % PAL.length])), ...(rest ? [line] : [])], borderColor: C("--card"), borderWidth: 2 }] },
         plugins: [{ id: "vzPie", afterDatasetsDraw(c) { // team logos on their slices; the share shows on hover
           if (!showLogo || who !== "teams") return;
           c.getDatasetMeta(0).data.forEach((arc, i) => { if (i < shown.length && arc.circumference > 0.3) { const p = arc.tooltipPosition(); drawLogo(c.ctx, shown[i], p.x, p.y, 24 * LS); } }); } }],
@@ -1953,6 +1984,7 @@ const Viz = (() => {
         return 1 + qualify(s).filter((x) => regulars.includes(x) && x !== k).map((x) => val(s, x)).filter((x) => x != null && (s[3].low ? x < v : x > v)).length; };
       title = `${who === "teams" ? "Team" : "Player"} profiles (percentile among ${who}${st.pos ? ` at ${st.pos}` : ""})`;
       // the numbers sit on a second line under each stat's name: one pill per team/player ("87%", comparing: "87% #4")
+      const rc = teamPal ? teamCols(sers) : null, rcol = (i) => (rc ? rc[i].line : PAL[i % PAL.length]);
       const both = sers.length > 1, pillTxt = (s, k) => { const p = pctile(s, k); return p == null ? null : `${p}%${both ? ` #${rankOn(s, k)}` : ""}`; };
       const pills = axes.map((s) => sers.map((k, i) => ({ i, t: pillTxt(s, k) })).filter((o) => o.t));
       const pw = (t) => t.length * 0.6 * px(9) + 8, gap = 4; // JetBrains Mono: every character is 0.6em wide
@@ -1962,7 +1994,7 @@ const Viz = (() => {
       const nameLines = (lbl, nar) => !nar || lbl.length <= 12 ? [lbl] : lbl.split(" ").reduce((a, w) => (a.length && (a.at(-1) + " " + w).length <= 12 ? (a[a.length - 1] += " " + w) : a.push(w), a), []);
       const blank = (w) => " ".repeat(Math.ceil(w / (0.6 * px(10))));
       cfg = { type: "radar", data: { labels: axes.map((s) => s[1].replace(/ \(.+\)/, "")), datasets: sers.map((k, i) => ({ label: short(k), data: axes.map((s) => pctile(s, k)),
-        borderColor: PAL[i % PAL.length], backgroundColor: PAL[i % PAL.length] + "33", borderWidth: 2, pointRadius: 2 })) },
+        borderColor: rcol(i), backgroundColor: rcol(i) + "33", pointBackgroundColor: rc ? rc[i].dot : rcol(i), pointBorderColor: rcol(i), borderWidth: 2, pointRadius: rc ? 3 : 2 })) },
         options: { ...base, scales: { r: { min: 0, max: 100, ticks: { display: false, stepSize: 25 }, grid: { color: line }, angleLines: { color: line },
           pointLabels: { color: ink, font: { family: "JetBrains Mono", size: px(10), lineHeight: 1.7 }, // blank second line = room for the pills
             callback(lbl, j) { const ch = this.chart; return [...nameLines(lbl, narrow(ch)), ...(numsOn && pills[j]?.length ? (stackOn(ch) ? pills[j].map((o) => blank(pw(o.t))) : [blank(rowW(pills[j]))]) : [])]; } } } },
@@ -1978,7 +2010,7 @@ const Viz = (() => {
             const nm = nameLines(c.data.labels[j], narrow(c)).length, lh = (it.bottom - it.top) / (nm + (stack ? row.length : 1)), at = (w) => it.textAlign === "left" ? it.left : it.textAlign === "right" ? it.right - w : (it.left + it.right) / 2 - w / 2;
             let x = at(rowW(shown)), y = it.top + lh * (nm + 0.5); // middle of the line under the name
             shown.forEach((o) => {
-              const ww = pw(o.t), col = PAL[o.i % PAL.length];
+              const ww = pw(o.t), col = rcol(o.i);
               if (stack) x = at(ww);
               const lum = parseInt(col.slice(1, 3), 16) * 0.3 + parseInt(col.slice(3, 5), 16) * 0.59 + parseInt(col.slice(5, 7), 16) * 0.11;
               ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(x, y - h / 2, ww, h, 3); ctx.fill();
@@ -2194,8 +2226,9 @@ const Viz = (() => {
       ${seasonOnly ? `<p class="note">Our ratings and college PPA are season-long numbers (as of the latest rankings), so they ignore the weeks you picked.</p>` : ""}`;
     const actions = `<div class="vz-actions">${st.type === "table" ? `<button class="btn" id="vz-csv">Download spreadsheet (CSV)</button>` : Share.phone() && navigator.share ? "" : `<button class="btn" id="vz-png">Download picture</button>`}<button class="btn" id="vz-link">Copy link</button>${navigator.share && st.type !== "table" ? `<button class="btn" id="vz-share">Share</button>` : ""}<button class="btn" id="vz-save" type="button">☆ Save to My charts</button><button class="btn vz-reset" id="vz-reset">Start over</button></div>
       <div class="vz-saveform hidden" id="vz-saveform"><input id="vz-pname" maxlength="40" placeholder="Name this chart"><button class="btn tour-next" id="vz-pok" type="button">Save</button><button class="btn" id="vz-pno" type="button">Cancel</button></div>
-      <small class="muted vz-pmsg" id="vz-pmsg"></small>
-      ${body.table ? `<details class="vz-tbl"><summary>See the numbers</summary><table class="box"><tbody>${body.table.map(([i, k, v]) => `<tr><td class="num muted">${i}</td><td>${whole ? esc(k) : who === "players" && /^\d+$/.test(k) ? `<a href="#/player/${esc(k)}?league=${league}">${esc(name(k))}</a>` : who === "teams" ? `<a href="#/team/${esc(k.split(":")[1])}?league=${league}">${esc(name(k))}</a>` : esc(name(k))}</td><td class="num">${esc(v)}</td></tr>`).join("")}</tbody></table></details>` : ""}
+      <small class="muted vz-pmsg" id="vz-pmsg"></small>`;
+    // under the buttons: the numbers table and the notes (the buttons sit right under the chart, before Related)
+    const notes = `${body.table ? `<details class="vz-tbl"><summary>See the numbers</summary><table class="box"><tbody>${body.table.map(([i, k, v]) => `<tr><td class="num muted">${i}</td><td>${whole ? esc(k) : who === "players" && /^\d+$/.test(k) ? `<a href="#/player/${esc(k)}?league=${league}">${esc(name(k))}</a>` : who === "teams" ? `<a href="#/team/${esc(k.split(":")[1])}?league=${league}">${esc(name(k))}</a>` : esc(name(k))}</td><td class="num">${esc(v)}</td></tr>`).join("")}</tbody></table></details>` : ""}
       <p class="note">${st.role ? esc(`${st.role} = each team's ${(({ QB: "quarterback with the most pass attempts", RB: "back with the most carries + catches", WR: "wide receiver with the most targets", TE: "tight end with the most targets" })[st.role.slice(0, 2)]).replace("the most", st.role.endsWith("1") ? "the most" : `the ${{ 2: "2nd", 3: "3rd", 4: "4th" }[st.role.slice(2)]}-most`)} in the weeks you picked${league === "cfb" ? " (catches stand in for targets in college)" : ""}. `) : ""}${esc(note)} Source: ${esc(src)}. Rates are total ÷ total over the weeks you pick, not an average of weekly averages. Updated ${esc(new Date(D.updated).toLocaleDateString(undefined, { month: "short", day: "numeric" }))}.</p>`;
     const qBox = `<div class="vz-q vz-findwrap"><input id="vz-q" type="search" placeholder="${adv ? "Ask or search: stats, teams, players, presets… (try “sacks vs pressures”)" : "Ask a question… (try “who gets the targets on Washington”)"}" autocomplete="off" spellcheck="false"><div class="vz-sugg" id="vz-qs" hidden></div></div>`;
     const toggle = `<div class="seg vz-mode" id="vz-mode"><button data-v="" class="${adv ? "" : "active"}">Simple</button><button data-v="adv" class="${adv ? "active" : ""}">Advanced</button></div>`;
@@ -2204,10 +2237,10 @@ const Viz = (() => {
       <div class="sc-bar vz-head"><h2>Visualize</h2><span class="muted vz-tag">Make a chart, win the argument.</span><button type="button" class="vz-minebtn${mineOpen ? " on" : ""}" id="vz-mine" aria-expanded="${mineOpen}">★ My charts${myList.length ? ` (${myList.length})` : ""}</button>${toggle}</div>
       ${mineOpen ? minePanel : ""}
       ${adv ? `<div class="vz-top">${qBox}${presetsBox}</div>
-      <div class="vz-grid"><div class="vz-side">${steps}</div><div class="vz-main">${frame}${after}${actions}</div></div>`
+      <div class="vz-grid"><div class="vz-side">${steps}</div><div class="vz-main">${frame}${actions}${after}${notes}</div></div>`
       : `${qBox}<p class="vz-read">Showing: <b>${esc(readout.join(" · "))}</b> <button type="button" class="vz-editbtn" id="vz-edit" aria-expanded="${editOpen}">${editOpen ? "Done ▴" : "Edit ▾"}</button></p>
       <div class="vz-editbox"${editOpen ? "" : " hidden"}>${presetsBox}${steps}</div>
-      ${frame}${after}${actions}`}
+      ${frame}${actions}${after}${notes}`}
     </div>`;
     function custom() { return st.radar ? st.radar.split(",") : who === "teams" ? RADAR.teams : RADAR.players[st.pos] || RADAR.players[""]; }
     function axes() { return custom().filter((k) => all.some((s) => s[0] === k)); }

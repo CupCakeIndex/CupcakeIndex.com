@@ -2987,11 +2987,12 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .vz-main .vz-actions, .vz-simple > .vz-actions { margin-top: 14px; }
 @media (max-width: 899px) {
   .vz-grid { grid-template-columns: minmax(0, 1fr); }
-  /* phones: chart and takeaway, then the 4 step tabs, then Related, More to explore and the buttons */
+  /* phones: chart, its buttons and takeaway, then the 4 step tabs, then Related and More to explore */
   .vz-adv .vz-grid { display: flex; flex-direction: column; gap: 0; }
   .vz-adv .vz-main { display: contents; }
   .vz-adv .vz-main > * { order: 3; }
   .vz-adv .vz-main > .vz-on, .vz-adv .vz-main > .vz-frame, .vz-adv .vz-main > .vz-take { order: 1; }
+  .vz-adv .vz-main > .vz-actions, .vz-adv .vz-main > .vz-saveform, .vz-adv .vz-main > .vz-pmsg { order: 1; } /* share/download right under the chart */
   .vz-side { order: 2; position: static; max-height: none; overflow: visible; margin: 14px 0 4px; }
   .vz-top { grid-template-columns: minmax(0, 1fr); }
   .vz-top .vz-presets { flex-wrap: wrap; }
