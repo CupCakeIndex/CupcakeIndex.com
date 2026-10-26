@@ -3654,7 +3654,8 @@ body.drawer-open .bot-fab { transform: translateX(calc(100% + 40px)); opacity: 0
 .bot-mark { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 36px; height: 36px; border-radius: 9px;
   background: var(--accent-soft); border: 1.5px solid var(--accent); color: var(--ink); }
 .bot-mark .logo-mark { height: 25px; width: auto; }
-.bot-word i { font-style: normal; color: var(--accent); animation: bot-blink 1.1s steps(1) infinite; }
+.bot-word i, .bot-word-m i { font-style: normal; color: var(--accent); animation: bot-blink 1.1s steps(1) infinite; }
+.bot-word-m { display: none; }
 @keyframes bot-blink { 50% { opacity: 0; } }
 .bot-title { display: flex; align-items: center; gap: 9px; font-family: var(--font-head, inherit); font-weight: 800; letter-spacing: -.02em; }
 .bot-title b { color: var(--accent); font-weight: inherit; }
@@ -3713,7 +3714,7 @@ body:has(#view-rankings:not(.hidden) .weights-fab) .bot.max .bot-panel { height:
 .bot-msg.wait p { font-size: 13px; }
 .bot-dots::after { content: ""; animation: bot-dots 1.2s steps(4) infinite; }
 @keyframes bot-dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
-@media (prefers-reduced-motion: reduce) { .bot-dots::after { animation: none; content: "..."; } .bot-panel, .bot-panel.closing, .bot-msg, .bot-word i { animation: none; } .bot-fab { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .bot-dots::after { animation: none; content: "..."; } .bot-panel, .bot-panel.closing, .bot-msg, .bot-word i, .bot-word-m i { animation: none; } .bot-fab { transition: none; } }
 .bot-link { font-weight: 700; color: var(--accent); }
 .bot-err { color: var(--bad); }
 .bot-ask { display: flex; gap: 8px; align-items: flex-end; padding: 10px; border-top: 1px solid var(--line); }
@@ -3722,9 +3723,13 @@ body:has(#view-rankings:not(.hidden) .weights-fab) .bot.max .bot-panel { height:
 .bot-send { min-height: 40px; padding: 0 14px; border: 0; cursor: pointer; background: var(--accent-fill, var(--accent)); color: var(--on-accent, #000); font: 700 13px/1 var(--font-body); }
 .bot.busy .bot-send { opacity: .5; cursor: wait; }
 @media (max-width: 600px) {
-  /* phones: just the cupcake badge, so it doesn't cover the page */
-  .bot-fab { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); padding: 5px; min-height: 48px; min-width: 48px; justify-content: center; }
+  /* phones: one small box, the cupcake with ASK_ under it, so it doesn't cover the page */
+  .bot-fab { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); flex-direction: column; justify-content: center; gap: 3px;
+    padding: 6px 9px 5px; min-height: 52px; min-width: 52px; }
+  .bot-fab .bot-mark { width: auto; height: auto; background: none; border: 0; border-radius: 0; }
+  .bot-fab .bot-mark .logo-mark { height: 24px; }
   .bot-fab .bot-word { display: none; }
+  .bot-fab .bot-word-m { display: block; font-size: 10px; letter-spacing: .1em; line-height: 1; }
   .bot-panel { right: 0; left: 0; bottom: 0; width: 100%; height: calc(100dvh - 56px); border-left: 0; border-right: 0; padding-bottom: env(safe-area-inset-bottom); }
   body:has(#view-rankings:not(.hidden) .weights-fab) .bot-fab { bottom: calc(66px + env(safe-area-inset-bottom)); }
   body:has(#view-rankings:not(.hidden) .weights-fab) .bot-panel { bottom: 0; height: calc(100dvh - 56px); }

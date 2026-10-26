@@ -43,7 +43,7 @@ const Bot = (() => {
     el = document.createElement("div");
     el.className = "bot";
     el.innerHTML = `<button type="button" class="bot-fab" aria-expanded="false" aria-controls="bot-panel" title="Ask the Cupcake Analyst" aria-label="Ask the Cupcake Analyst">
-        <span class="bot-mark"></span><span class="bot-word">Analyst<i>_</i></span></button>
+        <span class="bot-mark"></span><span class="bot-word">Analyst<i>_</i></span><span class="bot-word-m">Ask<i>_</i></span></button>
       <section id="bot-panel" class="bot-panel" hidden aria-label="Cupcake Analyst">
         <header><b class="bot-title"><span class="bot-mark"></span><span>CUPCAKE<b>_ANALYST</b></span></b><span class="bot-use muted"></span>
           <button type="button" class="bot-max" aria-pressed="false" title="Make the chat bigger" aria-label="Make the chat bigger"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg></button>
