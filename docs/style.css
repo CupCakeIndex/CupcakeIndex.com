@@ -3460,3 +3460,14 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
 .btn, .subtab, .rec-tag, .seg button, .presets button { transition: background-color .15s, color .15s, border-color .15s, transform .1s; }
 .btn:active, .subtab:active, .rec-tag:active, .seg button:active, .presets button:active { transform: scale(.96); }
 @media (prefers-reduced-motion: reduce) { .view-in { animation: none; } .ci-load .logo-mark + .logo-mark { animation-duration: 3s; } .btn:active, .subtab:active, .rec-tag:active { transform: none; } }
+/* Player page sections (Overview, Career, Game log, Charts, Takes): one row, scrolls sideways on narrow phones */
+.pl-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.pl-tabs::-webkit-scrollbar { display: none; }
+.pl-tabs .subtab { flex: none; white-space: nowrap; }
+@media (max-width: 600px) { .pl-tabs { gap: 5px; -webkit-mask-image: linear-gradient(to right, #000 88%, transparent); mask-image: linear-gradient(to right, #000 88%, transparent); padding-right: 24px; } .pl-tabs .subtab { padding: 6px 11px; font-size: 13px; } }
+/* Career card: the less-used chart settings fold away */
+.cc-opts { margin: 4px 0 8px; }
+.cc-opts > summary { cursor: pointer; display: inline-block; color: var(--muted); font-size: 13px; padding: 4px 0; list-style: none; }
+.cc-opts > summary::-webkit-details-marker { display: none; }
+.cc-opts > summary::before { content: "▸ "; color: var(--accent); }
+.cc-opts[open] > summary::before { content: "▾ "; }

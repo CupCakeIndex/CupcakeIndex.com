@@ -3610,6 +3610,7 @@ const Live = (() => {
     return `<div class="card career-card">
       <div class="sc-bar"><h3>Stats by year</h3>
         <div class="seg" id="cc-cats">${catNames.map((k) => `<button data-cat="${esc(k)}" class="${k === cat ? "active" : ""}">${esc(CAT_LABEL[k] || k)}</button>`).join("")}</div></div>
+      <details class="cc-opts"${st.metric || st.align || st.lvl || players.length > 1 ? " open" : ""}><summary>Chart options</summary>
       <div class="cc-controls">
         ${hasBoth ? `<div class="seg" id="cc-lvl" title="Which seasons to show">${[["college", "College"], ["nfl", "NFL"], ["both", "Both"]].map(([v, l]) => `<button data-lvl="${v}" class="${v === lvl ? "active" : ""}">${l}</button>`).join("")}</div>` : ""}
         <label>Chart <select id="cc-metric">${names.map((n) => `<option value="${esc(n)}"${n === metric ? " selected" : ""}>${esc(C.labels[n])}</option>`).join("")}</select></label>
@@ -3617,7 +3618,7 @@ const Live = (() => {
         ${kickOne ? "" : `<div class="seg" id="cc-view"><button data-v="line" class="${mode === "line" ? "active" : ""}">Line</button><button data-v="bar" class="${mode === "bar" ? "active" : ""}">Bar</button></div>`}
         <div class="seg"><button id="cc-tbl" class="${ccPref("table", "1") === "1" ? "active" : ""}" title="Show or hide the data table">Table</button></div>
         <div class="cc-search"><input id="cc-q" type="search" placeholder="Compare with another player…" autocomplete="off"${players.length >= 4 ? " disabled" : ""}><div id="cc-results" class="cc-results hidden"></div></div>
-      </div>
+      </div></details>
       <div class="cc-legend">${legend}</div>
       ${kickOne ? kickYears(series[0].rows, bench) || chart : chart}
       <div class="table-wrap${ccPref("table", "1") === "1" ? "" : " hidden"}" id="cc-table">${table}</div>
@@ -3896,7 +3897,13 @@ const Live = (() => {
     const season = params.get("season");
     const vs = (params.get("vs") || "").split(",").filter(Boolean).slice(0, 3);
     const careersP = Promise.all([career(lg, id), ...vs.map((v) => { const [l, pid] = v.split(":"); return career(LEAGUE_OF[l] || "nfl", pid); })]).catch(() => null);
-    const ptab = ["takes", "records"].includes(params.get("tab")) ? params.get("tab") : "";
+    // Sections (Terry, Oct 26: the page was one long scroll): Overview, Stats by year, Game log, Charts, Takes, plus
+    // Records from the gold tag. Old links still land in the right place: a shared pass chart (?chart=) opens Charts,
+    // a compare or a stats-by-year setting opens Stats by year, a picked game-log season opens Game log.
+    let ptab = ["takes", "records", "career", "log", "charts"].includes(params.get("tab")) ? params.get("tab")
+      : params.get("chart") ? "charts"
+      : ["vs", "cat", "metric", "align", "lvl", "from", "to"].some((k) => params.get(k)) ? "career"
+      : params.get("season") || params.get("cseason") ? "log" : "";
     let bio, gl, takes, recs;
     try {
       [bio, gl, takes, recs] = await Promise.all([
@@ -3958,6 +3965,15 @@ const Live = (() => {
           <tbody>${rows}${tot ? `<tr class="tot"><td colspan="3">Totals</td>${tot.map((v) => `<td class="num">${esc(v)}</td>`).join("")}</tr>` : ""}</tbody></table></div>`;
       }).join("");
     }
+    const pcModes = { QB: ["pass", "rush"], WR: ["target"], TE: ["target"], RB: ["rush", "target"], FB: ["rush", "target"] }[a.position?.abbreviation] || [];
+    // a kick chart if he tried a field goal this season (kickChartInto drops it otherwise; ESPN's position can be wrong)
+    const kicker = logLg === "nfl" && !pcModes.includes("pass");
+    const hasPc = pcModes.length && logGl?.events && Object.keys(logGl.events).length;
+    const kickPos = ["K", "PK", "P"].includes(a.position?.abbreviation);
+    const hasCharts = hasPc || (kicker && kickPos);
+    // nothing for an Overview (retired, or no stats this season and no injury): open on Stats by year
+    if (!ptab && !summary && !injInfo(inj) && !params.get("inj")) ptab = "career";
+    if (ptab === "charts" && !hasCharts) ptab = "";
     const thisYear = new Date().getFullYear(), born = birthYear(a);
     const hsLabel = [a.jersey ? "#" + a.jersey : "", a.position?.abbreviation || ""].filter(Boolean).join(" ");
     // every season of the career: ESPN lists them on the game log (e.g. 1985-2004 for Jerry Rice)
@@ -3981,8 +3997,12 @@ const Live = (() => {
           <p class="muted">${facts.map(esc).join(" · ")}<span id="pl-exp">${exp ? " · " + esc(exp) : ""}</span></p>
           <p class="pl-acts"><a class="btn" href="${link("stats", null, { show: "visualize", him: a.id })}">📈 Chart him</a></p>
         </div>
-      </div>${takes.length || ptab === "records" ? `
-      <div class="subtabs"><a class="subtab${ptab ? "" : " on"}" href="${link("player", id)}">Stats</a>${takes.length ? `<a class="subtab${ptab === "takes" ? " on" : ""}" href="${link("player", id, { tab: "takes" })}">Takes <small>${takes.length}</small></a>` : ""}</div>` : ""}`;
+      </div>
+      <div class="subtabs pl-tabs">${[["", "Overview", summary || injInfo(inj)], ["career", "Career", true], ["log", "Game log", !noLogs], ["charts", hasPc ? "Charts" : "Kick chart", hasCharts],
+        ["takes", `Takes <small>${takes.length}</small>`, takes.length]].filter((t) => t[2]).map(([k, label]) => {
+        const keep = Object.fromEntries(["season", "cseason"].map((x) => [x, params.get(x)]).filter((x) => x[1]));
+        return `<a class="subtab${ptab === k ? " on" : ""}" href="${link("player", id, { ...(k ? { tab: k } : {}), ...(k === "takes" ? {} : keep) })}">${label}</a>`;
+      }).join("")}</div>`;
     if (ptab === "takes") {
       view("player").innerHTML = head + `<div class="card">${takes.length ? Takes.list(takes) : `<p class="muted">No takes about this player yet. <a href="${link("takes")}">See all our Takes →</a></p>`}</div>`;
       fillFaces(view("player"));
@@ -4005,35 +4025,41 @@ const Live = (() => {
       fillFaces(view("player"));
       return;
     }
-    const pcModes = { QB: ["pass", "rush"], WR: ["target"], TE: ["target"], RB: ["rush", "target"], FB: ["rush", "target"] }[a.position?.abbreviation] || [];
-    const kicker = logLg === "nfl" && !pcModes.includes("pass"); // a kick chart if he tried a field goal this season (kickChartInto drops it otherwise; ESPN's position can be wrong)
-    view("player").innerHTML = head + `
+    view("player").innerHTML = head + (ptab === "" ? `
       ${summary ? `<div class="stats wide">${summary}</div>${caughtUp ? `<p class="note muted">Added up from his game-by-game stats, so it includes his latest game. Ranks come back once the overnight totals update.</p>` : ""}` : ""}
-      <div id="career-slot"><div class="card muted">Loading stats by year…</div></div>
-      ${pcModes.length && logGl?.events && Object.keys(logGl.events).length ? `<div id="pc-slot"><div class="card muted">Loading pass chart…</div></div>` : ""}
-      ${kicker ? `<div id="kc-slot"></div>` : ""}
-      <div class="card"><div class="sc-bar"><h3>Game log</h3>
+      <div id="ol-slot"></div>
+      ${injInfo(inj) ? injCard(inj, a.id, fa ? "" : a.team?.id)
+        : params.get("inj") ? `<div class="card inj-card" id="pl-inj"><h3>Injury</h3><p class="muted">ESPN has no injury details on file for this player right now.</p></div>` : ""}`
+      : ptab === "career" ? `<div id="career-slot">${loadingHtml("Loading stats by year…")}</div>`
+      : ptab === "charts" ? `${hasPc ? `<div id="pc-slot">${loadingHtml("Loading pass chart…")}</div>` : ""}${kicker ? `<div id="kc-slot">${hasPc ? "" : loadingHtml("Loading kick chart…")}</div>` : ""}`
+      : `<div class="card"><div class="sc-bar"><h3>Game log</h3>
         <select id="pl-season"${noLogs ? ` class="hidden"` : ""}>${years.filter((y) => !cYears.includes(y)).map((y) => `<option${!cseason && y === shown ? " selected" : ""}>${y}</option>`).join("")}${cYears.map((y) => `<option value="c${y}"${String(y) === cseason ? " selected" : ""}>${y} (college)</option>`).join("")}</select></div>
         ${log || (noLogs ? `<p class="muted">ESPN doesn't have game-by-game logs for this player's career. Season totals, where ESPN has them, are in Stats by year above.</p>` : shown < 2000 ? `<p class="muted">ESPN doesn't have game-by-game logs for ${shown} (older seasons are spotty before the late 1990s). Season totals are in Stats by year above.</p>`
-          : `<p class="muted">No games logged for this season.</p>`)}</div>
-      ${injInfo(inj) ? injCard(inj, a.id, fa ? "" : a.team?.id)
-        : params.get("inj") ? `<div class="card inj-card" id="pl-inj"><h3>Injury</h3><p class="muted">ESPN has no injury details on file for this player right now.</p></div>` : ""}`;
+          : `<p class="muted">No games logged for this season.</p>`)}</div>`);
     fillFaces(view("player"));
-    if (my === token) outlookInto(lg, id, $("#career-slot"), season ? null : gl).catch(() => {});
-    const pcSlot = $("#pc-slot");
-    if (pcSlot) { // load every game's play-by-play only once you scroll near it (or right away, and scroll to it, from a shared chart link)
-      const load = () => { if (my === token) passChartInto(logLg, a, logGl, pcSlot, pcModes, logLg === "nfl" ? shown : null, params).then(() => { if (params.get("chart") && my === token) pcSlot.scrollIntoView({ block: "start" }); }).catch(() => pcSlot.remove()); };
-      if (params.get("chart")) load();
-      else { const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); load(); } }, { rootMargin: "300px" }); io.observe(pcSlot); }
+    // years in the league for retired players, from his career record (any tab)
+    if (!exp) careersP.then((cs) => {
+      const me = cs?.[0], n = me?.seasons.length;
+      if (n && my === token && $("#pl-exp")) $("#pl-exp").textContent = ` · ${n} ${me.lvl === "NFL" ? "NFL" : "college"} season${n > 1 ? "s" : ""} (${me.seasons[0]}${n > 1 ? "–" + me.seasons[n - 1] : ""})`;
+    }).catch(() => {});
+    if (ptab === "") {
+      if (my === token) outlookInto(lg, id, $("#ol-slot"), season ? null : gl).catch(() => {});
+      const toInj = params.get("inj") && $("#pl-inj");
+      if (toInj) pulse(toInj);
+      return;
     }
-    const kcSlot = $("#kc-slot");
-    if (kcSlot) kickChartInto(a, shown, kcSlot).catch(() => kcSlot.remove());
-    const toInj = params.get("inj") && $("#pl-inj");
-    if (toInj) pulse(toInj);
-    $("#pl-season").onchange = (e) => { const v = e.target.value; location.hash = link("player", id, v[0] === "c" ? { cseason: v.slice(1) } : { season: v }); };
+    if (ptab === "charts") {
+      const pcSlot = $("#pc-slot"), kcSlot = $("#kc-slot");
+      if (pcSlot) passChartInto(logLg, a, logGl, pcSlot, pcModes, logLg === "nfl" ? shown : null, params).catch(() => { pcSlot.innerHTML = `<div class="card muted">The pass chart isn't available for this player right now.</div>`; });
+      if (kcSlot) kickChartInto(a, shown, kcSlot).catch(() => { kcSlot.innerHTML = hasPc ? "" : `<div class="card muted">No field goal tries charted for ${shown}.</div>`; });
+      return;
+    }
+    if (ptab === "log") {
+      $("#pl-season").onchange = (e) => { const v = e.target.value; location.hash = link("player", id, { tab: "log", ...(v[0] === "c" ? { cseason: v.slice(1) } : { season: v }) }); };
+      return;
+    }
     if (lg === "nfl" && OL_ABBR.has(a.position?.abbreviation)) { // linemen: blocking stats instead of ESPN's (tackles only)
       await olInto(id, $("#career-slot"));
-      if (toInj && my === token) pulse(toInj);
       return;
     }
     const careers = await careersP;
@@ -4045,13 +4071,10 @@ const Live = (() => {
     $("#career-slot").innerHTML = careers ? careerCard(careers, cst, bench)
       : `<div class="card muted">Season-by-season stats aren't available for this player.</div>`;
     if (careers) {
-      if ($("#cc-cats")) wireCareer(id, params); // not there when the player has no season stats
+      // not there when the player has no season stats; its links keep tab=career (wireCareer keeps the page's params)
+      if ($("#cc-cats")) wireCareer(id, new URLSearchParams({ ...Object.fromEntries(params), tab: "career" }));
       fillFaces($("#career-slot"));
-      const me = careers[0], n = me.seasons.length;
-      if (!exp && n) $("#pl-exp").textContent = ` · ${n} ${me.lvl === "NFL" ? "NFL" : "college"} season${n > 1 ? "s" : ""} (${me.seasons[0]}${n > 1 ? "–" + me.seasons[n - 1] : ""})`;
     }
-    if (toInj) pulse(toInj); // stats by year just filled in above it, so find it again
-    else if (vs.length) $("#career-slot").scrollIntoView({ block: "start" });
   }
   // Offensive linemen: ESPN has no blocking stats (its only numbers are the odd tackle after an interception), so their
   // "by year" card comes from docs/data/nfl/ol_stats.json (src/viz_data.py, nflverse): snaps, penalties called on him, and
