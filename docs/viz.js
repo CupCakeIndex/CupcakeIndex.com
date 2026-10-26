@@ -1586,6 +1586,11 @@ const Viz = (() => {
     const whereRead = W.groups.length ? W.read.join(" or ") + (W.groups.flat().some((c) => c.k === "stat" && c.s[3].count) && per === "game" ? " (per game)" : "") : "";
     const rank = (s, list) => list.filter((k) => val(s, k) != null).sort((a, b) => (s[3].low ? 1 : -1) * (val(s, a) - val(s, b)) * (st.order === "worst" ? -1 : 1));
     const top = st.top === "all" ? 9999 : +st.top || 10;
+    // team radar views (Change this radar): the first 5 of each list this league has; rview = the one on now, for the chip and title
+    const RVIEWS = who !== "teams" ? [] : [["Offense", "⚔", ["epa_play", "ppa_play", "succ", "ypp", "pts", "third", "pts_drive", "giveaways"]],
+      ["Defense", "⛨", ["def_epa_play", "def_succ", "opp_pts", "opp_yds", "def_sacks", "takeaways", "opp_pts_play"]]]
+      .map(([n, ic, l]) => [n, ic, l.filter((k) => all.some((s) => s[0] === k)).slice(0, 5)]).filter(([, , l]) => l.length >= 3);
+    const rview = st.type === "radar" && st.radar ? RVIEWS.find(([, , l]) => l.join(",") === st.radar)?.[0] : null;
     // a rare bad thing (points erased by penalties) on Best: the whole chart is a tie at 0, which says nothing, so show the most
     let tieFlip = false;
     if (st.order !== "worst" && stat[3].low && stat[3].count && (st.type === "bar" || st.type === "table")) {
@@ -1986,7 +1991,7 @@ const Viz = (() => {
         const better = vs.filter((x) => (s[3].low ? x < v : x > v)).length, worse = vs.filter((x) => (s[3].low ? x > v : x < v)).length;
         const n = vs.length + 1, five = n >= 15; // top / bottom 5 only mean something in a big enough group
         return { rank: better + 1, tag: !better ? "BEST" : !worse ? "WORST" : five && better < 5 ? "TOP 5" : five && worse < 5 ? "BOTTOM 5" : "" }; };
-      title = `${who === "teams" ? "Team" : "Player"} profiles (percentile among ${who}${st.pos ? ` at ${st.pos}` : ""})`;
+      title = `${who === "teams" ? "Team" : "Player"}${rview ? ` ${rview.toLowerCase()}` : ""} profiles (percentile among ${who}${st.pos ? ` at ${st.pos}` : ""})`;
       // the numbers sit on a second line under each stat's name: one pill per team/player ("87%", comparing: "87% #4")
       const rc = teamPal ? teamCols(sers) : null, rcol = (i) => (rc ? rc[i].line : PAL[i % PAL.length]);
       const both = sers.length > 1, pillTxt = (s, k) => { const p = pctile(s, k), r = standing(s, k); return p == null ? null : `${p}%${both ? ` #${r.rank}` : ""}${r.tag ? ` ${r.tag}` : ""}`; };
@@ -2049,6 +2054,7 @@ const Viz = (() => {
       seasonTxt, ...(st.opp ? [OPP.find(([k]) => k === st.opp)?.[1]] : []), ...(+st.last ? [`last ${st.last} games`] : []), ...(condTxt ? [condTxt] : [])];
     // filters that are on, each with an ✕ to take it off
     const chips = [
+      ...(rview ? [[`${rview} only`, { radar: "" }]] : []),
       ...(st.team && who === "players" ? [[`Team: ${tm(st.team)[0]}`, { team: "" }]] : []),
       ...(st.group ? [[st.group, { group: "" }]] : []),
       ...(st.role ? [[`Depth chart: ${st.role}`, { role: "" }]] : st.pos && who === "players" ? [[`Position: ${shownPos}`, { pos: "" }]] : []),
@@ -2090,13 +2096,7 @@ const Viz = (() => {
       // a radar: change this web instead of jumping elsewhere. Offense / Defense swap its stats (the first 5 this league has),
       // Full profile puts the usual ones back, and the game filters narrow the same radar
       if (st.type === "radar") {
-        const view = (l) => l.filter(has).slice(0, 5);
-        if (who === "teams") {
-          const off = view(["epa_play", "ppa_play", "succ", "ypp", "pts", "third", "pts_drive", "giveaways"]);
-          const def = view(["def_epa_play", "def_succ", "opp_pts", "opp_yds", "def_sacks", "takeaways", "opp_pts_play"]);
-          if (off.length >= 3 && st.radar !== off.join(",")) add(`⚔ Offense only (${off.length} stats)`, { radar: off.join(",") });
-          if (def.length >= 3 && st.radar !== def.join(",")) add(`⛨ Defense only (${def.length} stats)`, { radar: def.join(",") });
-        }
+        for (const [n, ic, l] of RVIEWS) if (rview !== n) add(`${ic} ${n} only (${l.length} stats)`, { radar: l.join(",") });
         if (st.radar) add("↺ Full profile", { radar: "" });
         if (st.opp !== "good") add("▲ Only vs top-half teams", { opp: "good" });
         if (st.opp !== "soft") add("▼ Only vs cupcakes", { opp: "soft" });
