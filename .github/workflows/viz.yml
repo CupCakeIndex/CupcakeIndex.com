@@ -51,6 +51,9 @@ jobs:
         # cloud routine publishes it ~2 hours later, every day (that sandbox can't download nflverse injuries/depth charts).
         continue-on-error: true
         run: python src/analyst_data.py
+      - name: The site's Analyst chat (same tools and data as the Analyst page; src/bot_tools.py)
+        continue-on-error: true
+        run: python src/bot_tools.py
       - name: Coach profiles (offense or defense background, and each current coach's scheme tendencies)
         continue-on-error: true
         run: python src/coach_profile.py
@@ -85,6 +88,7 @@ jobs:
           git add docs/data/viz
           git add docs/data/nfl/*/charts docs/data/nfl/kicks_index.json 2>/dev/null || true
           git add analyst/data/rankings.json 2>/dev/null || true
+          git add docs/data/analyst.json docs/bot-tools.js 2>/dev/null || true
           git add docs/data/coach_profile.json 2>/dev/null || true
           git add docs/data/hilo.json 2>/dev/null || true
           git add docs/data/dynasty.json 2>/dev/null || true

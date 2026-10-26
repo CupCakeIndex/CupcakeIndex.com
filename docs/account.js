@@ -27,6 +27,7 @@ const Account = (() => {
         // Admin tab (analytics, admin.js) only for the support account; firestore.rules guard the data itself
         document.body.classList.toggle("is-owner", !!u && u.emailVerified && (u.email || "").toLowerCase() === "thecupcakeindex.support@gmail.com");
         rerender(); // show signed in/out right away; the first sync runs in the background
+        window.dispatchEvent(new CustomEvent("account", { detail: u })); // the Analyst chat (bot.js) checks membership
         if (u) {
           if (!was) toast(`Signed in as ${u.displayName || u.email || "you"}`);
           syncDown(); // anything made while signed out joins this account, then the account's data loads

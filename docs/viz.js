@@ -2889,5 +2889,15 @@ const Viz = (() => {
     </div><p class="note">From the same play-by-play numbers as Stats &gt; Visualize${D.league === "cfb" ? " (college doesn't track targets, so catches stand in)" : ""}. Shares here are of the team's whole ${D.season} total; Visualize's "Share of team" counts only the games each player played.</p>`;
   }
 
-  return { render, glance };
+  // the chart stats this league's latest season has, for the Analyst chat (bot.js) to build Visualize links with:
+  // { players: [[key, label, group, position]], teams: [[key, label, group]] }
+  async function catalog(lg) {
+    idx = idx || await getJSON("data/viz/index.json").catch(() => ({}));
+    const D = await file((idx[lg] || []).at(-1), lg);
+    if (!D) return { players: [], teams: [] };
+    const list = (who) => statsFor(who, D).flatMap(([g, l]) => l.map((s) => (who === "players" ? [s[0], s[1], g, s[3].pos || ""] : [s[0], s[1], g])));
+    return { players: list("players"), teams: list("teams") };
+  }
+
+  return { render, glance, catalog };
 })();

@@ -3641,3 +3641,46 @@ a.gl-row:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); 
   .ad-big { font-size: 32px; }
   .ad-al { flex-direction: column; }
 }
+
+/* the Cupcake Analyst chat (bot.js): a button in the bottom right for members, and its panel */
+.bot-fab { position: fixed; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 62; display: flex; align-items: center; gap: 8px;
+  min-height: 48px; padding: 0 16px 0 13px; border: 0; border-radius: 24px; cursor: pointer; background: var(--accent-fill, var(--accent)); color: var(--on-accent, #000);
+  box-shadow: 0 8px 24px rgba(0,0,0,.45); font: 700 13px/1 var(--font-body); letter-spacing: .06em; text-transform: uppercase; }
+.bot-fab:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.bot.open .bot-fab { background: var(--ink); color: var(--bg); }
+body:has(#view-rankings:not(.hidden) .weights-fab) .bot-fab { bottom: calc(74px + env(safe-area-inset-bottom)); }
+.bot-panel { position: fixed; right: 18px; bottom: calc(78px + env(safe-area-inset-bottom)); z-index: 63; width: min(400px, calc(100vw - 24px)); height: min(560px, calc(100dvh - 110px));
+  display: flex; flex-direction: column; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-top: 3px solid var(--accent); box-shadow: 0 16px 48px rgba(0,0,0,.55); }
+.bot-panel[hidden] { display: none; }
+body:has(#view-rankings:not(.hidden) .weights-fab) .bot-panel { bottom: calc(134px + env(safe-area-inset-bottom)); height: min(560px, calc(100dvh - 166px)); }
+.bot-panel header { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; border-bottom: 1px solid var(--line); }
+.bot-panel header b { font-size: 14px; }
+.bot-use { flex: 1; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bot-new, .bot-x { min-height: 36px; min-width: 36px; padding: 0 10px; background: none; border: 1px solid var(--line); color: var(--ink); cursor: pointer; font: inherit; font-size: 12px; }
+.bot-x { font-size: 16px; padding: 0; }
+.bot-log { flex: 1; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; overscroll-behavior: contain; }
+.bot-hi { margin: 0; font-size: 13px; line-height: 1.5; }
+.bot-msg { max-width: 92%; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.bot-msg p { margin: 0 0 6px; }
+.bot-msg p:last-child { margin-bottom: 0; }
+.bot-msg ul { margin: 0 0 6px; padding-left: 18px; }
+.bot-msg.me { align-self: flex-end; padding: 8px 12px; background: color-mix(in srgb, var(--accent) 18%, var(--card)); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); }
+.bot-msg.bot { align-self: flex-start; padding: 8px 12px; border-left: 3px solid var(--line); }
+.bot-msg.wait p { font-size: 13px; }
+.bot-dots::after { content: ""; animation: bot-dots 1.2s steps(4) infinite; }
+@keyframes bot-dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+@media (prefers-reduced-motion: reduce) { .bot-dots::after { animation: none; content: "..."; } }
+.bot-link { font-weight: 700; color: var(--accent); }
+.bot-err { color: var(--bad); }
+.bot-ask { display: flex; gap: 8px; align-items: flex-end; padding: 10px; border-top: 1px solid var(--line); }
+.bot-ask textarea { flex: 1; resize: none; min-height: 40px; max-height: 120px; padding: 9px 10px; font: inherit; font-size: 16px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); }
+.bot-ask textarea:focus { outline: none; border-color: var(--accent); }
+.bot-send { min-height: 40px; padding: 0 14px; border: 0; cursor: pointer; background: var(--accent-fill, var(--accent)); color: var(--on-accent, #000); font: 700 13px/1 var(--font-body); }
+.bot.busy .bot-send { opacity: .5; cursor: wait; }
+@media (max-width: 600px) {
+  .bot-fab { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); padding: 0 14px 0 12px; }
+  .bot-panel { right: 0; left: 0; bottom: 0; width: 100%; height: calc(100dvh - 56px); border-left: 0; border-right: 0; padding-bottom: env(safe-area-inset-bottom); }
+  body:has(#view-rankings:not(.hidden) .weights-fab) .bot-fab { bottom: calc(66px + env(safe-area-inset-bottom)); }
+  body:has(#view-rankings:not(.hidden) .weights-fab) .bot-panel { bottom: 0; height: calc(100dvh - 56px); }
+  .bot.open .bot-fab { display: none; }
+}
