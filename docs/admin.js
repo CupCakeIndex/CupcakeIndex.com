@@ -275,7 +275,7 @@ const Admin = (() => {
   // (workers/analyst.js /admin). null = couldn't get it (most likely the Worker code there is older than this page).
   async function chatCosts() {
     try {
-      const r = await fetch("https://cupcake-analyst.thecupcakeindex-support.workers.dev/admin",
+      const r = await fetch(CHAT + "/admin",
         { headers: { Authorization: `Bearer ${await firebase.auth().currentUser.getIdToken()}` } });
       return r.ok ? await r.json() : null;
     } catch (e) { return null; }
@@ -288,14 +288,27 @@ const Admin = (() => {
     ["CollegeFootballData", 0, "free plan"],
     ["Cloudflare (runs the Analyst chat)", 0, "free plan"],
   ];
-  // the chat's usage against what its members would pay: every member counted as a $5-a-month subscription (Terry too)
-  const SUB_USD = 5;
+  // the chat's cost against what comes in: what each member pays a month, typed in below and kept by the chat's
+  // Worker (workers/analyst.js /admin/subs; Stripe later). Green +$ = profit, red = the chat costs more than comes in.
+  const CHAT = "https://cupcake-analyst.thecupcakeindex-support.workers.dev";
+  const moneyIn = (chat) => Array.isArray(chat?.members) ? chat.members.reduce((a, m) => a + ((chat.subs || {})[m] || 0), 0) : 0;
+  // a net total: costs minus what comes in. Below zero is a profit: green, with a +
+  const net = (n, q = "") => n > 0 ? `${money(n)}${q}` : `<span class="up">+${money(-n)}${q}</span>`;
   function subRow(chat, used) {
-    const n = chat.members ?? (chat.people || []).length, subs = n * SUB_USD, pct = subs ? used / subs * 100 : 0;
-    return `<tr class="ad-sub"><td colspan="4"><div class="ad-sub-top"><span>Usage vs subscriptions</span>
-        <span><b>${money(used)}</b> of ${money(subs)} <span class="muted">(${n} ${n === 1 ? "member" : "members"} × $${SUB_USD})</span></span></div>
-      <div class="ad-sub-bar${pct > 100 ? " over" : ""}"><i style="width:${Math.min(100, pct).toFixed(1)}%"></i></div>
-      <small>${pct > 100 ? `${money(used - subs)} more than the subscriptions bring in` : `${money(subs - used)} left over (${pct < 1 && pct > 0 ? "under 1" : Math.round(pct)}% used)`} this month</small></td></tr>`;
+    if (!Array.isArray(chat.members)) return `<tr class="ad-sub"><td colspan="4"><small>Money in vs the chat's cost needs the newest
+      workers/analyst.js in Cloudflare (Workers > cupcake-analyst > Edit code > Deploy).</small></td></tr>`;
+    const pays = chat.subs || {}, inn = moneyIn(chat);
+    const profit = inn - used, pct = inn ? used / inn * 100 : used ? 100 : 0;
+    const usedBy = Object.fromEntries((chat.people || []).map((p) => [p.email, p]));
+    return `<tr class="ad-sub"><td colspan="4"><div class="ad-sub-top"><span>Money in vs the chat's cost <span class="muted">this month</span></span>
+        <span>${money(used)} cost of ${money(inn)} in <b class="${profit >= 0 ? "up" : "down"}">${profit >= 0 ? "+" : "−"}${money(Math.abs(profit))}</b></span></div>
+      <div class="ad-sub-bar${profit < 0 ? " over" : ""}"><i style="width:${Math.min(100, pct).toFixed(1)}%"></i></div>
+      <ul class="ad-subs">${chat.members.map((m) => `<li><span>${esc(m)}</span>
+        <span class="muted">used ${money(usedBy[m]?.usd || 0)} (${num(usedBy[m]?.questions || 0)} questions)</span>
+        <label class="ad-fx">pays $<input type="number" min="0" step="0.01" inputmode="decimal" data-sub="${esc(m)}" value="${pays[m] ?? ""}" placeholder="0"
+          aria-label="What ${esc(m)} pays a month"> a month</label></li>`).join("")}</ul>
+      ${usedBy["(before Oct 26)"] ? `<small>${money(usedBy["(before Oct 26)"].usd)} of the cost is from questions asked before the chat started keeping names.</small>` : ""}
+      <small class="ad-sub-msg"></small></td></tr>`;
   }
   function costs(db, el, today, mon, rows, err, mine = {}, chat = null) {
     if (err) {
@@ -319,8 +332,8 @@ const Admin = (() => {
     const mtdChat = chatSum(() => true), wkChat = chatSum((d) => d >= mon);
     const mtd = sum(inMonth) + mtdChat, wk = sum((x) => dayOf(x) >= mon) + wkChat, td = sum((x) => dayOf(x) === today) + chatSum((d) => d === today);
     const yd = sum((x) => dayOf(x) === ydDay) + chatSum((d) => d === ydDay);
-    const fixed = FX.reduce((a, f) => a + (f[1] || 0), 0), unknown = FX.some((f) => f[1] == null);
-    tile("costs", `<b class="ad-big">${money(mtd + fixed)}${unknown || !chat ? "+" : ""}</b><small>this month so far, fixed costs included · today ${money(td)}</small>`);
+    const fixed = FX.reduce((a, f) => a + (f[1] || 0), 0), unknown = FX.some((f) => f[1] == null), inn = moneyIn(chat);
+    tile("costs", `<b class="ad-big">${net(mtd + fixed - inn, unknown || !chat ? "+" : "")}</b><small>this month so far, fixed costs included${inn ? `, minus ${money(inn)} in` : ""} · today ${money(td)}</small>`);
     const tile2 = (big, label) => `<div class="ad-tile"><b>${big}</b><small>${esc(label)}</small></div>`;
     const CATS = [
       ["Posts on X", (x) => x.kind === "x", "posts", "$0.015 a post (X's API price, no links)"],
@@ -336,17 +349,18 @@ const Admin = (() => {
       <div class="table-wrap"><table class="ad-cost"><thead><tr><th>What</th><th class="n">This month</th><th class="n">This week</th><th class="n">Cost this month</th></tr></thead><tbody>
         ${CATS.map(([l, f, unit, note]) => `<tr><td>${esc(l)}<small>${esc(note)}</small></td><td class="n">${r.filter((x) => inMonth(x) && f(x)).length} ${unit}</td>
           <td class="n">${money(sum((x) => dayOf(x) >= mon && f(x)))}</td><td class="n">${money(sum((x) => inMonth(x) && f(x)))}</td></tr>`).join("")}
-        <tr><td>Analyst chat (Claude)<small>${chat ? `members' questions, pictures included; ${(chat.people || []).length} ${(chat.people || []).length === 1 ? "person" : "people"} this month, $5 cap each`
+        <tr><td>Analyst chat (Claude)<small>${chat ? `members' questions, pictures included; ${(chat.people || []).filter((p) => p.email.includes("@")).length} ${(chat.people || []).filter((p) => p.email.includes("@")).length === 1 ? "person" : "people"} this month, $5 cap each`
           : "couldn't reach the chat's counter: re-paste workers/analyst.js into Cloudflare (Workers > cupcake-analyst > Edit code > Deploy)"}</small></td>
           <td class="n">${chat ? `${num(chatSum(() => true, "q"))} questions` : "?"}</td><td class="n">${chat ? money(wkChat) : "?"}</td><td class="n">${chat ? money(mtdChat) : "?"}</td></tr>
         ${chat ? subRow(chat, mtdChat) : ""}
         ${FX.map(([l, v, note, k, per, typed]) => `<tr><td>${esc(l)}<small>${esc(note)}</small>${k ? `<label class="ad-fx">$<input type="number" min="0" step="0.01" inputmode="decimal"
             data-k="${k}" value="${typed ?? ""}" placeholder="?" aria-label="${esc(l)}, dollars a ${per}"> a ${per}</label>` : ""}</td>
           <td class="n">fixed</td><td class="n"></td><td class="n">${v == null ? "?" : money(v)}</td></tr>`).join("")}
-      </tbody><tfoot><tr><td>Total</td><td></td><td class="n">${money(wk)}</td><td class="n"><b>${money(mtd + fixed)}${unknown || !chat ? " + ?" : ""}</b></td></tr></tfoot></table></div>
+      ${inn ? `<tr><td>Money in: Analyst subscriptions<small>what members pay a month (set under the Analyst chat row); takes away from the total</small></td>
+          <td class="n">${chat.members.filter((m) => chat.subs?.[m]).length} paying</td><td class="n"></td><td class="n"><span class="up">−${money(inn)}</span></td></tr>` : ""}
+      </tbody><tfoot><tr><td>Total${inn ? " after money in" : ""}</td><td></td><td class="n">${money(wk)}</td><td class="n"><b>${net(mtd + fixed - inn, unknown || !chat ? " + ?" : "")}</b></td></tr></tfoot></table></div>
       <p class="ad-fx-row"><button type="button" class="btn ad-fx-save">Save my costs</button> <span class="muted ad-fx-msg">Type what you pay for X Premium and the domain; it saves when you leave the box.</span></p>
       <p class="note">Quality checks this month: ${money(checkM)} of the $4.50 budget${checkM >= 4.5 ? " (on the cheaper model until the 1st)" : ""}.
-        ${chat?.people?.length ? `Analyst chat by person: ${chat.people.sort((a, b) => b.usd - a.usd).map((p) => `${esc(p.email)} ${money(p.usd)} of $${SUB_USD} (${num(p.questions)} questions)`).join(", ")}. ` : ""}
         Claude calls are counted from Oct 26, 2026; X posts from Oct 1 (from the posting log). These are estimates from list prices; the real bills are at console.anthropic.com (Usage) and the X developer console (Billing).</p>
       <div class="ad-chart"><canvas id="ad-cost-chart"></canvas></div></div>`;
     // saves when you leave a box (or tap Save). The totals update right away from this device's copy, even if the
@@ -376,6 +390,22 @@ const Admin = (() => {
       i.addEventListener("keydown", (ev) => { if (ev.key === "Enter") i.blur(); });
     });
     el.querySelector(".ad-fx-save").addEventListener("click", save);
+    el.querySelectorAll("[data-sub]").forEach((i) => {
+      i.addEventListener("keydown", (ev) => { if (ev.key === "Enter") i.blur(); });
+      i.addEventListener("change", async () => {
+        const msg = el.querySelector(".ad-sub-msg"), v = i.value.replace(/[$,\s]/g, "");
+        if (!(+v >= 0)) { msg.textContent = "Numbers only, like 5 or 9.99."; return; }
+        msg.textContent = "Saving…";
+        try {
+          const r = await fetch(CHAT + "/admin/subs", { method: "POST", body: JSON.stringify({ email: i.dataset.sub, usd: +v }),
+            headers: { Authorization: `Bearer ${await firebase.auth().currentUser.getIdToken()}`, "Content-Type": "application/json" } });
+          if (!r.ok) throw new Error(r.status);
+          chat.subs = (await r.json()).subs;
+          costs(db, el, today, mon, rows, err, mine, chat);
+          el.querySelector(".ad-sub-msg").textContent = "Saved.";
+        } catch (e) { msg.textContent = `Couldn't save it (${e.message}). Try again in a minute.`; }
+      });
+    });
     const days = [...Array(done)].map((_, i) => `${month}-${String(i + 1).padStart(2, "0")}`);
     drawLater("ad-cost-chart", (C) => ({ type: "bar", data: { labels: days.map((d) => d.slice(5).replace("-", "/")),
       datasets: [["Posts on X", (x) => x.kind === "x", C("--accent")], ["Claude", (x) => x.kind === "claude", "#4cc9f0"]]

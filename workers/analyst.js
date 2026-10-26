@@ -5,8 +5,9 @@
 //
 //   GET  /me    -> { member, questions, usd, limit, today, days }   (the chat button only shows for members)
 //   POST /chat  -> one Claude turn: { content, stop_reason, usage }  body: { system, tools, messages, newQuestion }
-//   GET  /admin -> the owner only: this month's chat cost for everyone together { month, usd, questions, days, people, members }
-//                  (the site's Admin page > Costs)
+//   GET  /admin -> the owner only: this month's chat cost for everyone together { month, usd, questions, days, people,
+//                  members, subs } (the site's Admin page > Costs)
+//   POST /admin/subs -> the owner only: set what one member pays a month  body: { email, usd }
 //   Both need "Authorization: Bearer <Firebase ID token>" (the site's Sign in with Google).
 //
 // Setup (Cloudflare dashboard > Workers > this worker > Settings):
@@ -58,10 +59,14 @@ const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/
 async function usage(env, uid) {
   return (await env.USAGE.get(`u:${uid}:${month()}`, "json")) || { q: 0, usd: 0, days: {} };
 }
+// what each member pays a month, typed in on the Admin page (later: from Stripe). The owner counts as $5 until set.
+async function subs(env) {
+  return { [OWNER]: 5, ...((await env.USAGE.get("subs", "json")) || {}) };
+}
 // everyone's entries for this month added up, for the Admin page (KV's free plan allows 1,000 lists a day)
 async function everyone(env) {
-  const members = (env.MEMBERS || "").toLowerCase().split(/[,\s]+/).filter(Boolean); // each one counts as a subscription on the Admin page
-  const m = month(), out = { month: m, usd: 0, questions: 0, days: {}, people: [], members: members.length };
+  const members = (env.MEMBERS || "").toLowerCase().split(/[,\s]+/).filter(Boolean);
+  const m = month(), out = { month: m, usd: 0, questions: 0, days: {}, people: [], members, subs: await subs(env) };
   let cursor;
   do {
     const page = await env.USAGE.list({ prefix: "u:", cursor });
@@ -95,7 +100,16 @@ export default {
     try { me = await signedIn(req); } catch (e) { return json({ error: "sign-in check failed" }, 503); }
     if (!me) return json({ error: "sign in first" }, 401);
     if (url.pathname === "/me") return json(isMember(me, env) ? summary(await usage(env, me.uid), me) : { member: false });
-    if (url.pathname === "/admin") return me.email === OWNER && me.verified ? json(await everyone(env)) : json({ error: "not allowed" }, 403);
+    if (url.pathname.startsWith("/admin") && !(me.email === OWNER && me.verified)) return json({ error: "not allowed" }, 403);
+    if (url.pathname === "/admin") return json(await everyone(env));
+    if (url.pathname === "/admin/subs" && req.method === "POST") { // { email, usd }: what one member pays a month
+      const b = await req.json().catch(() => ({})), email = String(b.email || "").toLowerCase(), usd = +b.usd;
+      if (!email.includes("@") || !(usd >= 0 && usd < 10000)) return json({ error: "bad request" }, 400);
+      const s = await subs(env);
+      s[email] = Math.round(usd * 100) / 100;
+      await env.USAGE.put("subs", JSON.stringify(s));
+      return json({ subs: s });
+    }
     if (url.pathname !== "/chat" || req.method !== "POST") return json({ error: "not found" }, 404);
     if (!isMember(me, env)) return json({ error: "The Analyst is for members." }, 403);
 
