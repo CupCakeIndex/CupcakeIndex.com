@@ -64,7 +64,7 @@ const TIERS = [["Tier 1", 5], ["Tier 2", 10]];
 const memberList = (env) => (env.MEMBERS || "").toLowerCase().split(/[,\s]+/).filter(Boolean)
   .map((x) => { const [email, t] = x.split(":"); return { email, tier: Math.min(TIERS.length, Math.max(1, +t || 1)) - 1 }; });
 // this month's chat cost and money in, by tier, for the Admin page: totals only, no emails (KV's free plan allows 1,000 lists a day)
-async function everyone(env) {
+async function everyone(env, me) {
   const members = memberList(env), tierOf = Object.fromEntries(members.map((x) => [x.email, x.tier]));
   const tiers = TIERS.map(([name, price], i) => { const n = members.filter((x) => x.tier === i).length; return { name, price, members: n, in: n * price, usd: 0, questions: 0 }; });
   const m = month(), out = { month: m, usd: 0, questions: 0, days: {}, tiers, unsorted: { usd: 0, questions: 0 } };
@@ -75,7 +75,8 @@ async function everyone(env) {
       const u = await env.USAGE.get(k.name, "json");
       if (!u) continue;
       out.usd += u.usd; out.questions += u.q;
-      const t = tiers[tierOf[u.email]] || out.unsorted; // no email yet (asked before it was kept) or no longer a member
+      const email = u.email || (k.name.startsWith(`u:${me.uid}:`) ? me.email : ""); // the owner's own, even from before emails were kept
+      const t = tiers[tierOf[email]] || out.unsorted; // no email yet (asked before it was kept) or no longer a member
       t.usd += u.usd; t.questions += u.q;
       for (const [d, x] of Object.entries(u.days || {})) {
         const t = (out.days[d] ||= { q: 0, usd: 0 });
@@ -100,9 +101,14 @@ export default {
     let me;
     try { me = await signedIn(req); } catch (e) { return json({ error: "sign-in check failed" }, 503); }
     if (!me) return json({ error: "sign in first" }, 401);
-    if (url.pathname === "/me") return json(isMember(me, env) ? summary(await usage(env, me.uid), me) : { member: false });
+    if (url.pathname === "/me") {
+      if (!isMember(me, env)) return json({ member: false });
+      const u = await usage(env, me.uid);
+      if (u.q && !u.email) { u.email = me.email; await env.USAGE.put(`u:${me.uid}:${month()}`, JSON.stringify(u), { expirationTtl: 60 * 60 * 24 * 400 }); } // so Admin can put it in their tier
+      return json(summary(u, me));
+    }
     if (url.pathname.startsWith("/admin") && !(me.email === OWNER && me.verified)) return json({ error: "not allowed" }, 403);
-    if (url.pathname === "/admin") return json(await everyone(env));
+    if (url.pathname === "/admin") return json(await everyone(env, me));
     if (url.pathname !== "/chat" || req.method !== "POST") return json({ error: "not found" }, 404);
     if (!isMember(me, env)) return json({ error: "The Analyst is for members." }, 403);
 
