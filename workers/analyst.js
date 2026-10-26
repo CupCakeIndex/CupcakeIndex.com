@@ -5,7 +5,7 @@
 //
 //   GET  /me    -> { member, questions, usd, limit, today, days }   (the chat button only shows for members)
 //   POST /chat  -> one Claude turn: { content, stop_reason, usage }  body: { system, tools, messages, newQuestion }
-//   GET  /admin -> the owner only: this month's chat cost for everyone together { month, usd, questions, days, people }
+//   GET  /admin -> the owner only: this month's chat cost for everyone together { month, usd, questions, days, people, members }
 //                  (the site's Admin page > Costs)
 //   Both need "Authorization: Bearer <Firebase ID token>" (the site's Sign in with Google).
 //
@@ -60,7 +60,8 @@ async function usage(env, uid) {
 }
 // everyone's entries for this month added up, for the Admin page (KV's free plan allows 1,000 lists a day)
 async function everyone(env) {
-  const m = month(), out = { month: m, usd: 0, questions: 0, days: {}, people: [] };
+  const members = (env.MEMBERS || "").toLowerCase().split(/[,\s]+/).filter(Boolean); // each one counts as a subscription on the Admin page
+  const m = month(), out = { month: m, usd: 0, questions: 0, days: {}, people: [], members: members.length };
   let cursor;
   do {
     const page = await env.USAGE.list({ prefix: "u:", cursor });

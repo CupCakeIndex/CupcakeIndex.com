@@ -288,6 +288,15 @@ const Admin = (() => {
     ["CollegeFootballData", 0, "free plan"],
     ["Cloudflare (runs the Analyst chat)", 0, "free plan"],
   ];
+  // the chat's usage against what its members would pay: every member counted as a $5-a-month subscription (Terry too)
+  const SUB_USD = 5;
+  function subRow(chat, used) {
+    const n = chat.members ?? (chat.people || []).length, subs = n * SUB_USD, pct = subs ? used / subs * 100 : 0;
+    return `<tr class="ad-sub"><td colspan="4"><div class="ad-sub-top"><span>Usage vs subscriptions</span>
+        <span><b>${money(used)}</b> of ${money(subs)} <span class="muted">(${n} ${n === 1 ? "member" : "members"} × $${SUB_USD})</span></span></div>
+      <div class="ad-sub-bar${pct > 100 ? " over" : ""}"><i style="width:${Math.min(100, pct).toFixed(1)}%"></i></div>
+      <small>${pct > 100 ? `${money(used - subs)} more than the subscriptions bring in` : `${money(subs - used)} left over (${pct < 1 && pct > 0 ? "under 1" : Math.round(pct)}% used)`} this month</small></td></tr>`;
+  }
   function costs(db, el, today, mon, rows, err, mine = {}, chat = null) {
     if (err) {
       el.innerHTML = `<div class="card"><h2>Costs</h2><p>${rulesNote(err)}</p></div>`;
@@ -330,13 +339,14 @@ const Admin = (() => {
         <tr><td>Analyst chat (Claude)<small>${chat ? `members' questions, pictures included; ${(chat.people || []).length} ${(chat.people || []).length === 1 ? "person" : "people"} this month, $5 cap each`
           : "couldn't reach the chat's counter: re-paste workers/analyst.js into Cloudflare (Workers > cupcake-analyst > Edit code > Deploy)"}</small></td>
           <td class="n">${chat ? `${num(chatSum(() => true, "q"))} questions` : "?"}</td><td class="n">${chat ? money(wkChat) : "?"}</td><td class="n">${chat ? money(mtdChat) : "?"}</td></tr>
+        ${chat ? subRow(chat, mtdChat) : ""}
         ${FX.map(([l, v, note, k, per, typed]) => `<tr><td>${esc(l)}<small>${esc(note)}</small>${k ? `<label class="ad-fx">$<input type="number" min="0" step="0.01" inputmode="decimal"
             data-k="${k}" value="${typed ?? ""}" placeholder="?" aria-label="${esc(l)}, dollars a ${per}"> a ${per}</label>` : ""}</td>
           <td class="n">fixed</td><td class="n"></td><td class="n">${v == null ? "?" : money(v)}</td></tr>`).join("")}
       </tbody><tfoot><tr><td>Total</td><td></td><td class="n">${money(wk)}</td><td class="n"><b>${money(mtd + fixed)}${unknown || !chat ? " + ?" : ""}</b></td></tr></tfoot></table></div>
       <p class="ad-fx-row"><button type="button" class="btn ad-fx-save">Save my costs</button> <span class="muted ad-fx-msg">Type what you pay for X Premium and the domain; it saves when you leave the box.</span></p>
       <p class="note">Quality checks this month: ${money(checkM)} of the $4.50 budget${checkM >= 4.5 ? " (on the cheaper model until the 1st)" : ""}.
-        ${chat?.people?.length ? `Analyst chat by person: ${chat.people.sort((a, b) => b.usd - a.usd).map((p) => `${esc(p.email)} ${money(p.usd)} (${num(p.questions)} questions)`).join(", ")}. ` : ""}
+        ${chat?.people?.length ? `Analyst chat by person: ${chat.people.sort((a, b) => b.usd - a.usd).map((p) => `${esc(p.email)} ${money(p.usd)} of $${SUB_USD} (${num(p.questions)} questions)`).join(", ")}. ` : ""}
         Claude calls are counted from Oct 26, 2026; X posts from Oct 1 (from the posting log). These are estimates from list prices; the real bills are at console.anthropic.com (Usage) and the X developer console (Billing).</p>
       <div class="ad-chart"><canvas id="ad-cost-chart"></canvas></div></div>`;
     // saves when you leave a box (or tap Save). The totals update right away from this device's copy, even if the
