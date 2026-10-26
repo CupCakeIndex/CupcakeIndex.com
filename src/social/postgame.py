@@ -172,7 +172,9 @@ def action_shot(summary, p):
     def his_clip(h):
         nums = {int(n) for n in re.findall(r"(\d+)[- ]?(?:yd|yard)", h or "", re.I)}
         return any(nums & yds and any(re.search(rf"\b{re.escape(nm)}\b", h) for nm in names) for yds, names in plays)
-    linked = [v for v in vids if v not in mine and his_clip(v.get("headline"))]
+    # a kicking clip is the kicker's ("Spetic kicks 23-yard field goal" matched a 23-yard kick return): never his
+    kick = lambda h: re.search(r"field goal|\bfg\b|punt|kickoff|kicks|extra point|\bpat\b", h or "", re.I)
+    linked = [v for v in vids if v not in mine and not kick(v.get("headline")) and his_clip(v.get("headline"))]
     pics = []
     for a in [summary.get("article") or {}, *((summary.get("news") or {}).get("articles") or [])]:
         pics += [(i["url"], False) for i in a.get("images", []) if i.get("url") and named(i.get("caption"))]
