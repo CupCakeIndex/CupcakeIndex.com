@@ -64,7 +64,9 @@ const Admin = (() => {
     const from = [today.slice(0, 8) + "01", mon].sort()[0]; // the month so far, or this week if it began last month
     let rows = null, err = null, fixed = {};
     try { rows = await ledger(from); } catch (e) { err = e; }
-    try { fixed = (await db.collection("admin_settings").doc("costs").get()).data() || {}; } catch (e) { fixed = {}; }
+    // your typed-in costs: the database's copy, else this device's (costs() keeps one in case the database says no)
+    try { fixed = JSON.parse(localStorage.getItem("ad-costs") || "{}"); } catch (e) { fixed = {}; }
+    try { fixed = { ...fixed, ...((await db.collection("admin_settings").doc("costs").get()).data() || {}) }; } catch (e) { /* keep this device's */ }
     const cal = posts(db, $("#ad-posts"), mon, today, rows, err);
     costs(db, $("#ad-costs"), today, mon, rows, err, fixed);
     analytics(db, $("#ad-analytics"));
@@ -229,7 +231,11 @@ const Admin = (() => {
         ${items[d].sort((a, b) => ((a.t || "99") < (b.t || "99") ? -1 : 1)).map(cell).join("") || `<p class="muted">${d < today ? "Before the calendar started" : "Nothing scheduled"}</p>`}</div>`).join("")}</div></div>
       <p class="note">Previews are made each morning at 7 AM the same way the posts are, so a post can still change before it goes out (new games, news, or the quality check). Claude checks every post right before it goes out; a post the check stops shows here with the reason.</p>
       <dialog class="ad-dlg"><div class="ad-dlg-in"></div></dialog></div>`;
-    const dlg = el.querySelector(".ad-dlg"), inner = el.querySelector(".ad-dlg-in");
+    // the preview window sits at the page level: inside the Calendar section it would open invisibly (and block the
+    // page) whenever that section is closed, e.g. from the Next post tile or an alert
+    const dlg = el.querySelector(".ad-dlg"), inner = dlg.querySelector(".ad-dlg-in");
+    document.querySelectorAll("#view-admin > .ad-dlg").forEach((d) => d.remove());
+    $("#view-admin").appendChild(dlg);
     dlg.addEventListener("click", (ev) => { if (ev.target === dlg || ev.target.closest("[data-close]")) dlg.close(); });
     const pic = (b64) => `<img alt="The post's picture" src="data:image/jpeg;base64,${b64}">`;
     el.querySelectorAll(".ad-p").forEach((b) => b.addEventListener("click", () => openPost(all[+b.dataset.i])));
@@ -310,25 +316,37 @@ const Admin = (() => {
             data-k="${k}" value="${typed ?? ""}" placeholder="?" aria-label="${esc(l)}, dollars a ${per}"> a ${per}</label>` : ""}</td>
           <td class="n">fixed</td><td class="n"></td><td class="n">${v == null ? "?" : money(v)}</td></tr>`).join("")}
       </tbody><tfoot><tr><td>Total</td><td></td><td class="n">${money(wk)}</td><td class="n"><b>${money(mtd + fixed)}${unknown ? " + ?" : ""}</b></td></tr></tfoot></table></div>
-      <p class="ad-fx-row"><button type="button" class="btn ad-fx-save">Save my costs</button> <span class="muted ad-fx-msg">Type what you pay for X Premium and the domain, then Save.</span></p>
+      <p class="ad-fx-row"><button type="button" class="btn ad-fx-save">Save my costs</button> <span class="muted ad-fx-msg">Type what you pay for X Premium and the domain; it saves when you leave the box.</span></p>
       <p class="note">Quality checks this month: ${money(checkM)} of the $4.50 budget${checkM >= 4.5 ? " (on the cheaper model until the 1st)" : ""}.
         Claude calls are counted from Oct 26, 2026; X posts from Oct 1 (from the posting log). These are estimates from list prices; the real bills are at console.anthropic.com (Usage) and the X developer console (Billing).</p>
       <div class="ad-chart"><canvas id="ad-cost-chart"></canvas></div></div>`;
-    el.querySelector(".ad-fx-save").addEventListener("click", async () => {
-      const msg = el.querySelector(".ad-fx-msg"), got = {};
+    // saves when you leave a box (or tap Save). The totals update right away from this device's copy, even if the
+    // database won't take it yet (rules not published): then it says so, and the number stays on this device.
+    let saving = false;
+    const save = async () => {
+      if (saving) return;
+      const msg = el.querySelector(".ad-fx-msg"), got = {}, keep = { ...mine };
       for (const i of el.querySelectorAll(".ad-fx input")) {
-        const v = i.value.trim();
+        const v = i.value.replace(/[$,\s]/g, "");
         if (v !== "" && !(+v >= 0)) { msg.textContent = "Numbers only, like 8 or 12.99."; return; }
-        got[i.dataset.k] = v === "" ? firebase.firestore.FieldValue.delete() : Math.round(+v * 100) / 100;
+        if (v === "") delete keep[i.dataset.k]; else keep[i.dataset.k] = Math.round(+v * 100) / 100;
+        got[i.dataset.k] = v === "" ? firebase.firestore.FieldValue.delete() : keep[i.dataset.k];
       }
-      msg.textContent = "Saving…";
-      try {
-        await db.collection("admin_settings").doc("costs").set(got, { merge: true });
-        const now = (await db.collection("admin_settings").doc("costs").get()).data() || {};
-        costs(db, el, today, mon, rows, err, now);
-        el.querySelector(".ad-fx-msg").textContent = "Saved.";
-      } catch (e) { msg.innerHTML = rulesNote(e); }
+      if (FIXED.every(([, , , k]) => !k || keep[k] === mine[k])) return; // nothing changed
+      saving = true;
+      localStorage.setItem("ad-costs", JSON.stringify(keep));
+      let note = "Saved.";
+      try { await db.collection("admin_settings").doc("costs").set(got, { merge: true }); } catch (e) {
+        note = `Saved on this device only: the database said no (${esc(e.code || e.message)}). To keep it on your phone and PC both, paste firestore.rules into Firebase console > Firestore Database > Rules > Publish, then type it again.`;
+      }
+      costs(db, el, today, mon, rows, err, keep);
+      el.querySelector(".ad-fx-msg").innerHTML = note;
+    };
+    el.querySelectorAll(".ad-fx input").forEach((i) => {
+      i.addEventListener("change", save);
+      i.addEventListener("keydown", (ev) => { if (ev.key === "Enter") i.blur(); });
     });
+    el.querySelector(".ad-fx-save").addEventListener("click", save);
     const days = [...Array(done)].map((_, i) => `${month}-${String(i + 1).padStart(2, "0")}`);
     drawLater("ad-cost-chart", (C) => ({ type: "bar", data: { labels: days.map((d) => d.slice(5).replace("-", "/")),
       datasets: [["Posts on X", (x) => x.kind === "x", C("--accent")], ["Claude", (x) => x.kind === "claude", "#4cc9f0"]]
