@@ -87,7 +87,8 @@ def site_injuries(status, tab):
     """Use the site's Injuries tab list (ESPN's report merged with the official one, what the site shows) for each team's
     injuries; nflverse's report lags a week and misses teams (Washington showed none in week 7)."""
     for t in (tab or {}).get("teams", []):
-        rows = [{k: v for k, v in {"name": h["name"], "pos": h.get("pos"), "game_status": h.get("status"), "note": h.get("note")}.items() if v}
+        rows = [{k: v for k, v in {"name": h["name"], "pos": h.get("pos"), "game_status": h.get("status"), "note": h.get("note"),
+                                    "note_date": h.get("note_date") if h.get("note") else None}.items() if v}
                 for h in t.get("hurt", [])]
         status["teams"].setdefault(t["team"], {"injuries": [], "depth": {}})["injuries"] = rows
     if tab:

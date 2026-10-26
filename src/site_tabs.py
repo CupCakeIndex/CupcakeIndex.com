@@ -126,7 +126,7 @@ def _team(t, yr, starts, off=None):
         pos = (a.get("position") or {}).get("abbreviation", "")
         w, key = weight(idof(i), pos)
         hurt.append({"name": a.get("displayName", ""), "pos": pos, "status": i.get("status"), "key": key, "lost": round(w * inj_hit(i.get("status")), 2), "w": w,
-                     "note": i.get("shortComment") or ""})
+                     "note": i.get("shortComment") or "", "note_date": (i.get("date") or "")[:10]})
     for p in extra:
         w, key = weight(p["id"], p["pos"])
         hurt.append({"name": p["name"], "pos": p["pos"], "status": p["status"], "key": key, "lost": round(w * inj_hit(p["status"]), 2), "w": w,

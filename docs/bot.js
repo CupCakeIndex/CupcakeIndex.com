@@ -56,13 +56,16 @@ const Bot = (() => {
       </section>`;
     document.body.appendChild(el);
     const fab = el.querySelector(".bot-fab"), panel = el.querySelector(".bot-panel"), ta = el.querySelector("textarea");
-    const toggle = (open) => {
-      panel.hidden = !open;
+    let shut = 0;
+    const toggle = (open) => { // the panel grows out of the Ask button, and shrinks back into it (style.css bot-pop)
+      clearTimeout(shut);
       fab.setAttribute("aria-expanded", String(open));
       el.classList.toggle("open", open);
-      if (open) setTimeout(() => ta.focus(), 50);
+      panel.classList.toggle("closing", !open);
+      if (open) { panel.hidden = false; setTimeout(() => ta.focus(), 50); }
+      else shut = setTimeout(() => { panel.hidden = true; panel.classList.remove("closing"); }, matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 160);
     };
-    fab.addEventListener("click", () => toggle(panel.hidden));
+    fab.addEventListener("click", () => toggle(panel.hidden || panel.classList.contains("closing")));
     el.querySelector(".bot-x").addEventListener("click", () => toggle(false));
     el.querySelector(".bot-new").addEventListener("click", () => { if (busy) return; msgs = []; el.querySelector(".bot-log").innerHTML = ""; ta.focus(); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !panel.hidden) toggle(false); });
@@ -94,12 +97,29 @@ const Bot = (() => {
     log().scrollTop = log().scrollHeight;
     return d;
   }
-  // a little formatting: paragraphs, "- " lists, **bold**, and links to the site's own pages only
+  // formatting so an answer scans instead of reading like a wall: the first line is the lead, "Label: detail" lines
+  // become labeled rows, a short line ending in ":" is a small heading, and records, scores, win chances, ranks and
+  // injury statuses are colored. Also **bold**, "- " lists, and links to the site's own pages only.
+  const KV = /^([A-Z#][^:.!?]{0,34}):\s+(.+)$/; // "Giants: 163 points for", "Questionable: Marcus Mariota (knee)"
   function fmt(t) {
-    const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\[([^\]]+)\]\((#\/[^)\s]+)\)/g, '<a href="$2">$1</a>');
-    return t.trim().split(/\n{2,}/).map((p) => {
-      const lines = p.split("\n");
-      return lines.every((l) => /^\s*[-*•] /.test(l)) ? `<ul>${lines.map((l) => `<li>${inline(l.replace(/^\s*[-*•] /, ""))}</li>`).join("")}</ul>` : `<p>${lines.map(inline).join("<br>")}</p>`;
+    const color = (h) => h.split(/(<[^>]+>)/).map((s, i) => i % 2 ? s : s
+      .replace(/\b(out for the season|Out|IR|on injured reserve|Injured reserve)\b/g, '<span class="bot-bad">$1</span>')
+      .replace(/\b(Questionable|Doubtful)\b/g, '<span class="bot-warn">$1</span>')
+      .replace(/(^|[\s(])(#\d{1,3}|\d+(?:\.\d+)?%|\d{1,3}-\d{1,3}(?:-\d{1,2})?)(?=[\s,.;:)!?]|$)/g, '$1<span class="bot-num">$2</span>')).join("");
+    const inline = (s) => color(esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\[([^\]]+)\]\((#\/[^)\s]+)\)/g, '<a href="$2">$1</a>'));
+    const kv = (l) => { const m = l.match(KV); return m ? `<b class="bot-k">${inline(m[1])}</b> ${inline(m[2])}` : inline(l); };
+    const paras = t.trim().split(/\n{2,}/);
+    return paras.map((p, n) => {
+      const lines = p.split("\n").map((l) => l.trim()).filter(Boolean), bullet = /^[-*•] /;
+      const out = [];
+      for (let i = 0; i < lines.length; i++) {
+        const l = lines[i];
+        if (/^[^.!?]{2,40}:$/.test(l) && i < lines.length - 1) { out.push(`<h4 class="bot-h">${inline(l.slice(0, -1))}</h4>`); continue; }
+        if (bullet.test(l)) { const items = []; while (i < lines.length && bullet.test(lines[i])) items.push(`<li>${kv(lines[i++].replace(bullet, ""))}</li>`); i--; out.push(`<ul>${items.join("")}</ul>`); continue; }
+        if (KV.test(l) && (KV.test(lines[i + 1] || "") || KV.test(lines[i - 1] || ""))) { const rows = []; while (i < lines.length && KV.test(lines[i])) rows.push(`<div>${kv(lines[i++])}</div>`); i--; out.push(`<div class="bot-rows">${rows.join("")}</div>`); continue; }
+        out.push(`<p${n === 0 && i === 0 && paras.length + lines.length > 2 ? ' class="bot-lead"' : ""}>${inline(l)}</p>`);
+      }
+      return out.join("");
     }).join("");
   }
 
@@ -157,7 +177,7 @@ const Bot = (() => {
     const behind = ["nfl", "cfb"].filter((lg) => { const ss = idx?.leagues?.[lg]?.seasons || {}, k = Object.keys(ss).sort().at(-1); return k && ss[k].weeks.at(-1) > R[lg].week; });
     return `You are the Cupcake Analyst, the stat desk inside The Cupcake Index (cupcakeindex.com), a college football and NFL power rankings and analytics site. Motto: "Bullying cupcakes isn't a résumé." A member is chatting with you in a small panel on the site.
 
-Today is ${new Date().toISOString().slice(0, 10)}. Our data: weekly stats for NFL players ${S("nfl").at(-1)}-${S("nfl")[0]} and college ${S("cfb").at(-1)}-${S("cfb")[0]} (regular season; the current seasons are partial), NFL team game stats back to ${T("nfl").at(-1)}, our model's rankings (NFL after week ${R.nfl.week}, college after week ${R.cfb.week} of ${R.cfb.season}), and the NFL injury report and depth charts.${behind.length ? ` Our ${behind.map((x) => x.toUpperCase()).join(" and ")} rankings were just updated and our_rankings may still show last week's for a few minutes: say so if they ask about rankings. game_prediction, scores, standings and news are always current.` : ""}
+Right now it's ${new Date().toLocaleString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })} for the member. Our data: weekly stats for NFL players ${S("nfl").at(-1)}-${S("nfl")[0]} and college ${S("cfb").at(-1)}-${S("cfb")[0]} (regular season; the current seasons are partial), NFL team game stats back to ${T("nfl").at(-1)}, our model's rankings (NFL after week ${R.nfl.week}, college after week ${R.cfb.week} of ${R.cfb.season}), and the NFL injury report and depth charts.${behind.length ? ` Our ${behind.map((x) => x.toUpperCase()).join(" and ")} rankings were just updated and our_rankings may still show last week's for a few minutes: say so if they ask about rankings. game_prediction, scores, standings and news are always current.` : ""}
 
 How to answer:
 - Use the tools for every number. find_player before player_stats; leaderboard to rank someone among peers; team_stats and our_rankings for teams, schedules and cupcake padding; team_status for injuries and starters (the same list as our Injuries tab); site_tab for our Injuries / Frauds / Over-achievers tabs; pace_to for "on pace for" questions; stat_menu to find the right stat; site_lists for coaches, records, Trade watch and our Heisman race; rare_plays for specific plays; how_we_count for how OUR stats and rankings are defined (call it before explaining any of our numbers). Make several calls in one round when you can.
@@ -171,11 +191,13 @@ How to answer:
   To send them to a page (rankings, a team page, Injuries...), use open_page.
 - Leaderboard stat names: any column (pass_yds, rush_td, tackles, def_sacks, pressure, pen, pts...) or a rate. Player rates: ${Object.keys(BotTools.RATES).join(", ")}, passer_rating, passer_rating_vs_blitz. Team rates: ${Object.keys(BotTools.TEAM_RATES).join(", ")}.
 - "Who wins", "who do you have", "predict this game": call game_prediction and answer with our pick, the win chance and the predicted score, then the one or two reasons that matter most. Never say we don't have a prediction without calling it.
+- Days and times: say when a game is ("tonight", "tomorrow", "Saturday") only by copying its "when" from scores, which is already in the member's time. Never work it out from dates yourself.
+- Injury notes and headlines are reports from the date they carry (note_date, published). A game they mention may already be over: check scores before saying a player will or won't play in a game.
 - "What's the score", "did they win", "when do they play": scores. Standings, division leaders, playoff seeds: standings. Recent news on a team or player: news.
 - Our site is the source of truth. If no tool covers what they asked, say "I can't look that up yet" and point to the page with open_page; never say the site doesn't have something, and never guess.
 - No betting content: no spreads, lines, odds, over/unders or picks against a line. Our win chance and predicted score are fine.
 
-Style: a sharp fan who knows the numbers, talking to another fan. Lead with the answer in one sentence, then the two or three numbers that back it (with ranks), then stop. Usually under 120 words; a list only when they asked for one. Write stats in plain words ("yards per carry", not ypc or column names). Take a side when the numbers point one way. No em dashes, no "Great question", no wrap-up sentence, no hashtags, no emoji. Plain text; **bold** sparingly; "- " for list items.`;
+Style: a sharp fan who knows the numbers, talking to another fan. Lead with the answer in one sentence, then the two or three numbers that back it (with ranks), then stop. Usually under 120 words. Make it easy to scan on a phone: one idea per short paragraph, never a block of several sentences. When you give three or more facts of the same kind (teams, players, injuries), put each on its own line as "Label: detail" (like "Giants: 4-2-1, won 1 straight") or as "- " items, under a short line ending in ":" if it helps. Write stats in plain words ("yards per carry", not ypc or column names). Take a side when the numbers point one way. No em dashes, no "Great question", no wrap-up sentence, no hashtags, no emoji. Plain text; **bold** sparingly; "- " for list items.`;
   }
 
   // ---------- the tools: the Analyst's (bot-tools.js) plus the site's own ----------
@@ -188,6 +210,17 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
     for (const t of [(n) => n === q, (n) => n.split(" ").includes(q), (n) => n.includes(q)]) { const n = names.find((x) => t(BotTools.norm(x))); if (n) return n; }
     return null;
   };
+  // a kickoff in the member's own time, with the day spelled out, so the chat never does date math:
+  // "tonight 8:15 PM EDT", "tomorrow 7:00 PM EDT", "Saturday Oct 31, 12:00 PM EDT", "last Sunday Oct 25, 1:00 PM EDT"
+  function whenIs(iso) {
+    const d = new Date(iso), now = new Date(), day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate());
+    const n = Math.round((day(d) - day(now)) / 864e5), time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZoneName: "short" });
+    const wd = d.toLocaleDateString("en-US", { weekday: "long" }), md = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    if (n === 0) return `${d.getHours() >= 17 ? "tonight" : "today"} ${time}`;
+    if (n === 1) return `tomorrow ${time}`;
+    if (n === -1) return `yesterday ${time}`;
+    return `${n < 0 && n > -7 ? "last " : ""}${wd} ${md}, ${time}${Math.abs(n) > 6 ? ` (${n > 0 ? `in ${n} days` : `${-n} days ago`})` : ""}`;
+  }
   // one week of ESPN's scoreboard (this week if w is empty), team names the way our pages show them:
   // "Washington Commanders" (NFL), "Washington" (college: no mascot)
   async function espnWeek(lg, w) {
@@ -200,7 +233,7 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
       const side = (h) => { const t = (c.competitors || []).find((x) => x.homeAway === h) || {};
         return { team: nm(t.team), score: st.state === "pre" ? undefined : +t.score, record: t.records?.[0]?.summary, ap_rank: t.curatedRank?.current < 99 ? t.curatedRank.current : undefined }; };
       return { week: sb.week?.number, away: side("away"), home: side("home"), status: st.state === "pre" ? "not started" : st.completed ? "final" : "live",
-        detail: st.shortDetail, kickoff: e.date, tv: (c.broadcasts || []).flatMap((b) => b.names || []).join(", ") || undefined };
+        detail: st.shortDetail, when: whenIs(e.date), tv: (c.broadcasts || []).flatMap((b) => b.names || []).join(", ") || undefined };
     });
     return { n: sb.week?.number, games, bye: (sb.week?.teamsOnBye || []).map(nm) };
   }

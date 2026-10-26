@@ -3652,6 +3652,10 @@ body:has(#view-rankings:not(.hidden) .weights-fab) .bot-fab { bottom: calc(74px 
 .bot-panel { position: fixed; right: 18px; bottom: calc(78px + env(safe-area-inset-bottom)); z-index: 63; width: min(400px, calc(100vw - 24px)); height: min(560px, calc(100dvh - 110px));
   display: flex; flex-direction: column; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-top: 3px solid var(--accent); box-shadow: 0 16px 48px rgba(0,0,0,.55); }
 .bot-panel[hidden] { display: none; }
+.bot-panel { --warn: #e0a225; transform-origin: calc(100% - 40px) 100%; animation: bot-pop .24s cubic-bezier(.2,.9,.3,1.15); }
+.bot-panel.closing { animation: bot-pop-out .16s ease-in forwards; pointer-events: none; }
+@keyframes bot-pop { from { opacity: 0; transform: translateY(14px) scale(.9); } }
+@keyframes bot-pop-out { to { opacity: 0; transform: translateY(10px) scale(.94); } }
 body:has(#view-rankings:not(.hidden) .weights-fab) .bot-panel { bottom: calc(134px + env(safe-area-inset-bottom)); height: min(560px, calc(100dvh - 166px)); }
 .bot-panel header { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; border-bottom: 1px solid var(--line); }
 .bot-panel header b { font-size: 14px; }
@@ -3663,13 +3667,30 @@ body:has(#view-rankings:not(.hidden) .weights-fab) .bot-panel { bottom: calc(134
 .bot-msg { max-width: 92%; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
 .bot-msg p { margin: 0 0 6px; }
 .bot-msg p:last-child { margin-bottom: 0; }
-.bot-msg ul { margin: 0 0 6px; padding-left: 18px; }
+.bot-msg ul { margin: 0 0 8px; padding-left: 16px; }
+.bot-msg li { margin-bottom: 4px; }
+.bot-msg li::marker { color: var(--accent); }
+.bot-msg { animation: bot-msg-in .25s ease-out; }
+@keyframes bot-msg-in { from { opacity: 0; transform: translateY(6px); } }
 .bot-msg.me { align-self: flex-end; padding: 8px 12px; background: color-mix(in srgb, var(--accent) 18%, var(--card)); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); }
-.bot-msg.bot { align-self: flex-start; padding: 8px 12px; border-left: 3px solid var(--line); }
+.bot-msg.bot { align-self: flex-start; padding: 10px 12px; background: color-mix(in srgb, var(--ink) 4%, var(--card)); border-left: 3px solid var(--accent); }
+.bot-msg.bot.wait { background: none; border-left-color: var(--line); }
+.bot-msg p { margin-bottom: 10px; }
+.bot-msg .bot-lead { font-size: 15px; font-weight: 700; line-height: 1.4; }
+.bot-h { margin: 12px 0 6px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.bot-msg > .bot-h:first-child { margin-top: 0; }
+.bot-msg > :last-child { margin-bottom: 0; }
+.bot-rows { margin: 0 0 10px; border-top: 1px solid var(--line); }
+.bot-rows > div { padding: 6px 0; border-bottom: 1px solid var(--line); }
+.bot-k { color: var(--ink); }
+.bot-k::after { content: " ·"; color: var(--muted); font-weight: 400; }
+.bot-num { color: var(--accent); font-weight: 700; white-space: nowrap; }
+.bot-bad { color: var(--bad); font-weight: 700; }
+.bot-warn { color: var(--warn); font-weight: 700; }
 .bot-msg.wait p { font-size: 13px; }
 .bot-dots::after { content: ""; animation: bot-dots 1.2s steps(4) infinite; }
 @keyframes bot-dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
-@media (prefers-reduced-motion: reduce) { .bot-dots::after { animation: none; content: "..."; } }
+@media (prefers-reduced-motion: reduce) { .bot-dots::after { animation: none; content: "..."; } .bot-panel, .bot-panel.closing, .bot-msg { animation: none; } }
 .bot-link { font-weight: 700; color: var(--accent); }
 .bot-err { color: var(--bad); }
 .bot-ask { display: flex; gap: 8px; align-items: flex-end; padding: 10px; border-top: 1px solid var(--line); }
@@ -3683,4 +3704,5 @@ body:has(#view-rankings:not(.hidden) .weights-fab) .bot-panel { bottom: calc(134
   body:has(#view-rankings:not(.hidden) .weights-fab) .bot-fab { bottom: calc(66px + env(safe-area-inset-bottom)); }
   body:has(#view-rankings:not(.hidden) .weights-fab) .bot-panel { bottom: 0; height: calc(100dvh - 56px); }
   .bot.open .bot-fab { display: none; }
+  .bot-panel { transform-origin: 50% 100%; }
 }
