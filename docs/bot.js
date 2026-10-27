@@ -671,7 +671,7 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
       const c = e.competitions?.[0] || {}, st = e.status?.type || {};
       const side = (h) => { const t = (c.competitors || []).find((x) => x.homeAway === h) || {};
         return { team: nm(t.team), score: st.state === "pre" ? undefined : +t.score, record: t.records?.[0]?.summary, ap_rank: t.curatedRank?.current < 99 ? t.curatedRank.current : undefined }; };
-      return { week: sb.week?.number, away: side("away"), home: side("home"), status: st.state === "pre" ? "not started" : st.completed ? "final" : "live",
+      return { id: e.id, week: sb.week?.number, away: side("away"), home: side("home"), status: st.state === "pre" ? "not started" : st.completed ? "final" : "live",
         detail: st.shortDetail, when: whenIs(e.date), tv: (c.broadcasts || []).flatMap((b) => b.names || []).join(", ") || undefined };
     });
     return { n: sb.week?.number, games, bye: (sb.week?.teamsOnBye || []).map(nm) };
@@ -719,6 +719,30 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
         if (!games && !a.week && W.n) { const N = await espnWeek(lg, W.n + 1); games = find(N); if (games) W = N; }
         if (!games) throw new Error(bye ? `${bye} are on a bye in week ${W.n}.` : `No ${lg} game for "${a.team}" on ESPN's scoreboard${a.week ? ` in week ${a.week}` : ""}.`);
         return { as_of: new Date().toISOString(), week: W.n, ...(bye ? { note: `${bye} had a bye in week ${W.n - 1}; this is their next game.` } : {}), games };
+      },
+    },
+    {
+      name: "game_stats",
+      description: "Live from ESPN, same as our game page: the box score of one game, live or final. Score and clock, team stats side by side (yards, plays, yards per play, 3rd/4th downs, turnovers, time of possession...), each team's passing, rushing, receiving, defense and kicking lines by player, every scoring play, the drive in progress and ESPN's win probability. Use it for anything about a game that's on now or just ended ('stats from the current game', 'how is Hurts doing tonight', 'who's leading in rushing', 'how did they score'). With no week: this week's game.",
+      input_schema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, team: { type: "string" }, week: { type: "integer" } }, required: ["league", "team"] },
+      async execute(a) {
+        const lg = String(a.league), W = await espnWeek(lg, a.week), g = gameOf(W, a.team)?.[0];
+        if (!g) throw new Error(`No ${lg} game for "${a.team}" on ESPN's scoreboard${a.week ? ` in week ${a.week}` : " this week"}. Try the scores tool for when they play.`);
+        if (g.status === "not started") return { game: g, note: "It hasn't started, so there's no box score yet." };
+        // only the game itself: ESPN's summary also carries betting lines (odds, pickcenter), which we never pass on
+        const s = await getJSON(`${ESPN(lg, "site/v2")}/summary?event=${encodeURIComponent(g.id)}`), b = s.boxscore || {};
+        const team = (t) => t?.displayName || t?.location;
+        const KEEP = ["passing", "rushing", "receiving", "defensive", "interceptions", "kicking"], TOP = { passing: 2, rushing: 4, receiving: 6, defensive: 5, interceptions: 3, kicking: 1 };
+        const wp = (s.winprobability || []).slice(-1)[0];
+        return {
+          as_of: new Date().toISOString(), game: g,
+          team_stats: (b.teams || []).map((t) => ({ team: team(t.team), ...Object.fromEntries((t.statistics || []).map((x) => [x.label || x.name, x.displayValue])) })),
+          players: (b.players || []).map((p) => ({ team: team(p.team), ...Object.fromEntries((p.statistics || []).filter((c) => KEEP.includes(c.name)).map((c) => [c.name,
+            (c.athletes || []).slice(0, TOP[c.name]).map((x) => ({ player: x.athlete?.displayName, ...Object.fromEntries((c.labels || []).map((l, i) => [l, x.stats?.[i]])) }))])) })),
+          scoring: (s.scoringPlays || []).map((x) => ({ q: x.period?.number, clock: x.clock?.displayValue, team: x.team?.abbreviation || team(x.team), play: x.text, score: `${x.awayScore}-${x.homeScore} (away-home)` })),
+          drive_now: s.drives?.current?.description ? { team: team(s.drives.current.team), so_far: s.drives.current.description } : undefined,
+          win_chance: wp ? { home: `${Math.round(wp.homeWinPercentage * 100)}%`, source: "ESPN" } : undefined,
+        };
       },
     },
     {
