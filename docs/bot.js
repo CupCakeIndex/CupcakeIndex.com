@@ -7,6 +7,7 @@
 const Bot = (() => {
   const URL_ = "https://cupcake-analyst.thecupcakeindex-support.workers.dev";
   const MAX_ROUNDS = 8; // tool rounds per question
+  let closeChat = () => {}; // set once the panel is built: closeChat(false) closes it
   let me = null, msgs = [], sys = null, busy = false, el = null, user = null, tools = null, mode = "ask", tone = "straight", quiet = false;
   const TONES = [["straight", "Straight"], ["funny", "Funny"], ["sarcastic", "Sarcastic"]];
   // the stat tools (57 KB) load only for members, the first time the button shows
@@ -141,20 +142,61 @@ const Bot = (() => {
     if (mark) el.querySelectorAll(".bot-mark").forEach((m) => m.appendChild(mark.cloneNode(true)));
     const fab = el.querySelector(".bot-fab"), panel = el.querySelector(".bot-panel"), ta = el.querySelector("textarea");
     let shut = 0;
-    const toggle = (open) => { // the panel grows out of the Ask button, and shrinks back into it (style.css bot-pop)
+    // the panel grows out of the Ask button, and shrinks back into it (style.css bot-pop); instant: it already slid away
+    const toggle = (open, instant) => {
       clearTimeout(shut);
       fab.setAttribute("aria-expanded", String(open));
       el.classList.toggle("open", open);
       document.body.classList.toggle("bot-open", open); // the phone back button steps aside (style.css)
-      panel.classList.toggle("closing", !open);
+      panel.classList.toggle("closing", !open && !instant);
       if (open) { panel.hidden = false; setTimeout(() => ta.focus(), 50); }
-      else shut = setTimeout(() => { panel.hidden = true; panel.classList.remove("closing"); }, matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 160);
+      else shut = setTimeout(() => { panel.hidden = true; panel.classList.remove("closing"); }, instant || matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 160);
     };
+    closeChat = toggle;
     fab.addEventListener("click", () => toggle(panel.hidden || panel.classList.contains("closing")));
     el.querySelector(".bot-signin").addEventListener("click", () => Account.signIn());
-    // See the plans / Upgrade: close the chat so Settings shows (on phones the panel covers the page)
-    el.querySelector(".bot-lock a").addEventListener("click", () => toggle(false));
-    el.querySelector(".bot-log").addEventListener("click", (e) => { if (e.target.closest('a[href="#/settings"]')) toggle(false); });
+    // links to the site's pages (Open team, See the plans, Upgrade): go(), which tucks the chat away on phones, and
+    // closes it when you're already on that page (the link would do nothing otherwise)
+    el.addEventListener("click", (e) => {
+      const a = e.target.closest('a[href^="#/"]');
+      if (!a || !el.contains(a) || e.ctrlKey || e.metaKey) return;
+      e.preventDefault();
+      go(a.getAttribute("href"), true);
+    });
+    // phones: drag the chat down to close it, from the header, or from the conversation once it's scrolled to the top
+    let drag = null;
+    const unset = () => { panel.style.transition = panel.style.transform = panel.style.animation = ""; };
+    panel.addEventListener("touchstart", (e) => {
+      const t = e.target, logEl = t.closest(".bot-log");
+      drag = innerWidth < 600 && e.touches.length === 1 && !t.closest("textarea, input") && (t.closest("header") || (logEl && logEl.scrollTop <= 0))
+        ? { x: e.touches[0].clientX, y: e.touches[0].clientY, at: Date.now(), dy: 0, on: false, logEl } : null;
+    }, { passive: true });
+    panel.addEventListener("touchmove", (e) => {
+      if (!drag) return;
+      const dx = e.touches[0].clientX - drag.x, dy = e.touches[0].clientY - drag.y;
+      if (!drag.on) {
+        if (Math.abs(dy) < 8 && Math.abs(dx) < 8) return;
+        if (dy < 0 || Math.abs(dx) > Math.abs(dy) || (drag.logEl && drag.logEl.scrollTop > 0)) { drag = null; return; }
+        drag.on = true;
+        panel.style.transition = "none"; panel.style.animation = "none";
+      }
+      e.preventDefault();
+      drag.dy = Math.max(0, dy);
+      panel.style.transform = `translateY(${drag.dy}px)`;
+    }, { passive: false });
+    panel.addEventListener("touchend", () => {
+      const d = drag;
+      drag = null;
+      if (!d?.on) return;
+      const fast = d.dy / Math.max(1, Date.now() - d.at) > 0.6;
+      if (d.dy > panel.offsetHeight * 0.25 || (fast && d.dy > 40)) {
+        panel.style.transition = "transform .2s ease-in"; panel.style.transform = "translateY(100%)";
+        setTimeout(() => { toggle(false, true); setTimeout(unset, 20); }, 200);
+      } else {
+        panel.style.transition = "transform .2s ease-out"; panel.style.transform = "";
+        setTimeout(unset, 200);
+      }
+    });
     el.querySelector(".bot-x").addEventListener("click", () => toggle(false));
     // bigger chat on a computer (phones already get the whole screen); remembered on this device
     const maxBtn = el.querySelector(".bot-max"), setMax = (on) => {
@@ -639,6 +681,21 @@ Reply with ONLY JSON, no other text: ${JSON.stringify(Object.fromEntries(["headl
     const behind = ["nfl", "cfb"].filter((lg) => { const ss = idx?.leagues?.[lg]?.seasons || {}, k = Object.keys(ss).sort().at(-1); return k && ss[k].weeks.at(-1) > R[lg].week; });
     return `[Right now it's ${new Date().toLocaleString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })} for the member.${behind.length ? ` Our ${behind.map((x) => x.toUpperCase()).join(" and ")} rankings were just updated and our_rankings may still show last week's for a few minutes: say so if they ask about rankings. game_prediction, scores, standings and news are always current.` : ""}]`;
   }
+  // what the chat knows about itself: the plans and this member's own usage, from the Worker's /me (the real limits)
+  function plans() {
+    const L = me?.limits || [], P = me?.prices || [], n = (x) => Number(x || 0).toLocaleString();
+    const tiers = L.map((t, i) => `Tier ${i + 1}, $${P[i]} a month: ${n(t.q)} questions a month${t.day ? ` (up to ${n(t.day)} a day)` : ""} and ${n(t.takes)} take checks a month.`).join(" ");
+    const mine = me?.free && !me.member ? `This member is on the free questions: ${n(me.questions)} of ${n(me.limit)} used, no take checks.`
+      : me?.sub && ["active", "trialing", "past_due"].includes(me.sub.status) ? `This member pays for Tier ${me.sub.tier + 1}${me.sub.cancel_at_period_end ? " (canceled; it runs until the end of the period they paid for)" : ""}. This month: ${n(me.questions)} of ${n(me.limit)} questions, ${n(me.takes)} of ${n(me.take_limit)} take checks.`
+      : me?.member ? `This member has Tier ${(me.tier || 0) + 1} for free (the site gave it to them). This month: ${n(me.questions)} of ${n(me.limit)} questions, ${n(me.takes)} of ${n(me.take_limit)} take checks.` : "";
+    return `About you, the Analyst (answer these from here, never "I can't look that up"):
+- Every message they send you counts as one question. Follow-ups count too. Your lookups and charts don't count extra.
+- Free: anyone signed in with Google gets ${me?.free_q || (me?.free ? me.limit : 0) ? n(me.free_q || me.limit) : "a set number of"} free questions in all, not every month. When they're used up, the chat asks them to upgrade to a plan. Free questions don't include take checks.
+- Plans (paid through Stripe; subscribe, change your card, switch plans or cancel any time in Settings, in the Cupcake Analyst section): ${tiers || "Tier 1 and Tier 2, a month each; the prices and limits are in Settings."} Monthly questions and take checks reset on the 1st.
+- A take check ("Check a take" under the box): paste a take from X or a group chat, or a screenshot of it. You check every claim against our numbers, give a verdict, and write two replies they can post. Plans only.
+- Settings shows how much they've used. ${mine}
+- You answer from the site's own data and the same ESPN feeds the pages use. You can't see their account details beyond this, and you can't change plans yourself: point them to Settings.`;
+  }
   async function prompt() {
     const R = await BotTools.base(), S = BotTools.seasons, T = BotTools.teamSeasons;
     return `You are the Cupcake Analyst, the stat desk inside The Cupcake Index (cupcakeindex.com), a college football and NFL power rankings and analytics site. Motto: "Bullying cupcakes isn't a résumé." A member is chatting with you in a small panel on the site.
@@ -666,6 +723,8 @@ How to answer:
 - Never tell the member we don't have something until you've tried every tool that could have it. The weekly data starting in ${S("nfl").at(-1)} is NOT where our player history starts. If a tool says it has no data, try the next tool that could (player_stats, then game_log or career) before answering.
 - Our site is the source of truth. If no tool covers what they asked, say "I can't look that up yet" and point to the page with open_page; never say the site doesn't have something, and never guess.
 - No betting content: no spreads, lines, odds, over/unders or picks against a line. Our win chance and predicted score are fine.
+
+${plans()}
 
 Style: a sharp fan who knows the numbers, talking to another fan. Lead with the answer in one sentence, then the two or three numbers that back it (with ranks), then stop. Usually under 120 words. Make it easy to scan on a phone: one idea per short paragraph, never a block of several sentences. When you give three or more facts of the same kind (teams, players, injuries), put each on its own line as "Label: detail" (like "Giants: 4-2-1, won 1 straight") or as "- " items, under a short line ending in ":" if it helps. Write stats in plain words ("yards per carry", not ypc or column names). Take a side when the numbers point one way. No em dashes, no "Great question", no wrap-up sentence, no hashtags, no emoji. Plain text; **bold** sparingly; "- " for list items.`;
   }
@@ -1038,11 +1097,18 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
       },
     },
   ];
-  // on a phone the panel covers the page: tuck it away so the chart or page is what they see
-  function go(href) {
+  // on a phone the panel covers the page: the chat slides away first, then the page changes (and fades in), so it
+  // doesn't jump behind the chat. Already on that page (a link tapped): just close the chat
+  const sameHash = (a, b) => {
+    const norm = (h) => { const [path, q = ""] = decodeURIComponent(h.replace(/^#\/?/, "")).split("?"); const u = new URLSearchParams(q); u.sort(); return path + "?" + u; };
+    return norm(a) === norm(b);
+  };
+  function go(href, tapped) {
     if (quiet) return; // a take check looks things up without moving the page behind it
-    location.hash = href.slice(1);
-    if (window.innerWidth < 600) setTimeout(() => el?.querySelector(".bot-x")?.click(), 900);
+    const open = el && !el.querySelector(".bot-panel").hidden;
+    if (sameHash(href, location.hash)) { if (open && (tapped || window.innerWidth < 600)) closeChat(false); return; }
+    if (open && window.innerWidth < 600) { closeChat(false); setTimeout(() => { location.hash = href.slice(1); }, 170); }
+    else location.hash = href.slice(1);
   }
   const TOOL_DEFS = () => [...BotTools.TOOLS.map((t) => ({ name: t.name, description: t.description, input_schema: t.inputSchema })),
     ...SITE.map(({ name, description, input_schema }) => ({ name, description, input_schema }))];

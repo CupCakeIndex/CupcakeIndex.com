@@ -191,7 +191,7 @@ const summary = (u, me, a) => {
 const billing = (me, env, a) => ({ comped: a.comped,
   sub: a.sub && canBuy(me, env) ? { tier: a.sub.tier, status: a.sub.status, renews: a.sub.renews, cancel_at_period_end: a.sub.cancel_at_period_end } : null,
   links: canBuy(me, env) ? (env.PAY_LINKS ? env.PAY_LINKS.split(/[,\s]+/).filter(Boolean) : testing(env) ? TEST_LINKS : []) : [],
-  prices: TIERS.map((t) => t[1]), limits: LIMITS.map((L) => ({ q: L.q, takes: L.takes })), test_mode: testing(env) });
+  prices: TIERS.map((t) => t[1]), limits: LIMITS.map((L) => ({ q: L.q, day: L.day, takes: L.takes })), free_q: FREE(env).q, test_mode: testing(env) });
 
 export default {
   async fetch(req, env) {

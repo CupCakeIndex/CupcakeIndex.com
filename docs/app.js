@@ -288,7 +288,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "487"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "488"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -380,6 +380,46 @@ async function init() {
     setTimeout(() => { d.classList.add("hidden"); d.classList.remove("closing"); }, matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 220);
   };
   $("#drawer").onclick = (e) => { if ("close" in e.target.dataset) closeDrawer(); };
+  // touch: swipe the team panel away to the right. It follows your finger and slides out from there (drawer-out starts
+  // at the inline transform), or snaps back on a short swipe. A table that's scrolled sideways keeps the swipe.
+  {
+    const panel = $("#drawer .drawer-panel"), bg = $("#drawer .drawer-bg");
+    let sw = null;
+    const scrolledX = (t) => { for (let n = t; n && n !== panel; n = n.parentElement) if (n.scrollLeft > 0 && n.scrollWidth > n.clientWidth) return true; return false; };
+    const unset = () => { panel.style.transition = panel.style.transform = panel.style.animation = ""; bg.style.opacity = bg.style.animation = ""; };
+    panel.addEventListener("touchstart", (e) => {
+      sw = e.touches.length === 1 && !e.target.closest("input, select, textarea") && !scrolledX(e.target)
+        ? { x: e.touches[0].clientX, y: e.touches[0].clientY, at: Date.now(), dx: 0, on: false } : null;
+    }, { passive: true });
+    panel.addEventListener("touchmove", (e) => {
+      if (!sw) return;
+      const dx = e.touches[0].clientX - sw.x, dy = e.touches[0].clientY - sw.y;
+      if (!sw.on) {
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+        if (dx < 0 || Math.abs(dy) > Math.abs(dx)) { sw = null; return; } // scrolling, or swiping left
+        sw.on = true;
+        panel.style.transition = "none"; panel.style.animation = bg.style.animation = "none";
+      }
+      e.preventDefault();
+      sw.dx = Math.max(0, dx);
+      panel.style.transform = `translateX(${sw.dx}px)`;
+      bg.style.opacity = String(Math.max(0, 1 - sw.dx / panel.offsetWidth));
+    }, { passive: false });
+    panel.addEventListener("touchend", () => {
+      const d = sw;
+      sw = null;
+      if (!d?.on) return;
+      const fast = d.dx / Math.max(1, Date.now() - d.at) > 0.5;
+      if (d.dx > panel.offsetWidth * 0.3 || (fast && d.dx > 40)) {
+        panel.style.animation = bg.style.animation = "";
+        closeDrawer();
+        setTimeout(unset, 240);
+      } else {
+        panel.style.transition = "transform .2s ease-out"; panel.style.transform = ""; bg.style.opacity = "";
+        setTimeout(unset, 200);
+      }
+    });
+  }
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#drawer").classList.contains("hidden")) closeDrawer(); });
   $("#table tbody").onclick = (e) => {
     const cm = e.target.closest(".cupm");
