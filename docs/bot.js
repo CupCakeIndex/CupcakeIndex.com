@@ -922,6 +922,26 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
       },
     },
     {
+      name: "player_bio",
+      description: "A player's bio from ESPN, the same as the top of his player page: team, position, jersey, height, weight, age and birthday, hometown, college, draft spot, years in the league, status (active, free agent...) and current injury. Use it for 'how tall is', 'how old is', 'where did he go to college', 'when was he drafted', 'what number does he wear'.",
+      input_schema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, player: { type: "string" } }, required: ["player"] },
+      async execute(a, links) {
+        const hits = await Live.searchPlayers(String(a.player), 6);
+        const h = (a.league && hits.find((x) => x.key.startsWith(a.league + ":"))) || hits[0];
+        if (!h) throw new Error(`No player named "${a.player}" on ESPN.`);
+        const [l, id] = h.key.split(":");
+        const p = (await getJSON(`https://site.web.api.espn.com/apis/common/v3/sports/football/${l === "nfl" ? "nfl" : "college-football"}/athletes/${encodeURIComponent(id)}`)).athlete || {};
+        const inj = p.injuries?.[0], fa = p.status?.type === "free-agent";
+        const href = `#/player/${encodeURIComponent(id)}?${new URLSearchParams({ league: l })}`;
+        links.push({ href, label: `Open ${p.displayName || h.name}'s page` });
+        return { source: "ESPN (the player page)", player: p.displayName || h.name, league: l,
+          team: fa ? "free agent" : p.team?.displayName, position: p.position?.displayName, jersey: p.displayJersey,
+          height: p.displayHeight, weight: p.displayWeight, age: p.age, born: p.displayDOB, hometown: p.displayBirthPlace,
+          college: p.college?.name || p.collegeTeam?.displayName, draft: p.displayDraft, experience: p.displayExperience, class: p.displayClass,
+          status: p.status?.name, injury: inj ? [inj.status, inj.type?.description || inj.details?.type].filter(Boolean).join(", ") : undefined };
+      },
+    },
+    {
       name: "open_page",
       description: "Open a page of the site: rankings, resume (Résumé Check), schedules, team (a team's page, needs team), scores, standings, leaders (Stats), injuries, frauds (NFL), projected, records (NFL), takes, news, trade_watch (NFL), coaches.",
       input_schema: { type: "object", properties: { page: { type: "string", enum: ["rankings", "resume", "schedules", "team", "scores", "standings", "leaders", "injuries", "frauds", "projected", "records", "takes", "news", "trade_watch", "coaches"] },
@@ -940,6 +960,51 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
         go(href);
         links.push({ href, label: `Open ${label}` });
         return { opened: true, page: label };
+      },
+    },
+    {
+      name: "read_page",
+      description: "Read any page of the site exactly as it shows on screen (the page's text, after it loads). Use it whenever a member asks about something the site shows and no other tool has it: a team page tab (schedule, roster, depth chart, injuries, moves, at a glance), a player page tab (bio, career, game log, records, charts), a game page (box score, drives, play-by-play), the rankings, Résumé Check, schedules, scores, standings, stats leaders, injuries, frauds, projected, records, takes, news, trade watch, free agents, coaches, compare, the hall of shame or release notes. It opens that page behind the chat. tab: the page's tab (team: schedule, glance, roster, depth, injuries, moves, takes; player: career, log, records, charts, takes).",
+      input_schema: { type: "object", properties: {
+        page: { type: "string", enum: ["rankings", "resume", "schedules", "team", "player", "game", "scores", "standings", "leaders", "injuries", "frauds", "projected", "records", "takes", "news", "trade_watch", "freeagents", "coaches", "compare", "shame", "updates"] },
+        league: { type: "string", enum: ["nfl", "cfb"] }, team: { type: "string", description: "team page, or the team whose game (this week's unless week)" },
+        player: { type: "string" }, tab: { type: "string" }, week: { type: "integer" } }, required: ["page", "league"] },
+      async execute(a, links) {
+        const lg = String(a.league), p = String(a.page), q = new URLSearchParams({ league: lg });
+        if (a.tab) q.set("tab", String(a.tab));
+        const SHOW = { injuries: "injuries", frauds: "frauds", projected: "projected", records: "records" };
+        let path;
+        if (p === "team") {
+          const D = await BotTools.load(lg, BotTools.seasons(lg)[0]), k = BotTools.teamKey(D, a.team || "");
+          if (!k) throw new Error(`No ${lg} team matching "${a.team}".`);
+          path = `team/${encodeURIComponent(k.split(":")[1])}`;
+        } else if (p === "player") {
+          const hits = await Live.searchPlayers(String(a.player || ""), 6), h = hits.find((x) => x.key.startsWith(lg + ":")) || hits[0];
+          if (!h) throw new Error(`No player named "${a.player}" on ESPN.`);
+          const [l, id] = h.key.split(":");
+          q.set("league", l);
+          path = `player/${encodeURIComponent(id)}`;
+        } else if (p === "game") {
+          const g = gameOf(await espnWeek(lg, a.week), String(a.team || ""))?.[0];
+          if (!g) throw new Error(`No ${lg} game for "${a.team}"${a.week ? ` in week ${a.week}` : " this week"}.`);
+          path = `game/${encodeURIComponent(g.id)}`;
+        } else if (SHOW[p] || p === "leaders") { path = "stats"; if (SHOW[p]) q.set("show", SHOW[p]); }
+        else path = p === "trade_watch" ? "trades" : p;
+        const href = `#/${path}?${q}`, back = location.hash;
+        location.hash = href.slice(1);
+        // wait for the page to finish drawing: its text stops changing (pages fetch ESPN, so up to ~10 s)
+        const view = () => document.querySelector(".view:not(.hidden)");
+        let text = "", same = 0;
+        for (let i = 0; i < 40 && same < 3; i++) {
+          await new Promise((r) => setTimeout(r, 250));
+          const t = (view()?.innerText || "").replace(/\n{3,}/g, "\n\n").trim();
+          same = t && t === text && !/^loading|loading…$/i.test(t) ? same + 1 : 0;
+          text = t;
+        }
+        if (quiet) location.hash = back.slice(1); // a take check reads without moving the page behind it
+        else links.push({ href, label: `Open ${p === "updates" ? "release notes" : p.replace("_", " ")}` });
+        if (!text) throw new Error("That page came up empty.");
+        return { page: href, text: text.length > 14000 ? text.slice(0, 14000) + "\n…(cut off: ask for a tab or narrower page)" : text };
       },
     },
   ];
