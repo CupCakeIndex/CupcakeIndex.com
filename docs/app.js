@@ -287,7 +287,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "480"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "481"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -329,9 +329,19 @@ async function init() {
     if (p) setWeights(presets()[p] || LG.default_weights);
   };
   $("#reset").onclick = () => setWeights(LG.default_weights);
-  // Weights live in a floating panel opened from the bottom-right button
+  // Weights live in a panel opened from the Weights button in the filters row: just under it on computers,
+  // a sheet from the bottom on phones (style.css)
   const wpanel = $("#weights"), fab = $("#weights-fab");
-  const setWeightsOpen = (open) => { wpanel.hidden = !open; fab.setAttribute("aria-expanded", open); fab.classList.toggle("open", open); };
+  const placeWeights = () => {
+    if (wpanel.hidden || innerWidth <= 640) return;
+    const r = fab.getBoundingClientRect(), top = Math.max(8, r.bottom + 6);
+    wpanel.style.top = top + "px";
+    wpanel.style.right = Math.max(8, innerWidth - r.right) + "px";
+    wpanel.style.maxHeight = Math.max(240, innerHeight - top - 12) + "px";
+  };
+  const setWeightsOpen = (open) => { wpanel.hidden = !open; fab.setAttribute("aria-expanded", open); fab.classList.toggle("open", open); placeWeights(); };
+  addEventListener("resize", placeWeights);
+  addEventListener("scroll", placeWeights, { passive: true });
   fab.onclick = () => setWeightsOpen(wpanel.hidden);
   $("#weights-close").onclick = () => setWeightsOpen(false);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") setWeightsOpen(false); });
@@ -1664,10 +1674,14 @@ async function renderNotes() {
     // one entry per update, newest first: {version, build, date, title?, items}. Shown by day (tap a day to open it; the
     // newest day starts open), each update under its version.
     // Versions are major.minor.patch: 1.0.0 was launch day; a new feature bumps the middle number, a fix the last.
-    const notes = await getJSON("data/release_notes.json");
+    // An item can be {text, hold: "<feature>"}: a note about something not launched yet (Terry: unreleased features
+    // don't show until launch). Held items stay hidden until that feature is in LAUNCHED; an update left with no items is skipped.
+    const LAUNCHED = new Set([]); // add "analyst" on launch day (the Analyst chat + subscriptions)
+    const all = await getJSON("data/release_notes.json");
+    const notes = all.map((n) => ({ ...n, items: n.items.filter((i) => typeof i === "string" || LAUNCHED.has(i.hold)).map((i) => i.text ?? i) })).filter((n) => n.items.length);
     const days = [];
     notes.forEach((n) => { if (days.at(-1)?.date !== n.date) days.push({ date: n.date, rel: [] }); days.at(-1).rel.push(n); });
-    $("#notes").innerHTML = `<p class="muted rn-cur">You're on v${esc(notes[0]?.version || "")}. The middle number goes up for new features, the last one for fixes.</p>`
+    $("#notes").innerHTML = `<p class="muted rn-cur">You're on v${esc(all[0]?.version || "")}. The middle number goes up for new features, the last one for fixes.</p>`
       + days.map((d, di) => `
       <details class="rn-day"${di ? "" : " open"}><summary><h3>${esc(new Date(d.date + "T12:00:00").toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }))}</h3>
       <small class="muted">${d.rel.length} update${d.rel.length > 1 ? "s" : ""}</small></summary>

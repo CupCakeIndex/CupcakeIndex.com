@@ -1,10 +1,21 @@
 [
   {
+    "version": "1.135.2",
+    "build": 481,
+    "date": "2026-10-26",
+    "items": [
+      "Rankings: the Weights button moved from the bottom-right corner to the filters row, next to Breakdown. It opens the same panel just under it (on phones, from the bottom of the screen)."
+    ]
+  },
+  {
     "version": "1.135.1",
     "build": 480,
     "date": "2026-10-26",
     "items": [
-      "Cupcake Analyst: the line at the top shows how much of the month you've used as percentages (\"1% questions · 10% takes\") instead of counts."
+      {
+        "text": "Cupcake Analyst: the line at the top shows how much of the month you've used as percentages (\"1% questions · 10% takes\") instead of counts.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -12,7 +23,10 @@
     "build": 479,
     "date": "2026-10-26",
     "items": [
-      "Cupcake Analyst: ask about a game that's on now (or just ended) and it reads the live box score: team stats side by side, every player's passing, rushing, receiving, defense and kicking lines, each scoring play, the drive in progress and ESPN's win chance."
+      {
+        "text": "Cupcake Analyst: ask about a game that's on now (or just ended) and it reads the live box score: team stats side by side, every player's passing, rushing, receiving, defense and kicking lines, each scoring play, the drive in progress and ESPN's win chance.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -20,7 +34,10 @@
     "build": 478,
     "date": "2026-10-26",
     "items": [
-      "Cupcake Analyst: when a post you link has a picture or video, it asks for a screenshot before checking (Add a screenshot, or Check without it), so you don't use up a take check on half the post.",
+      {
+        "text": "Cupcake Analyst: when a post you link has a picture or video, it asks for a screenshot before checking (Add a screenshot, or Check without it), so you don't use up a take check on half the post.",
+        "hold": "analyst"
+      },
       "A screenshot sent on its own right after that link is checked together with the post, instead of on its own."
     ]
   },
@@ -29,7 +46,10 @@
     "build": 477,
     "date": "2026-10-26",
     "items": [
-      "Cupcake Analyst: checking a take from a post's link now works in Firefox and with ad blockers, which were blocking it from reading the post."
+      {
+        "text": "Cupcake Analyst: checking a take from a post's link now works in Firefox and with ad blockers, which were blocking it from reading the post.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -37,7 +57,10 @@
     "build": 476,
     "date": "2026-10-26",
     "items": [
-      "Cupcake Analyst: Check a take works with just a post's link. It reads the post from X and shows you what it read. If the post's take is in a picture, it asks for a screenshot, and if the post can't be read (deleted or private), it says so without using up a take check."
+      {
+        "text": "Cupcake Analyst: Check a take works with just a post's link. It reads the post from X and shows you what it read. If the post's take is in a picture, it asks for a screenshot, and if the post can't be read (deleted or private), it says so without using up a take check.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -45,7 +68,10 @@
     "build": 475,
     "date": "2026-10-26",
     "items": [
-      "Cupcake Analyst: if you check a take from a screenshot or pasted text, a new box under the verdict takes the post's link (Share > Copy link on X). Paste it and Post on X becomes Reply on X, so your reply lands in the thread instead of as a new post."
+      {
+        "text": "Cupcake Analyst: if you check a take from a screenshot or pasted text, a new box under the verdict takes the post's link (Share > Copy link on X). Paste it and Post on X becomes Reply on X, so your reply lands in the thread instead of as a new post.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -53,8 +79,14 @@
     "build": 474,
     "date": "2026-10-26",
     "items": [
-      "Settings has a Cupcake Analyst section: subscribe to Tier 1 ($5 a month) or Tier 2 ($10 a month) through Stripe, see your plan and when it renews, and manage or cancel it. It's in testing for now, so most people won't see it yet.",
-      "Cupcake Analyst: Post on X and Reply on X work in the iPhone home-screen app. A new post opens your phone's share sheet, and a reply copies your text and opens the post in the X app."
+      {
+        "text": "Settings has a Cupcake Analyst section: subscribe to Tier 1 ($5 a month) or Tier 2 ($10 a month) through Stripe, see your plan and when it renews, and manage or cancel it. It's in testing for now, so most people won't see it yet.",
+        "hold": "analyst"
+      },
+      {
+        "text": "Cupcake Analyst: Post on X and Reply on X work in the iPhone home-screen app. A new post opens your phone's share sheet, and a reply copies your text and opens the post in the X app.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -62,8 +94,14 @@
     "build": 473,
     "date": "2026-10-26",
     "items": [
-      "Cupcake Analyst: new Check a take mode. Paste a take or a screenshot of one and get a verdict, every claim checked against our numbers, what it leaves out, a chart, and two replies you can copy or post on X (Straight, Funny or Sarcastic).",
-      "Behind the scenes: the owner's cost page counts take checks, and the owner's own use is no longer counted as a subscription."
+      {
+        "text": "Cupcake Analyst: new Check a take mode. Paste a take or a screenshot of one and get a verdict, every claim checked against our numbers, what it leaves out, a chart, and two replies you can copy or post on X (Straight, Funny or Sarcastic).",
+        "hold": "analyst"
+      },
+      {
+        "text": "Behind the scenes: the owner's cost page counts take checks, and the owner's own use is no longer counted as a subscription.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -79,7 +117,10 @@
     "build": 471,
     "date": "2026-10-26",
     "items": [
-      "Behind the scenes: on the owner's cost page, each Analyst tier now shows what's left after the chat's cost."
+      {
+        "text": "Behind the scenes: on the owner's cost page, each Analyst tier now shows what's left after the chat's cost.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -87,7 +128,10 @@
     "build": 470,
     "date": "2026-10-26",
     "items": [
-      "Behind the scenes: the owner's cost page shows the Cupcake Analyst chat's money in by tier (Tier 1 and Tier 2 totals), with no names."
+      {
+        "text": "Behind the scenes: the owner's cost page shows the Cupcake Analyst chat's money in by tier (Tier 1 and Tier 2 totals), with no names.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -95,7 +139,10 @@
     "build": 469,
     "date": "2026-10-26",
     "items": [
-      "Behind the scenes: the owner's cost page shows the Cupcake Analyst chat's cost against what its members pay, with the profit in green."
+      {
+        "text": "Behind the scenes: the owner's cost page shows the Cupcake Analyst chat's cost against what its members pay, with the profit in green.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -103,7 +150,10 @@
     "build": 468,
     "date": "2026-10-26",
     "items": [
-      "Behind the scenes: the owner's cost page compares the Cupcake Analyst chat's cost with what its members would pay."
+      {
+        "text": "Behind the scenes: the owner's cost page compares the Cupcake Analyst chat's cost with what its members would pay.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -111,7 +161,10 @@
     "build": 467,
     "date": "2026-10-26",
     "items": [
-      "Behind the scenes: the owner's cost page now includes what the Cupcake Analyst chat costs."
+      {
+        "text": "Behind the scenes: the owner's cost page now includes what the Cupcake Analyst chat costs.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -119,8 +172,14 @@
     "build": 466,
     "date": "2026-10-26",
     "items": [
-      "Behind the scenes: you can add pictures to the Cupcake Analyst test chat (the picture button, or paste or drag a screenshot on a computer), up to 3 a question. It reads them and checks any claims against our numbers.",
-      "Phones: the back button slides out of the way while a team window or the Analyst chat is open, and ASK sits centered under the cupcake."
+      {
+        "text": "Behind the scenes: you can add pictures to the Cupcake Analyst test chat (the picture button, or paste or drag a screenshot on a computer), up to 3 a question. It reads them and checks any claims against our numbers.",
+        "hold": "analyst"
+      },
+      {
+        "text": "Phones: the back button slides out of the way while a team window or the Analyst chat is open, and ASK sits centered under the cupcake.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -128,8 +187,14 @@
     "build": 465,
     "date": "2026-10-26",
     "items": [
-      "On phones the Analyst button is now one small box, the cupcake with ASK_ under it, so it doesn't cover the page.",
-      "The Analyst button slides out of the way when you open a team from the rankings, and back when you close it."
+      {
+        "text": "On phones the Analyst button is now one small box, the cupcake with ASK_ under it, so it doesn't cover the page.",
+        "hold": "analyst"
+      },
+      {
+        "text": "The Analyst button slides out of the way when you open a team from the rankings, and back when you close it.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -137,7 +202,10 @@
     "build": 462,
     "date": "2026-10-26",
     "items": [
-      "The Analyst button's cupcake now sits in a plain rounded badge (the little speech-bubble point is gone)."
+      {
+        "text": "The Analyst button's cupcake now sits in a plain rounded badge (the little speech-bubble point is gone).",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -145,8 +213,14 @@
     "build": 460,
     "date": "2026-10-26",
     "items": [
-      "Behind the scenes: the Cupcake Analyst test chat has its own logo (our cupcake in a speech bubble, \"ANALYST_\"), a button to make it bigger on a computer, and more room around the typing box on iPhones so the rounded screen corners don't cut it off.",
-      "The Analyst can now answer schedule-strength history questions (\"the weakest schedule in the last 30 years\"): every team and season, college since 1979 and NFL since 1999."
+      {
+        "text": "Behind the scenes: the Cupcake Analyst test chat has its own logo (our cupcake in a speech bubble, \"ANALYST_\"), a button to make it bigger on a computer, and more room around the typing box on iPhones so the rounded screen corners don't cut it off.",
+        "hold": "analyst"
+      },
+      {
+        "text": "The Analyst can now answer schedule-strength history questions (\"the weakest schedule in the last 30 years\"): every team and season, college since 1979 and NFL since 1999.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -154,7 +228,10 @@
     "build": 459,
     "date": "2026-10-26",
     "items": [
-      "Behind the scenes: the Cupcake Analyst test chat can look up any player's game-by-game stats for any season (like the player page's Game log, back to the late 1990s), knows the single-season records (now including sacks: Myles Garrett's 23 in 2025, and interceptions), and compares a player's pace to everyone since 1999 who was on the same pace."
+      {
+        "text": "Behind the scenes: the Cupcake Analyst test chat can look up any player's game-by-game stats for any season (like the player page's Game log, back to the late 1990s), knows the single-season records (now including sacks: Myles Garrett's 23 in 2025, and interceptions), and compares a player's pace to everyone since 1999 who was on the same pace.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -162,8 +239,14 @@
     "build": 457,
     "date": "2026-10-26",
     "items": [
-      "Behind the scenes: the Cupcake Analyst test chat can now look up any player's whole career (the same numbers as the player page's Stats by year, back to his first season) and opens the career comparison chart, lined up by career year for questions like \"Brady's first three years vs Mahomes\".",
-      "Fixed: a follow-up question in the Analyst test chat could fail with a long \"Claude said no\" error."
+      {
+        "text": "Behind the scenes: the Cupcake Analyst test chat can now look up any player's whole career (the same numbers as the player page's Stats by year, back to his first season) and opens the career comparison chart, lined up by career year for questions like \"Brady's first three years vs Mahomes\".",
+        "hold": "analyst"
+      },
+      {
+        "text": "Fixed: a follow-up question in the Analyst test chat could fail with a long \"Claude said no\" error.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -171,8 +254,14 @@
     "build": 456,
     "date": "2026-10-26",
     "items": [
-      "Behind the scenes: the Cupcake Analyst test chat now knows your local day and time and says when games are in your time (\"tonight\", \"Saturday\"), and it knows how old each injury note is, so it won't mix up a past game with the next one.",
-      "The Analyst chat's answers are easier to read: the answer up top in bold, lists and labeled rows instead of long paragraphs, records and win chances in orange, injury statuses in red and yellow, and the panel now pops open from the Ask button."
+      {
+        "text": "Behind the scenes: the Cupcake Analyst test chat now knows your local day and time and says when games are in your time (\"tonight\", \"Saturday\"), and it knows how old each injury note is, so it won't mix up a past game with the next one.",
+        "hold": "analyst"
+      },
+      {
+        "text": "The Analyst chat's answers are easier to read: the answer up top in bold, lists and labeled rows instead of long paragraphs, records and win chances in orange, injury statuses in red and yellow, and the panel now pops open from the Ask button.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -180,7 +269,10 @@
     "build": 455,
     "date": "2026-10-26",
     "items": [
-      "Behind the scenes: the Cupcake Analyst test chat now reads live scores, standings and news the same way the site does, uses the site's injury list, and its data refreshes after every update."
+      {
+        "text": "Behind the scenes: the Cupcake Analyst test chat now reads live scores, standings and news the same way the site does, uses the site's injury list, and its data refreshes after every update.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -188,7 +280,10 @@
     "build": 454,
     "date": "2026-10-26",
     "items": [
-      "Behind the scenes: the Cupcake Analyst test chat now knows our game picks and gets the new rankings as soon as they come out."
+      {
+        "text": "Behind the scenes: the Cupcake Analyst test chat now knows our game picks and gets the new rankings as soon as they come out.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -196,7 +291,10 @@
     "build": 453,
     "date": "2026-10-26",
     "items": [
-      "Behind the scenes: the Cupcake Analyst test chat makes better charts."
+      {
+        "text": "Behind the scenes: the Cupcake Analyst test chat makes better charts.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -204,7 +302,10 @@
     "build": 452,
     "date": "2026-10-26",
     "items": [
-      "Behind the scenes: the first test of the Cupcake Analyst, a chat that answers football questions from the site's own numbers (not open to everyone yet)."
+      {
+        "text": "Behind the scenes: the first test of the Cupcake Analyst, a chat that answers football questions from the site's own numbers (not open to everyone yet).",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -1394,7 +1495,10 @@
     "build": 317,
     "date": "2026-10-17",
     "items": [
-      "Player charts: a new football for Play (brown leather, white stripes and laces). It points along its flight and spirals a little.",
+      {
+        "text": "Player charts: a new football for Play (brown leather, white stripes and laces). It points along its flight and spirals a little.",
+        "hold": "analyst"
+      },
       "QB charts show completions out of throws (like 26/34, 76%), and target charts show catches out of targets, with a league rank on All weeks."
     ]
   },
@@ -1674,7 +1778,10 @@
     "build": 284,
     "date": "2026-10-12",
     "items": [
-      "Live field (Clean): end zones now show just the team's logo, glowing in its own colors, on a tint of the team color (no name or stripes)."
+      {
+        "text": "Live field (Clean): end zones now show just the team's logo, glowing in its own colors, on a tint of the team color (no name or stripes).",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -1683,7 +1790,10 @@
     "date": "2026-10-12",
     "items": [
       "Live games show new plays sooner. Between the usual checks, the page asks ESPN's small \"situation\" feed every 2 seconds, and the moment it shows a new play the field updates (it used to wait up to about 6 seconds).",
-      "Live field (Clean): each end zone has its team's look, with a tint of their color, diagonal stripes, a faint logo and the team name."
+      {
+        "text": "Live field (Clean): each end zone has its team's look, with a tint of their color, diagonal stripes, a faint logo and the team name.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -1866,7 +1976,10 @@
     "build": 263,
     "date": "2026-10-12",
     "items": [
-      "Live field (Clean) cleaned up: a smaller field with smaller yard numbers, a real football (leather, white stripes, laces that spin like a spiral) in place of the glowing disc, thin sideline markers, a drive bar that fades in, softer glows, and no arrows. Labels and the ball are drawn bigger on phones so they stay readable."
+      {
+        "text": "Live field (Clean) cleaned up: a smaller field with smaller yard numbers, a real football (leather, white stripes, laces that spin like a spiral) in place of the glowing disc, thin sideline markers, a drive bar that fades in, softer glows, and no arrows. Labels and the ball are drawn bigger on phones so they stay readable.",
+        "hold": "analyst"
+      }
     ]
   },
   {
@@ -3002,7 +3115,10 @@
     "build": 114,
     "date": "2026-10-01",
     "items": [
-      "Live field: penalties get their own animation. A striped ref steps up at the sideline and tosses a fluttering flag to the spot, and the banner spells out the foul (e.g. \"FLAG! FALSE START · PIT · 5 YDS\", or DECLINED). The flag stays on the field until the next play."
+      {
+        "text": "Live field: penalties get their own animation. A striped ref steps up at the sideline and tosses a fluttering flag to the spot, and the banner spells out the foul (e.g. \"FLAG! FALSE START · PIT · 5 YDS\", or DECLINED). The flag stays on the field until the next play.",
+        "hold": "analyst"
+      }
     ]
   },
   {
