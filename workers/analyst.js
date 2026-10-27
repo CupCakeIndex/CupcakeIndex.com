@@ -9,6 +9,8 @@
 //   GET  /admin -> the owner only: this month's chat cost and money in by tier { month, usd, questions, takes, days,
 //                  tiers, owner, unsorted } (the site's Admin page > Costs; the owner doesn't pay, so isn't in a tier)
 //   POST /portal -> { url }: Stripe's page to change card, switch tier or cancel (Settings > Manage subscription)
+//   GET  /post?url=<x.com post link> -> X's oEmbed for it (members only): the take check's fallback when the browser
+//                  blocks publish.x.com (Firefox tracking protection, ad blockers)
 //   All of those need "Authorization: Bearer <Firebase ID token>" (the site's Sign in with Google).
 //   POST /stripe -> Stripe's webhook (no sign-in; checked with Stripe's signature instead). It keeps each subscriber's
 //                  subscription in KV: sub:<uid> and cus:<Stripe customer> -> uid. The uid comes from the payment
@@ -200,6 +202,12 @@ export default {
       const u = await usage(env, me.uid);
       if (u.q && !u.email) { u.email = me.email; await env.USAGE.put(`u:${me.uid}:${month()}`, JSON.stringify(u), { expirationTtl: 60 * 60 * 24 * 400 }); } // so Admin can put it in their tier
       return json({ ...summary(u, me, a), ...billing(me, env, a) });
+    }
+    if (url.pathname === "/post" && a.member) {
+      const link = (url.searchParams.get("url") || "").match(/^https:\/\/(?:www\.|mobile\.)?(?:x|twitter)\.com\/\w+\/status(?:es)?\/\d+/i)?.[0];
+      if (!link) return json({ error: "not a post link" }, 400);
+      const r = await fetch(`https://publish.x.com/oembed?omit_script=true&dnt=true&url=${encodeURIComponent(link)}`);
+      return r.ok ? json(await r.json()) : json({ error: "X didn't share that post" }, 404);
     }
     if (url.pathname === "/portal" && req.method === "POST") {
       if (!a.sub?.customer || !canBuy(me, env)) return json({ error: "No subscription to manage." }, 404);

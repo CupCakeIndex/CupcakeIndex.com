@@ -470,10 +470,10 @@ Reply with ONLY JSON, no other text: ${JSON.stringify(Object.fromEntries(["headl
     try { await needTools(); } catch (e) { wait.innerHTML = `<p class="bot-err">${esc(e.message)}</p>`; busy = false; el.classList.remove("busy"); return; }
     // a pasted post link: read the post from X (its public embed service), so a link alone is enough
     const post = postId(q) ? await readPost(q) : null, linkOnly = postId(q) && !q.replace(/https?:\/\/\S+/g, "").trim() && !sent.length;
-    if (post) wait.insertAdjacentHTML("beforebegin", `<p class="bot-read muted">Read from X, ${esc(post.who)}: “${esc(post.text || "(no text)")}”${post.pic && !sent.length ? "<br>It has a picture I can't see. If the take is in the picture, add a screenshot." : ""}</p>`);
+    if (post) wait.insertAdjacentHTML("beforebegin", `<p class="bot-read muted">Read from X, ${esc(post.who)}: “${esc(post.text || "(no text)")}”${post.pic && !sent.length ? "<br>It has a picture or video I can't see. If the take is in it, add a screenshot." : ""}</p>`);
     if (linkOnly && (!post || (!post.text && post.pic))) { // nothing to check: say so without using up a take check
       wait.classList.remove("wait");
-      wait.innerHTML = `<p>${post ? "That post is only a picture, and I can't see pictures from links." : "I couldn't read that post from X (it may be deleted, private or from a locked account)."} Add a screenshot of it, or paste its text.</p>`;
+      wait.innerHTML = `<p>${post ? "That post is only a picture or video, and I can't see those from links." : "I couldn't read that post from X (it may be deleted, private or from a locked account)."} Add a screenshot of it, or paste its text.</p>`;
       busy = false; el.classList.remove("busy"); return;
     }
     BotTools.setSay((s) => { steps.innerHTML = `<span class="bot-dots">${esc(s)}</span>`; log().scrollTop = log().scrollHeight; });
@@ -484,7 +484,7 @@ Reply with ONLY JSON, no other text: ${JSON.stringify(Object.fromEntries(["headl
       const tm = [{ role: "user", content: [{ type: "text", text: await now() },
         ...sent.map((p) => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: p.data } })),
         { type: "text", text: takeRules(shapes, banned) + "\n\nTHE TAKE:\n" + (q || "(see the screenshot)") + (sent.length ? "\n\nA screenshot is attached: read the take, and any numbers in it, from the picture." : "")
-          + (post ? `\n\nThe linked post, read from X. ${post.who} wrote: "${post.text}"${post.pic && !sent.length ? "\nIt also has a picture that couldn't be read. If the take depends on it, say what you'd need from it." : ""}` : "") }] }];
+          + (post ? `\n\nThe linked post, read from X. ${post.who} wrote: "${post.text}"${post.pic && !sent.length ? "\nIt also has a picture or video that couldn't be seen. If the take depends on it, say what you'd need from it." : ""}` : "") }] }];
       const defs = [...TOOL_DEFS().filter((t) => t.name !== "show_chart" && t.name !== "open_page"), VERDICT];
       let res = null, last = null;
       for (let round = 0; round < MAX_ROUNDS + 2 && !res; round++) {
@@ -537,9 +537,9 @@ Reply with ONLY JSON, no other text: ${JSON.stringify(Object.fromEntries(["headl
     const m = String(t).match(/https?:\/\/(?:www\.|mobile\.)?(?:x|twitter)\.com\/\w+\/status(?:es)?\/\d+/i);
     if (!m) return null;
     try {
-      const r = await fetch(`https://publish.x.com/oembed?omit_script=true&dnt=true&url=${encodeURIComponent(m[0])}`);
-      if (!r.ok) return null;
-      const d = await r.json(), p = new DOMParser().parseFromString(d.html || "", "text/html").querySelector("blockquote p");
+      // straight from X first; Firefox's tracking protection and ad blockers block publish.x.com, so then via the Worker
+      const direct = async () => { const r = await fetch(`https://publish.x.com/oembed?omit_script=true&dnt=true&url=${encodeURIComponent(m[0])}`); if (!r.ok) throw new Error(r.status); return r.json(); };
+      const d = await direct().catch(() => call(`/post?url=${encodeURIComponent(m[0])}`)), p = new DOMParser().parseFromString(d.html || "", "text/html").querySelector("blockquote p");
       if (!p) return null;
       const pic = [...p.querySelectorAll("a")].some((a) => /pic\.(twitter|x)\.com/.test(a.textContent));
       p.querySelectorAll("a").forEach((a) => { if (/pic\.(twitter|x)\.com|^https?:\/\/t\.co\//.test(a.textContent)) a.remove(); });
