@@ -131,8 +131,9 @@ const Bot = (() => {
           <textarea rows="1" maxlength="600" placeholder="Ask a football question" aria-label="Your question"></textarea>
           <button type="submit" class="bot-send">Send</button></form>
         <p class="bot-lock muted">Take checks come with a subscription (30 a month on Tier 1). <a class="bot-link" href="#/settings">See the plans</a></p>
-        <div class="bot-guest"><p>Sign in to ask the Analyst. You get <b>free questions</b>, answered from the site's own numbers.</p>
-          <button type="button" class="btn bot-signin">Sign in with Google</button></div>
+        <div class="bot-guest"><div class="bot-guest-card"><b>Free questions</b>
+          <p>Ask about any team, player or stat. Answers come from the site's own numbers.</p>
+          <button type="button" class="bot-signin">Sign in with Google</button></div></div>
       </section>`;
     document.body.appendChild(el);
     // the site's own cupcake mark (from the header logo), in a rounded badge

@@ -3766,8 +3766,12 @@ body.drawer-open .bot-fab { transform: translateX(calc(100% + 40px)); opacity: 0
 .bot-lock, .bot-guest { display: none; }
 .bot.take.locked .bot-lock { display: block; margin: 0; padding: 12px 14px 14px; font-size: 13px; line-height: 1.5; }
 .bot.take.locked .bot-ask, .bot.take.locked .bot-tone, .bot.take.locked .bot-pics { display: none; }
-.bot.guest .bot-guest { display: flex; flex: 1; flex-direction: column; justify-content: center; align-items: flex-start; gap: 14px; padding: 20px 18px; font-size: 14px; line-height: 1.5; }
-.bot-guest p { margin: 0; }
+.bot.guest .bot-guest { display: flex; flex: 1; align-items: center; justify-content: center; padding: 24px 18px; }
+.bot-guest-card { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; max-width: 300px; text-align: center; }
+.bot-guest-card b { font-size: 22px; line-height: 1.2; color: var(--accent); }
+.bot-guest-card p { margin: 0 0 6px; font-size: 14px; line-height: 1.5; color: var(--muted); }
+.bot-signin { width: 100%; min-height: 44px; border: 0; cursor: pointer; background: var(--accent-fill, var(--accent)); color: var(--on-accent, #000); font: 700 14px/1 var(--font-body); }
+.bot-signin:hover { filter: brightness(1.1); }
 .bot.guest .bot-log, .bot.guest .bot-mode, .bot.guest .bot-ask, .bot.guest .bot-pics, .bot.guest .bot-new, .bot.guest .bot-max { display: none; }
 .bot-tag { display: inline-block; margin-bottom: 4px; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
 .bot-msg.bot.take { max-width: 100%; width: 100%; }
