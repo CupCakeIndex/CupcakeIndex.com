@@ -3834,3 +3834,5 @@ body:has(#view-rankings:not(.hidden) .weights-fab) .bot.max .bot-panel { height:
 .bot-xlink input { width: 100%; box-sizing: border-box; min-height: 36px; padding: 6px 10px; font: inherit; font-size: 16px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); }
 .bot-xlink input:focus { outline: none; border-color: var(--accent); }
 .bot-xlink small:empty { display: none; }
+/* take check from a link: what we read from the post (bot.js readPost) */
+.bot-read { margin: 0 0 8px; padding: 0 12px; font-size: 12px; line-height: 1.5; }
