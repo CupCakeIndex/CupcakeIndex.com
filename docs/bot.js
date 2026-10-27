@@ -173,6 +173,17 @@ const Bot = (() => {
       if (b?.dataset.mode) { setMode(b.dataset.mode); ta.focus(); }
       if (b?.dataset.tone) setTone(b.dataset.tone);
     });
+    el.querySelector(".bot-log").addEventListener("input", (e) => { // a post's link pasted under a take check
+      const box = e.target.closest(".bot-xlink");
+      if (!box) return;
+      const v = e.target.value.trim(), id = postId(v);
+      box.querySelector("small").textContent = !v ? "" : id ? "Got it: the buttons below reply to that post." : "That isn't a post's link. Those look like x.com/name/status/123.";
+      box.closest(".bot-msg, .take").querySelectorAll(".bot-x-post").forEach((a) => {
+        a.href = xUrl(a.dataset.text, id);
+        if (id) a.dataset.id = id; else delete a.dataset.id;
+        a.textContent = `${id ? "Reply on X" : "Post on X"} ↗`;
+      });
+    });
     el.querySelector(".bot-log").addEventListener("click", (e) => {
       const x = e.target.closest(".bot-x-post");
       if (x && matchMedia("(pointer: coarse)").matches) { // phones: x.com in the home-screen app's browser is signed out
@@ -512,6 +523,8 @@ Reply with ONLY JSON, no other text: ${JSON.stringify(Object.fromEntries(["headl
 
   const VLABEL = { holds: "HOLDS UP", mixed: "MIXED", misleading: "MISLEADING", wrong: "WRONG", cant_check: "CAN'T CHECK", question: "ANSWER" };
   const vcls = (v) => ({ holds: "ok", question: "ok", mixed: "meh", misleading: "meh", wrong: "no" })[v] || "na";
+  const postId = (t) => String(t || "").match(/(?:x|twitter)\.com\/\w+\/status(?:es)?\/(\d+)/i)?.[1];
+  const xUrl = (t, id) => `https://x.com/intent/post?text=${encodeURIComponent(t)}${id ? `&in_reply_to=${id}` : ""}`;
   function verdictCard(r, take) {
     const c = r.chart, items = Array.isArray(c?.items) ? c.items.filter((x) => Number.isFinite(+x.value)).slice(0, 10) : [];
     const top = Math.max(...items.map((x) => Math.abs(+x.value)), 0) || 1;
@@ -520,16 +533,18 @@ Reply with ONLY JSON, no other text: ${JSON.stringify(Object.fromEntries(["headl
         ${items.map((x) => `<div class="${x.highlight ? "hi" : ""}"><span>${x.rank ? `<i>${+x.rank}</i>` : ""}${esc(x.label)}</span><b style="--w:${Math.max(2, Math.abs(+x.value) / top * 100).toFixed(1)}%"></b><em>${fmtV(+x.value)}</em></div>`).join("")}
         ${c.source ? `<small class="muted">${esc(c.source)}</small>` : ""}</figure>` : "";
     // Post on X: a reply to the post when they pasted its link, else a new post. They still press Post themselves.
-    const id = String(take || "").match(/(?:x|twitter)\.com\/\w+\/status\/(\d+)/i)?.[1];
-    const xUrl = (t) => `https://x.com/intent/post?text=${encodeURIComponent(t)}${id ? `&in_reply_to=${id}` : ""}`;
+    // No link (a screenshot, or just the text): a box under the verdict takes one and turns the buttons into replies.
+    const id = postId(take);
     const rp = r.replies || {};
     const reply = (k, label) => rp[k] ? `<div class="bot-reply"><h4 class="bot-h">${label} <span class="muted">${rp[k].length}/280</span></h4><p>${esc(rp[k])}</p>
-        <div class="bot-ra"><button type="button" class="bot-copy" data-copy="${esc(rp[k])}">Copy</button><a class="bot-x-post" href="${esc(xUrl(rp[k]))}" data-text="${esc(rp[k])}"${id ? ` data-id="${id}"` : ""} target="_blank" rel="noopener">${id ? "Reply on X" : "Post on X"} ↗</a></div></div>` : "";
+        <div class="bot-ra"><button type="button" class="bot-copy" data-copy="${esc(rp[k])}">Copy</button><a class="bot-x-post" href="${esc(xUrl(rp[k], id))}" data-text="${esc(rp[k])}"${id ? ` data-id="${id}"` : ""} target="_blank" rel="noopener">${id ? "Reply on X" : "Post on X"} ↗</a></div></div>` : "";
     return `<div class="bot-stamp ${vcls(r.verdict)}">${VLABEL[r.verdict] || "CAN'T CHECK"}</div>
       <p class="bot-lead">${esc(r.headline || "")}</p>
       ${(r.claims || []).length ? `<h4 class="bot-h">The claims</h4><ul class="bot-claims">${r.claims.map((x) => `<li><span class="bot-ctag ${vcls(x.verdict)}">${VLABEL[x.verdict] || "CAN'T CHECK"}</span> <b>${esc(x.claim)}</b><br>${esc(x.evidence)}</li>`).join("")}</ul>` : ""}
       ${(r.missing || []).length ? `<h4 class="bot-h">What it leaves out</h4><ul>${r.missing.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
       ${chart}
+      ${!id && (rp.answer || rp.agree || rp.pushback) ? `<label class="bot-xlink"><span>Replying in a thread? Paste the post's link (Share > Copy link):</span>
+        <input type="url" inputmode="url" autocomplete="off" placeholder="x.com/name/status/…"><small class="muted" role="status"></small></label>` : ""}
       ${reply("answer", "Your reply")}${reply("agree", "Reply that backs it")}${reply("pushback", "Reply that pushes back")}`;
   }
 

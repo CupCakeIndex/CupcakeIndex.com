@@ -3829,3 +3829,8 @@ body:has(#view-rankings:not(.hidden) .weights-fab) .bot.max .bot-panel { height:
 .sub-price { font-size: 22px; font-weight: 700; color: var(--accent); }
 .sub-price small { font-size: 12px; font-weight: 400; }
 .sub-tier .btn { justify-self: start; margin-top: 4px; text-decoration: none; }
+/* take check without a post link: paste one to turn Post on X into Reply on X (bot.js verdictCard) */
+.bot-xlink { display: grid; gap: 6px; margin-top: 12px; font-size: 12px; color: var(--muted); }
+.bot-xlink input { width: 100%; box-sizing: border-box; min-height: 36px; padding: 6px 10px; font: inherit; font-size: 16px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); }
+.bot-xlink input:focus { outline: none; border-color: var(--accent); }
+.bot-xlink small:empty { display: none; }
