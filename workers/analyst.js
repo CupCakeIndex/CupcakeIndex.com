@@ -143,7 +143,8 @@ async function everyone(env, me) {
   let cursor;
   do {
     const page = await env.USAGE.list({ prefix: "sub:", cursor });
-    for (const k of page.keys) { const s = await env.USAGE.get(k.name, "json"); if (s?.status === "active") subs[k.name.slice(4)] = s.tier; }
+    // only subscriptions that give access: with a test key, just the testers' (someone taken off SUBSCRIBE_TESTERS drops out)
+    for (const k of page.keys) { const s = await env.USAGE.get(k.name, "json"); if (s?.status === "active" && canBuy({ email: s.email, verified: true }, env)) subs[k.name.slice(4)] = s.tier; }
     cursor = page.list_complete ? null : page.cursor;
   } while (cursor);
   const test = testing(env);
