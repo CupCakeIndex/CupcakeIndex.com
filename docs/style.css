@@ -3762,6 +3762,13 @@ body.drawer-open .bot-fab { transform: translateX(calc(100% + 40px)); opacity: 0
 .bot-hi-take { display: none; }
 .bot.take .bot-hi-ask { display: none; }
 .bot.take .bot-hi-take { display: block; }
+/* free (signed in, not paying): Check a take shows a subscribe note instead of the box; signed out: a sign-in card */
+.bot-lock, .bot-guest { display: none; }
+.bot.take.locked .bot-lock { display: block; margin: 0; padding: 12px 14px 14px; font-size: 13px; line-height: 1.5; }
+.bot.take.locked .bot-ask, .bot.take.locked .bot-tone, .bot.take.locked .bot-pics { display: none; }
+.bot.guest .bot-guest { display: flex; flex: 1; flex-direction: column; justify-content: center; align-items: flex-start; gap: 14px; padding: 20px 18px; font-size: 14px; line-height: 1.5; }
+.bot-guest p { margin: 0; }
+.bot.guest .bot-log, .bot.guest .bot-mode, .bot.guest .bot-ask, .bot.guest .bot-pics, .bot.guest .bot-new, .bot.guest .bot-max { display: none; }
 .bot-tag { display: inline-block; margin-bottom: 4px; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
 .bot-msg.bot.take { max-width: 100%; width: 100%; }
 .bot-stamp { display: inline-block; margin-bottom: 8px; padding: 4px 10px; border: 2px solid currentColor; font-weight: 800; font-size: 13px; letter-spacing: .1em; transform: rotate(-2deg); }

@@ -1,5 +1,6 @@
-// The Cupcake Analyst chat: a small button in the bottom right, only for members (for now: the emails the Worker
-// lists in MEMBERS). Ask a question; Claude answers from the site's own data with the same stat tools as Terry's
+// The Cupcake Analyst chat: a small button in the bottom right, for members (MEMBERS or a subscription) and, once the
+// Worker's FREE_QUESTIONS is set, for everyone: signed out, tapping it asks you to sign in; signed in but not paying,
+// you get that many free questions in all (then it asks you to upgrade), and the take check stays locked. Ask a question; Claude answers from the site's own data with the same stat tools as Terry's
 // Analyst page (bot-tools.js, generated from analyst/index.html), and can open a Visualize chart or a page of the
 // site. The Claude key lives in the Worker (workers/analyst.js), which also counts questions and cost per member.
 // The lookups run here, in the page, on the same files the site shows; only the conversation goes to the Worker.
@@ -24,11 +25,17 @@ const Bot = (() => {
     return d;
   }
 
-  // ---------- who sees the button: signed in, and a member ----------
+  // ---------- who sees the button: members, free users, and signed-out visitors while free questions are on ----------
+  let freeQ = null; // the Worker's free questions (0 = off), asked once without signing in
   window.addEventListener("account", async (ev) => {
     user = ev.detail;
     me = null;
     if (user) { try { me = await call("/me"); } catch (e) { me = null; } }
+    else {
+      freeQ ??= fetch(URL_ + "/free").then((r) => r.json()).then((d) => +d.questions || 0).catch(() => 0);
+      const n = await freeQ;
+      if (n && !user) me = { guest: true, free_q: n };
+    }
     show();
     rerender();
   });
@@ -43,7 +50,8 @@ const Bot = (() => {
   function section() {
     if (!user || !me) return "";
     const tier = (i) => `Tier ${i + 1}`, s = me.sub, paid = s && ["active", "trialing", "past_due"].includes(s.status);
-    const used = me.member ? `<p class="note">This month: ${me.questions} of ${me.limit.toLocaleString()} questions, ${me.takes || 0} of ${me.take_limit} take checks.</p>` : "";
+    const used = me.member ? `<p class="note">This month: ${me.questions} of ${me.limit.toLocaleString()} questions, ${me.takes || 0} of ${me.take_limit} take checks.</p>`
+      : me.free ? `<p class="note">Free: ${me.questions} of your ${me.limit} free questions used. Take checks come with a subscription.</p>` : "";
     let body;
     if (paid) {
       const line = s.status === "past_due" ? "Your last payment didn't go through. Update your card to keep the Analyst."
@@ -57,11 +65,13 @@ const Bot = (() => {
       body = `<p class="note" id="sub-msg" role="status">Thanks! Setting up your membership…</p>`;
     } else if (me.links?.length) {
       const q = `?client_reference_id=${encodeURIComponent(user.uid)}${user.email ? `&locked_prefilled_email=${encodeURIComponent(user.email)}` : ""}`;
-      body = `<p class="note">Ask anything about any team or player and get answers from the site's own model and stats, or paste a take from X to fact-check it.</p>
+      body = `<p class="note">Ask anything about any team or player and get answers from the site's own model and stats, or paste a take from X to fact-check it.</p>${used}
         <div class="sub-tiers">${me.links.slice(0, 2).map((l, i) => `<div class="sub-tier"><b>${tier(i)}</b><span class="sub-price">$${me.prices[i]}<small> a month</small></span>
           <small>${me.limits[i].q.toLocaleString()} questions a month<br>${me.limits[i].takes} take checks a month</small>
           <a class="btn" href="${esc(l + q)}">Subscribe</a></div>`).join("")}</div>
         <p class="note">Paid through Stripe. Cancel any time in Settings.${me.test_mode ? " <b>Test mode:</b> use card 4242 4242 4242 4242, no real money." : ""}</p>`;
+    } else if (me.free) {
+      body = used;
     } else return "";
     return `<h3>Cupcake Analyst</h3>${body}`;
   }
@@ -88,10 +98,14 @@ const Bot = (() => {
     }
   }
   function show() {
-    const on = !!me?.member;
+    const on = !!(me?.member || me?.free || me?.guest);
     if (!on) { el?.remove(); el = null; return; }
     if (!el) build();
-    needTools().catch(() => {});
+    el.classList.toggle("guest", !!me.guest);
+    el.classList.toggle("locked", !!me.free && !me.member); // free: no take checks (style.css shows the note instead)
+    const g = el.querySelector(".bot-guest b");
+    if (g && me.guest) g.textContent = `${me.free_q} free questions`;
+    if (!me.guest) needTools().catch(() => {});
     usageLine();
   }
 
@@ -116,6 +130,9 @@ const Bot = (() => {
             <input type="file" accept="image/*" multiple hidden><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 5h16v14H4zM4 15l4.5-4.5 4 4 2.5-2.5L20 17M15.5 9.5h.01"/></svg></label>
           <textarea rows="1" maxlength="600" placeholder="Ask a football question" aria-label="Your question"></textarea>
           <button type="submit" class="bot-send">Send</button></form>
+        <p class="bot-lock muted">Take checks come with a subscription (30 a month on Tier 1). <a class="bot-link" href="#/settings">See the plans</a></p>
+        <div class="bot-guest"><p>Sign in to ask the Analyst. You get <b>free questions</b>, answered from the site's own numbers.</p>
+          <button type="button" class="btn bot-signin">Sign in with Google</button></div>
       </section>`;
     document.body.appendChild(el);
     // the site's own cupcake mark (from the header logo), in a rounded badge
@@ -133,6 +150,10 @@ const Bot = (() => {
       else shut = setTimeout(() => { panel.hidden = true; panel.classList.remove("closing"); }, matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 160);
     };
     fab.addEventListener("click", () => toggle(panel.hidden || panel.classList.contains("closing")));
+    el.querySelector(".bot-signin").addEventListener("click", () => Account.signIn());
+    // See the plans / Upgrade: close the chat so Settings shows (on phones the panel covers the page)
+    el.querySelector(".bot-lock a").addEventListener("click", () => toggle(false));
+    el.querySelector(".bot-log").addEventListener("click", (e) => { if (e.target.closest('a[href="#/settings"]')) toggle(false); });
     el.querySelector(".bot-x").addEventListener("click", () => toggle(false));
     // bigger chat on a computer (phones already get the whole screen); remembered on this device
     const maxBtn = el.querySelector(".bot-max"), setMax = (on) => {
@@ -246,6 +267,8 @@ const Bot = (() => {
   function usageLine() {
     const u = el?.querySelector(".bot-use");
     if (!u || !me) return;
+    if (me.guest) { u.textContent = ""; return; }
+    if (me.free && !me.member) { u.textContent = `${Math.min(me.questions, me.limit)}/${me.limit} free`; u.title = "Free questions used. After that, the Analyst comes with a subscription."; return; }
     const over = me.questions > me.limit;
     const pct = (n, of) => `${Math.min(100, Math.floor((n || 0) / of * 100))}%`; // rounded down, so 100% only when it's all used
     u.textContent = `${pct(me.questions, me.limit)} questions${me.take_limit ? ` · ${pct(me.takes, me.take_limit)} takes` : ""}${me.testing ? ` · $${(me.usd || 0).toFixed(2)}` : ""}${over ? " · over" : ""}`;
@@ -288,7 +311,12 @@ const Bot = (() => {
     }).join("");
   }
 
+  // free questions all used: ask them to upgrade instead of sending
+  const outOfFree = () => me?.free && !me.member && me.questions >= me.limit;
+  const upgrade = () => bubble("bot", `<p>You've used your ${me.limit} free questions.${me.limits?.[0] ? ` Tier 1 is $${me.prices[0]} a month for ${me.limits[0].q.toLocaleString()} questions and ${me.limits[0].takes} take checks.` : ""}</p>
+    <p><a class="bot-link" href="#/settings">Upgrade →</a></p>`);
   async function ask(q, sent = []) {
+    if (outOfFree()) { upgrade(); log().scrollTop = log().scrollHeight; return; }
     busy = true;
     el.classList.add("busy");
     bubble("me", (sent.length ? `<div class="bot-thumbs">${sent.map((p) => `<img src="${p.url}" alt="Your picture">`).join("")}</div>` : "") + (q ? `<p>${esc(q)}</p>` : ""));
@@ -329,7 +357,8 @@ const Bot = (() => {
       msgs.length = keep; // drop the failed question, so the conversation stays valid
       if (e.usage) { me = { ...me, ...e.usage }; usageLine(); }
       wait.classList.remove("wait");
-      wait.innerHTML = `<p class="bot-err">${esc(e.message || "Something went wrong.")}</p>`;
+      if (outOfFree()) { wait.remove(); upgrade(); }
+      else wait.innerHTML = `<p class="bot-err">${esc(e.message || "Something went wrong.")}</p>`;
     }
     log().scrollTop = log().scrollHeight;
     busy = false;

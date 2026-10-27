@@ -182,5 +182,5 @@ const Account = (() => {
   // Firestore for other features (alerts: push.js), signed in or not
   const firestore = async () => { await start(); return fb.firestore(); };
 
-  return { enabled, section, wire, user: () => user, firestore };
+  return { enabled, section, wire, signIn, user: () => user, firestore };
 })();

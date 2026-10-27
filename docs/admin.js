@@ -307,6 +307,8 @@ const Admin = (() => {
         <span class="muted">${num(t.members)} ${t.members === 1 ? "member" : "members"} · ${money(t.in)} in after Stripe's cut${t.gross ? ` (of ${money(t.gross)})` : ""} · used ${money(t.usd)}</span>${diff(t.in - t.usd)}</li>`).join("")}
         ${chat.comped?.members || chat.comped?.usd ? `<li><span>Free members <span class="muted">your MEMBERS list, not paying</span></span>
           <span class="muted">${num(chat.comped.members)} ${chat.comped.members === 1 ? "member" : "members"} · ${num(chat.comped.questions)} questions · used ${money(chat.comped.usd)}</span>${diff(-chat.comped.usd)}</li>` : ""}
+        ${chat.free?.usd ? `<li><span>Free questions <span class="muted">signed in, not paying</span></span>
+          <span class="muted">${num(chat.free.members)} ${chat.free.members === 1 ? "person" : "people"} · ${num(chat.free.questions)} questions · used ${money(chat.free.usd)}</span>${diff(-chat.free.usd)}</li>` : ""}
         ${chat.owner?.usd ? `<li><span>Your own use <span class="muted">free, not a subscription</span></span>
           <span class="muted">${num(chat.owner.questions)} questions · used ${money(chat.owner.usd)}</span>${diff(-chat.owner.usd)}</li>` : ""}</ul>
       ${chat.test_subs?.members ? `<ul class="ad-subs"><li><span>Test subscriptions <span class="muted">Stripe test mode, not real money</span></span>

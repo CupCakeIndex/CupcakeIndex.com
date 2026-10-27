@@ -3,6 +3,8 @@
 // for the month (Cloudflare KV), so nobody can run up the bill. The page runs the stat lookups itself, on the site's
 // own data, and sends the results back here; this Worker only talks to Claude.
 //
+//   GET  /free  -> { questions }: the free questions (0 = off). No sign-in: signed-out visitors see the chat
+//                  button when it's on, and tapping it asks them to sign in
 //   GET  /me    -> { member, questions, usd, limit, today, days, sub, comped, links }   (the chat button only shows for
 //                  members; Settings shows the subscription, or the Subscribe links to those allowed to buy)
 //   POST /chat  -> one Claude turn: { content, stop_reason, usage }  body: { system, tools, messages, newQuestion, take }
@@ -25,6 +27,9 @@
 //                          SUBSCRIBE_TESTERS  while the Stripe key is a test key, only these emails see Subscribe and get
 //                                             access from a (test-card) subscription; comma-separated, as Text
 //                          PAY_LINKS (optional) the live Tier 1 and Tier 2 payment links, comma-separated; blank = the test ones
+//                          FREE_QUESTIONS (optional) free questions for anyone signed in who doesn't pay (50), in
+//                                             all, not a month: after that the chat asks them to subscribe. Blank =
+//                                             off, members only. No take checks: those are for subscribers
 //                          MODEL (optional)   claude-sonnet-5-5 to try the smarter, ~20x pricier model; blank = Haiku
 //   Bindings: KV namespace, variable name USAGE (Storage > KV > create one called analyst-usage)
 // Stripe webhook (Stripe > Developers > Webhooks > Add endpoint): <this worker's URL>/stripe, events
@@ -38,6 +43,9 @@ const PRICES = { "claude-haiku-5-5": [0.10, 0.50], "claude-sonnet-5-5": [2, 10] 
 // by tier: questions a month, a day (so nobody uses the month in one night), Claude $ backstop (past it, it stops
 // until the 1st) and take checks a month (the chat's "Check a take"; each one is a few Claude calls)
 const LIMITS = [{ q: 300, day: 40, usd: 3, takes: 30 }, { q: 1000, day: 100, usd: 8, takes: 150 }];
+// free (signed in, not paying): FREE_QUESTIONS in all, counted forever in free:<uid> (not by month), no take checks,
+// and a $1 backstop, also in all
+const FREE = (env) => ({ q: Math.max(0, Math.floor(+env.FREE_QUESTIONS || 0)), day: 20, usd: 1, takes: 0 });
 const OWNER_CAP_USD = 5; // the owner has no other limits
 const TEST_LINKS = ["https://buy.stripe.com/test_8x24gy4ax5RBaaw8xc6sw00", "https://buy.stripe.com/test_9B6cN4dL7eo796s3cS6sw02"];
 const PAID = ["active", "trialing", "past_due"]; // past_due: Stripe is still retrying the card, so keep access meanwhile
@@ -91,8 +99,9 @@ async function access(me, env) {
   const comp = me.verified ? memberList(env).find((x) => x.email === me.email) : null;
   const sub = await env.USAGE.get(`sub:${me.uid}`, "json");
   const paid = sub && PAID.includes(sub.status) && canBuy(me, env) ? sub.tier : -1;
-  const tier = Math.max(comp ? comp.tier : -1, paid);
-  return { member: tier >= 0, tier, comped: !!comp && comp.tier >= paid, sub };
+  const tier = Math.max(comp ? comp.tier : -1, paid), free = tier < 0 && me.verified && FREE(env).q > 0;
+  const f = free ? (await env.USAGE.get(`free:${me.uid}`, "json")) || { q: 0, usd: 0 } : null;
+  return { member: tier >= 0, free, f, tier, L: free ? FREE(env) : LIMITS[tier] || LIMITS[0], comped: !!comp && comp.tier >= paid, sub };
 }
 async function stripe(env, path, form) {
   const r = await fetch("https://api.stripe.com/v1/" + path, { method: form ? "POST" : "GET",
@@ -153,7 +162,7 @@ async function everyone(env, me) {
     return { name, price, members: n, gross: n * price, in: n * (price - STRIPE_FEE(price)), usd: 0, questions: 0 };
   });
   const m = month(), out = { month: m, usd: 0, questions: 0, takes: 0, days: {}, tiers, testing: test, test_subs: test ? { members: Object.keys(subs).length, usd: 0, questions: 0 } : null,
-    owner: { usd: 0, questions: 0 }, comped: { members: comped.length, usd: 0, questions: 0 }, unsorted: { usd: 0, questions: 0 } };
+    owner: { usd: 0, questions: 0 }, comped: { members: comped.length, usd: 0, questions: 0 }, free: { members: 0, usd: 0, questions: 0 }, unsorted: { usd: 0, questions: 0 } };
   do {
     const page = await env.USAGE.list({ prefix: "u:", cursor });
     for (const k of page.keys.filter((k) => k.name.endsWith(":" + m))) {
@@ -161,9 +170,9 @@ async function everyone(env, me) {
       if (!u) continue;
       out.usd += u.usd; out.questions += u.q; out.takes += u.t || 0;
       const email = u.email || (k.name.startsWith(`u:${me.uid}:`) ? me.email : ""); // the owner's own, even from before emails were kept
-      const uid = k.name.split(":")[1]; // unsorted: no email yet, or no longer a member
-      const t = email === OWNER ? out.owner : uid in subs ? (test ? out.test_subs : tiers[subs[uid]]) : compedEmails.has(email) ? out.comped : out.unsorted;
-      t.usd += u.usd; t.questions += u.q;
+      const uid = k.name.split(":")[1]; // free: signed in, not paying; unsorted: no email kept (from before emails were)
+      const t = email === OWNER ? out.owner : uid in subs ? (test ? out.test_subs : tiers[subs[uid]]) : compedEmails.has(email) ? out.comped : email ? out.free : out.unsorted;
+      t.usd += u.usd; t.questions += u.q; if (t === out.free) t.members++;
       for (const [d, x] of Object.entries(u.days || {})) {
         const t = (out.days[d] ||= { q: 0, usd: 0 });
         t.q += x.q; t.usd += x.usd;
@@ -174,8 +183,8 @@ async function everyone(env, me) {
   return out;
 }
 const summary = (u, me, a) => {
-  const L = LIMITS[a.tier] || LIMITS[0], owner = me.email === OWNER;
-  return { member: true, tier: a.tier, questions: u.q, usd: Math.round(u.usd * 10000) / 10000, limit: L.q, day_limit: owner ? null : L.day,
+  const L = a.L, owner = me.email === OWNER;
+  return { member: a.member, free: a.free, tier: a.tier, questions: a.free ? a.f.q : u.q, usd: Math.round(u.usd * 10000) / 10000, limit: L.q, day_limit: owner ? null : L.day,
     takes: u.t || 0, take_limit: L.takes, today: u.days[today()]?.q || 0, days: u.days, cap_usd: owner ? OWNER_CAP_USD : L.usd, testing: owner };
 };
 // what Settings shows: the subscription (if any), and the Subscribe links to those allowed to buy
@@ -194,13 +203,14 @@ export default {
       try { return await webhook(req, env); } catch (e) { return new Response(String(e.message || e), { status: 500 }); } // 500: Stripe retries later
     }
     if (origin && !ALLOWED.includes(origin)) return json({ error: "not allowed" }, 403);
+    if (url.pathname === "/free") return json({ questions: FREE(env).q });
 
     let me;
     try { me = await signedIn(req); } catch (e) { return json({ error: "sign-in check failed" }, 503); }
     if (!me) return json({ error: "sign in first" }, 401);
     const a = await access(me, env);
     if (url.pathname === "/me") {
-      if (!a.member) return json({ member: false, ...billing(me, env, a) });
+      if (!a.member && !a.free) return json({ member: false, ...billing(me, env, a) });
       const u = await usage(env, me.uid);
       if (u.q && !u.email) { u.email = me.email; await env.USAGE.put(`u:${me.uid}:${month()}`, JSON.stringify(u), { expirationTtl: 60 * 60 * 24 * 400 }); } // so Admin can put it in their tier
       return json({ ...summary(u, me, a), ...billing(me, env, a) });
@@ -219,7 +229,7 @@ export default {
     if (url.pathname.startsWith("/admin") && !(me.email === OWNER && me.verified)) return json({ error: "not allowed" }, 403);
     if (url.pathname === "/admin") return json(await everyone(env, me));
     if (url.pathname !== "/chat" || req.method !== "POST") return json({ error: "not found" }, 404);
-    if (!a.member) return json({ error: "The Analyst is for members." }, 403);
+    if (!a.member && !a.free) return json({ error: "The Analyst is for members." }, 403);
 
     // the page sends the instructions, its tools and the conversation; we fix the model and the size of the answer
     const raw = await req.text();
@@ -230,11 +240,13 @@ export default {
     if (typeof b.system !== "string" || b.system.length > 60000 || !Array.isArray(b.messages) || !b.messages.length || b.messages.length > 80
       || tools.length > 40 || tools.some((t) => t.type || !t.name || !t.input_schema)) return json({ error: "bad request" }, 400); // our own tools only (no web search etc.)
 
-    const u = await usage(env, me.uid), d = today(), owner = me.email === OWNER, L = LIMITS[a.tier] || LIMITS[0], sum = () => summary(u, me, a);
+    const u = await usage(env, me.uid), d = today(), owner = me.email === OWNER, L = a.L, sum = () => summary(u, me, a);
     u.days[d] ||= { q: 0, usd: 0 };
+    if (a.free && (a.f.usd >= L.usd || (b.newQuestion && a.f.q >= L.q))) return json({ error: `You've used your ${L.q} free questions. Subscribe in Settings for more.`, out: true, usage: sum() }, 429);
     if (u.usd >= (owner ? OWNER_CAP_USD : L.usd)) return json({ error: `You've hit this month's limit. It resets on the 1st.`, usage: sum() }, 429);
     if (b.newQuestion && !owner && u.q >= L.q) return json({ error: `You've used all ${L.q.toLocaleString()} questions this month. They reset on the 1st.`, usage: sum() }, 429);
     if (b.newQuestion && !owner && u.days[d].q >= L.day) return json({ error: `That's ${L.day} questions today. More tomorrow.`, usage: sum() }, 429);
+    if (b.take && !a.member) return json({ error: "Take checks come with a subscription. See the plans in Settings.", usage: sum() }, 403);
     if (b.take && !owner && (u.t || 0) >= L.takes) return json({ error: `You've used all ${L.takes} take checks this month. They reset on the 1st.`, usage: sum() }, 429);
 
     // raw HTTP, not the SDK: this Worker is pasted into the Cloudflare dashboard, which has no package install step
@@ -255,6 +267,7 @@ export default {
     u.usd += usd; u.days[d].usd += usd; u.email = me.email;
     if (b.newQuestion) { u.q++; u.days[d].q++; }
     if (b.take) { u.t = (u.t || 0) + 1; u.days[d].t = (u.days[d].t || 0) + 1; }
+    if (a.free) { a.f.usd += usd; if (b.newQuestion) a.f.q++; await env.USAGE.put(`free:${me.uid}`, JSON.stringify(a.f)); } // kept for good: the 50 are in all
     await env.USAGE.put(`u:${me.uid}:${month()}`, JSON.stringify(u), { expirationTtl: 60 * 60 * 24 * 400 });
     return json({ content: out.content, stop_reason: out.stop_reason, cost: usd, model, usage: sum() });
   },
