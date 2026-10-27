@@ -3,11 +3,19 @@ name: Visualize data
 # Game-by-game team and player stats for Stats > Visualize (src/viz_data.py -> docs/data/viz/).
 # Every morning in season (8:40 AM Eastern), so the stats and the Cupcake Analyst never lag more than a day: Sunday has
 # Saturday's college games, Monday Sunday's NFL games, Tuesday Monday night, Friday Thursday night. Run it any time: Actions tab > "Visualize data" > Run workflow.
+# Plus NFL-only runs (Terry, 2026-10-26) so Sunday's stats are in that night: Sunday 4 PM, 8 PM and midnight, and midnight
+# after Monday night. The times are Eastern standard time (UTC-5), so they run an hour later in the clock in Sept/Oct
+# (daylight time), and GitHub often starts scheduled runs 15-30 minutes late. NFL only: college data (CollegeFootballData's
+# free plan) has a monthly call limit, and there are no college games on Sunday or Monday.
 # The log ends with a check of season totals against ESPN's ("0 gap(s) over 2%" = the numbers match).
 
 on:
   schedule:
-    - cron: "40 12 * 8-12,1 *"   # every day, 8:40 AM Eastern
+    - cron: "40 12 * 8-12,1 *"   # every day, 8:40 AM Eastern (both leagues)
+    - cron: "0 21 * 9-12,1 0"    # Sunday 4 PM Eastern (NFL)
+    - cron: "0 1 * 9-12,1 1"     # Sunday 8 PM Eastern (NFL)
+    - cron: "0 5 * 9-12,1 1"     # Sunday midnight Eastern (NFL)
+    - cron: "0 5 * 9-12,1 2"     # Monday midnight Eastern, after Monday night (NFL)
   workflow_dispatch:
     inputs:
       league:
@@ -40,7 +48,7 @@ jobs:
       - name: Build the chart data
         env:
           CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
-          LEAGUE: ${{ inputs.league || 'all' }}
+          LEAGUE: ${{ inputs.league || ((github.event_name != 'schedule' || github.event.schedule == '40 12 * 8-12,1 *') && 'all') || 'nfl' }}
         run: python src/viz_data.py --league "$LEAGUE"
       - name: Pass, target and rush charts (NFL player pages)
         continue-on-error: true
