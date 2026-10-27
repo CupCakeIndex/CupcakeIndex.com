@@ -143,7 +143,7 @@ const Bot = (() => {
     };
     try { setMax(localStorage.getItem("bot-max") === "1"); } catch (e) { /* private mode */ }
     maxBtn.addEventListener("click", () => { setMax(!el.classList.contains("max")); log().scrollTop = log().scrollHeight; });
-    el.querySelector(".bot-new").addEventListener("click", () => { if (busy) return; msgs = []; sys = null; el.querySelector(".bot-log").innerHTML = ""; ta.focus(); });
+    el.querySelector(".bot-new").addEventListener("click", () => { if (busy) return; msgs = []; sys = null; needsPic = null; el.querySelector(".bot-log").innerHTML = ""; ta.focus(); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !panel.hidden) toggle(false); });
     ta.addEventListener("input", () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 120) + "px"; });
     ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); el.querySelector("form").requestSubmit(); } });
@@ -462,19 +462,44 @@ Reply with ONLY JSON, no other text: ${JSON.stringify(Object.fromEntries(["headl
     return res;
   }
 
-  async function checkTake(q, sent = []) {
+  // the last link whose picture or video we couldn't see: a screenshot sent on its own next is that post's
+  let needsPic = null;
+  async function checkTake(q, sent = [], anyway = false) {
+    if (sent.length && !q.trim() && needsPic) q = needsPic;
+    needsPic = null;
     busy = true;
     el.classList.add("busy");
-    bubble("me", `<span class="bot-tag">Take check</span>` + (sent.length ? `<div class="bot-thumbs">${sent.map((p) => `<img src="${p.url}" alt="Your picture">`).join("")}</div>` : "") + (q ? `<p>${esc(q)}</p>` : ""));
+    const mine = bubble("me", `<span class="bot-tag">Take check</span>` + (sent.length ? `<div class="bot-thumbs">${sent.map((p) => `<img src="${p.url}" alt="Your picture">`).join("")}</div>` : "") + (q ? `<p>${esc(q)}</p>` : ""));
     const wait = bubble("bot wait", `<p class="muted"><span class="bot-dots">Reading the take</span></p>`), steps = wait.querySelector("p");
     try { await needTools(); } catch (e) { wait.innerHTML = `<p class="bot-err">${esc(e.message)}</p>`; busy = false; el.classList.remove("busy"); return; }
     // a pasted post link: read the post from X (its public embed service), so a link alone is enough
     const post = postId(q) ? await readPost(q) : null, linkOnly = postId(q) && !q.replace(/https?:\/\/\S+/g, "").trim() && !sent.length;
-    if (post) wait.insertAdjacentHTML("beforebegin", `<p class="bot-read muted">Read from X, ${esc(post.who)}: “${esc(post.text || "(no text)")}”${post.pic && !sent.length ? "<br>It has a picture or video I can't see. If the take is in it, add a screenshot." : ""}</p>`);
-    if (linkOnly && (!post || (!post.text && post.pic))) { // nothing to check: say so without using up a take check
+    if (post) wait.insertAdjacentHTML("beforebegin", `<p class="bot-read muted">Read from X, ${esc(post.who)}: “${esc(post.text || "(no text)")}”</p>`);
+    if (linkOnly && !post) { // nothing to check: say so without using up a take check
       wait.classList.remove("wait");
-      wait.innerHTML = `<p>${post ? "That post is only a picture or video, and I can't see those from links." : "I couldn't read that post from X (it may be deleted, private or from a locked account)."} Add a screenshot of it, or paste its text.</p>`;
+      wait.innerHTML = `<p>I couldn't read that post from X (it may be deleted, private or from a locked account). Add a screenshot of it, or paste its text.</p>`;
       busy = false; el.classList.remove("busy"); return;
+    }
+    // the post has a picture or video, which X doesn't share: ask for a screenshot before using up a take check
+    if (post?.pic && !sent.length) needsPic = q;
+    if (post?.pic && !sent.length && !anyway) {
+      const bare = !post.text;
+      wait.classList.remove("wait");
+      wait.innerHTML = `<p>${bare ? "That post is only a picture or video, and I can't see those from links." : "This post has a picture or video I can't see, and the take is often in it."}
+        Add a screenshot so I check the whole thing? Nothing's used up yet.</p>
+        <div class="bot-ra"><button type="button" data-shot>Add a screenshot</button>${bare ? "" : `<button type="button" data-anyway>Check without it</button>`}</div>`;
+      busy = false; el.classList.remove("busy");
+      const clear = () => { mine.remove(); wait.previousElementSibling?.classList.contains("bot-read") && wait.previousElementSibling.remove(); wait.remove(); };
+      wait.querySelector("[data-shot]").onclick = () => { // the link goes back in the box, and the picture picker opens: then Send checks both, once
+        clear();
+        const ta = el.querySelector("textarea");
+        ta.value = q;
+        el.querySelector(".bot-attach input").click();
+        ta.focus();
+      };
+      const go = wait.querySelector("[data-anyway]");
+      if (go) go.onclick = () => { clear(); checkTake(q, [], true); };
+      return;
     }
     BotTools.setSay((s) => { steps.innerHTML = `<span class="bot-dots">${esc(s)}</span>`; log().scrollTop = log().scrollHeight; });
     const shapes = pickShapes(), banned = repeats(), links = [];
@@ -484,7 +509,7 @@ Reply with ONLY JSON, no other text: ${JSON.stringify(Object.fromEntries(["headl
       const tm = [{ role: "user", content: [{ type: "text", text: await now() },
         ...sent.map((p) => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: p.data } })),
         { type: "text", text: takeRules(shapes, banned) + "\n\nTHE TAKE:\n" + (q || "(see the screenshot)") + (sent.length ? "\n\nA screenshot is attached: read the take, and any numbers in it, from the picture." : "")
-          + (post ? `\n\nThe linked post, read from X. ${post.who} wrote: "${post.text}"${post.pic && !sent.length ? "\nIt also has a picture or video that couldn't be seen. If the take depends on it, say what you'd need from it." : ""}` : "") }] }];
+          + (post ? `\n\nThe linked post, read from X. ${post.who} wrote: "${post.text}"${post.pic && !sent.length ? "\nIt also has a picture or video that couldn't be seen (they chose to check without a screenshot). If the take depends on it, say what you'd need from it." : ""}` : "") }] }];
       const defs = [...TOOL_DEFS().filter((t) => t.name !== "show_chart" && t.name !== "open_page"), VERDICT];
       let res = null, last = null;
       for (let round = 0; round < MAX_ROUNDS + 2 && !res; round++) {
