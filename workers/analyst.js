@@ -37,7 +37,7 @@ const PRICES = { "claude-haiku-5-5": [0.10, 0.50], "claude-sonnet-5-5": [2, 10] 
 // until the 1st) and take checks a month (the chat's "Check a take"; each one is a few Claude calls)
 const LIMITS = [{ q: 300, day: 40, usd: 3, takes: 30 }, { q: 1000, day: 100, usd: 8, takes: 150 }];
 const OWNER_CAP_USD = 5; // the owner has no other limits
-const TEST_LINKS = ["https://buy.stripe.com/test_8x24gy4ax5RBaaw8xc6sw00", "https://buy.stripe.com/test_00w3cu7mJ2Fp1E0fZE6sw01"];
+const TEST_LINKS = ["https://buy.stripe.com/test_8x24gy4ax5RBaaw8xc6sw00", "https://buy.stripe.com/test_9B6cN4dL7eo796s3cS6sw02"];
 const PAID = ["active", "trialing", "past_due"]; // past_due: Stripe is still retrying the card, so keep access meanwhile
 const STRIPE_FEE = (usd) => usd * 0.029 + usd * 0.007 + 0.30; // card 2.9% + 30¢, Billing 0.7%: about what Stripe keeps
 
