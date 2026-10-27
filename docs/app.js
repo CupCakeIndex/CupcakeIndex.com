@@ -226,6 +226,7 @@ async function route() {
   } else if (Live[r.view]) {
     Live[r.view](r.arg, r.params);
   }
+  phoneSwap();
 }
 
 // ------------------------------------------------------------------ nav
@@ -287,7 +288,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "482"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "483"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -425,6 +426,38 @@ function initPicLinks() {
     if (to) { e.preventDefault(); location.hash = to.slice(to.indexOf("#")); }
   });
 }
+
+// Phones, Rankings page (Terry, 2026-10-26): the Bully of the Week banner goes up in the header under the tagline, and
+// the header's buttons (back, search, your team, CFB/NFL) come down into the Season / After week row, so neither row
+// has empty space. Every other page (and computers) keeps the normal header. The gear and refresh stay in the header.
+const phoneRank = window.matchMedia("(max-width: 640px)");
+let cotwHome = null;
+function phoneSwap() {
+  const top = $(".top"), ctl = $(".top .controls"), bar = $("#rank-bar"), cotw = $("#cotw");
+  if (!top || !ctl || !bar || !cotw) return;
+  const on = phoneRank.matches && parseHash().view === "rankings";
+  let tools = bar.querySelector(".rb-tools");
+  if (on === !!tools) return;
+  const moved = (from) => [...from.children].filter((el) => el.matches(".back-fab, #league, #gsearch, .my-team"));
+  if (on) {
+    cotwHome ||= document.createComment("cotw");
+    cotw.before(cotwHome);
+    top.querySelector(".brand").after(cotw);
+    tools = document.createElement("div");
+    tools.className = "rb-tools";
+    tools.append(...moved(ctl));
+    bar.append(tools);
+    // the header and the page have different side padding: line the banner up with the Season row's edges
+    const edge = top.querySelector(".brand").getBoundingClientRect().left - bar.getBoundingClientRect().left;
+    top.style.setProperty("--rs-edge", `${-Math.max(0, Math.round(edge))}px`);
+  } else {
+    ctl.prepend(...moved(tools));
+    tools.remove();
+    cotwHome?.replaceWith(cotw);
+  }
+  document.body.classList.toggle("rank-swap", on);
+}
+phoneRank.addEventListener("change", phoneSwap);
 
 // Back button (phones, in the header): shows once you've moved around inside the site; same as the browser's back
 function initBack() {

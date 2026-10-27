@@ -749,7 +749,7 @@ body:not(.show-breakdown) th.factors-col, body:not(.show-breakdown) td.factors {
 /* phones: league switcher on the right, within thumb reach */
 @media (max-width: 640px) {
   .top .controls { width: 100%; display: flex; align-items: flex-end; gap: 8px; }
-  .top .controls #league { order: 3; margin-left: auto; }
+  :is(.top .controls, .rb-tools) #league { order: 3; margin-left: auto; }
   .top .controls .rank-ctl select { padding: 6px 8px; }
 }
 
@@ -830,8 +830,8 @@ table.career tr.cc-div span + span { color: var(--accent); }
 .gs-results small { color: var(--muted); white-space: nowrap; font-size: 11px; }
 .gs-empty { padding: 10px; margin: 0; }
 @media (max-width: 640px) {
-  .top .controls .gsearch { order: 2; margin-left: auto; }
-  .top .controls #league { margin-left: 0; }
+  :is(.top .controls, .rb-tools) .gsearch { order: 2; margin-left: auto; }
+  :is(.top .controls, .rb-tools) #league { margin-left: 0; }
   .gsearch input { width: 38px; padding: 0; color: transparent; cursor: pointer; }
   .gsearch input::placeholder { color: transparent; }
   .gs-icon { left: 11px; }
@@ -846,8 +846,8 @@ table.career tr.cc-div span + span { color: var(--accent); }
   .gsearch input { width: 210px; }
   .gs-results { width: min(360px, 92vw); right: 0; left: auto; }
 }
-.top .controls .gsearch { order: 9; }
-@media (max-width: 640px) { .top .controls .gsearch { order: 2; } }
+:is(.top .controls, .rb-tools) .gsearch { order: 9; }
+@media (max-width: 640px) { :is(.top .controls, .rb-tools) .gsearch { order: 2; } }
 
 /* player picture fallbacks: initials when there's no headshot; Wikipedia photos framed on the face */
 .logo-ph.ph-face { display: inline-grid; place-items: center; flex: none; background: var(--accent-soft); color: var(--accent); border: 1px solid var(--line);
@@ -2291,15 +2291,15 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 /* back button: phones only. Sits in the header row (left of search); once the header scrolls away it floats pinned to the top */
 .back-fab { display: none; }
 @media (max-width: 760px) {
-  .top .controls .back-fab { display: flex; order: 1; align-self: flex-end; align-items: center; gap: 6px; height: 38px; padding: 0 14px;
+  :is(.top .controls, .rb-tools) .back-fab { display: flex; order: 1; align-self: flex-end; align-items: center; gap: 6px; height: 38px; padding: 0 14px;
     border: 1px solid var(--accent); background: var(--card); color: var(--accent); font: 700 13px/1 "JetBrains Mono", monospace; cursor: pointer; }
-  .top .controls .back-fab.floating { position: fixed; top: calc(10px + env(safe-area-inset-top)); left: 12px; z-index: 65; box-shadow: 0 4px 14px rgba(0,0,0,.5); }
-  .top .controls .back-fab.hidden { display: none; }
+  :is(.top .controls, .rb-tools) .back-fab.floating { position: fixed; top: calc(10px + env(safe-area-inset-top)); left: 12px; z-index: 65; box-shadow: 0 4px 14px rgba(0,0,0,.5); }
+  :is(.top .controls, .rb-tools) .back-fab.hidden { display: none; }
   /* like the Analyst button: the back button slides out of the way while a team window or the chat is open, and back after */
-  .top .controls .back-fab { transition: transform .3s cubic-bezier(.2, .8, .2, 1), opacity .25s; }
-  body.drawer-open .top .controls .back-fab, body.bot-open .top .controls .back-fab { transform: translateX(calc(-100% - 40px)); opacity: 0; pointer-events: none; }
-  .top .controls #league { height: 38px; align-self: flex-end; box-sizing: border-box; }   /* same height as search / back */
-  .top .controls #league button { height: 100%; padding-top: 0; padding-bottom: 0; }
+  :is(.top .controls, .rb-tools) .back-fab { transition: transform .3s cubic-bezier(.2, .8, .2, 1), opacity .25s; }
+  body.drawer-open :is(.top .controls, .rb-tools) .back-fab, body.bot-open :is(.top .controls, .rb-tools) .back-fab { transform: translateX(calc(-100% - 40px)); opacity: 0; pointer-events: none; }
+  :is(.top .controls, .rb-tools) #league { height: 38px; align-self: flex-end; box-sizing: border-box; }   /* same height as search / back */
+  :is(.top .controls, .rb-tools) #league button { height: 100%; padding-top: 0; padding-bottom: 0; }
 }
 /* phones: rankings Record and Score columns centered (right-aligned looked lopsided) */
 @media (max-width: 640px) {
@@ -2391,18 +2391,18 @@ main.lg-in { animation: lgin .4s ease-out both; }
 @keyframes lgin { from { opacity: .35; } to { opacity: 1; } }
 /* phones: Back is a compact arrow box in the header row (Rankings also has Season/Week there); the floating version keeps its label */
 @media (max-width: 760px) {
-  .top .controls .back-fab:not(.floating) { width: 38px; padding: 0; justify-content: center; font-size: 16px; }
-  .top .controls .back-fab:not(.floating) .bk-t { display: none; }
+  :is(.top .controls, .rb-tools) .back-fab:not(.floating) { width: 38px; padding: 0; justify-content: center; font-size: 16px; }
+  :is(.top .controls, .rb-tools) .back-fab:not(.floating) .bk-t { display: none; }
   .top .controls { gap: 6px; }
 }
 @media (max-width: 760px) {
-  .top .controls #league { flex: none; } .top .controls #league button { white-space: nowrap; }
+  :is(.top .controls, .rb-tools) #league { flex: none; } :is(.top .controls, .rb-tools) #league button { white-space: nowrap; }
   .top .controls .rank-ctl { min-width: 0; flex: 0 1 auto; } .top .controls .rank-ctl select { max-width: 100%; min-width: 0; }
 }
 @media (max-width: 380px) { .sub { font-size: 11px; } .def i { margin: 0 2px 0 1px; } }
-@media (max-width: 760px) { .top .controls #league button { padding-left: 10px; padding-right: 10px; } .top .controls .rank-ctl select { padding-left: 6px; padding-right: 2px; } }
+@media (max-width: 760px) { :is(.top .controls, .rb-tools) #league button { padding-left: 10px; padding-right: 10px; } .top .controls .rank-ctl select { padding-left: 6px; padding-right: 2px; } }
 /* phones: the CFB | NFL buttons fit inside their 38px box (the 36px tap-size minimum pushed the active one out the bottom) */
-@media (max-width: 760px) { .top .controls #league button { min-height: 0; } }
+@media (max-width: 760px) { :is(.top .controls, .rb-tools) #league button { min-height: 0; } }
 /* team logos and player headshots open their page (initPicLinks) */
 img[src*="teamlogos"], img[src*="collegefootballdata.com/logos"], img[src*="headshots"] { cursor: pointer; }
 
@@ -3826,3 +3826,15 @@ body.drawer-open .bot-fab { transform: translateX(calc(100% + 40px)); opacity: 0
 .bot-xlink small:empty { display: none; }
 /* take check from a link: what we read from the post (bot.js readPost) */
 .bot-read { margin: 0 0 8px; padding: 0 12px; font-size: 12px; line-height: 1.5; }
+/* Phones on Rankings (app.js phoneSwap): the Bully of the Week banner sits in the header under the tagline, and the
+   header's buttons sit at the right end of the Season / After week row, bottom edges lined up at 38px */
+@media (max-width: 640px) {
+  body.rank-swap .top .controls { position: absolute; inset: 0 0 auto 0; width: auto; height: 0; margin: 0; padding: 0; }   /* only the gear + refresh (placed absolutely) are left: out of the flow, so no empty row */
+  body.rank-swap .top #cotw { flex: 1 0 100%; margin: 0 calc(var(--rs-edge, 0px)); }   /* app.js sets --rs-edge so its edges match the rows below */
+  body.rank-swap #rank-bar { gap: 6px; flex-wrap: nowrap; }
+  body.rank-swap #rank-bar .rank-ctl { flex: 1 1 0; min-width: 0; }   /* Season and Week stretch to the buttons: no gap */
+  body.rank-swap #rank-bar .rank-ctl select { width: 100%; }
+  body.rank-swap #rank-bar select { height: 38px; box-sizing: border-box; max-width: 100%; }
+  .rb-tools { margin-left: auto; display: flex; align-items: flex-end; gap: 6px; flex: none; }
+  #rank-bar .rb-tools .back-fab { order: 1; } #rank-bar .rb-tools .gsearch { order: 2; margin-left: 0; } #rank-bar .rb-tools .my-team { order: 3; } #rank-bar .rb-tools #league { order: 4; margin-left: 0; }
+}

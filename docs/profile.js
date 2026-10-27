@@ -27,9 +27,9 @@ const Profile = (() => {
   }
   // header: your team's logo. One favorite = straight to its page; more = a small "My teams" menu.
   function header() {
-    const ctl = $(".top .controls");
+    const ctl = $("#rank-bar .rb-tools") || $(".top .controls"); // phones on Rankings: the buttons sit in the Season row (app.js phoneSwap)
     if (!ctl) return;
-    ctl.querySelector(".my-team")?.remove();
+    document.querySelector(".my-team")?.remove();
     const favs = favorites();
     if (!favs.length) return;
     const main = favs.find((f) => f.lg === league) || favs[0];
