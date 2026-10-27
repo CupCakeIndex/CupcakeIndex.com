@@ -247,8 +247,9 @@ const Bot = (() => {
     const u = el?.querySelector(".bot-use");
     if (!u || !me) return;
     const over = me.questions > me.limit;
-    u.textContent = `${me.questions}/${me.limit} this month${me.take_limit ? ` · ${me.takes || 0}/${me.take_limit} takes` : ""}${me.testing ? ` · $${(me.usd || 0).toFixed(2)}` : ""}${over ? " · over" : ""}`;
-    u.title = me.testing ? `Testing: today ${me.today} questions. Members get ${me.limit} a month${me.day_limit ? ` and ${me.day_limit} a day` : ""}; you're not stopped at ${me.limit}, only at $${me.cap_usd} a month.` : "";
+    const pct = (n, of) => `${Math.min(100, Math.floor((n || 0) / of * 100))}%`; // rounded down, so 100% only when it's all used
+    u.textContent = `${pct(me.questions, me.limit)} questions${me.take_limit ? ` · ${pct(me.takes, me.take_limit)} takes` : ""}${me.testing ? ` · $${(me.usd || 0).toFixed(2)}` : ""}${over ? " · over" : ""}`;
+    u.title = !me.testing ? `How much of this month's questions and take checks you've used. They reset on the 1st.` : me.testing ? `Testing: today ${me.today} questions. Members get ${me.limit} a month${me.day_limit ? ` and ${me.day_limit} a day` : ""}; you're not stopped at ${me.limit}, only at $${me.cap_usd} a month.` : "";
   }
 
   // ---------- the conversation ----------
