@@ -288,8 +288,9 @@ const Admin = (() => {
     ["CollegeFootballData", 0, "free plan"],
     ["Cloudflare (runs the Analyst chat)", 0, "free plan"],
   ];
-  // the chat's cost against what comes in: each tier's members × its price, counted by the chat's Worker
-  // (workers/analyst.js /admin; tiers come from its MEMBERS list, Stripe later). Totals only, no emails.
+  // the chat's cost against what comes in: each tier's paying subscribers × its price, minus Stripe's cut, counted by
+  // the chat's Worker (workers/analyst.js /admin, from Stripe's webhook). Free members (its MEMBERS list) are a cost line.
+  // Totals only, no emails.
   // Green +$ = profit, red = the chat costs more than comes in.
   const CHAT = "https://cupcake-analyst.thecupcakeindex-support.workers.dev";
   const moneyIn = (chat) => (chat?.tiers || []).reduce((a, t) => a + t.in, 0);
@@ -303,9 +304,12 @@ const Admin = (() => {
     return `<tr class="ad-sub"><td colspan="4"><div class="ad-sub-top"><span>Money in vs the chat's cost <span class="muted">this month</span></span></div>
       <div class="ad-sub-bar${profit < 0 ? " over" : ""}"><i style="width:${Math.min(100, pct).toFixed(1)}%"></i></div>
       <ul class="ad-subs">${chat.tiers.map((t) => `<li><span>${esc(t.name)} contributions <span class="muted">$${t.price} a month</span></span>
-        <span class="muted">${num(t.members)} ${t.members === 1 ? "member" : "members"} · ${money(t.in)} in · used ${money(t.usd)}</span>${diff(t.in - t.usd)}</li>`).join("")}
+        <span class="muted">${num(t.members)} ${t.members === 1 ? "member" : "members"} · ${money(t.in)} in after Stripe's cut${t.gross ? ` (of ${money(t.gross)})` : ""} · used ${money(t.usd)}</span>${diff(t.in - t.usd)}</li>`).join("")}
+        ${chat.comped?.members || chat.comped?.usd ? `<li><span>Free members <span class="muted">your MEMBERS list, not paying</span></span>
+          <span class="muted">${num(chat.comped.members)} ${chat.comped.members === 1 ? "member" : "members"} · ${num(chat.comped.questions)} questions · used ${money(chat.comped.usd)}</span>${diff(-chat.comped.usd)}</li>` : ""}
         ${chat.owner?.usd ? `<li><span>Your own use <span class="muted">free, not a subscription</span></span>
           <span class="muted">${num(chat.owner.questions)} questions · used ${money(chat.owner.usd)}</span>${diff(-chat.owner.usd)}</li>` : ""}</ul>
+      ${chat.testing ? `<small>Stripe is in test mode: these subscriptions are test cards, not real money.</small>` : ""}
       ${chat.unsorted?.usd ? `<small>${money(chat.unsorted.usd)} of the cost is from questions asked before the chat kept track of who asked.</small>` : ""}</td></tr>`;
   }
   function costs(db, el, today, mon, rows, err, mine = {}, chat = null) {
@@ -354,7 +358,7 @@ const Admin = (() => {
         ${FX.map(([l, v, note, k, per, typed]) => `<tr><td>${esc(l)}<small>${esc(note)}</small>${k ? `<label class="ad-fx">$<input type="number" min="0" step="0.01" inputmode="decimal"
             data-k="${k}" value="${typed ?? ""}" placeholder="?" aria-label="${esc(l)}, dollars a ${per}"> a ${per}</label>` : ""}</td>
           <td class="n">fixed</td><td class="n"></td><td class="n">${v == null ? "?" : money(v)}</td></tr>`).join("")}
-      ${inn ? `<tr><td>Money in: Analyst subscriptions<small>every tier's members × its price; takes away from the total</small></td>
+      ${inn ? `<tr><td>Money in: Analyst subscriptions<small>every tier's paying members × its price, after Stripe's cut; takes away from the total</small></td>
           <td class="n">${num(chat.tiers.reduce((a, t) => a + t.members, 0))} paying</td><td class="n"></td><td class="n"><span class="up">−${money(inn)}</span></td></tr>` : ""}
       </tbody><tfoot><tr><td>Total${inn ? " after money in" : ""}</td><td></td><td class="n">${money(wk)}</td><td class="n"><b>${net(mtd + fixed - inn, unknown || !chat ? " + ?" : "")}</b></td></tr></tfoot></table></div>
       <p class="ad-fx-row"><button type="button" class="btn ad-fx-save">Save my costs</button> <span class="muted ad-fx-msg">Type what you pay for X Premium and the domain; it saves when you leave the box.</span></p>

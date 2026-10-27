@@ -3821,3 +3821,11 @@ body:has(#view-rankings:not(.hidden) .weights-fab) .bot.max .bot-panel { height:
   /* the home-screen app reaches the screen's rounded corners: lift the input row clear of them and the home bar */
   .bot-ask { padding: 10px 18px 34px; }
 }
+/* Settings > Cupcake Analyst: the two subscribe cards (bot.js section) */
+.sub-tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 4px 0 10px; max-width: 520px; }
+.sub-tier { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--line); }
+.sub-tier:last-child { border-color: var(--accent); }
+.sub-tier small { color: var(--muted); line-height: 1.5; }
+.sub-price { font-size: 22px; font-weight: 700; color: var(--accent); }
+.sub-price small { font-size: 12px; font-weight: 400; }
+.sub-tier .btn { justify-self: start; margin-top: 4px; text-decoration: none; }

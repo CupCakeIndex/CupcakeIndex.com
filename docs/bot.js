@@ -30,7 +30,63 @@ const Bot = (() => {
     me = null;
     if (user) { try { me = await call("/me"); } catch (e) { me = null; } }
     show();
+    rerender();
   });
+  const rerender = () => { if (!document.getElementById("view-settings")?.classList.contains("hidden")) Settings.render(); };
+
+  // ---------- Settings: subscribe, or the subscription you have ----------
+  // The Worker decides who may buy (while Stripe is in test mode, only its testers) and hands over the payment links.
+  // The link carries the uid (client_reference_id), so Stripe's webhook knows whose subscription it is.
+  let waiting = 0; // after paying, Stripe sends them back to #/settings?subscribed=1: check /me until the webhook lands
+  const thanks = () => /[?&]subscribed=1/.test(location.hash);
+  const when = (s) => new Date(s * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  function section() {
+    if (!user || !me) return "";
+    const tier = (i) => `Tier ${i + 1}`, s = me.sub, paid = s && ["active", "trialing", "past_due"].includes(s.status);
+    const used = me.member ? `<p class="note">This month: ${me.questions} of ${me.limit.toLocaleString()} questions, ${me.takes || 0} of ${me.take_limit} take checks.</p>` : "";
+    let body;
+    if (paid) {
+      const line = s.status === "past_due" ? "Your last payment didn't go through. Update your card to keep the Analyst."
+        : s.cancel_at_period_end ? `Canceled. You keep the Analyst until ${when(s.renews)}.` : s.renews ? `Renews ${when(s.renews)}.` : "";
+      body = `<p class="note"><b>You're on ${tier(s.tier)}</b> · $${me.prices[s.tier]} a month. ${line}</p>${used}
+        <div class="acct-btns"><button type="button" class="boxbtn" id="sub-manage">Manage subscription</button></div>
+        <p class="note" id="sub-msg" role="status">Change your card, switch tiers or cancel, on Stripe's page.</p>`;
+    } else if (me.member) {
+      body = `<p class="note"><b>You're a member</b> (${tier(me.tier || 0)}, free).</p>${used}`;
+    } else if (thanks()) {
+      body = `<p class="note" id="sub-msg" role="status">Thanks! Setting up your membership…</p>`;
+    } else if (me.links?.length) {
+      const q = `?client_reference_id=${encodeURIComponent(user.uid)}${user.email ? `&locked_prefilled_email=${encodeURIComponent(user.email)}` : ""}`;
+      body = `<p class="note">Ask anything about any team or player and get answers from the site's own model and stats, or paste a take from X to fact-check it.</p>
+        <div class="sub-tiers">${me.links.slice(0, 2).map((l, i) => `<div class="sub-tier"><b>${tier(i)}</b><span class="sub-price">$${me.prices[i]}<small> a month</small></span>
+          <small>${me.limits[i].q.toLocaleString()} questions a month<br>${me.limits[i].takes} take checks a month</small>
+          <a class="btn" href="${esc(l + q)}">Subscribe</a></div>`).join("")}</div>
+        <p class="note">Paid through Stripe. Cancel any time in Settings.${me.test_mode ? " <b>Test mode:</b> use card 4242 4242 4242 4242, no real money." : ""}</p>`;
+    } else return "";
+    return `<h3>Cupcake Analyst</h3>${body}`;
+  }
+  function wire(root) {
+    const b = root.querySelector("#sub-manage"), msg = root.querySelector("#sub-msg");
+    if (b) b.onclick = async () => {
+      b.disabled = true; msg.textContent = "Opening Stripe…";
+      try { location.href = (await call("/portal", {})).url; } catch (e) { msg.textContent = e.message; b.disabled = false; }
+    };
+    if (thanks() && !me?.member && msg && !waiting) {
+      let tries = 0;
+      waiting = setInterval(async () => {
+        try { me = await call("/me"); } catch (e) { /* try again */ }
+        if (me?.member) {
+          clearInterval(waiting); waiting = 0;
+          history.replaceState(null, "", location.hash.replace(/[?&]subscribed=1/, ""));
+          show(); rerender();
+        } else if (++tries >= 20) { // a minute: stop asking, and leave the thank-you up
+          clearInterval(waiting);
+          const m = document.getElementById("sub-msg");
+          if (m) m.textContent = "Your payment went through, but the membership hasn't shown up yet. Reload this page in a minute.";
+        }
+      }, 3000);
+    }
+  }
   function show() {
     const on = !!me?.member;
     if (!on) { el?.remove(); el = null; return; }
@@ -118,6 +174,18 @@ const Bot = (() => {
       if (b?.dataset.tone) setTone(b.dataset.tone);
     });
     el.querySelector(".bot-log").addEventListener("click", (e) => {
+      const x = e.target.closest(".bot-x-post");
+      if (x && matchMedia("(pointer: coarse)").matches) { // phones: x.com in the home-screen app's browser is signed out
+        e.preventDefault();
+        if (!x.dataset.id) { navigator.share ? navigator.share({ text: x.dataset.text }).catch(() => {}) : window.open(x.href, "_blank"); return; }
+        // a reply: copy it, open the post in the X app, and fall back to the web if the app isn't there
+        navigator.clipboard?.writeText(x.dataset.text).catch(() => {});
+        x.textContent = "Copied. Paste it in X";
+        const web = setTimeout(() => { if (!document.hidden) window.open(x.href, "_blank"); }, 1500);
+        document.addEventListener("visibilitychange", () => clearTimeout(web), { once: true });
+        location.href = `twitter://status?id=${x.dataset.id}`;
+        return;
+      }
       const b = e.target.closest(".bot-copy");
       if (!b) return;
       navigator.clipboard?.writeText(b.dataset.copy).then(() => { b.textContent = "Copied"; setTimeout(() => { b.textContent = "Copy"; }, 1500); }).catch(() => {});
@@ -456,7 +524,7 @@ Reply with ONLY JSON, no other text: ${JSON.stringify(Object.fromEntries(["headl
     const xUrl = (t) => `https://x.com/intent/post?text=${encodeURIComponent(t)}${id ? `&in_reply_to=${id}` : ""}`;
     const rp = r.replies || {};
     const reply = (k, label) => rp[k] ? `<div class="bot-reply"><h4 class="bot-h">${label} <span class="muted">${rp[k].length}/280</span></h4><p>${esc(rp[k])}</p>
-        <div class="bot-ra"><button type="button" class="bot-copy" data-copy="${esc(rp[k])}">Copy</button><a href="${esc(xUrl(rp[k]))}" target="_blank" rel="noopener">${id ? "Reply on X" : "Post on X"} ↗</a></div></div>` : "";
+        <div class="bot-ra"><button type="button" class="bot-copy" data-copy="${esc(rp[k])}">Copy</button><a class="bot-x-post" href="${esc(xUrl(rp[k]))}" data-text="${esc(rp[k])}"${id ? ` data-id="${id}"` : ""} target="_blank" rel="noopener">${id ? "Reply on X" : "Post on X"} ↗</a></div></div>` : "";
     return `<div class="bot-stamp ${vcls(r.verdict)}">${VLABEL[r.verdict] || "CAN'T CHECK"}</div>
       <p class="bot-lead">${esc(r.headline || "")}</p>
       ${(r.claims || []).length ? `<h4 class="bot-h">The claims</h4><ul class="bot-claims">${r.claims.map((x) => `<li><span class="bot-ctag ${vcls(x.verdict)}">${VLABEL[x.verdict] || "CAN'T CHECK"}</span> <b>${esc(x.claim)}</b><br>${esc(x.evidence)}</li>`).join("")}</ul>` : ""}
@@ -801,5 +869,5 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
     return t.execute(input, links);
   }
 
-  return { show };
+  return { show, section, wire };
 })();
