@@ -3803,7 +3803,7 @@ body.drawer-open .bot-fab { transform: translateX(calc(100% + 40px)); opacity: 0
 @media (max-width: 600px) { .bot-mode { gap: 4px; padding: 8px 14px 0; } .bot-mode button { padding: 0 8px; font-size: 11px; } .bot-tone button { padding: 0 6px; } }
 @media (max-width: 600px) {
   /* phones: one small box, the cupcake with ASK_ under it, so it doesn't cover the page */
-  .bot-fab { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); flex-direction: column; justify-content: center; gap: 3px;
+  .bot-fab { right: 12px; bottom: calc(28px + env(safe-area-inset-bottom)); flex-direction: column; justify-content: center; gap: 3px;
     padding: 6px 9px 5px; min-height: 52px; min-width: 52px; }
   .bot-fab .bot-mark { width: auto; height: auto; background: none; border: 0; border-radius: 0; }
   .bot-fab .bot-mark .logo-mark { height: 24px; }
