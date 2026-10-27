@@ -7,7 +7,7 @@ const Tour = (() => {
   // view (+ arg/params) to open, sel = what to outline, only = one league only
   const STEPS = [
     { view: "rankings", sel: "#table", title: "Power rankings", text: "Every team scored on power, résumé, efficiency, schedule and more. Tap any team for why it's there." },
-    { view: "rankings", sel: "#cotw", title: "Bully of the Week", text: "The week's most lopsided win over a team that never stood a chance. Bullying cupcakes isn't a résumé." },
+    { view: "rankings", sel: "#cotw", title: "Bully of the Week", text: "The week's most lopsided win over a team that never stood a chance." },
     { view: "rankings", sel: "#weights-fab", title: "Your weights", text: "Think schedule matters more than margin? Change how much each factor counts and the whole ranking re-sorts." },
     { view: "rankings", sel: "#league", title: "College or NFL", text: "Switch leagues any time. Everything on the site follows." },
     { view: "rankings", sel: "#gs", title: "Search anything", text: "Any team, coach or player, past or present. On a computer, press / to jump straight here." },

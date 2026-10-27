@@ -51,7 +51,7 @@ const Coaches = (() => {
       p.set("league", lg);
       location.hash = `#/coaches?${p}`;
     };
-    const head = `<h2>Coach rankings</h2><p class="muted co-sub">Bullying cupcakes isn't a résumé. Coaching wins are worth more against good teams.</p>`;
+    const head = `<h2>Coach rankings</h2><p class="muted co-sub">Coaching wins are worth more against good teams.</p>`;
     if (!L) {
       el.innerHTML = head + `<div class="card">${lg === "cfb" ? "College coach rankings show up after the next data update (it needs the list of who coached where, from CollegeFootballData)." : "Couldn't load the coach rankings. Try again in a minute."} </div>`;
       return;

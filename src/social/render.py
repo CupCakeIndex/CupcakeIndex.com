@@ -430,7 +430,7 @@ def bully_card(today, leagues=("cfb", "nfl"), now=None):
     if not lines:
         return img, "", link("rankings", leagues[0]), True  # no bully: no post
     text = ("NFL Bully of the Week, the biggest blowout. " + " ".join(lines) + " " + vary(["Not close.", "Somebody check on them.", "Mercy rule when?", "That one got out of hand early."], lines[0]) if nfl_only
-            else "Cupcake Bully of the Week. " + " ".join(lines) + " " + vary(["Congrats on the win. It's not a résumé.", "Bullying cupcakes isn't a résumé.",
+            else "Cupcake Bully of the Week. " + " ".join(lines) + " " + vary(["Scheduling is a skill, apparently.", "Somebody had to play them.",
                                                                              "Great scrimmage, fellas.", "Put that one on the highlight reel, we guess."], lines[0]))
     return img, text, link("rankings", leagues[0]), stale
 
