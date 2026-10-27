@@ -3838,3 +3838,16 @@ body.drawer-open .bot-fab { transform: translateX(calc(100% + 40px)); opacity: 0
   .rb-tools { margin-left: auto; display: flex; align-items: flex-end; gap: 6px; flex: none; }
   #rank-bar .rb-tools .back-fab { order: 1; } #rank-bar .rb-tools .gsearch { order: 2; margin-left: 0; } #rank-bar .rb-tools .my-team { order: 3; } #rank-bar .rb-tools #league { order: 4; margin-left: 0; }
 }
+/* phones: the search is just a square button, so it gets the magnifier everyone knows (every theme; computers keep >_ in the terminal themes, where it sits in a full search box) */
+@media (max-width: 640px) {
+  .gsearch .gs-gt, .gsearch .gs-us { display: none !important; }
+  .gsearch .gs-mag { display: block !important; width: 19px; height: 19px; }
+  /* and it sits up top with refresh and settings, the same size, on every page */
+  .top .gsearch { position: absolute !important; top: 12px; right: 100px; margin: 0 !important; }
+  .top .gsearch:not(.open) input { width: 34px !important; height: 34px !important; }
+  .top .gsearch:not(.open) .gs-icon { width: 34px !important; }
+}
+/* small phones: the title shrinks a little so it ends before the search / refresh / settings buttons */
+@media (max-width: 640px) { .brand h1 { font-size: 20px; } }
+@media (max-width: 389px) { .brand h1 { font-size: 18.5px; } }
+@media (max-width: 369px) { .brand h1 { font-size: 17px; } }

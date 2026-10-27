@@ -139,18 +139,19 @@ async function webhook(req, env) {
 // this month's chat cost and money in, by tier, for the Admin page: totals only, no emails (KV's free plan allows 1,000 lists a day)
 async function everyone(env, me) {
   const comped = memberList(env).filter((x) => x.email !== OWNER), compedEmails = new Set(comped.map((x) => x.email));
-  const subs = {}; // uid -> tier, paying subscribers only
+  const subs = {}; // uid -> tier, paying subscribers only (with a test key these are test cards: counted apart, not as money in)
   let cursor;
   do {
     const page = await env.USAGE.list({ prefix: "sub:", cursor });
     for (const k of page.keys) { const s = await env.USAGE.get(k.name, "json"); if (s?.status === "active") subs[k.name.slice(4)] = s.tier; }
     cursor = page.list_complete ? null : page.cursor;
   } while (cursor);
+  const test = testing(env);
   const tiers = TIERS.map(([name, price], i) => {
-    const n = Object.values(subs).filter((t) => t === i).length;
+    const n = test ? 0 : Object.values(subs).filter((t) => t === i).length;
     return { name, price, members: n, gross: n * price, in: n * (price - STRIPE_FEE(price)), usd: 0, questions: 0 };
   });
-  const m = month(), out = { month: m, usd: 0, questions: 0, takes: 0, days: {}, tiers, testing: testing(env),
+  const m = month(), out = { month: m, usd: 0, questions: 0, takes: 0, days: {}, tiers, testing: test, test_subs: test ? { members: Object.keys(subs).length, usd: 0, questions: 0 } : null,
     owner: { usd: 0, questions: 0 }, comped: { members: comped.length, usd: 0, questions: 0 }, unsorted: { usd: 0, questions: 0 } };
   do {
     const page = await env.USAGE.list({ prefix: "u:", cursor });
@@ -160,7 +161,7 @@ async function everyone(env, me) {
       out.usd += u.usd; out.questions += u.q; out.takes += u.t || 0;
       const email = u.email || (k.name.startsWith(`u:${me.uid}:`) ? me.email : ""); // the owner's own, even from before emails were kept
       const uid = k.name.split(":")[1]; // unsorted: no email yet, or no longer a member
-      const t = email === OWNER ? out.owner : uid in subs ? tiers[subs[uid]] : compedEmails.has(email) ? out.comped : out.unsorted;
+      const t = email === OWNER ? out.owner : uid in subs ? (test ? out.test_subs : tiers[subs[uid]]) : compedEmails.has(email) ? out.comped : out.unsorted;
       t.usd += u.usd; t.questions += u.q;
       for (const [d, x] of Object.entries(u.days || {})) {
         const t = (out.days[d] ||= { q: 0, usd: 0 });

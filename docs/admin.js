@@ -309,7 +309,8 @@ const Admin = (() => {
           <span class="muted">${num(chat.comped.members)} ${chat.comped.members === 1 ? "member" : "members"} · ${num(chat.comped.questions)} questions · used ${money(chat.comped.usd)}</span>${diff(-chat.comped.usd)}</li>` : ""}
         ${chat.owner?.usd ? `<li><span>Your own use <span class="muted">free, not a subscription</span></span>
           <span class="muted">${num(chat.owner.questions)} questions · used ${money(chat.owner.usd)}</span>${diff(-chat.owner.usd)}</li>` : ""}</ul>
-      ${chat.testing ? `<small>Stripe is in test mode: these subscriptions are test cards, not real money.</small>` : ""}
+      ${chat.test_subs?.members ? `<ul class="ad-subs"><li><span>Test subscriptions <span class="muted">Stripe test mode, not real money</span></span>
+        <span class="muted">${num(chat.test_subs.members)} test ${chat.test_subs.members === 1 ? "card" : "cards"} · ${num(chat.test_subs.questions)} questions · used ${money(chat.test_subs.usd)}</span><b class="${chat.test_subs.usd ? "down" : "up"}">${chat.test_subs.usd ? "−" + money(chat.test_subs.usd) : money(0)}</b></li></ul>` : ""}
       ${chat.unsorted?.usd ? `<small>${money(chat.unsorted.usd)} of the cost is from questions asked before the chat kept track of who asked.</small>` : ""}</td></tr>`;
   }
   function costs(db, el, today, mon, rows, err, mine = {}, chat = null) {
