@@ -46,7 +46,9 @@ QB = re.compile(r"\b(QB|quarterback)\b")
 STARS = 80
 NOT_NEWS = re.compile(
     r"\?|\b(rumou?rs?|could|should|would|might|may|if|why|how|what|who|which|deadline|grades?|candidates?|targets?|"
-    r"ideas?|mock|rankings?|best|worst|predictions?|(expert|staff|our|week \d+) picks|odds|bets?|betting|fantasy|start(?:/| or | and )sit|sit/start|start 'em|sit 'em|waiver wire|"
+    r"ideas?|mock|rankings?|best|worst|predictions?|(expert|staff|our|week \d+) picks|odds|bets?|betting|sportsbooks?|parlays?|spreads?|"
+    # fantasy is fine (Terry, Oct 28: "fantasy i dont mind posting. just not gambling"); it still has to be big news to go out
+    r"
     r"practice squad|recruit\w*|commit\w*|offer|visit|transfer portal|basketball|baseball|softball|volleyball|soccer|"
     r"hockey|podcast|takeaways|winners|losers|film|watch|live|updates?|tracker|reaction|reacts|"
     r"jersey|number|hall of fame|anniversary|on this day|catch|here's|know|depth chart|polls?|ratings|instead|cautionary|"
