@@ -4100,6 +4100,11 @@ const Live = (() => {
     const cgl = cid ? await api(`${WEB("cfb")}/athletes/${encodeURIComponent(cid)}/gamelog${cseason ? `?season=${encodeURIComponent(cseason)}` : ""}`, 3600000).catch(() => null) : null;
     if (my !== token) return;
     const logGl = cseason && cgl ? cgl : gl, logLg = logGl === cgl ? "cfb" : lg;
+    // Takes tab: talking points from this season's games and headlines about him, then our X posts (takes.js)
+    const points = season ? [] : Takes.playerPoints(a, gl, lg, PRIMARY(a.position?.abbreviation));
+    const heads = await Takes.headlines(a, lg).catch(() => []);
+    if (my !== token) return;
+    const nTakes = points.length + heads.length + takes.length;
     const facts = [
       a.position?.displayName, a.displayJersey,
       [a.displayHeight, a.displayWeight].filter(Boolean).join(", "),
@@ -4183,12 +4188,14 @@ const Live = (() => {
         </div>
       </div>
       <div class="subtabs pl-tabs">${[["", "Overview", summary || injInfo(inj)], ["career", "Career", true], ["log", "Game log", !noLogs], ["charts", hasPc ? "Charts" : "Kick chart", hasCharts],
-        ["takes", `Takes <small>${takes.length}</small>`, takes.length]].filter((t) => t[2]).map(([k, label]) => {
+        ["takes", `Takes <small>${nTakes}</small>`, nTakes]].filter((t) => t[2]).map(([k, label]) => {
         const keep = Object.fromEntries(["season", "cseason"].map((x) => [x, params.get(x)]).filter((x) => x[1]));
         return `<a class="subtab${ptab === k ? " on" : ""}" href="${link("player", id, { ...(k ? { tab: k } : {}), ...(k === "takes" ? {} : keep) })}">${label}</a>`;
       }).join("")}</div>`;
     if (ptab === "takes") {
-      view("player").innerHTML = head + `<div class="card">${takes.length ? Takes.list(takes) : `<p class="muted">No takes about this player yet. <a href="${link("takes")}">See all our Takes →</a></p>`}</div>`;
+      view("player").innerHTML = head + `<div class="card">${Takes.pointsHtml(points)}${Takes.headlinesHtml(heads, !points.length)}${takes.length
+        ? `${points.length || heads.length ? `<h3 class="tk-posts-h">From our X account</h3>` : ""}${Takes.list(takes)}`
+        : nTakes ? "" : `<p class="muted">No takes about this player yet. <a href="${link("takes")}">See all our Takes →</a></p>`}</div>`;
       fillFaces(view("player"));
       return;
     }

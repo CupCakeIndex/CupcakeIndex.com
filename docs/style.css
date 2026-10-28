@@ -2131,6 +2131,10 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 .tk-st-item small { display: block; margin-top: 2px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 .tk-st-item p { margin: 8px 0 0; font-size: 13px; line-height: 1.45; color: var(--ink); }
 .tk-posts-h { margin: 22px 0 0; }
+.tk-hl { list-style: none; margin: 8px 0 0; padding: 0; }
+.tk-hl li { padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; line-height: 1.45; }
+.tk-hl li:first-child { border-top: 0; }
+.tk-hl small { white-space: nowrap; }
 .nw-teams a { border: 1px solid var(--line); padding: 1px 6px; font-size: 11px; color: var(--muted); text-decoration: none; }
 .nw-teams a:hover { border-color: var(--accent); color: var(--accent); }
 @media (max-width: 640px) {
