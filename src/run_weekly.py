@@ -97,7 +97,8 @@ def run_league(league, season, cfg_league, offline, light=False):
     out_dir.mkdir(parents=True, exist_ok=True)
     weeks, graded, cotw_hist = [], [], {}
     for week in (range(1, last + 1) if last else [0]):
-        res = model.build_week(teams, games, d["advanced"], d["polls"], week, cfg, prior, rgames, node_prior, ratings=nfl_R.get(week))
+        res = model.build_week(teams, games, d["advanced"], d["polls"], week, cfg, prior, rgames, node_prior,
+                               ratings=nfl_R.get(week), lines=lines)
         cotw = model.cupcake_of_week(games, res["ratings"], week, cfg, teams)
         if cotw:
             cotw_hist.setdefault(cotw["team"], []).append(week)
@@ -237,7 +238,8 @@ def main():
             latest={"season": int(latest), "week": max(L["seasons"][latest]["weeks"])},
             factors=[{"key": k, "label": lbl, "help": (model.NFL_HELP.get(k, h) if league == "nfl" else h),
                       **({"invert": True} if k in model.INVERTED else {})}
-                     for k, lbl, h in model.FACTORS if k in weights],
+                     for k, lbl, h in model.FACTORS if k in weights and k not in model.HIDDEN],
+            hidden=[k for k in weights if k in model.HIDDEN],  # in the blend, never a column or slider (docs/app.js)
             default_weights=weights,
             **({} if args.keep_date and "updated" in L else {"updated": datetime.now(timezone.utc).isoformat(timespec="minutes")}),
         )

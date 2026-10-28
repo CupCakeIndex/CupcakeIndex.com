@@ -3,14 +3,18 @@
 
 cfb:
   # Default slider positions (0-100). The website starts with these.
+  # Oct 27 2026 ("D Balanced", CFB Model Review.pdf): résumé-first, with the betting markets' view baked in. Was power 30,
+  # résumé 20, efficiency 20, sos 10, recent 10, cupcake 5, luck 5: about 60% of that measured how dominant a team
+  # looks (power, efficiency, recent), so 6-2 LSU with no top-25 wins was #1. Backtest on 794 games: 70.5% vs 68.9%.
   default_weights:
-    power: 30        # Opponent-adjusted scoring margin (who you beat, by how much, capped)
-    resume: 20       # Strength of record: wins that a top-25 team would NOT be guaranteed
-    efficiency: 20   # Opponent-adjusted EPA/play + success rate, garbage time removed
-    sos: 10          # Average strength of opponents played
-    recent: 10       # How the team has played in its last few games
-    cupcake: 5       # Cupcake score (higher = softer schedule) counts AGAINST a team
-    luck: 5          # "Bad luck": boost for unlucky teams, penalty for teams winning coin flips
+    resume: 30       # Strength of record: wins that a top-12 team would NOT be guaranteed; every loss costs
+    market: 25       # Hidden (model.HIDDEN): strength implied by the books' lines on games already played
+    power: 15        # Opponent-adjusted scoring margin (who you beat, by how much, capped)
+    efficiency: 15   # Opponent-adjusted EPA/play + success rate, garbage time removed
+    cupcake: 10      # Cupcake score (higher = softer schedule) counts AGAINST a team
+    recent: 5        # How the team has played in its last few games
+    sos: 0           # Off: Power and Résumé already account for who you played (it was lifting 4-3 SEC teams)
+    luck: 0          # Off: no help predicting, and Résumé already counts close losses
   model:
     margin_cap: 24          # Points. A 63-0 win counts the same as a 24-0 win.
     home_field: 2.5         # Points of home-field advantage
@@ -24,7 +28,9 @@ cfb:
     cupcake_span: 21        # ...counting fully at gap + span (35+ points worse)
     cupcake_max_opp: 0      # ...and only if they're below an average FBS team (rating < 0). FCS always counts.
     cotw_min_margin: 21     # Cupcake of the Week needs a win by at least this much
-    benchmark_rank: 25      # Résumé = wins compared with what the #25 team would get
+    benchmark_rank: 12      # Résumé = wins compared with what the #12 team (a playoff team) would get (was 25)
+    loss_floor: 0.5         # ...and every loss costs at least half a win, even to a great team
+    market_prior_games: 2   # Market factor: the preseason guess counts like this many games of lines
     prior_games: 5          # Preseason expectation counts like this many games in week 1...
     prior_fade_week: 9      # ...and fades to zero by this week (backtested on 2025-26: best of 8 settings, though all were close)
     one_score: 8            # Margin that counts as a "one-score game"
