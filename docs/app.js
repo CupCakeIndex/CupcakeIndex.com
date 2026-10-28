@@ -28,12 +28,12 @@ const BASE_PRESETS = {
 const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", recent: "FORM", cupcake: "CUP", luck: "UNLK" };
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
 const RANK_VIEWS = new Set(["rankings", "schedules", "resume"]);
-const VIEWS = new Set(["rankings", "picks", "schedules", "resume", "shame", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "trades", "daily", "hilo", "dynasty", "mock", "fantasy", "news", "takes", "coaches", "coach", "admin", "breakdown", "games", "settings", "privacy"]);
+const VIEWS = new Set(["rankings", "recap", "picks", "schedules", "resume", "shame", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "trades", "daily", "hilo", "dynasty", "mock", "fantasy", "news", "takes", "coaches", "coach", "admin", "breakdown", "games", "settings", "privacy"]);
 // The 5 tabs and the pages inside each, shown in a drop-down when you tap the tab (like More). An item is
 // [view, label, params, league]: params pick a page that shares a view (Stats ?show=visualize), league hides it in the
 // other league. "also" = pages with no pill of their own that still light up the tab (a game's box score -> Scores).
 const GROUPS = [
-  { tab: "rankings", items: [["rankings", "Rankings"], ["resume", "Résumé Check"], ["schedules", "Schedules"], ["shame", "Hall of Shame"], ["coaches", "Coaches"], ["compare", "Compare", null, "cfb"]], also: ["breakdown", "coach"] },
+  { tab: "rankings", items: [["rankings", "Rankings"], ["recap", "This Week"], ["resume", "Résumé Check"], ["schedules", "Schedules"], ["shame", "Hall of Shame"], ["coaches", "Coaches"], ["compare", "Compare", null, "cfb"]], also: ["breakdown", "coach"] },
   { tab: "scores", items: [["scores", "Scores"], ["standings", "Standings"], ["standings", "Playoff picture", { show: "playoff" }]], also: ["game"] },
   { tab: "stats", items: [["stats", "Leaders"], ["stats", "Visualize", { show: "visualize" }], ["stats", "Injuries", { show: "injuries" }], ["fantasy", "Fantasy", null, "nfl"], ["stats", "Projected", { show: "projected" }], ["stats", "Frauds", { show: "frauds" }, "nfl"], ["stats", "Records", { show: "records" }, "nfl"]] },
   { tab: "play", items: [["picks", "Pick'em"], ["daily", "Daily player"], ["hilo", "Higher or Lower"], ["dynasty", "Dynasty Draft"], ["mock", "Mock draft"], ["picks", "Leaderboard", { board: 1 }]], also: ["games"] },
@@ -210,6 +210,8 @@ async function route() {
     renderCompare();
   } else if (r.view === "shame") {
     renderShame();
+  } else if (r.view === "recap") {
+    renderRecap();
   } else if (r.view === "news") {
     News.render(r.params);
   } else if (r.view === "takes") {
@@ -288,7 +290,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "499"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "500"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -871,10 +873,11 @@ function headToHead(list, lg = league) {
   const at = new Map(list.map((t, i) => [t.team, i]));
   return list.map((t) => (t.h2h && at.get(t.team) > at.get(t.h2h) ? { ...t, h2h: null } : t));
 }
-// phones can't hover: tapping a tag with a title (H2H, OVER, NOBODY...) shows its explanation in a small bubble
+// phones can't hover: tapping a tag with a title (H2H, OVER, NOBODY...) or a glossary word (glossary.js) shows its
+// explanation in a small bubble
 document.addEventListener("click", (e) => {
   document.querySelector(".tip-pop")?.remove();
-  const p = e.target.closest?.(".pill[title]");
+  const p = e.target.closest?.(".pill[title], .gl[title]");
   if (!p) return;
   e.stopPropagation(); e.preventDefault();
   const r = p.getBoundingClientRect(), tip = document.createElement("div");
@@ -1614,6 +1617,69 @@ async function renderShame() {
       <b>${g.our_ap ? `<span class="muted" title="AP rank at the time">No. ${g.our_ap}</span> ` : ""}${esc(g.team)} <span class="down">lost</span> ${esc(g.score)} ${g.loc === "A" ? "at" : "vs."} ${esc(g.opp)}</b>
       <small class="muted">${day(g.d)}</small></div></li>`).join("");
   el("hs-loss").onclick = open;
+}
+
+// ------------------------------------------------------------------ This week in cupcakes (Site review 15)
+// The latest week in one page, from data we already have: the week's rankings and last week's (movers, exposed,
+// records that lie), the Bully of the Week, and our hot takes on X from the last 7 days (takes.json).
+async function renderRecap() {
+  const nfl = league === "nfl", lt = LG.latest, el = (id) => $("#" + id);
+  const weeks = (LG.seasons[lt.season] || {}).weeks || [], pw = weeks[weeks.indexOf(lt.week) - 1];
+  let cur, prev, takes;
+  try {
+    [cur, prev, takes] = await Promise.all([weekData(league, lt.season, lt.week), pw != null ? weekData(league, lt.season, pw).catch(() => null) : null,
+      getJSON("data/takes.json").catch(() => null)]);
+  } catch {
+    el("wr-bully").innerHTML = `<p class="muted">Couldn't load this week. Try refreshing.</p>`;
+    return;
+  }
+  const now = composite(cur.teams, LG.default_weights), was = prev ? composite(prev.teams, LG.default_weights) : [];
+  const wasRank = new Map(was.map((t) => [t.team, t.rank]));
+  const byName = new Map(now.map((t) => [t.team, t]));
+  const open = (e) => { const a = e.target.closest("[data-team]"); if (a && byName.has(a.dataset.team)) { e.preventDefault(); ranked = rankTeams(cur.teams); openTeam(a.dataset.team); } };
+  const row = (t, line, n = "") => `<li data-team="${esc(t.team)}">${logo(t)}<div><b>${esc(t.team)}</b><small class="muted">${line}</small></div>${n ? `<span class="hs-n">${n}</span>` : ""}</li>`;
+  const cut = nfl ? 10 : 25;
+  el("wr-sub").textContent = `${nfl ? "NFL" : "College"} Week ${lt.week}, ${lt.season}: who bullied whom, who moved, who got exposed and whose record is lying.`;
+
+  // Bully of the Week
+  const c = cur.cupcake_of_week, bt = c && byName.get(c.team);
+  el("wr-bully-title").textContent = nfl ? "Biggest blowout" : "Cupcake Bully of the Week";
+  el("wr-bully").innerHTML = c ? `<ol class="hs-list">${row(bt || { team: c.team }, `${esc(c.score_line)} over ${esc(c.opp)}${c.fcs ? " (FCS)" : ""}`)}</ol>` : `<p class="muted">No bully this week.</p>`;
+  el("wr-bully").onclick = open;
+
+  // movers: our ranking now vs last week, teams in either week's top 50 (all 32 in the NFL)
+  const moves = now.filter((t) => wasRank.has(t.team) && (nfl || t.rank <= 50 || wasRank.get(t.team) <= 50)).map((t) => ({ t, d: wasRank.get(t.team) - t.rank }));
+  const last = (t) => { const g = (t.schedule || []).filter((x) => x.result).at(-1); return g && g.week === lt.week ? `${g.result === "W" ? "beat" : "lost to"} ${esc(g.opp)} ${esc(g.score || "")}` : "didn't play"; };
+  const up = moves.filter((m) => m.d > 0).sort((a, b) => b.d - a.d).slice(0, 5), down = moves.filter((m) => m.d < 0).sort((a, b) => a.d - b.d).slice(0, 5);
+  const mv = (m) => row(m.t, `#${wasRank.get(m.t.team)} → #${m.t.rank} · ${last(m.t)}`, `<span class="${m.d > 0 ? "up" : "down"}">${m.d > 0 ? "▲" : "▼"}${Math.abs(m.d)}</span>`);
+  el("wr-movers").innerHTML = prev ? `<div><b>Climbing</b><ol class="hs-list">${up.map(mv).join("") || '<li class="muted">Nobody</li>'}</ol></div>
+    <div><b>Falling</b><ol class="hs-list">${down.map(mv).join("") || '<li class="muted">Nobody</li>'}</ol></div>` : `<p class="muted">First week of the season: nothing to compare yet.</p>`;
+  el("wr-movers").onclick = open;
+
+  // exposed: in last week's top 25 (top 10 NFL), lost this week and dropped
+  el("wr-exposed-note").textContent = `In our top ${cut} last week, then lost and dropped.`;
+  const exposed = now.filter((t) => (wasRank.get(t.team) || 999) <= cut && t.rank > wasRank.get(t.team)).map((t) => ({ t, g: (t.schedule || []).find((x) => x.week === lt.week && x.result === "L") }))
+    .filter((x) => x.g).sort((a, b) => wasRank.get(a.t.team) - wasRank.get(b.t.team));
+  el("wr-exposed").innerHTML = exposed.map((x) => row(x.t, `was #${wasRank.get(x.t.team)} · lost ${esc(x.g.score || "")} ${x.g.loc === "A" ? "at" : "vs."} ${esc(x.g.opp)} · now #${x.t.rank}`)).join("")
+    || `<li class="muted">Every top-${cut} team held up this week.</li>`;
+  el("wr-exposed").onclick = open;
+
+  // record lying: winning records ranked far below where the record alone would put them
+  const pct = (t) => (t.wins + (t.ties || 0) / 2) / Math.max(1, t.wins + t.losses + (t.ties || 0));
+  const byRec = [...now].sort((a, b) => pct(b) - pct(a) || b.wins - a.wins || a.rank - b.rank), recRank = new Map(byRec.map((t, i) => [t.team, i + 1]));
+  const lying = now.filter((t) => t.wins > t.losses && t.rank - recRank.get(t.team) >= (nfl ? 8 : 20))
+    .sort((a, b) => (b.rank - recRank.get(b.team)) - (a.rank - recRank.get(a.team))).slice(0, 5);
+  el("wr-frauds").innerHTML = lying.map((t) => row(t, `${esc(t.record)}, a #${recRank.get(t.team)} record · we rank them #${t.rank}`)).join("")
+    || `<li class="muted">No records lying this week.</li>`;
+  el("wr-frauds").onclick = open;
+
+  // hot takes from the last 7 days, this league
+  const since = Date.now() - 7 * 864e5;
+  const tk = (takes?.items || []).filter((x) => x.league === league && !x.date_only && Date.parse(x.time) >= since)
+    .sort((a, b) => /^hot/.test(b.stat) - /^hot/.test(a.stat) || Date.parse(b.time) - Date.parse(a.time)).slice(0, 3);
+  el("wr-takes").innerHTML = tk.length ? tk.map((x) => `<blockquote class="wr-take">${esc(x.text.replace(/\s*(?:[@#]\w+\s*)+$/, ""))}
+      ${safeUrl(x.x) ? `<a href="${esc(x.x)}" target="_blank" rel="noopener">See it on X</a>` : ""}</blockquote>`).join("")
+    : `<p class="muted">No takes this week yet. <a href="${link("takes")}">All takes →</a></p>`;
 }
 
 let cmpSort = { k: "ours", dir: 1 };

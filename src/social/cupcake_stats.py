@@ -263,12 +263,19 @@ def _():
 
 
 def week_games(days=8):
-    """This week's college games (not played yet), from the current season's history file."""
+    """This week's college games (not played yet), from the current season's history file. Only each team's NEXT game:
+    a Saturday-morning post was about Mississippi State's game a week later, before that day's game had even started
+    (Terry, Oct 24), so a game is skipped while either team still has an earlier one to play."""
     cur = history().get(max(history())) if history() else None
     if not cur:
         return []
     end = TODAY + dt.timedelta(days=days)
-    return [x for x in cur["games"] if x["hp"] is None and x["d"] and TODAY <= dt.date.fromisoformat(x["d"]) <= end]
+    left = [x for x in cur["games"] if x["hp"] is None and x["d"] and TODAY <= dt.date.fromisoformat(x["d"])]
+    nxt = {}
+    for x in left:
+        for t in (x["a"], x["h"]):
+            nxt[t] = min(nxt.get(t, x["d"]), x["d"])
+    return [x for x in left if dt.date.fromisoformat(x["d"]) <= end and x["d"] == nxt[x["a"]] == nxt[x["h"]]]
 
 
 POWER = {"SEC", "Big Ten", "Big 12", "ACC"}

@@ -3868,3 +3868,10 @@ body.drawer-open .bot-fab { transform: translateX(calc(100% + 40px)); opacity: 0
 @media (max-width: 369px) { .brand h1 { font-size: 17px; } }
 /* a player's nickname under his name, like an epithet (player page; src/player_aliases.py) */
 .pl-nick { margin: -6px 0 8px; color: var(--accent); font-style: italic; font-size: 15px; letter-spacing: .02em; }
+/* glossary words (glossary.js): a dotted underline; tap for the explanation bubble (.tip-pop) */
+.gl { text-decoration: underline dotted; text-decoration-color: color-mix(in srgb, var(--accent) 70%, transparent); text-underline-offset: 3px; cursor: help; }
+/* This week in cupcakes (renderRecap): climbing / falling side by side, one column on phones; our X takes as quotes */
+.wr-two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 640px) { .wr-two { grid-template-columns: 1fr; } }
+.wr-take { margin: 0 0 12px; padding: 10px 14px; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); border-radius: 0 8px 8px 0; line-height: 1.5; }
+.wr-take a { display: block; margin-top: 6px; font-size: 12px; }
