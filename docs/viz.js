@@ -2233,30 +2233,39 @@ const Viz = (() => {
         ${myList.length ? list.length ? body : `<p class="muted">No saved chart matches “${esc(mineQ)}”.</p>` : `<p class="muted">Nothing saved yet. Make a chart, then tap <b>☆ Save to My charts</b> under it. It keeps the seasons, filters and look, so it opens exactly the same later.</p>`}
         <p class="muted vz-pl-note">${signed ? "Saved to your account, so they're on every device you sign in on (the little pictures stay on the device that saved them)." : "Saved on this device. Sign in (Settings) to keep them on every device."} Up to 30 ${league === "nfl" ? "NFL" : "college"} charts.</p></div>`;
     })();
-    // Everything on one player (under the chart, so the chart comes first: Terry, Oct 28): every group he has a number in, each stat with his number and rank; tap one to chart it.
-    // Ranks are against players at his position in these weeks (rates: anyone with 35% of the leader's volume), whatever the
-    // filters. "Fewer is better" totals (interceptions thrown, penalties) get no rank: everyone who barely played would beat him.
+    // Everything on one player (under the chart, so the chart comes first: Terry, Oct 28), in the player page's Season
+    // stats look (Terry picked it, Oct 28): a menu of sections on the left, one open at a time, each stat with his number
+    // and a bar to his percentile at his position. Same numbers as his page (statLine), but for the weeks and filters
+    // picked here; tap a stat to chart it.
     const plPanel = (() => {
       const k = st.pl;
       if (who !== "players" || !k || !agg[k]) return "";
-      const m = meta(k) || [k, ""], posK = POS_OF(m[1], agg[k].S), everyone = Object.keys(agg).filter((x) => POS_OF(meta(x)?.[1], agg[x].S) === posK);
-      const cats = groups.map(([g, l]) => [g, l.map((s) => {
-        const v = value(s, agg[k].S, agg[k].g, "total"), den = s[3].den;
-        if (v == null || Number.isNaN(v) || (s[3].count ? !v : den && !den(agg[k].S, agg[k].g))) return null;
-        let n = 0, better = 0;
-        const minD = den ? 0.35 * Math.max(0, ...everyone.map((x) => den(agg[x].S, agg[x].g) || 0)) : 0;
-        if ((!den || den(agg[k].S, agg[k].g) >= minD) && !(s[3].count && s[3].low)) for (const x of everyone) {
-          if (den && (den(agg[x].S, agg[x].g) || 0) < minD) continue;
-          const w = value(s, agg[x].S, agg[x].g, "total");
-          if (w == null || Number.isNaN(w)) continue;
-          n++; if (s[3].low ? w < v : w > v) better++;
-        }
-        return [s, s[3].split ? `${fmt(s, v, "total")} total` : fmt(s, v, "total"), n ? better + 1 : 0];
-      }).filter(Boolean)]).filter(([, l]) => l.length);
-      const count = cats.reduce((a, [, l]) => a + l.length, 0);
-      return `<div class="vz-pl"><div class="vz-pl-head"><div><b>Every stat on ${esc(m[0])}</b><small>${esc([m[1], tm(teamOf(k))[0], seasonTxt, `${count} stats in ${cats.length} groups`].filter(Boolean).join(" · "))}</small></div><button type="button" class="vz-pl-x" id="vz-plx" title="Close">✕</button></div>
-        <div class="vz-pl-cats">${cats.map(([g, l]) => `<details${l.some(([s]) => s === stat) ? " open" : ""}><summary>${esc(g)} <small>${l.length}</small></summary><div class="vz-pl-stats">${l.map(([s, v, r]) => `<button type="button" data-pls="${s[0]}" title="${esc(s[1])}" class="${s === stat ? "on" : ""}"><span>${esc(s[1])}</span><b>${esc(v)}</b>${r ? `<small>#${r}</small>` : ""}</button>`).join("")}</div></details>`).join("")}</div>
-        <p class="muted vz-pl-note">Tap a group, then a stat to chart it with ${esc(m[0])} highlighted. Totals for ${esc(seasonTxt)}, ${esc(weeksTxt.toLowerCase())}; # = his rank among ${esc({ QB: "QBs", RB: "running backs", WR: "receivers and tight ends", K: "kickers", OL: "offensive linemen", DEF: "defenders" }[posK] || "players")} (rates: ones with at least 35% of the leader's volume).</p></div>`;
+      const m = meta(k) || [k, ""], { posK, cats } = statLine(groups, agg, k, (x) => meta(x)?.[1]);
+      const secs = [];
+      cats.forEach(([g, l]) => {
+        const name = (PL_SECS.find(([, re]) => re.test(g)) || ["More"])[0];
+        (secs.find((x) => x[0] === name) || secs[secs.push([name, []]) - 1])[1].push([g, l]);
+      });
+      secs.sort((x, y) => PL_SECS.findIndex(([n]) => n === x[0]) - PL_SECS.findIndex(([n]) => n === y[0]));
+      if (!secs.length) return "";
+      const open = secs.find(([n]) => n === plSec) || secs.find(([, gs]) => gs.some(([, l]) => l.some((x) => x.key === stat[0]))) || secs[0];
+      const P = Live.ps, count = cats.reduce((a, [, l]) => a + l.length, 0);
+      const row = (x) => `<button type="button" class="ps-row ${P.tier(x)}${x.key === stat[0] ? " on" : ""}" data-pls="${esc(x.key)}" title="${esc(x.label)}"><span class="ps-l">${esc(x.label)}</span><b>${esc(x.txt)}</b>
+        <span class="ps-track">${x.pct == null ? `<em class="ps-nr">${P.rank(x)}</em>` : `<span class="ps-fill" style="width:${(100 * x.pct).toFixed(0)}%"><i></i></span><em style="left:${(100 * x.pct).toFixed(0)}%">${P.rank(x)}</em>`}</span></button>`;
+      const sec = (g, l) => `<section class="ps-sec"><h4 class="ps-h"><span>${esc(g)}</span><small>[${String(l.length).padStart(2, "0")}]</small></h4><div class="ps-rows">${l.map(row).join("")}</div></section>`;
+      // Throw map has 60-odd stats (Terry: "subfolders for the throw chart stats"): folders by part of the field, closed
+      // except the one with the charted stat. Zone stat keys end in the zone: l/m/r = side, s/i/d = depth, "dl" = one zone
+      const zoneFolders = (l) => ZONE_FOLDERS.map(([name, test]) => [name, l.filter((x) => test(x.key.split("_").pop()))]).filter(([, f]) => f.length)
+        .map(([name, f]) => `<details class="vz-pl-sub"${f.some((x) => x.key === stat[0]) ? " open" : ""}><summary><span>${esc(name)}</span><small>[${String(f.length).padStart(2, "0")}]</small></summary>${[["How often", true], ["How it went", false]].map(([h, often]) => {
+          const part = f.filter((x) => /_(pct|n)_[a-z]+$/.test(x.key) === often); // % of throws / throws there, then completion %, EPA...
+          return part.length ? `<h5 class="vz-pl-subh">${h}</h5><div class="ps-rows">${part.map(row).join("")}</div>` : "";
+        }).join("")}</details>`).join("");
+      const posTxt = { QB: "QBs", RB: "running backs", WR: "receivers and tight ends", K: "kickers", OL: "offensive linemen", DEF: "defenders" }[posK] || "players";
+      return `<div class="vz-pl card ps-card" style="${P.palette()}"><div class="vz-pl-head"><div class="tk-st-head"><h3>Every stat on ${esc(m[0])}</h3><small class="muted">${esc([m[1], tm(teamOf(k))[0], seasonTxt, `${count} stats`, `rank among ${posTxt}`].filter(Boolean).join(" · "))}</small></div><button type="button" class="vz-pl-x" id="vz-plx" title="Close">✕</button></div>
+        <p class="ps-key"><span class="t5">Top 10%</span><span class="t4">Top 30%</span><span class="t3">Middle</span><span class="t2">Bottom 40%</span><span class="t1">Bottom 20%</span></p>
+        <div class="vz-pl-body"><div class="vz-pl-nav">${secs.map(([n, gs]) => `<button type="button" data-plsec="${esc(n)}" class="${n === open[0] ? "on" : ""}"><span>${esc(n)}</span><small>${gs.reduce((a, [, l]) => a + l.length, 0)}</small></button>`).join("")}</div>
+        <div>${secs.map(([n, gs]) => `<div data-plsec="${esc(n)}"${n === open[0] ? "" : " hidden"}>${n === "Throw map" ? zoneFolders(gs.flatMap(([, l]) => l)) : gs.map(([g, l]) => sec(g, l)).join("")}</div>`).join("")}</div></div>
+        <p class="muted vz-pl-note">Tap a stat to chart it with ${esc(m[0])} highlighted. ${esc(seasonTxt)}, ${esc(weeksTxt.toLowerCase())}; 1st = best among ${esc(posTxt)} (rates count players with at least 35% of the leader's volume, and "fewer is better" stats like interceptions thrown count only the regulars). T = tied.</p></div>`;
     })();
     const frame = `${chipRow}<div class="vz-frame" id="vz-frame"><div class="vz-title"><b>${esc(title)}</b><small>${esc(sub)}</small></div>
         ${body.html || `<div class="vz-canvas" style="height:${body.h}px"><canvas id="vz-chart"></canvas></div>`}
@@ -2427,6 +2436,10 @@ const Viz = (() => {
       const b = e.target.closest("[data-k]"); if (b) { st.pick = picks.filter((k) => k !== b.dataset.k).join(","); redo(); } };
     const plx = document.getElementById("vz-plx");
     if (plx) plx.onclick = () => { st.pl = ""; redo(); };
+    el.querySelectorAll(".vz-pl-nav [data-plsec]").forEach((b) => b.onclick = () => {
+      plSec = b.dataset.plsec;
+      el.querySelectorAll(".vz-pl [data-plsec]").forEach((x) => (x.matches("button") ? x.classList.toggle("on", x === b) : (x.hidden = x.dataset.plsec !== plSec)));
+    });
     el.querySelectorAll("[data-pls]").forEach((b) => b.onclick = () => {
       const s = all.find((x) => x[0] === b.dataset.pls); if (!s) return;
       // chart it against everyone: filters that could leave him out come off, and he's highlighted
@@ -2957,21 +2970,12 @@ const Viz = (() => {
     return { players: list("players"), teams: list("teams") };
   }
 
-  // Every stat on one player this season, for his page and his Takes (live.js, takes.js): the same numbers and ranks as
-  // Visualize's "All his stats" panel (all weeks, no filters). null if he isn't in this season's chart data.
-  // { season, week, pos, posTxt, cats: [[group, [{key, label, v, txt, rank, n}]]] }
-  const PS_VOL = { QB: (S) => S.att, RB: (S) => S.carries, WR: (S) => S.targets || S.rec, DEF: (S) => S.tackles, K: (S) => S.fg_att, OL: (S) => S.snaps };
-  async function playerStats(lg, id) {
-    idx = idx || await getJSON("data/viz/index.json").catch(() => ({}));
-    const season = (idx[lg] || []).at(-1), D = season && season >= (idx.players?.[lg] || 0) && await file(season, lg);
-    if (!D?.pmeta?.[id]) return null;
-    const saved = st; st = { ...DEF }; // sum() reads the Visualize settings
-    let agg;
-    try { agg = sum(D, "players", 1, 99); } finally { st = saved; }
-    if (!agg[id]) return null;
-    const m = D.pmeta[id], me = agg[id], posK = POS_OF(m[1], me.S);
-    const everyone = Object.keys(agg).filter((x) => POS_OF(D.pmeta[x]?.[1], agg[x].S) === posK);
-    const cats = statsFor("players", D).map(([g, l]) => [g, l.filter((s) => !s[3].split).map((s) => {
+  // one player's stat line against everyone at his position in agg (sum() of the weeks wanted): for each group, his
+  // number, rank, ties and percentile. Used by his page (playerStats, all weeks) and Visualize's panel (the chart's weeks)
+  function statLine(groups, agg, id, posOf) {
+    const me = agg[id], posK = POS_OF(posOf(id), me.S);
+    const everyone = Object.keys(agg).filter((x) => POS_OF(posOf(x), agg[x].S) === posK);
+    const cats = groups.map(([g, l]) => [g, l.filter((s) => !s[3].split).map((s) => {
       let v;
       try { v = value(s, me.S, me.g, "total"); } catch { return null; }
       const den = s[3].den;
@@ -3004,6 +3008,29 @@ const Viz = (() => {
       const rank = n ? better + 1 : 0;
       return { key: s[0], label: s[1], v, txt: fmt(s, v, "total"), rank, tie: same > 0, same, n, pct: n > 1 ? 1 - (rank - 1) / (n - 1) : null, low: !!s[3].low, pos: s[3].pos || "" };
     }).filter(Boolean)]).filter(([, l]) => l.length);
+    return { posK, cats };
+  }
+
+  // Every stat on one player this season, for his page and his Takes (live.js, takes.js): the same numbers and ranks as
+  // Visualize's "Every stat on" panel with all weeks and no filters (both use statLine). null if he isn't in this season's chart data.
+  // { season, week, pos, posTxt, cats: [[group, [{key, label, v, txt, rank, n}]]] }
+  // the "Every stat on" panel's menu: each player stat group goes in the first section whose pattern matches it (else More)
+  const PL_SECS = [["Passing", /^Passing|Accuracy|QB under pressure/], ["Throw map", /^Where /], ["Running and catching", /^Rushing|Scrambles|Drops|offense|Big plays|4th downs/],
+    ["Usage", /Usage|^Advanced|Heisman/], ["Defense", /Defense|run defense|pass rush|coverage|Fumbles/], ["Kicking", /Kick/], ["Penalties", /enalt|Offensive line/], ["More", /$^/]];
+  let plSec = ""; // the section picked in that menu
+  const ZONE_FOLDERS = [["Left, middle, right", (z) => ZS[z]], ["Short, intermediate, deep", (z) => ZD[z]],
+    ...Object.entries(ZD).map(([d, l]) => [`${l} zones (left, middle, right)`, (z) => z.length === 2 && z[0] === d]), ["Other", (z) => !ZS[z] && !ZD[z] && !ZONES.includes(z)]];
+  const PS_VOL = { QB: (S) => S.att, RB: (S) => S.carries, WR: (S) => S.targets || S.rec, DEF: (S) => S.tackles, K: (S) => S.fg_att, OL: (S) => S.snaps };
+  async function playerStats(lg, id) {
+    idx = idx || await getJSON("data/viz/index.json").catch(() => ({}));
+    const season = (idx[lg] || []).at(-1), D = season && season >= (idx.players?.[lg] || 0) && await file(season, lg);
+    if (!D?.pmeta?.[id]) return null;
+    const saved = st; st = { ...DEF }; // sum() reads the Visualize settings
+    let agg;
+    try { agg = sum(D, "players", 1, 99); } finally { st = saved; }
+    if (!agg[id]) return null;
+    const { posK, cats } = statLine(statsFor("players", D), agg, id, (x) => D.pmeta[x]?.[1]);
+    const me = agg[id];
     return { season: D.season, week: Math.max(...D.prows.filter((r) => r[0] === id).map((r) => r[1])), g: me.g, pos: posK,
       posTxt: { QB: "QBs", RB: "running backs", WR: "receivers and tight ends", K: "kickers", OL: "offensive linemen", DEF: "defenders" }[posK] || "players", cats };
   }

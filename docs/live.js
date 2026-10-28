@@ -5837,5 +5837,6 @@ const Live = (() => {
     try { return fieldView(s, comp, home, away, { home: teamColor(home.team), away: teamColor(away.team) }, gameId, people, final ? topPlays(s) : null); }
     finally { league = keep; }
   }
-  return { stop, teamId, scores, game, stats, player, standings, team, freeagents, trades, searchPlayers, career, fillBugs, kit, simField, statsSubtabs: (on) => stSubStats(on) };
+  return { stop, teamId, scores, game, stats, player, standings, team, freeagents, trades, searchPlayers, career, fillBugs, kit, simField, statsSubtabs: (on) => stSubStats(on),
+    ps: { palette: psPalette, tier: psTier, rank: psRank } }; // the Season stats look, for Visualize's "Every stat on" panel
 })();

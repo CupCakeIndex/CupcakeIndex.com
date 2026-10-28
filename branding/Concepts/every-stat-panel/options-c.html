@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../../docs/style.css">
+<style>
+body{padding:28px;width:1240px}
+.opt-t{color:var(--accent);font-weight:800;font-size:22px;margin:0 0 4px}
+.opt-w{color:var(--muted);font-size:13px;margin:0 0 12px;max-width:1100px}
+.opt{margin-bottom:40px}
+/* mockup-only bits */
+.es-side{display:grid;grid-template-columns:200px 1fr;gap:28px;align-items:start}
+.es-nav{display:flex;flex-direction:column;border-left:1px solid var(--line);margin-top:18px}
+.es-nav span{display:flex;justify-content:space-between;padding:8px 12px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.es-nav span small{opacity:.7}
+.es-nav span.on{color:var(--accent);box-shadow:inset 2px 0 0 var(--accent);background:color-mix(in srgb,var(--accent) 7%,transparent)}
+
+.es-x{position:absolute;top:14px;right:14px;border:1px solid var(--line);border-radius:99px;width:30px;height:30px;display:grid;place-items:center;color:var(--muted)}
+.ps-row.on{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.ps-rows.two{display:block;columns:2;column-gap:32px}.ps-rows.two .ps-row{break-inside:avoid}
+</style></head><body>
+
+<div class="opt">
+<p class="opt-t">C1 · Side menu, in the Season stats look</p>
+<p class="opt-w">Same layout as C, but built from the player page's Season stats pieces: the same thin neon bars with 10% ticks, the cut-corner rank tags (1st, T3, 31st), your theme's colors (orange = top, blue = bottom), the "// HEADER [09]" labels and the grid card with corner lines.</p>
+<div class="card ps-card" style="position:relative">
+ <div class="es-x">✕</div>
+ <div class="tk-st-head"><h3>Every stat on Jayden Daniels</h3><small class="muted">QB · Washington Commanders · 2026 · 160 stats · rank among QBs</small></div>
+ <p class="ps-key"><span class="t5">Top 10%</span><span class="t4">Top 30%</span><span class="t3">Middle</span><span class="t2">Bottom 40%</span><span class="t1">Bottom 20%</span></p>
+ <div class="es-side">
+  <div class="es-nav"><span>Passing <small>51</small></span><span>Throw map <small>64</small></span><span class="on"><i style="font-style:normal"><i style="opacity:.6;font-style:normal">// </i>Usage</i> <small>9</small></span><span>Running <small>21</small></span><span>Situations <small>12</small></span><span>Penalties <small>10</small></span></div>
+  <section class="ps-sec"><h4 class="ps-h"><span>Usage</span><small>[09]</small></h4><div class="ps-rows" id="r1"></div></section>
+ </div>
+</div></div>
+
+<div class="opt">
+<p class="opt-t">C2 · Tabs on top, two columns</p>
+<p class="opt-w">Same pieces, but the groups are the same pill tabs as the team page (Schedule / Roster / Depth chart), and the stats fill two columns, so a big group like Throw map takes half the height.</p>
+<div class="card ps-card" style="position:relative">
+ <div class="es-x">✕</div>
+ <div class="tk-st-head"><h3>Every stat on Jayden Daniels</h3><small class="muted">QB · Washington Commanders · 2026 · 160 stats · rank among QBs</small></div>
+ <div class="subtabs"><a class="subtab">Passing <small>51</small></a><a class="subtab">Throw map <small>64</small></a><a class="subtab on">Usage <small>9</small></a><a class="subtab">Running <small>21</small></a><a class="subtab">Situations <small>12</small></a><a class="subtab">Penalties <small>10</small></a></div>
+ <p class="ps-key"><span class="t5">Top 10%</span><span class="t4">Top 30%</span><span class="t3">Middle</span><span class="t2">Bottom 40%</span><span class="t1">Bottom 20%</span></p>
+ <section class="ps-sec"><h4 class="ps-h"><span>Usage</span><small>[09]</small></h4><div class="ps-rows two" id="r2"></div></section>
+</div></div>
+
+<script>
+const S = [["Scrimmage-yard share (% of team)","14.8%",1,0,1],["Yards per touch","8.52",1],["Carry share (% of team carries)","22.5%",3,1],["TD share (% of team TDs)","20.0%",3,1],
+  ["TD rate (% of touches)","8.0%",6],["Average depth of target","8.4",8],["Touches (carries + catches)","25",9],["Fantasy points (PPR, per game)","3.43",12],["Snaps played","238",31]];
+const n = 32, ord = (r) => r + ([11,12,13].includes(r % 100) ? "th" : ["th","st","nd","rd"][r % 10] || "th");
+const html = S.map(([l, v, r, tie, on]) => { const p = 1 - (r - 1) / (n - 1), t = p >= .9 ? "t5" : p >= .7 ? "t4" : p >= .4 ? "t3" : p >= .2 ? "t2" : "t1", w = (100 * p).toFixed(0);
+  return `<a class="ps-row ${t}${on ? " on" : ""}"><span class="ps-l">${l}</span><b>${v}</b><span class="ps-track"><span class="ps-fill" style="width:${w}%"><i></i></span><em style="left:${w}%">${tie ? "T" + r : ord(r)}</em></span></a>`; }).join("");
+r1.innerHTML = html; r2.innerHTML = html;
+</script>
+</body></html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#000;color:#e8e8e8;font:14px "JetBrains Mono",monospace;padding:28px;width:1240px}
+.opt{margin-bottom:44px}
+.tag{color:#ff6b2c;font-weight:800;font-size:22px;margin-bottom:4px}
+.why{color:#9a9a9a;font-size:13px;margin-bottom:12px;max-width:1100px}
+.panel{background:#0e0f11;border:1px solid #26282c;border-left:3px solid #ff6b2c;border-radius:0 12px 12px 0;padding:18px 20px}
+.head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+.head b{font-size:17px;display:block}.head small{color:#8a8a8a;font-size:12px}
+.x{border:1px solid #333;border-radius:99px;width:30px;height:30px;display:grid;place-items:center;color:#888}
+.muted{color:#8a8a8a}
+/* tabs */
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.tabs span{border:1px solid #2c2e33;border-radius:99px;padding:6px 13px;font-size:13px;color:#cfcfcf}
+.tabs span small{color:#777;margin-left:5px}
+.tabs span.on{background:#ff6b2c;color:#000;border-color:#ff6b2c;font-weight:700}.tabs span.on small{color:#000}
+.sub{font-size:11px;letter-spacing:.12em;color:#8a8a8a;text-transform:uppercase;margin:14px 0 6px}
+.list{display:grid;grid-template-columns:1fr 1fr;column-gap:36px}
+.row{display:grid;grid-template-columns:1fr auto 64px;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #1d1f23}
+.row .v{font-weight:700;text-align:right}
+.rk{font-size:12px;text-align:right;color:#9a9a9a}
+.rk.top{color:#ff6b2c;font-weight:700}
+.row.on{background:#1a120d;border-radius:6px;padding-left:8px;outline:1px solid #ff6b2c55}
+/* B */
+.hl{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.hlbox{border:1px solid #23252a;border-radius:10px;padding:12px 14px}
+.hlbox h4{font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px}
+.hlbox.good h4{color:#3ddc84}.hlbox.bad h4{color:#ff5d5d}
+.hlbox .row{grid-template-columns:1fr auto 54px;padding:6px 0}
+.search{border:1px solid #2c2e33;border-radius:8px;padding:9px 12px;color:#777;margin-bottom:10px}
+.acc{border-top:1px solid #1d1f23}
+.acc div{display:grid;grid-template-columns:22px 1fr 120px 90px;padding:10px 0;border-bottom:1px solid #1d1f23;align-items:center}
+.acc div .c{color:#777;font-size:12px;text-align:right}.acc div .best{font-size:12px;text-align:right}
+/* C */
+.side{display:grid;grid-template-columns:220px 1fr;gap:22px}
+.nav div{padding:8px 12px;border-radius:8px;display:flex;justify-content:space-between;color:#cfcfcf;font-size:13px}
+.nav div small{color:#777}
+.nav div.on{background:#1a120d;color:#ff6b2c;font-weight:700;box-shadow:inset 3px 0 0 #ff6b2c}
+.prow{display:grid;grid-template-columns:260px 80px 1fr 56px;align-items:center;gap:14px;padding:8px 0;border-bottom:1px solid #1d1f23}
+.prow .v{font-weight:700;text-align:right}
+.bar{height:10px;background:#1b1d21;border-radius:99px;position:relative}
+.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:99px}
+.bar b{position:absolute;top:-4px;width:18px;height:18px;border-radius:99px;margin-left:-9px;font-size:9px;display:grid;place-items:center;color:#000;font-weight:800}
+.scale{display:grid;grid-template-columns:260px 80px 1fr 56px;gap:14px;font-size:11px;color:#666;margin-bottom:4px}
+.scale span:nth-child(3){display:flex;justify-content:space-between}
+.foot{color:#777;font-size:12px;margin-top:12px}
+</style></head><body>
+
+<!-- ============ A ============ -->
+<div class="opt">
+<div class="tag">A · Tabs + clean list</div>
+<div class="why">The 20 groups become 6 tabs. Full stat names (no "Carry share (% o…"), number and rank lined up in columns, top-5 ranks in orange. One tab open at a time.</div>
+<div class="panel">
+ <div class="head"><div><b>Every stat on Jayden Daniels</b><small>QB · Washington Commanders · 2026 · 160 stats</small></div><div class="x">✕</div></div>
+ <div class="tabs"><span>Passing<small>51</small></span><span>Throw map<small>64</small></span><span class="on">Usage<small>9</small></span><span>Running<small>21</small></span><span>Situations<small>12</small></span><span>Penalties<small>10</small></span></div>
+ <div class="list">
+  <div class="row"><span>Carry share (% of team carries)</span><span class="v">22.5%</span><span class="rk top">#3</span></div>
+  <div class="row"><span>TD rate (% of touches)</span><span class="v">8.0%</span><span class="rk">#6</span></div>
+  <div class="row on"><span>Scrimmage-yard share (% of team)</span><span class="v">14.8%</span><span class="rk top">#1</span></div>
+  <div class="row"><span>Average depth of target</span><span class="v">8.4</span><span class="rk">#8</span></div>
+  <div class="row"><span>TD share (% of team TDs)</span><span class="v">20.0%</span><span class="rk top">#3</span></div>
+  <div class="row"><span>Fantasy points (PPR, per game)</span><span class="v">3.43</span><span class="rk">#12</span></div>
+  <div class="row"><span>Touches (carries + catches)</span><span class="v">25</span><span class="rk">#9</span></div>
+  <div class="row"><span>Snaps played</span><span class="v">238</span><span class="rk">#31</span></div>
+  <div class="row"><span>Yards per touch</span><span class="v">8.52</span><span class="rk top">#1</span></div>
+ </div>
+ <div class="foot"># = rank among QBs · tap a stat to chart it</div>
+</div></div>
+
+<!-- ============ B ============ -->
+<div class="opt">
+<div class="tag">B · Best and worst first</div>
+<div class="why">Opens with what matters: his 5 best and 5 worst ranks across everything. The rest is a search box plus a one-column list of groups, each showing how many stats and his best rank inside it.</div>
+<div class="panel">
+ <div class="head"><div><b>Every stat on Jayden Daniels</b><small>QB · Washington Commanders · 2026 · 160 stats</small></div><div class="x">✕</div></div>
+ <div class="hl">
+  <div class="hlbox good"><h4>▲ Best at (among QBs)</h4>
+   <div class="row"><span>Scrimmage-yard share</span><span class="v">14.8%</span><span class="rk top">#1</span></div>
+   <div class="row"><span>Yards per touch</span><span class="v">8.52</span><span class="rk top">#1</span></div>
+   <div class="row"><span>Rushing yards</span><span class="v">412</span><span class="rk top">#2</span></div>
+   <div class="row"><span>Carry share</span><span class="v">22.5%</span><span class="rk top">#3</span></div>
+   <div class="row"><span>TD share</span><span class="v">20.0%</span><span class="rk top">#3</span></div>
+  </div>
+  <div class="hlbox bad"><h4>▼ Worst at</h4>
+   <div class="row"><span>Snaps played</span><span class="v">238</span><span class="rk">#31</span></div>
+   <div class="row"><span>Times sacked</span><span class="v">17</span><span class="rk">#29</span></div>
+   <div class="row"><span>Completion % under pressure</span><span class="v">41.2%</span><span class="rk">#27</span></div>
+   <div class="row"><span>Sack % (sacks per dropback)</span><span class="v">8.1%</span><span class="rk">#26</span></div>
+   <div class="row"><span>Interceptions thrown</span><span class="v">6</span><span class="rk">#24</span></div>
+  </div>
+ </div>
+ <div class="search">⌕ Find a stat…</div>
+ <div class="acc">
+  <div><span>▸</span><span>Passing</span><span class="c">13 stats</span><span class="best muted">best #5</span></div>
+  <div><span>▸</span><span>Rushing and receiving</span><span class="c">7 stats</span><span class="best" style="color:#ff6b2c">best #2</span></div>
+  <div><span>▸</span><span>Usage and share</span><span class="c">9 stats</span><span class="best" style="color:#ff6b2c">best #1</span></div>
+  <div><span>▸</span><span>Where QBs throw</span><span class="c">64 stats</span><span class="best muted">best #4</span></div>
+  <div><span>▸</span><span>Under pressure and vs the blitz</span><span class="c">8 stats</span><span class="best muted">best #11</span></div>
+  <div><span>▸</span><span class="muted">+ 9 more groups</span><span></span><span></span></div>
+ </div>
+</div></div>
+
+<!-- ============ C ============ -->
+<div class="opt">
+<div class="tag">C · Side menu + percentile bars</div>
+<div class="why">Groups in a short menu on the left (6, not 20). On the right, each stat gets a bar showing where he sits among QBs: green = top, red = bottom. You can read it at a glance without comparing numbers. On phones the menu becomes a dropdown.</div>
+<div class="panel">
+ <div class="head"><div><b>Every stat on Jayden Daniels</b><small>QB · Washington Commanders · 2026 · 160 stats</small></div><div class="x">✕</div></div>
+ <div class="side">
+  <div class="nav">
+   <div><span>Passing</span><small>51</small></div><div><span>Throw map</span><small>64</small></div><div class="on"><span>Usage</span><small>9</small></div><div><span>Running</span><small>21</small></div><div><span>Situations</span><small>12</small></div><div><span>Penalties</span><small>10</small></div>
+  </div>
+  <div>
+   <div class="scale"><span></span><span></span><span><span>worst</span><span>avg</span><span>best</span></span><span></span></div>
+   <div class="prow"><span>Scrimmage-yard share</span><span class="v">14.8%</span><div class="bar"><i style="width:100%;background:#3ddc8455"></i><b style="left:100%;background:#3ddc84"></b></div><span class="rk top">#1</span></div>
+   <div class="prow"><span>Yards per touch</span><span class="v">8.52</span><div class="bar"><i style="width:100%;background:#3ddc8455"></i><b style="left:100%;background:#3ddc84"></b></div><span class="rk top">#1</span></div>
+   <div class="prow"><span>Carry share</span><span class="v">22.5%</span><div class="bar"><i style="width:94%;background:#3ddc8455"></i><b style="left:94%;background:#3ddc84"></b></div><span class="rk top">#3</span></div>
+   <div class="prow"><span>TD share</span><span class="v">20.0%</span><div class="bar"><i style="width:94%;background:#3ddc8455"></i><b style="left:94%;background:#3ddc84"></b></div><span class="rk top">#3</span></div>
+   <div class="prow"><span>TD rate (% of touches)</span><span class="v">8.0%</span><div class="bar"><i style="width:84%;background:#3ddc8455"></i><b style="left:84%;background:#3ddc84"></b></div><span class="rk">#6</span></div>
+   <div class="prow"><span>Average depth of target</span><span class="v">8.4</span><div class="bar"><i style="width:78%;background:#9bd46b55"></i><b style="left:78%;background:#9bd46b"></b></div><span class="rk">#8</span></div>
+   <div class="prow"><span>Touches</span><span class="v">25</span><div class="bar"><i style="width:75%;background:#9bd46b55"></i><b style="left:75%;background:#9bd46b"></b></div><span class="rk">#9</span></div>
+   <div class="prow"><span>Fantasy points (PPR)</span><span class="v">3.43</span><div class="bar"><i style="width:65%;background:#d6c25a55"></i><b style="left:65%;background:#d6c25a"></b></div><span class="rk">#12</span></div>
+   <div class="prow"><span>Snaps played</span><span class="v">238</span><div class="bar"><i style="width:6%;background:#ff5d5d55"></i><b style="left:6%;background:#ff5d5d"></b></div><span class="rk">#31</span></div>
+  </div>
+ </div>
+</div></div>
+</body></html>
