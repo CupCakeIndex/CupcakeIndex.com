@@ -3731,18 +3731,26 @@ const Live = (() => {
 
   let playerIndexP = null; // all-time NFL player list, loaded the first time someone searches
   const playerIndex = () => (playerIndexP ||= fetch("data/players_nfl.json").then((r) => r.json()).catch(() => { playerIndexP = null; return []; }));
+  // nicknames and other names NFL players go by ("Bill" = Jacory Croskey-Merritt; src/player_aliases.py)
+  let aliasesP = null;
+  const aliases = () => (aliasesP ||= fetch("data/player_aliases.json").then((r) => r.json()).then((d) => d.players || {}).catch(() => { aliasesP = null; return {}; }));
 
   // search result headshot: initials underneath, ESPN's photo on top (removed if ESPN has none, so the initials show)
   const searchFace = (lg, id, name) => `<span class="gs-face">${esc(initials(name))}<img src="${esc(thumb(`https://a.espncdn.com/i/headshots/${lg === "nfl" ? "nfl" : "college-football"}/players/full/${encodeURIComponent(id)}.png`, 22, 22, true))}" alt="" loading="lazy" decoding="async" onerror="this.remove()"></span>`;
   // Players: all-time NFL index (includes retired legends) + ESPN's live search (active college and NFL players)
   async function searchPlayers(text, limit = 10) {
-    const [index, d] = await Promise.all([
+    const [index, d, al] = await Promise.all([
       playerIndex(),
       api(`https://site.web.api.espn.com/apis/common/v3/search?query=${encodeURIComponent(text)}&limit=20&type=player`, 60000).catch(() => null),
+      aliases(),
     ]);
-    // forgiving match (typos, accents, punctuation); ties go to longer/more recent careers
+    // forgiving match (typos, accents, punctuation); ties go to longer/more recent careers. A nickname counts like his name.
     const scored = [];
-    for (const p of index) { const sc = fuzzyScore(text, p[0]); if (sc != null) scored.push([sc, p]); }
+    for (const p of index) {
+      const sc = [p[0], ...(al[p[1]] ? [...al[p[1]].nick, ...al[p[1]].nick.map((n) => `${n} ${p[0].split(" ").slice(1).join(" ")}`), ...al[p[1]].also] : [])]
+        .map((n) => fuzzyScore(text, n)).filter((x) => x != null);
+      if (sc.length) scored.push([Math.min(...sc), p]);
+    }
     const local = scored.sort((a, b) => a[0] - b[0] || ((b[1][4] || 0) - (b[1][3] || 0)) - ((a[1][4] || 0) - (a[1][3] || 0)) || (b[1][4] || 0) - (a[1][4] || 0))
       .slice(0, 8).map(([, p]) => ({ key: `nfl:${p[1]}`, name: p[0], pic: searchFace("nfl", p[1], p[0]), tag: `NFL · ${p[2]}${p[3] ? ` · ${p[3]}–${p[4] || ""}` : ""}` }));
     const seen = new Set(local.map((x) => x.key));
@@ -4058,13 +4066,14 @@ const Live = (() => {
       : params.get("chart") ? "charts"
       : ["vs", "cat", "metric", "align", "lvl", "from", "to"].some((k) => params.get(k)) ? "career"
       : params.get("season") || params.get("cseason") ? "log" : "";
-    let bio, gl, takes, recs;
+    let bio, gl, takes, recs, nick;
     try {
-      [bio, gl, takes, recs] = await Promise.all([
+      [bio, gl, takes, recs, nick] = await Promise.all([
         api(`${WEB(lg)}/athletes/${encodeURIComponent(id)}`, 300000),
         api(`${WEB(lg)}/athletes/${encodeURIComponent(id)}/gamelog${season ? `?season=${season}` : ""}`, 120000).catch(() => null),
         Takes.about("players", `${lg}:${id}`).catch(() => []), // our X posts about this player (takes.js)
         lg === "nfl" ? nflRecords(id) : [],
+        lg === "nfl" ? aliases().then((al) => al[id]?.nick || []) : [],
       ]);
     } catch (e) { return fail("player", e); }
     if (my !== token) return;
@@ -4075,6 +4084,7 @@ const Live = (() => {
     if (my !== token) return;
     const logGl = cseason && cgl ? cgl : gl, logLg = logGl === cgl ? "cfb" : lg;
     const facts = [
+      nick.length ? `Goes by ${nick.map((n) => `“${n}”`).join(", ")}` : "",
       a.position?.displayName, a.displayJersey,
       [a.displayHeight, a.displayWeight].filter(Boolean).join(", "),
       a.age ? `Age ${a.age}` : "", a.displayDraft,

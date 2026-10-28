@@ -231,6 +231,8 @@ const RATES = {
   short_yardage_conv_pct: ["short-yardage conversion % (3rd/4th and 1-2)", ["sy_conv"], ["sy_carries"], 100, 1],
   goal_line_td_pct: ["goal-line TD %", ["gl_td"], ["gl_carries"], 100, 1],
   broken_tackles_per_100_touches: ["broken tackles per 100 touches", ["rush_btk", "rec_btk"], ["carries", "rec"], 100, 1],
+  ybc_per_carry: ["yards before contact per carry (mostly his blocking: how far he gets before a defender touches him)", ["ybc"], ["pfr_car"], 1, 2],
+  yac_per_carry: ["yards after contact per carry (mostly the runner: what he gains once he's hit)", ["yac_rush"], ["pfr_car"], 1, 2],
   drop_pct: ["drop % (of targets)", ["drops"], ["targets"], 100, 1],
   rec_fd_per_target: ["first downs per target, %", ["rec_fd"], ["targets"], 100, 1],
   third_down_catch_conv_pct: ["3rd-down conversion % when targeted", ["third_conv"], ["third_tgt"], 100, 1],
@@ -293,7 +295,7 @@ const LOWER_BETTER = new Set(["int", "int_pct", "sacked", "sack_pct", "fum_lost"
 // scatter_data stats; the point is to give Claude more than yards, touchdowns and EPA to reach for.
 const MENU = {
   QB: { "Accuracy": ["cmp_pct", "cpoe", "bad_throw_pct", "deep_cmp_pct"], "Efficiency": ["epa_per_dropback", "ypa", "passer_rating", "td_pct", "int_pct"], "Big plays": ["big_pass_pct", "pass_20", "pass_40"], "Situational": ["third_down_conv_pct", "rz_td_pct", "clutch_epa_per_dropback", "wpa"], "Pressure and blitz": ["pressured_pct", "sack_pct", "blitzed_pct", "blitz_cmp_pct", "blitz_ypa", "blitz_epa_per_dropback", "passer_rating_vs_blitz"], "Legs": ["rush_yds", "scr", "scramble_ypa", "rush_fd"], "Ball security": ["int", "fum", "tgt_int"] },
-  RB: { "Efficiency": ["ypc", "rush_epa_per_carry", "rush_success_pct", "rush_fd_pct"], "Explosive": ["rush_10_pct", "rush_20", "rush_40"], "Tough yards": ["broken_tackles_per_100_touches", "rush_btk", "rush_stuffed_pct", "short_yardage_conv_pct", "goal_line_td_pct"], "Receiving": ["rec", "rec_yds", "yds_per_target", "yac_per_rec", "rec_fd_per_target"], "Ball security": ["fum", "fum_lost_all"] },
+  RB: { "Efficiency": ["ypc", "rush_epa_per_carry", "rush_success_pct", "rush_fd_pct"], "Explosive": ["rush_10_pct", "rush_20", "rush_40"], "Blocking vs runner": ["ybc_per_carry", "yac_per_carry"], "Tough yards": ["broken_tackles_per_100_touches", "rush_btk", "rush_stuffed_pct", "short_yardage_conv_pct", "goal_line_td_pct"], "Receiving": ["rec", "rec_yds", "yds_per_target", "yac_per_rec", "rec_fd_per_target"], "Ball security": ["fum", "fum_lost_all"] },
   WR: { "Efficiency": ["yds_per_target", "rec_epa_per_target", "catch_pct", "rec_fd_per_target"], "Role": ["targets", "adot", "deep_target_share", "air_yds"], "After the catch": ["yac_per_rec", "rec_btk", "broken_tackles_per_100_touches"], "Hands": ["drop_pct", "drops"], "Situational": ["third_down_catch_conv_pct", "rz_rec_td", "rec_20", "rec_40"] },
   OL: { "Discipline": ["pen", "pen_per_100_snaps", "pn_hold", "pn_fs"], "His line's results with him on the field": ["ol_pressure_pct", "ol_sack_pct", "ol_run_ypc"], "Workload": ["snaps"] },
   DEF: { "Pass rush": ["pressure", "def_sacks", "qb_hits", "hurry", "blitz", "third_sacks"], "Run defense": ["run_stop", "run_stop_pct", "stuff", "tfl", "sy_stop"], "Coverage": ["cov_tgt", "cov_cmp_pct_allowed", "cov_yds_per_target", "cov_yac_per_catch", "cov_int", "pd"], "Tackling": ["tackles", "missed_tackle_pct", "miss_tkl"], "Splash": ["def_int", "ff", "def_td", "third_stop", "rz_stop"], "Discipline": ["pen", "pn_dpi", "pn_dhold", "pn_ur"] },
@@ -365,20 +367,24 @@ const say = (s) => { const d = document.createElement("div"); d.textContent = s;
 const TOOLS = [
   {
     name: "find_player",
-    description: "Find a player by name. Returns matches with player_id, league (nfl or cfb), position, team and the seasons we have him in. Always call this before player_stats.",
+    description: "Find a player by name or nickname (\"Bill\" = Jacory Croskey-Merritt, \"Sauce\" = Ahmad Gardner). Returns matches with player_id, league (nfl or cfb), position, team, his nicknames and the seasons we have him in. Always call this before player_stats.",
     inputSchema: { type: "object", properties: { name: { type: "string" }, league: { type: "string", enum: ["nfl", "cfb"] } }, required: ["name"] },
     async execute({ name, league }) {
       await base();
       say(`Finding ${name}`);
       const q = norm(name), toks = q.split(" ").filter(Boolean), hits = new Map();
+      // nicknames and other names he goes by (src/player_aliases.py): "bill" or "bill croskey merritt" finds Jacory Croskey-Merritt
+      const AL = R.aliases || {}, alias = (lg, pid) => (AL[lg]?.[pid] || []).map(norm);
+      const named = (lg, pid, n) => [n, ...alias(lg, pid)].some((x) => x === q || toks.every((t) => x.split(" ").includes(t)))
+        || alias(lg, pid).some((x) => toks.length > 1 && q === `${x} ${n.split(" ").slice(1).join(" ")}`);
       for (const lg of league ? [String(league)] : ["nfl", "cfb"]) {
         for (const s of seasons(lg)) {
           const D = await load(lg, s);
           for (const [pid, m] of Object.entries(D.pmeta)) {
             const n = norm(m[0]);
-            if (!(n === q || toks.every((t) => n.split(" ").includes(t)))) continue;
+            if (!named(lg, pid, n)) continue;
             const k = `${lg}:${pid}`;
-            const h = hits.get(k) || { player_id: pid, league: lg, name: m[0], position: m[1] || null, team: D.teams[m[2]]?.[0] || m[2], seasons: [] };
+            const h = hits.get(k) || { player_id: pid, league: lg, name: m[0], position: m[1] || null, team: D.teams[m[2]]?.[0] || m[2], ...(AL[lg]?.[pid] ? { also_called: AL[lg][pid] } : {}), seasons: [] };
             h.seasons.push(s);
             hits.set(k, h);
           }
@@ -386,7 +392,7 @@ const TOOLS = [
         }
       }
       const out = [...hits.values()].slice(0, 8);
-      if (!out.length) throw new Error(`No player named "${name}" in our data (NFL ${seasons("nfl").at(-1)}+, college ${seasons("cfb").at(-1)}+).`);
+      if (!out.length) throw new Error(`No player named "${name}" in our data (NFL ${seasons("nfl").at(-1)}+, college ${seasons("cfb").at(-1)}+). If it could be a nickname or short name, try his full real name (from what you know, or the team or player already being discussed) before asking.`);
       return out;
     },
   },
@@ -409,7 +415,7 @@ const TOOLS = [
       // ranks among the same position (players with at least half the games of the busiest one)
       const KEYS = { QB: ["pass_yds", "pass_td", "int", "cmp_pct", "cpoe", "ypa", "epa_per_dropback", "td_pct", "big_pass_pct", "third_down_conv_pct", "rz_td_pct", "clutch_epa_per_dropback", "rush_yds", "sack_pct", "pressured_pct", "bad_throw_pct", "blitz_ypa"],
         OL: ["snaps", "pen", "pen_per_100_snaps", "ol_pressure_pct", "ol_sack_pct", "ol_run_ypc"],
-        RB: ["rush_yds", "rush_td", "ypc", "rush_epa_per_carry", "rush_success_pct", "rush_fd_pct", "rush_10_pct", "rush_stuffed_pct", "broken_tackles_per_100_touches", "short_yardage_conv_pct", "rec_yds", "ppr"],
+        RB: ["rush_yds", "rush_td", "ypc", "rush_epa_per_carry", "rush_success_pct", "rush_fd_pct", "rush_10_pct", "rush_stuffed_pct", "ybc_per_carry", "yac_per_carry", "broken_tackles_per_100_touches", "short_yardage_conv_pct", "rec_yds", "ppr"],
         WR: ["rec", "rec_yds", "rec_td", "targets", "yds_per_target", "catch_pct", "adot", "yac_per_rec", "drop_pct", "rec_fd_per_target", "third_down_catch_conv_pct"], K: ["fg_made", "fg_pct", "fg_50_pct", "mx_fg_long", "punt_net_avg"] };
       KEYS.TE = KEYS.WR;
       const keys = KEYS[grp] || ["tackles", "def_sacks", "tfl", "qb_hits", "pd", "def_int", "pressure", "hurry", "run_stop", "run_stop_pct", "stuff", "missed_tackle_pct", "cov_cmp_pct_allowed", "cov_yds_per_target", "pen"];
@@ -503,8 +509,8 @@ const TOOLS = [
   },
   {
     name: "team_stats",
-    description: "A team's season (or week range) from game stats: record, every game's score, totals, per-game and rate stats (points, yards per play, EPA per play, turnover margin, short/deep passing allowed, YAC allowed, blitz rate...) with where each ranks among all teams. NFL seasons go back to 2006 (team stats only before 2022).",
-    inputSchema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, season: { type: "integer" }, team: { type: "string" }, weeks_from: { type: "integer" }, weeks_to: { type: "integer" } }, required: ["league", "season", "team"] },
+    description: "A team's season (or week range) from game stats: record, every game's score, season totals, per-game and rate stats (points, yards per play, EPA per play, turnover margin, short/deep passing allowed, YAC allowed, blitz rate...) with where each ranks among all teams. without: player names or positions (QB) to take out; returns the team's rushing, receiving and passing added up from its other players, plus each player's share (non-QB run game, the offense minus its star). NFL seasons go back to 2006 (team stats only before 2022).",
+    inputSchema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, season: { type: "integer" }, team: { type: "string" }, weeks_from: { type: "integer" }, weeks_to: { type: "integer" }, without: { type: "array", items: { type: "string" } } }, required: ["league", "season", "team"] },
     async execute(a) {
       const lg = String(a.league), D = await load(lg, Number(a.season)), k = teamKey(D, a.team);
       if (!k) throw new Error(`No team matching "${a.team}".`);
@@ -521,7 +527,31 @@ const TOOLS = [
         const lower = LOWER_BETTER.has(s);
         ranks[s] = 1 + [...all.values()].filter((o) => { const x = val(o); return x != null && (lower ? x < v : x > v); }).length;
       }
-      return { team: D.teams[k][0], conference: D.teams[k][3], season: a.season, through_week: D.maxWk, record: `${me.w}-${me.l}${me.t ? "-" + me.t : ""}`, games: me.games, stats, rank_of: n, ranks, note: "ranks: 1 = best (for 'lower is better' stats, 1 = lowest)" };
+      const totals = Object.fromEntries(D.tcols.filter((c) => me.sum[c] && !c.startsWith("mx_")).map((c) => [c, r1(me.sum[c], 2)]));
+      const out = { team: D.teams[k][0], conference: D.teams[k][3], season: a.season, through_week: D.maxWk, record: `${me.w}-${me.l}${me.t ? "-" + me.t : ""}`, games: me.games, totals, stats, rank_of: n, ranks, note: "ranks: 1 = best (for 'lower is better' stats, 1 = lowest)" };
+      if (a.without?.length && D.prows?.length) { // the team's players added up, minus the ones named (or a whole position)
+        const drop = a.without.map((x) => String(x).trim()), pos = new Set(drop.map((x) => x.toUpperCase())), nm = drop.map(norm).filter((x) => x.length > 2);
+        const COLS = ["carries", "rush_yds", "rush_td", "rush_fd", "rush_10", "rush_stuffed", "ybc", "yac_rush", "pfr_car", "targets", "rec", "rec_yds", "rec_td", "att", "cmp", "pass_yds", "pass_td"];
+        const per = new Map();
+        for (const r of D.prows) {
+          if (r[2] !== k || !weeksOk(r[1], a)) continue;
+          const o = per.get(r[0]) || { sum: {} };
+          for (const c of COLS) if (D.pi[c] != null && r[D.pi[c]]) o.sum[c] = (o.sum[c] || 0) + r[D.pi[c]];
+          per.set(r[0], o);
+        }
+        const out_ = (id) => { const m = D.pmeta[id] || []; return pos.has((m[1] || "").toUpperCase()) || pos.has(posGroup(m)) || nm.some((x) => norm(m[0]).includes(x) || norm(m[0]).split(" ").includes(x)); };
+        const add = (ids) => ids.reduce((t, id) => { for (const [c, v] of Object.entries(per.get(id).sum)) t[c] = (t[c] || 0) + v; return t; }, {});
+        const kept = [...per.keys()].filter((id) => !out_(id)), gone = [...per.keys()].filter(out_);
+        const rates = (t) => ({ ypc: t.carries ? r1(t.rush_yds / t.carries, 2) : null, ybc_per_carry: t.pfr_car ? r1(t.ybc / t.pfr_car, 2) : null, yac_per_carry: t.pfr_car ? r1(t.yac_rush / t.pfr_car, 2) : null,
+          rush_stuffed_pct: t.carries ? r1((100 * (t.rush_stuffed || 0)) / t.carries, 1) : null, yds_per_target: t.targets ? r1(t.rec_yds / t.targets, 2) : null });
+        const line = (id) => ({ name: D.pmeta[id]?.[0], pos: D.pmeta[id]?.[1], ...Object.fromEntries(Object.entries(per.get(id).sum).filter(([c]) => ["carries", "rush_yds", "rush_td", "targets", "rec", "rec_yds", "att", "pass_yds"].includes(c)).map(([c, v]) => [c, r1(v, 1)])) });
+        const t1 = add(kept), t0 = add([...per.keys()]);
+        out.without = { left_out: gone.map((id) => D.pmeta[id]?.[0]), whole_team: { ...Object.fromEntries(Object.entries(t0).map(([c, v]) => [c, r1(v, 1)])), ...rates(t0) },
+          rest: { ...Object.fromEntries(Object.entries(t1).map(([c, v]) => [c, r1(v, 1)])), ...rates(t1) }, players: [...gone, ...kept].filter((id) => per.get(id).sum.carries || per.get(id).sum.targets).map(line).slice(0, 14),
+          note: "Added up from player game rows (sacks and kneels aren't carries here, so team rushing can differ slightly from the official total). ybc/yac per carry: Pro Football Reference's charting; before contact is mostly the blocking, after contact mostly the runner." };
+        if (!gone.length) out.without.warning = `Nobody matched ${drop.join(", ")} on this team.`;
+      }
+      return out;
     },
   },
   {

@@ -54,6 +54,10 @@ jobs:
         continue-on-error: true
         if: ${{ (inputs.league || 'all') != 'cfb' }}
         run: python src/pass_charts.py
+      - name: Player nicknames ("Bill" = Jacory Croskey-Merritt; Wikipedia + Wikidata + nflverse), Mondays
+        continue-on-error: true
+        run: |
+          if [ "$(date -u +%u)" = 1 ] || [ ! -f docs/data/player_aliases.json ]; then python src/player_aliases.py; fi
       - name: Cupcake Analyst data
         # analyst/data/rankings.json for Terry's private claude.ai fact-check page. The "Refresh Cupcake Analyst"
         # cloud routine publishes it ~2 hours later, every day (that sandbox can't download nflverse injuries/depth charts).
@@ -107,6 +111,7 @@ jobs:
           git add docs/data/cfb/heisman_buzz.json 2>/dev/null || true
           git add docs/data/nfl/trade_watch.json 2>/dev/null || true
           git add docs/data/cfb/portal_watch.json 2>/dev/null || true
+          git add docs/data/player_aliases.json 2>/dev/null || true
           git diff --cached --quiet && echo "No changes" && exit 0
           git commit -m "Visualize data $(date -u +%Y-%m-%dT%H:%MZ)"
           for try in 1 2 3; do git pull --rebase -q && git push -q && exit 0; sleep 10; done

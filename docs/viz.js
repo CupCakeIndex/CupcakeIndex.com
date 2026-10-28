@@ -208,6 +208,8 @@ const Viz = (() => {
       ["team_drops", "Drops (dropped passes)", (S) => S.drops, { count: 1, low: 1, need: ["drops"] }],
       ["team_drop_pct", "Drop % (drops per pass attempt)", (S) => div(100 * S.drops, S.att), { den: (S) => S.att, pct: 1, low: 1, unit: "pass attempts", need: ["drops"] }],
       ["team_btk", "Broken tackles (runs + catches)", (S) => S.rush_btk + S.rec_btk, { count: 1, need: ["rush_btk"] }],
+      ["team_ybc_pc", "Run blocking: yards before contact per carry", (S) => div(S.ybc, S.pfr_car), { den: (S) => S.pfr_car, d: 2, unit: "carries", need: ["ybc"] }],
+      ["team_yac_rush_pc", "Yards after contact per carry (the runners)", (S) => div(S.yac_rush, S.pfr_car), { den: (S) => S.pfr_car, d: 2, unit: "carries", need: ["ybc"] }],
     ]],
     // NFL play-by-play (src/deep_stats.py TCOLS) and nflverse's weekly team stats (src/viz_data.py NV_EXTRA)
     ["4th downs", [
@@ -258,7 +260,7 @@ const Viz = (() => {
       ["team_sack_yds_lost", "Yards lost to sacks (offense)", (S) => S.sack_yds_lost, { count: 1, low: 1, need: ["sack_yds_lost"] }],
     ]],
   ];
-  const TX = ["run_stop", "run_tkl", "run_tkl_yds", "stuff", "sy_stop", "third_stop", "pressure", "drops", "rush_btk", "rec_btk"]; // player columns a team's total is added up from
+  const TX = ["run_stop", "run_tkl", "run_tkl_yds", "stuff", "sy_stop", "third_stop", "pressure", "drops", "rush_btk", "rec_btk", "ybc", "yac_rush", "pfr_car"]; // player columns a team's total is added up from
   // where the ball went (src/deep_stats.py): zone = depth s/i/d (under 10 air yards, 10-19, 20+) + side l/m/r. QBs have
   // z_<zone>_att/_cmp/_yds, receivers zt_<zone> (targets) and zc_<zone> (catches). A "split" stat is a breakdown, not one number:
   // a bar chart stacks it (one 100% bar per player), a pie shows one player's slices; anywhere else it's the total.
@@ -462,6 +464,11 @@ const Viz = (() => {
       ["rush_btk", "Broken tackles on runs", (S) => S.rush_btk, { count: 1, pos: "RB", need: ["drops"] }],
       ["rec_btk", "Broken tackles after the catch", (S) => S.rec_btk, { count: 1, pos: "WR", need: ["drops"] }],
       ["btk_rate", "Broken tackles per 100 touches", (S) => div(100 * (S.rush_btk + S.rec_btk), S.carries + S.rec), { den: (S) => S.carries + S.rec, d: 1, unit: "touches", need: ["drops"] }],
+      // where a runner is first touched: before contact is mostly his blocking, after contact mostly him (PFR charting)
+      ["ybc_pc", "Yards before contact per carry (his blocking)", (S) => div(S.ybc, S.pfr_car), { den: (S) => S.pfr_car, d: 2, unit: "carries", pos: "RB", need: ["ybc"] }],
+      ["yac_rush_pc", "Yards after contact per carry (the runner)", (S) => div(S.yac_rush, S.pfr_car), { den: (S) => S.pfr_car, d: 2, unit: "carries", pos: "RB", need: ["ybc"] }],
+      ["ybc", "Yards before contact (rushing)", (S) => S.ybc, { count: 1, pos: "RB", need: ["ybc"] }],
+      ["yac_rush", "Yards after contact (rushing)", (S) => S.yac_rush, { count: 1, pos: "RB", need: ["ybc"] }],
       ["pass_drops", "Passes his receivers dropped (QB)", (S) => S.pass_drops, { count: 1, pos: "QB", need: ["pass_drops"] }],
       ["adj_cmp", "Drop-adjusted completion % (QB, drops counted as catches)", (S) => div(100 * (S.cmp + S.pass_drops), S.att), { den: (S) => S.att, pct: 1, pos: "QB", need: ["pass_drops"] }],
     ]],

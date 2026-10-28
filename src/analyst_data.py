@@ -187,6 +187,12 @@ def main():
             print("  no earlier build to reuse: doing the full build")
     out = {lg: rankings(lg) for lg in ("nfl", "cfb")}
     out["facts"] = {lg: json.load(open(os.path.join(DATA, lg, "facts.json"), encoding="utf-8")).get("teams", {}) for lg in ("nfl", "cfb")}
+    # nicknames and other names players go by ("Bill" = Jacory Croskey-Merritt), for find_player (src/player_aliases.py)
+    try:
+        al = json.load(open(os.path.join(DATA, "player_aliases.json"), encoding="utf-8"))["players"]
+        out["aliases"] = {"nfl": {pid: p["nick"] + p["also"] for pid, p in al.items()}}
+    except (OSError, ValueError, KeyError):
+        out["aliases"] = {"nfl": {}}
     # the page reads "viz" as the seasons WITH player stats; the site's index also lists its team-only seasons
     idx = json.load(open(os.path.join(DATA, "viz", "index.json"), encoding="utf-8"))
     first = idx.get("players", {})

@@ -110,6 +110,8 @@ PFR_DEF = {"cov_tgt": "def_targets", "cov_cmp": "def_completions_allowed", "cov_
 PFR_PASS = {"qb_pressured": "times_pressured", "qb_blitzed": "times_blitzed", "bad_throws": "passing_bad_throws", "pass_drops": "passing_drops"}
 # ...and its receiving/rushing charting (drops, broken tackles, interceptions on throws to him)
 PFR_REC = {"drops": "receiving_drop", "rec_btk": "receiving_broken_tackles", "rush_btk": "rushing_broken_tackles", "tgt_int": "receiving_int"}
+# yards before and after first contact on runs (PFR charting). pfr_car = the carries PFR charted, the per-carry denominator
+PFR_RUSH = {"ybc": "rushing_yards_before_contact", "yac_rush": "rushing_yards_after_contact", "pfr_car": "carries"}
 # kicking, punting, returns, fumbles and defensive scores from nflverse's weekly stats (same names in the team and player files):
 # our column -> the columns added up. mx_ columns are season highs (Visualize keeps the biggest, not the sum).
 FG_BINS = ["0_19", "20_29", "30_39", "40_49", "50_59", "60_"]
@@ -411,6 +413,13 @@ def nfl(season):
                 pfr.setdefault((pid, int(r["week"])), {}).update({c: n(r.get(src)) for c, src in PFR_REC.items() if n(r.get(src))})
     except requests.HTTPError as e:
         print(f"  ! PFR receiving charting unavailable ({e})")
+    try:
+        for r in nflverse_csv(f"{NFLV}/pfr_advstats/advstats_week_rush_{season}.csv", f"advstats_week_rush_{season}.csv"):
+            pid = ids.get(r["pfr_player_id"])
+            if pid and r.get("game_type", "REG") == "REG":
+                pfr.setdefault((pid, int(r["week"])), {}).update({c: n(r.get(src)) for c, src in PFR_RUSH.items() if n(r.get(src))})
+    except requests.HTTPError as e:
+        print(f"  ! PFR rushing charting unavailable ({e})")
     # kicking, punting, returns, fumbles (NV_EXTRA) from the same weekly player stats
     for r in pl:
         if r["season_type"] == "REG":
@@ -434,7 +443,7 @@ def nfl(season):
     for (g, wk), s in onf.items():
         pfr.setdefault((ol_pid[g], wk), {}).update({c: v for c, v in s.items() if v})
     print(f"  O-line on-field stats: {len(onf)} lineman games")
-    xcols = deep_stats.XCOLS + list(PFR_DEF) + list(PFR_PASS) + list(PFR_REC) + list(NV_EXTRA) + OL_ON
+    xcols = deep_stats.XCOLS + list(PFR_DEF) + list(PFR_PASS) + list(PFR_REC) + list(NV_EXTRA) + OL_ON + list(PFR_RUSH)
     xi = {c: i for i, c in enumerate(xcols)}
     for row in prows:
         x = {**deep.get((gsis[row[0]], row[1]), {}), **pfr.get((row[0], row[1]), {})}
