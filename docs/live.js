@@ -5341,7 +5341,7 @@ const Live = (() => {
         api(`${SITE(lg)}/teams/${encodeURIComponent(id)}/schedule`, 60000),
         api(`${SITE(lg)}/teams/${encodeURIComponent(id)}/roster`, 600000).catch(() => null),
         modelRanks(lg),
-        tab === "depth" || (tab === "roster" && nfl) ? api(`${SITE(lg)}/teams/${encodeURIComponent(id)}/depthcharts`, 600000).catch(() => null)
+        tab === "depth" || (tab === "roster" && nfl) ? null // depth chart: fetched below, once the schedule says which season
           : tab === "injuries" ? (nfl ? injData() : cfbInj()).catch(() => null)
           : tab === "moves" ? api(`${SITE(lg)}/transactions?limit=1000`, 1800000).catch(() => null) : null,
         Takes.about("teams", `${lg}:${id}`).catch(() => []), // our X posts about this team (takes.js)
@@ -5350,6 +5350,17 @@ const Live = (() => {
     } catch (e) { return fail("team", e); }
     if (my !== token) return;
     const T = sch.team || {};
+    if (nfl && (tab === "depth" || tab === "roster")) {
+      // ESPN's site depthcharts feed dropped its CORS header (Oct 2026), so read the core feed and name its athlete links from the roster
+      const dc = await api(`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${sch.season?.year || new Date().getFullYear()}/teams/${encodeURIComponent(T.id || id)}/depthcharts`, 600000).catch(() => null);
+      if (my !== token) return;
+      const who = new Map((ros?.athletes || []).flatMap((g) => g.items || []).map((p) => [String(p.id), p]));
+      extra = { depthchart: (dc?.items || []).map((it) => ({ name: it.name, positions: Object.fromEntries(Object.entries(it.positions || {}).map(([k, P]) => [k, {
+        position: P.position,
+        athletes: [...(P.athletes || [])].sort((a, b) => (a.rank || 99) - (b.rank || 99))
+          .map((a) => who.get((/athletes\/(\d+)/.exec(a.athlete?.$ref || "") || [])[1])).filter(Boolean), // off the roster (cut, practice squad): skipped
+      }])) })) };
+    }
     if (String(T.id) !== String(id)) { // opened by name, not id
       takes = await Takes.about("teams", `${lg}:${T.id}`).catch(() => []);
       starters = await Takes.starters(`${lg}:${T.id}`).catch(() => []);

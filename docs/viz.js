@@ -2260,13 +2260,12 @@ const Viz = (() => {
     })();
     const frame = `${chipRow}<div class="vz-frame" id="vz-frame"><div class="vz-title"><b>${esc(title)}</b><small>${esc(sub)}</small></div>
         ${body.html || `<div class="vz-canvas" style="height:${body.h}px"><canvas id="vz-chart"></canvas></div>`}
-        <div class="vz-mark">cupcakeindex.com · ${esc(league === "nfl" ? "data: nflverse" : "data: CollegeFootballData.com")}</div></div>
-      ${seasonOnly ? `<p class="note">Our ratings and college PPA are season-long numbers (as of the latest rankings), so they ignore the weeks you picked.</p>` : ""}${plPanel}`;
+        <div class="vz-mark">cupcakeindex.com · ${esc(league === "nfl" ? "data: nflverse" : "data: CollegeFootballData.com")}</div></div>`;
     const actions = `<div class="vz-actions">${st.type === "table" ? `<button class="btn" id="vz-csv">Download spreadsheet (CSV)</button>` : Share.phone() && navigator.share ? "" : `<button class="btn" id="vz-png">Download picture</button>`}<button class="btn" id="vz-link">Copy link</button>${navigator.share && st.type !== "table" ? `<button class="btn" id="vz-share">Share</button>` : ""}<button class="btn" id="vz-save" type="button">☆ Save to My charts</button><button class="btn vz-reset" id="vz-reset">Start over</button></div>
       <div class="vz-saveform hidden" id="vz-saveform"><input id="vz-pname" maxlength="40" placeholder="Name this chart"><button class="btn tour-next" id="vz-pok" type="button">Save</button><button class="btn" id="vz-pno" type="button">Cancel</button></div>
       <small class="muted vz-pmsg" id="vz-pmsg"></small>`;
     // under the buttons: the numbers table and the notes (the buttons sit right under the chart, before Related)
-    const notes = `${body.table ? `<details class="vz-tbl"><summary>See the numbers</summary><table class="box"><tbody>${body.table.map(([i, k, v]) => `<tr><td class="num muted">${i}</td><td>${whole ? esc(k) : who === "players" && /^\d+$/.test(k) ? `<a href="#/player/${esc(k)}?league=${league}">${esc(name(k))}</a>` : who === "teams" ? `<a href="#/team/${esc(k.split(":")[1])}?league=${league}">${esc(name(k))}</a>` : esc(name(k))}</td><td class="num">${esc(v)}</td></tr>`).join("")}</tbody></table></details>` : ""}
+    const notes = `${seasonOnly ? `<p class="note">Our ratings and college PPA are season-long numbers (as of the latest rankings), so they ignore the weeks you picked.</p>` : ""}${body.table ? `<details class="vz-tbl"><summary>See the numbers</summary><table class="box"><tbody>${body.table.map(([i, k, v]) => `<tr><td class="num muted">${i}</td><td>${whole ? esc(k) : who === "players" && /^\d+$/.test(k) ? `<a href="#/player/${esc(k)}?league=${league}">${esc(name(k))}</a>` : who === "teams" ? `<a href="#/team/${esc(k.split(":")[1])}?league=${league}">${esc(name(k))}</a>` : esc(name(k))}</td><td class="num">${esc(v)}</td></tr>`).join("")}</tbody></table></details>` : ""}
       <p class="note">${st.role ? esc(`${st.role} = each team's ${(({ QB: "quarterback with the most pass attempts", RB: "back with the most carries + catches", WR: "wide receiver with the most targets", TE: "tight end with the most targets" })[st.role.slice(0, 2)]).replace("the most", st.role.endsWith("1") ? "the most" : `the ${{ 2: "2nd", 3: "3rd", 4: "4th" }[st.role.slice(2)]}-most`)} in the weeks you picked${league === "cfb" ? " (catches stand in for targets in college)" : ""}. `) : ""}${esc(note)} Source: ${esc(src)}. Rates are total ÷ total over the weeks you pick, not an average of weekly averages. Updated ${esc(new Date(D.updated).toLocaleDateString(undefined, { month: "short", day: "numeric" }))}.</p>`;
     const qBox = `<div class="vz-q vz-findwrap"><input id="vz-q" type="search" placeholder="${adv ? "Ask or search: stats, teams, players, presets… (try “sacks vs pressures”)" : "Ask a question… (try “who gets the targets on Washington”)"}" autocomplete="off" spellcheck="false"><div class="vz-sugg" id="vz-qs" hidden></div></div>`;
     const toggle = `<div class="seg vz-mode" id="vz-mode"><button data-v="" class="${adv ? "" : "active"}">Simple</button><button data-v="adv" class="${adv ? "active" : ""}">Advanced</button></div>`;
@@ -2275,10 +2274,10 @@ const Viz = (() => {
       <div class="sc-bar vz-head"><h2>Visualize</h2><span class="muted vz-tag">Make a chart, win the argument.</span><button type="button" class="vz-minebtn${mineOpen ? " on" : ""}" id="vz-mine" aria-expanded="${mineOpen}">★ My charts${myList.length ? ` (${myList.length})` : ""}</button>${toggle}</div>
       ${mineOpen ? minePanel : ""}
       ${adv ? `<div class="vz-top">${qBox}${presetsBox}</div>
-      <div class="vz-grid"><div class="vz-side">${steps}</div><div class="vz-main">${frame}${actions}${after}${notes}</div></div>`
+      <div class="vz-grid"><div class="vz-side">${steps}</div><div class="vz-main">${frame}${actions}${plPanel}${after}${notes}</div></div>`
       : `${qBox}<p class="vz-read">Showing: <b>${esc(readout.join(" · "))}</b> <button type="button" class="vz-editbtn" id="vz-edit" aria-expanded="${editOpen}">${editOpen ? "Done ▴" : "Edit ▾"}</button></p>
       <div class="vz-editbox"${editOpen ? "" : " hidden"}>${presetsBox}${steps}</div>
-      ${frame}${actions}${after}${notes}`}
+      ${frame}${actions}${plPanel}${after}${notes}`}
     </div>`;
     function custom() { return st.radar ? st.radar.split(",") : who === "teams" ? RADAR.teams : RADAR.players[st.pos] || RADAR.players[""]; }
     function axes() { return custom().filter((k) => all.some((s) => s[0] === k)); }
