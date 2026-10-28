@@ -44,7 +44,7 @@ const RATES = {
   rush_success_pct: ["rush success %", ["rush_succ"], ["carries"], 100, 1],
   catch_pct: ["catch %", ["rec"], ["targets"], 100, 1], ypr: ["yards per catch", ["rec_yds"], ["rec"], 1, 1],
   yds_per_target: ["yards per target", ["rec_yds"], ["targets"], 1, 2], rec_epa_per_target: ["receiving EPA per target", ["rec_epa"], ["targets"], 1, 3],
-  yac_per_rec: ["YAC per catch", ["yac"], ["rec"], 1, 1], adot: ["avg depth of target", ["air_yds"], ["targets"], 1, 1],
+  yac_per_rec: ["YAC per catch", ["yac"], ["rec"], 1, 1], adot: ["avg depth of target (receivers; for a QB use pass_adot)", ["air_yds"], ["targets"], 1, 1], pass_adot: ["QB avg depth of throw (aDOT, air yards per pass attempt)", ["pass_air"], ["att"], 1, 1],
   fg_pct: ["field goal %", ["fg_made"], ["fg_att"], 100, 1],
   cov_cmp_pct_allowed: ["completion % allowed in coverage", ["cov_cmp"], ["cov_tgt"], 100, 1],
   cov_yds_per_target: ["yards per target allowed", ["cov_yds"], ["cov_tgt"], 1, 2],
@@ -130,7 +130,7 @@ const LOWER_BETTER = new Set(["int", "int_pct", "sacked", "sack_pct", "fum_lost"
 // what each kind of player (or a team) can be judged on, grouped for the stat_menu lookup. Names are leaderboard /
 // scatter_data stats; the point is to give Claude more than yards, touchdowns and EPA to reach for.
 const MENU = {
-  QB: { "Accuracy": ["cmp_pct", "cpoe", "bad_throw_pct", "deep_cmp_pct"], "Efficiency": ["epa_per_dropback", "ypa", "passer_rating", "td_pct", "int_pct"], "Big plays": ["big_pass_pct", "pass_20", "pass_40"], "Situational": ["third_down_conv_pct", "rz_td_pct", "clutch_epa_per_dropback", "wpa"], "Pressure and blitz": ["pressured_pct", "sack_pct", "blitzed_pct", "blitz_cmp_pct", "blitz_ypa", "blitz_epa_per_dropback", "passer_rating_vs_blitz"], "Legs": ["rush_yds", "scr", "scramble_ypa", "rush_fd"], "Ball security": ["int", "fum", "tgt_int"] },
+  QB: { "Accuracy": ["cmp_pct", "cpoe", "bad_throw_pct", "deep_cmp_pct"], "Aggressiveness": ["pass_adot"], "Efficiency": ["epa_per_dropback", "ypa", "passer_rating", "td_pct", "int_pct"], "Big plays": ["big_pass_pct", "pass_20", "pass_40"], "Situational": ["third_down_conv_pct", "rz_td_pct", "clutch_epa_per_dropback", "wpa"], "Pressure and blitz": ["pressured_pct", "sack_pct", "blitzed_pct", "blitz_cmp_pct", "blitz_ypa", "blitz_epa_per_dropback", "passer_rating_vs_blitz"], "Legs": ["rush_yds", "scr", "scramble_ypa", "rush_fd"], "Ball security": ["int", "fum", "tgt_int"] },
   RB: { "Efficiency": ["ypc", "rush_epa_per_carry", "rush_success_pct", "rush_fd_pct"], "Explosive": ["rush_10_pct", "rush_20", "rush_40"], "Blocking vs runner": ["ybc_per_carry", "yac_per_carry"], "Tough yards": ["broken_tackles_per_100_touches", "rush_btk", "rush_stuffed_pct", "short_yardage_conv_pct", "goal_line_td_pct"], "Receiving": ["rec", "rec_yds", "yds_per_target", "yac_per_rec", "rec_fd_per_target"], "Ball security": ["fum", "fum_lost_all"] },
   WR: { "Efficiency": ["yds_per_target", "rec_epa_per_target", "catch_pct", "rec_fd_per_target"], "Role": ["targets", "adot", "deep_target_share", "air_yds"], "After the catch": ["yac_per_rec", "rec_btk", "broken_tackles_per_100_touches"], "Hands": ["drop_pct", "drops"], "Situational": ["third_down_catch_conv_pct", "rz_rec_td", "rec_20", "rec_40"] },
   OL: { "Discipline": ["pen", "pen_per_100_snaps", "pn_hold", "pn_fs"], "His line's results with him on the field": ["ol_pressure_pct", "ol_sack_pct", "ol_run_ypc"], "Workload": ["snaps"] },
@@ -248,7 +248,7 @@ const TOOLS = [
       if (me.sum.att) rates.passer_rating = passerRating(me.sum);
       if (me.sum.bz_att) rates.passer_rating_vs_blitz = passerRating(me.sum, "bz_");
       // ranks among the same position (players with at least half the games of the busiest one)
-      const KEYS = { QB: ["pass_yds", "pass_td", "int", "cmp_pct", "cpoe", "ypa", "epa_per_dropback", "td_pct", "big_pass_pct", "third_down_conv_pct", "rz_td_pct", "clutch_epa_per_dropback", "rush_yds", "sack_pct", "pressured_pct", "bad_throw_pct", "blitz_ypa"],
+      const KEYS = { QB: ["pass_yds", "pass_td", "int", "cmp_pct", "cpoe", "ypa", "pass_adot", "epa_per_dropback", "td_pct", "big_pass_pct", "third_down_conv_pct", "rz_td_pct", "clutch_epa_per_dropback", "rush_yds", "sack_pct", "pressured_pct", "bad_throw_pct", "blitz_ypa"],
         OL: ["snaps", "pen", "pen_per_100_snaps", "ol_pressure_pct", "ol_sack_pct", "ol_run_ypc"],
         RB: ["rush_yds", "rush_td", "ypc", "rush_epa_per_carry", "rush_success_pct", "rush_fd_pct", "rush_10_pct", "rush_stuffed_pct", "ybc_per_carry", "yac_per_carry", "broken_tackles_per_100_touches", "short_yardage_conv_pct", "rec_yds", "ppr"],
         WR: ["rec", "rec_yds", "rec_td", "targets", "yds_per_target", "catch_pct", "adot", "yac_per_rec", "drop_pct", "rec_fd_per_target", "third_down_catch_conv_pct"], K: ["fg_made", "fg_pct", "fg_50_pct", "mx_fg_long", "punt_net_avg"] };

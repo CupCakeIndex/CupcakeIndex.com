@@ -366,7 +366,8 @@ const Viz = (() => {
       ["touches", "Touches (carries + catches)", (S) => S.carries + S.rec, { count: 1 }],
       ["ypt", "Yards per touch", (S) => div(S.rush_yds + S.rec_yds, S.carries + S.rec), { den: (S) => S.carries + S.rec, d: 2, unit: "touches" }],
       ["td_rate", "TD rate (% of touches)", (S) => div(100 * (S.rush_td + S.rec_td), S.carries + S.rec), { den: (S) => S.carries + S.rec, pct: 1, unit: "touches" }],
-      ["adot", "Average depth of target (aDOT, air yards)", (S) => div(S.air_yds, S.targets), { den: (S) => S.targets, d: 1, unit: "targets", pos: "WR", lg: "nfl" }],
+      // passers by their throws, everyone else by his targets (a QB's own catches on trick plays aren't his aDOT)
+      ["adot", "Average depth of target (aDOT, air yards)", (S) => (S.att > S.targets ? div(S.pass_air, S.att) : div(S.air_yds, S.targets)), { den: (S) => (S.att > S.targets ? S.att : S.targets), d: 1, unit: "targets (throws for QBs)", pos: "WR", lg: "nfl" }],
       ["racr", "RACR (receiving yards ÷ air yards)", (S) => div(S.rec_yds, S.air_yds), { den: (S) => S.targets, d: 2, unit: "targets", pos: "WR", lg: "nfl" }],
       ["yds_tgt", "Yards per target", (S) => div(S.rec_yds, S.targets), { den: (S) => S.targets, d: 1, unit: "targets", pos: "WR", lg: "nfl" }],
       ["yac_rec", "Yards after catch per catch", (S) => div(S.yac, S.rec), { den: (S) => S.rec, d: 1, unit: "catches", pos: "WR", lg: "nfl" }],
@@ -1793,8 +1794,9 @@ const Viz = (() => {
             const v = c.data.datasets[0].data[i], sz = Math.min(20 * LS, (a.bottom - a.top) / c.data.datasets[0].data.length - 2);
             if (showLogo) drawLogo(ctx, shown[i], a.left - sz / 2 - 4, b.y, sz);
             if (!numsOn) return;
-            ctx.fillStyle = ink; ctx.textAlign = v < 0 ? "right" : "left";
-            ctx.fillText(fmt(stat, v, per), b.x + (v < 0 ? -4 : 4), b.y);
+            const t = fmt(stat, v, per), inside = v < 0 && b.x - 4 - ctx.measureText(t).width < a.left + 2; // no room left of a negative bar: write it inside, off the logos
+            ctx.fillStyle = inside ? "#fff" : ink; ctx.textAlign = v < 0 && !inside ? "right" : "left";
+            ctx.fillText(t, b.x + (v < 0 && !inside ? -4 : 4), b.y);
           });
           ctx.restore(); } }] };
       body = { h: Math.max(260, shown.length * Math.max(26, 20 * LS + 8) + 60) };

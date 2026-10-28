@@ -288,7 +288,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "495"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "496"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -519,7 +519,12 @@ function initBack() {
   btn.classList.toggle("hidden", depth < 1);
   // float it at the top of the screen once the header has scrolled out of view
   const top = document.querySelector(".top");
-  const pin = () => btn.classList.toggle("floating", !!top && top.getBoundingClientRect().bottom < 0);
+  // while floating it would sit on top of the page: tuck it away scrolling down, bring it back scrolling up
+  let lastY = scrollY;
+  const pin = () => {
+    btn.classList.toggle("floating", !!top && top.getBoundingClientRect().bottom < 0);
+    if (Math.abs(scrollY - lastY) > 6) { btn.classList.toggle("tucked", scrollY > lastY); lastY = scrollY; }
+  };
   window.addEventListener("scroll", pin, { passive: true });
   pin();
 }

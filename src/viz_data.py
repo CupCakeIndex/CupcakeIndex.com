@@ -121,6 +121,7 @@ NV_EXTRA = {"pr": ["punt_returns"], "pr_yds": ["punt_return_yards"], "kr": ["kic
             "sack_yds": ["def_sack_yards"], "sack_yds_lost": ["sack_yards_lost"],
             "two_pt": ["passing_2pt_conversions", "rushing_2pt_conversions", "receiving_2pt_conversions"],
             "rec_fd": ["receiving_first_downs"], "rush_fd": ["rushing_first_downs"], "pass_fd": ["passing_first_downs"],
+            "pass_air": ["passing_air_yards"],  # a QB's air yards on all his throws: passing aDOT (can be negative: screens)
             **{f"fgm_{b}": [f"fg_made_{b}"] for b in FG_BINS}, **{f"fga_{b}": [f"fg_made_{b}", f"fg_missed_{b}"] for b in FG_BINS},
             "fg_blk": ["fg_blocked"], "mx_fg_long": ["fg_long"], "pat_made": ["pat_made"], "pat_att": ["pat_att"],
             "gwfg_made": ["gwfg_made"], "gwfg_att": ["gwfg_att"], "pt_att": ["pt_att"], "pt_yds": ["pt_yards"], "pt_net": ["pt_net_yards"],
@@ -260,7 +261,7 @@ def nfl_teams(season):
                       f(r, "def_sacks"), f(r, "def_interceptions"), f(r, "fumble_recovery_opp"), f(r, "penalties"), f(r, "penalty_yards"),
                       f(o, "attempts") + f(o, "carries") + f(o, "sacks_suffered"), f(o, "passing_yards"), f(o, "rushing_yards"),
                       round(f(o, "passing_epa") + f(o, "rushing_epa"), 2), f(o, "passing_first_downs") + f(o, "rushing_first_downs"),
-                      f(r, "fg_made"), f(r, "fg_att")] + [abs(sum(f(r, c) for c in cs)) for cs in NV_EXTRA.values()])
+                      f(r, "fg_made"), f(r, "fg_att")] + [(sum if k == "pass_air" else lambda v: abs(sum(v)))(f(r, c) for c in cs) for k, cs in NV_EXTRA.items()])
     # team pass defense from play-by-play (throws by depth, YAC allowed, blitz rate), in the same pass as the player cuts
     T = {}
     try:
@@ -423,7 +424,7 @@ def nfl(season):
     # kicking, punting, returns, fumbles (NV_EXTRA) from the same weekly player stats
     for r in pl:
         if r["season_type"] == "REG":
-            x = {c: abs(sum(n(r.get(k)) for k in cs)) for c, cs in NV_EXTRA.items()}
+            x = {c: (sum if c == "pass_air" else lambda v: abs(sum(v)))(n(r.get(k)) for k in cs) for c, cs in NV_EXTRA.items()}
             x = {c: v for c, v in x.items() if v}
             if x:
                 pfr.setdefault((espn.get(r["player_id"]) or r["player_id"], int(r["week"])), {}).update(x)

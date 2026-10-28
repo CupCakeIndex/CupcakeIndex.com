@@ -2295,6 +2295,7 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
     border: 1px solid var(--accent); background: var(--card); color: var(--accent); font: 700 13px/1 "JetBrains Mono", monospace; cursor: pointer; }
   :is(.top .controls, .rb-tools) .back-fab.floating { position: fixed; top: calc(10px + env(safe-area-inset-top)); left: 12px; z-index: 65; box-shadow: 0 4px 14px rgba(0,0,0,.5); }
   :is(.top .controls, .rb-tools) .back-fab.hidden { display: none; }
+  :is(.top .controls, .rb-tools) .back-fab.floating.tucked { transform: translateY(calc(-100% - 24px - env(safe-area-inset-top))); opacity: 0; pointer-events: none; }
   /* like the Analyst button: the back button slides out of the way while a team window or the chat is open, and back after */
   :is(.top .controls, .rb-tools) .back-fab { transition: transform .3s cubic-bezier(.2, .8, .2, 1), opacity .25s; }
   body.drawer-open :is(.top .controls, .rb-tools) .back-fab, body.bot-open :is(.top .controls, .rb-tools) .back-fab { transform: translateX(calc(-100% - 40px)); opacity: 0; pointer-events: none; }
@@ -2993,6 +2994,9 @@ a.th-coach:hover { border-color: #ff6b2c; text-decoration: none; }
   .vz-adv .vz-main > .vz-on, .vz-adv .vz-main > .vz-frame, .vz-adv .vz-main > .vz-take { order: 1; }
   .vz-adv .vz-main > .vz-actions, .vz-adv .vz-main > .vz-saveform, .vz-adv .vz-main > .vz-pmsg { order: 1; } /* share/download right under the chart */
   .vz-side { order: 2; position: static; max-height: none; overflow: visible; margin: 14px 0 4px; }
+  /* keep the controls inside the screen: a long stat name or the Show as buttons used to push the page 640px wide */
+  .vz-adv .vz-side, .vz-adv .vz-main > * { min-width: 0; max-width: 100%; }
+  .vz-seg { flex-wrap: wrap; max-width: 100%; }
   .vz-top { grid-template-columns: minmax(0, 1fr); }
   .vz-top .vz-presets { flex-wrap: wrap; }
   .vz-top .vz-presets > label { min-width: 0; }
