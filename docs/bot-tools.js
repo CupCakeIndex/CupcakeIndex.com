@@ -370,7 +370,8 @@ const TOOLS = [
         const per = new Map();
         for (const r of D.prows) {
           if (r[2] !== k || !weeksOk(r[1], a)) continue;
-          const o = per.get(r[0]) || { sum: {} };
+          const o = per.get(r[0]) || { sum: {}, games: 0 };
+          o.games++;
           for (const c of COLS) if (D.pi[c] != null && r[D.pi[c]]) o.sum[c] = (o.sum[c] || 0) + r[D.pi[c]];
           per.set(r[0], o);
         }
@@ -379,10 +380,25 @@ const TOOLS = [
         const kept = [...per.keys()].filter((id) => !out_(id)), gone = [...per.keys()].filter(out_);
         const rates = (t) => ({ ypc: t.carries ? r1(t.rush_yds / t.carries, 2) : null, ybc_per_carry: t.pfr_car ? r1(t.ybc / t.pfr_car, 2) : null, yac_per_carry: t.pfr_car ? r1(t.yac_rush / t.pfr_car, 2) : null,
           rush_stuffed_pct: t.carries ? r1((100 * (t.rush_stuffed || 0)) / t.carries, 1) : null, yds_per_target: t.targets ? r1(t.rec_yds / t.targets, 2) : null });
-        const line = (id) => ({ name: D.pmeta[id]?.[0], pos: D.pmeta[id]?.[1], ...Object.fromEntries(Object.entries(per.get(id).sum).filter(([c]) => ["carries", "rush_yds", "rush_td", "targets", "rec", "rec_yds", "att", "pass_yds"].includes(c)).map(([c, v]) => [c, r1(v, 1)])) });
+        const line = (id) => ({ name: D.pmeta[id]?.[0], pos: D.pmeta[id]?.[1], games: per.get(id).games, ...Object.fromEntries(Object.entries(per.get(id).sum).filter(([c]) => ["carries", "rush_yds", "rush_td", "targets", "rec", "rec_yds", "att", "pass_yds"].includes(c)).map(([c, v]) => [c, r1(v, 1)])) });
         const t1 = add(kept), t0 = add([...per.keys()]);
-        out.without = { left_out: gone.map((id) => D.pmeta[id]?.[0]), whole_team: { ...Object.fromEntries(Object.entries(t0).map(([c, v]) => [c, r1(v, 1)])), ...rates(t0) },
+        // every team's same split (positions taken out; names only on this team): where this one ranks
+        const others = new Map();
+        for (const r of D.prows) {
+          if (!weeksOk(r[1], a)) continue;
+          const m = D.pmeta[r[0]] || [];
+          if (r[2] !== k && (pos.has((m[1] || "").toUpperCase()) || pos.has(posGroup(m)))) continue;
+          if (r[2] === k && out_(r[0])) continue;
+          const t = others.get(r[2]) || {};
+          for (const c of ["carries", "rush_yds", "ybc", "yac_rush", "pfr_car"]) if (D.pi[c] != null && r[D.pi[c]]) t[c] = (t[c] || 0) + r[D.pi[c]];
+          others.set(r[2], t);
+        }
+        const rankBy = (f) => { const me_ = f(others.get(k) || {}); if (me_ == null) return null; const all = [...others.values()].map(f).filter((x) => x != null); return `${1 + all.filter((x) => x > me_).length} of ${all.length}`; };
+        out.without = { team_games: me.sum.games, left_out: gone.map((id) => D.pmeta[id]?.[0]),
+          rest_rank_among_teams: { ypc: rankBy((t) => (t.carries ? t.rush_yds / t.carries : null)), ybc_per_carry: rankBy((t) => (t.pfr_car ? t.ybc / t.pfr_car : null)), yac_per_carry: rankBy((t) => (t.pfr_car ? t.yac_rush / t.pfr_car : null)),
+            note: "every team's run game with the same positions taken out; 1 = best. ybc_per_carry is the team-wide blocking rank." }, whole_team: { ...Object.fromEntries(Object.entries(t0).map(([c, v]) => [c, r1(v, 1)])), ...rates(t0) },
           rest: { ...Object.fromEntries(Object.entries(t1).map(([c, v]) => [c, r1(v, 1)])), ...rates(t1) }, players: [...gone, ...kept].filter((id) => per.get(id).sum.carries || per.get(id).sum.targets).map(line).slice(0, 14),
+          games_note: "team_games = the team's games; each player's games = the ones he played. Say whose sample you mean.",
           note: "Added up from player game rows (sacks and kneels aren't carries here, so team rushing can differ slightly from the official total). ybc/yac per carry: Pro Football Reference's charting; before contact is mostly the blocking, after contact mostly the runner." };
         if (!gone.length) out.without.warning = `Nobody matched ${drop.join(", ")} on this team.`;
       }
