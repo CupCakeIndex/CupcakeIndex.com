@@ -105,7 +105,7 @@ def key(name):
 def main():
     players = json.load(open(os.path.join(ROOT, "docs", "data", "players_nfl.json"), encoding="utf-8"))
     by_name = {}
-    for name, pid, pos, y0, y1 in players:
+    for name, pid, pos, y0, y1, *_ in players:
         by_name.setdefault(key(name), []).append((pid, pos, y0, y1))
     found, seen, year = {}, set(), dt.date.today().year
     for page in PAGES:

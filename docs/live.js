@@ -3738,21 +3738,37 @@ const Live = (() => {
   // search result headshot: initials underneath, ESPN's photo on top (removed if ESPN has none, so the initials show)
   const searchFace = (lg, id, name) => `<span class="gs-face">${esc(initials(name))}<img src="${esc(thumb(`https://a.espncdn.com/i/headshots/${lg === "nfl" ? "nfl" : "college-football"}/players/full/${encodeURIComponent(id)}.png`, 22, 22, true))}" alt="" loading="lazy" decoding="async" onerror="this.remove()"></span>`;
   // Players: all-time NFL index (includes retired legends) + ESPN's live search (active college and NFL players)
-  async function searchPlayers(text, limit = 10) {
+  // how much a position gets searched: QBs and the skill spots, then defense, the line, specialists
+  const POS_RANK = { QB: 0, RB: 0, WR: 0, TE: 0, FB: 0.3, K: 0.2, P: 0.3, LS: 0.55,
+    T: 0.4, OT: 0.4, G: 0.4, OG: 0.4, C: 0.4, OL: 0.4 };
+  const DRAFT_RANK = [0, -0.4, -0.2, -0.1]; // first-rounders are the names people know (by draft round; 0 = undrafted)
+  // picks: how many times this browser picked each result ({"nfl:4262921": 3}); teams: your favorite NFL teams ("MIN")
+  async function searchPlayers(text, limit = 10, { picks = {}, teams = [] } = {}) {
     const [index, d, al] = await Promise.all([
       playerIndex(),
       api(`https://site.web.api.espn.com/apis/common/v3/search?query=${encodeURIComponent(text)}&limit=20&type=player`, 60000).catch(() => null),
       aliases(),
     ]);
-    // forgiving match (typos, accents, punctuation); ties go to longer/more recent careers. A nickname counts like his name.
+    // forgiving match (typos, accents, punctuation); a nickname counts like his name. Then (Terry, Oct 28): the ones you
+    // pick most, players on a roster now (your team's first), recently retired (last 5 seasons), then older careers.
+    // Then QBs and skill players before linemen and specialists, early draft picks first; ties go to longer careers.
+    // The last 3 spots go to players not on a roster, so Tom Brady still shows under all the active Toms.
+    const newest = index.reduce((m, p) => Math.max(m, p[4] || 0), 0);
     const scored = [];
     for (const p of index) {
       const sc = [p[0], ...(al[p[1]] ? [...al[p[1]].nick, ...al[p[1]].nick.map((n) => `${n} ${p[0].split(" ").slice(1).join(" ")}`), ...al[p[1]].also] : [])]
         .map((n) => fuzzyScore(text, n)).filter((x) => x != null);
-      if (sc.length) scored.push([Math.min(...sc), p]);
+      if (!sc.length) continue;
+      // off a roster, a long career is the best sign people know him (Justin Tucker's 13 seasons)
+      const era = p[5] ? (teams.includes(p[5]) ? -0.8 : 0)
+        : ((p[4] || 0) >= newest - 5 ? 1 : 2) - Math.min(0.5, 0.05 * ((p[4] || 0) - (p[3] || p[4] || 0) + 1));
+      const mine = picks[`nfl:${p[1]}`] ? 10 + Math.log2(picks[`nfl:${p[1]}`]) : 0; // yours beat everyone's
+      scored.push([Math.min(...sc) * 4 + era + (POS_RANK[p[2]] ?? 0.3) + (DRAFT_RANK[p[6]] || 0) - mine, p]);
     }
-    const local = scored.sort((a, b) => a[0] - b[0] || ((b[1][4] || 0) - (b[1][3] || 0)) - ((a[1][4] || 0) - (a[1][3] || 0)) || (b[1][4] || 0) - (a[1][4] || 0))
-      .slice(0, 8).map(([, p]) => ({ key: `nfl:${p[1]}`, name: p[0], pic: searchFace("nfl", p[1], p[0]), tag: `NFL · ${p[2]}${p[3] ? ` · ${p[3]}–${p[4] || ""}` : ""}` }));
+    const sorted = scored.sort((a, b) => a[0] - b[0] || ((b[1][4] || 0) - (b[1][3] || 0)) - ((a[1][4] || 0) - (a[1][3] || 0)) || (b[1][4] || 0) - (a[1][4] || 0));
+    const chosen = new Set(sorted.filter((x) => !x[1][5]).slice(0, 3));
+    for (const x of sorted) { if (chosen.size >= 8) break; chosen.add(x); }
+    const local = sorted.filter((x) => chosen.has(x)).map(([, p]) => ({ key: `nfl:${p[1]}`, name: p[0], pic: searchFace("nfl", p[1], p[0]), tag: `NFL · ${p[2]}${p[3] ? ` · ${p[3]}–${p[4] || ""}` : ""}` }));
     const seen = new Set(local.map((x) => x.key));
     const live = (d?.items || []).filter((it) => it.league === "nfl" || it.league === "college-football")
       .map((it) => ({ key: `${it.league === "nfl" ? "nfl" : "cfb"}:${it.id}`, name: it.displayName, pic: searchFace(it.league === "nfl" ? "nfl" : "cfb", it.id, it.displayName), tag: it.league === "nfl" ? "NFL" : "College" }))

@@ -143,7 +143,10 @@ def build_player_index(out_path):
     """Every NFL player (past and present) with an ESPN id, for the player-compare search.
 
     ESPN's own search only knows active players; this lets people find Brady, Barry Sanders, etc.
-    Rows: [name, espn_id, position, first_season, last_season], newest careers first.
+    Rows: [name, espn_id, position, first_season, last_season, team, draft_round], newest careers first. team (an
+    abbreviation, "MIN") only for players on a roster now: played this season and not cut. Search puts those first
+    (nflverse calls some long retired players "ACT", so the season matters too), and early draft picks before late ones
+    (0 = undrafted).
     """
     try:
         rows = _csv(PLAYERS_URL, "players.csv", True)
@@ -151,11 +154,16 @@ def build_player_index(out_path):
         print(f"  player index: download failed ({e}); keeping the old one")
         return
     out = []
+    newest = max((int(r["last_season"]) for r in rows if (r.get("last_season") or "").isdigit()), default=0)
     for r in rows:
         if not r.get("espn_id") or not r.get("display_name"):
             continue
         first, last = r.get("rookie_season") or "", r.get("last_season") or ""
-        out.append([r["display_name"], r["espn_id"], r.get("position") or "", int(first) if first.isdigit() else None, int(last) if last.isdigit() else None])
+        last = int(last) if last.isdigit() else None
+        team = r.get("latest_team") or "" if last == newest and r.get("status") not in ("CUT", "RET") else ""
+        rd = r.get("draft_round") or ""
+        out.append([r["display_name"], r["espn_id"], r.get("position") or "", int(first) if first.isdigit() else None, last, team,
+                    int(rd) if rd.isdigit() else 0])
     out.sort(key=lambda x: -(x[4] or 0))
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(out, separators=(",", ":")), encoding="utf-8")

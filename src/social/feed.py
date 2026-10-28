@@ -62,7 +62,7 @@ def nfl_players():
         return []
     yr = max((r[4] for r in rows), default=0)
     names = {}
-    for name, pid, _pos, _first, last in rows:
+    for name, pid, _pos, _first, last, *_ in rows:
         if last >= yr - 1 and " " in name:
             names.setdefault(name, []).append(pid)
     out = [(re.compile(r"(?<![\w'])" + re.escape(n) + r"(?![\w'])"), f"nfl:{ids[0]}", n) for n, ids in names.items() if len(ids) == 1]

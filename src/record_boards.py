@@ -243,7 +243,7 @@ def key(name):
 def main():
     players = json.loads((ROOT / "docs" / "data" / "players_nfl.json").read_text(encoding="utf-8"))
     by_name = {}
-    for name, pid, pos, y0, y1 in players:
+    for name, pid, pos, y0, y1, *_ in players:
         by_name.setdefault(key(name), []).append((pid, pos, y0, y1))
     year = dt.date.today().year if dt.date.today().month >= 8 else dt.date.today().year - 1
     try:

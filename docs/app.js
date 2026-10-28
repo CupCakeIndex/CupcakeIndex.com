@@ -288,7 +288,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "497"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "498"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -1698,39 +1698,70 @@ async function allTeams() {
   return out;
 }
 
+// what this browser picked from search, so the people you look up most come first (Terry, Oct 28). Kept on the device only:
+// {key: {n: times picked, t: last time, hash: where it went, html: the result row}}, the 40 most recent.
+const searchPicks = () => { try { return JSON.parse(localStorage.getItem("gs-picks")) || {}; } catch { return {}; } };
+function savePick(key, hash, html) {
+  const all = searchPicks();
+  all[key] = { n: (all[key]?.n || 0) + 1, t: Date.now(), hash, html };
+  const keep = Object.entries(all).sort((a, b) => b[1].t - a[1].t).slice(0, 40);
+  try { localStorage.setItem("gs-picks", JSON.stringify(Object.fromEntries(keep))); } catch {}
+}
+
 function initSearch() {
   const q = $("#gs"), box = $("#gs-results"), wrap = $("#gsearch");
   let timer, results = [];
   // hide the results; the bar itself stays open while you're typing in it (phones: typing 1 letter used to hide what you typed)
   const close = () => { box.classList.add("hidden"); if (document.activeElement !== q) wrap.classList.remove("open"); };
+  const keyOf = (r) => r.type === "player" ? r.key : r.type === "coach" ? `coach:${r.slug}` : r.type === "team" ? `team:${r.lg}:${r.t.team}` : r.key;
+  const row = (r) => r.type === "team" ? `${logo(r.t)} <span>${esc(r.t.team)}</span><small>${r.lg === "nfl" ? "NFL" : "College"} · ${esc(r.t.conference || "")}</small>`
+    : r.type === "recent" ? r.html : `${r.pic || ""} <span>${esc(r.name)}</span><small>${esc(r.tag)}</small>`;
   const go = async (r) => {
     close(); q.value = ""; q.blur();
-    if (r.type === "player") { const [lg, id] = r.key.split(":"); location.hash = `#/player/${encodeURIComponent(id)}?league=${lg}`; return; }
-    if (r.type === "coach") { location.hash = link("coach", r.slug); return; }
-    const id = r.t.id || (await Live.teamId(r.lg, r.t));
-    location.hash = id ? `#/team/${encodeURIComponent(id)}?league=${r.lg}` : `#/rankings?league=${r.lg}&team=${encodeURIComponent(r.t.team)}`;
+    let hash;
+    if (r.type === "recent") hash = r.hash;
+    else if (r.type === "player") { const [lg, id] = r.key.split(":"); hash = `#/player/${encodeURIComponent(id)}?league=${lg}`; }
+    else if (r.type === "coach") hash = link("coach", r.slug);
+    else {
+      const id = r.t.id || (await Live.teamId(r.lg, r.t));
+      hash = id ? `#/team/${encodeURIComponent(id)}?league=${r.lg}` : `#/rankings?league=${r.lg}&team=${encodeURIComponent(r.t.team)}`;
+    }
+    savePick(keyOf(r), hash, row(r));
+    location.hash = hash;
+  };
+  const draw = (sections, empty) => {
+    results = sections.flatMap((s) => s[1]);
+    let i = 0;
+    box.innerHTML = results.length ? sections.filter((s) => s[1].length)
+      .map(([h, list]) => `<div class="gs-h">${h}</div>` + list.map((r) => `<button data-i="${i++}">${row(r)}</button>`).join("")).join("")
+      : empty ? `<p class="muted gs-empty">${empty}</p>` : "";
+    box.classList.toggle("hidden", !box.innerHTML);
+    if (box.innerHTML) wrap.classList.add("open");
+  };
+  // an empty bar shows the ones you pick most
+  const showMine = () => {
+    const mine = Object.entries(searchPicks()).sort((a, b) => b[1].n - a[1].n || b[1].t - a[1].t).slice(0, 6)
+      .map(([key, p]) => ({ type: "recent", key, ...p }));
+    draw([["Your searches", mine]]);
   };
   q.oninput = () => {
     clearTimeout(timer);
     const text = q.value.trim();
-    if (text.length < 2) { close(); return; }
+    if (text.length < 2) { if (text) close(); else showMine(); return; }
     timer = setTimeout(async () => {
+      const picks = Object.fromEntries(Object.entries(searchPicks()).map(([k, p]) => [k, p.n]));
+      const mineFirst = (list) => list.map((r, i) => [r, i]).sort((a, b) => (picks[keyOf(b[0])] || 0) - (picks[keyOf(a[0])] || 0) || a[1] - b[1]).map((x) => x[0]);
       const teams = (await allTeams())
         .map((x) => { const f = fuzzyScore(text, x.t.team), i = initialsScore(text, x.t.team); return { ...x, sc: f == null ? i : i == null ? f : Math.min(f, i) }; })
         .filter((x) => x.sc != null)
         .sort((a, b) => a.sc - b.sc || a.t.team.localeCompare(b.t.team))
         .slice(0, 8).map((x) => ({ type: "team", ...x }));
-      const [players, coaches] = await Promise.all([Live.searchPlayers(text, 8), Coaches.search(text, 6).catch(() => [])]);
+      const teamsMine = typeof Profile !== "undefined" ? Profile.favorites().filter((f) => f.lg === "nfl").map((f) => f.abbr) : [];
+      const [players, coaches] = await Promise.all([Live.searchPlayers(text, 8, { picks, teams: teamsMine }), Coaches.search(text, 6).catch(() => [])]);
       if (q.value.trim() !== text) return; // user kept typing
-      const pl = players.map((p) => ({ type: "player", ...p })), co = coaches.map((c) => ({ type: "coach", ...c }));
-      results = [...teams, ...co, ...pl];
-      box.innerHTML = results.length ? `
-        ${teams.length ? `<div class="gs-h">Teams</div>` + teams.map((r, i) => `<button data-i="${i}">${logo(r.t)} <span>${esc(r.t.team)}</span><small>${r.lg === "nfl" ? "NFL" : "College"} · ${esc(r.t.conference || "")}</small></button>`).join("") : ""}
-        ${co.length ? `<div class="gs-h">Coaches</div>` + co.map((r, i) => `<button data-i="${teams.length + i}">${r.pic} <span>${esc(r.name)}</span><small>${esc(r.tag)}</small></button>`).join("") : ""}
-        ${pl.length ? `<div class="gs-h">Players</div>` + pl.map((r, i) => `<button data-i="${teams.length + co.length + i}">${r.pic || ""} <span>${esc(r.name)}</span><small>${esc(r.tag)}</small></button>`).join("") : ""}`
-        : `<p class="muted gs-empty">No teams, coaches or players found.</p>`;
-      box.classList.remove("hidden");
-      wrap.classList.add("open");
+      // players before coaches (Terry, Oct 28: coaches were on top)
+      draw([["Teams", mineFirst(teams)], ["Players", mineFirst(players.map((p) => ({ type: "player", ...p })))],
+        ["Coaches", mineFirst(coaches.map((c) => ({ type: "coach", ...c })))]], "No teams, players or coaches found.");
     }, 180);
   };
   box.onclick = (e) => { const b = e.target.closest("[data-i]"); if (b) go(results[+b.dataset.i]); };
@@ -1738,7 +1769,7 @@ function initSearch() {
     if (e.key === "Enter" && results.length && !box.classList.contains("hidden")) { e.preventDefault(); go(results[0]); }
     if (e.key === "Escape") { close(); q.blur(); }
   };
-  q.onfocus = () => wrap.classList.add("open");
+  q.onfocus = () => { wrap.classList.add("open"); if (!q.value.trim()) showMine(); };
   q.onblur = () => setTimeout(() => { if (document.activeElement !== q) wrap.classList.remove("open"); }, 150);
   document.addEventListener("pointerdown", (e) => { if (!wrap.contains(e.target)) close(); });
   document.addEventListener("keydown", (e) => {
