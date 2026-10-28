@@ -2133,22 +2133,63 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 .tk-posts-h { margin: 22px 0 0; }
 .tk-st-viz { display: inline-block; margin-top: 8px; font-size: 12px; }
 .tk-st-all { margin: 12px 0 0; }
-.ps-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
-.ps-cell { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 8px 4px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); text-decoration: none; min-width: 0; }
-.ps-cell:hover { border-color: var(--accent); }
-.ps-cell small { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; line-height: 1.2; min-height: 2.4em; overflow: hidden; }
-.ps-cell b { font-size: 20px; line-height: 1.2; margin-top: 2px; }
-.ps-cell i { font-style: normal; font-size: 12px; color: var(--accent); margin-top: 2px; }
-.ps-cell i.top { font-weight: 700; }
-.ps-h { margin: 16px 0 8px; font-size: 13px; }
-.ps-bars { display: flex; gap: 6px; align-items: flex-end; height: 150px; }
-.ps-bar { flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; text-decoration: none; color: var(--ink); }
-.ps-bar span { font-size: 11px; margin-bottom: 3px; }
-.ps-bar i { display: block; width: 100%; background: var(--accent); }
-.ps-bar i.l { opacity: .55; }
-.ps-bar small { font-size: 10px; color: var(--muted); text-align: center; line-height: 1.2; margin-top: 4px; }
-.ps-more { margin-top: 14px; }
-.ps-more summary { cursor: pointer; color: var(--accent); font-size: 13px; }
+/* Season stats (player Overview): tiers by percentile at his position, neon orange = good, electric blue = bad
+   (colorblind-safe). Tron/circuit look (Terry, Oct 28: "tone down the glow"): thin neon traces into chamfered rank tags,
+   tick-marked tracks, corner traces on the card, glow kept to a faint edge. */
+.ps-card { --t5: #ff6b2c; --t4: #ffb020; --t3: #8b93a1; --t2: #35c8ff; --t1: #2f7bff; position: relative;
+  background-image: linear-gradient(color-mix(in srgb, var(--accent) 3%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 3%, transparent) 1px, transparent 1px);
+  background-size: 22px 22px; }
+.ps-card::before, .ps-card::after { content: ""; position: absolute; width: 46px; height: 18px; pointer-events: none;
+  background: linear-gradient(var(--accent), var(--accent)) 0 0 / 100% 1px no-repeat, linear-gradient(var(--accent), var(--accent)) 0 0 / 1px 100% no-repeat,
+    radial-gradient(circle, var(--accent) 0 2px, transparent 2.5px) 100% 0 / 6px 6px no-repeat; }
+.ps-card::before { top: -1px; left: -1px; }
+.ps-card::after { bottom: -1px; right: -1px; transform: rotate(180deg); }
+.ps-key { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 2px 0 6px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.ps-key span::before { content: ""; display: inline-block; width: 16px; height: 2px; margin-right: 6px; background: var(--tc); vertical-align: 3px; box-shadow: 0 0 3px color-mix(in srgb, var(--tc) 50%, transparent); }
+.ps-key .t5, .ps-row.t5 { --tc: var(--t5); }
+.ps-key .t4, .ps-row.t4 { --tc: var(--t4); }
+.ps-key .t3, .ps-row.t3 { --tc: var(--t3); }
+.ps-key .t2, .ps-row.t2 { --tc: var(--t2); }
+.ps-key .t1, .ps-row.t1 { --tc: var(--t1); }
+.ps-row.t0 { --tc: var(--muted); }
+.ps-sec { --sc: var(--accent); }
+.ps-sec.down { --sc: var(--t1); }
+.ps-h { display: flex; align-items: center; gap: 8px; margin: 18px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--sc); }
+.ps-h span::before { content: "// "; opacity: .6; }
+.ps-h small { color: var(--muted); font-weight: 400; }
+.ps-h::after { content: ""; flex: 1; height: 5px; background: linear-gradient(90deg, color-mix(in srgb, var(--sc) 55%, transparent), color-mix(in srgb, var(--sc) 10%, transparent)) 0 50% / 100% 1px no-repeat,
+  radial-gradient(circle, var(--sc) 0 2px, transparent 2.5px) 100% 50% / 5px 5px no-repeat; }
+.ps-rows { display: grid; grid-template-columns: 1fr; }
+.ps-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 64px minmax(120px, 1.1fr); align-items: center; gap: 10px; padding: 8px 6px 8px 10px; border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent); color: var(--ink); text-decoration: none; font-size: 13px; }
+.ps-row::before { content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 1px; background: var(--tc); }
+.ps-row:hover { background: color-mix(in srgb, var(--tc) 7%, transparent); }
+.ps-row:hover .ps-l { color: var(--tc); }
+.ps-l { line-height: 1.3; overflow-wrap: anywhere; }
+.ps-row b { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* the track: a faint line with ticks every 10%; the fill: a thin neon trace running into the tag */
+.ps-track { position: relative; height: 12px; margin: 0 26px 0 20px;
+  background: linear-gradient(color-mix(in srgb, var(--muted) 30%, transparent), color-mix(in srgb, var(--muted) 30%, transparent)) 0 50% / 100% 1px no-repeat,
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--muted) 35%, transparent) 0 1px, transparent 1px 10%) 0 50% / 100% 5px no-repeat; }
+.ps-fill { position: absolute; left: 0; top: 0; bottom: 0; filter: drop-shadow(0 0 2px color-mix(in srgb, var(--tc) 55%, transparent)); }
+.ps-fill i { position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; background: linear-gradient(90deg, color-mix(in srgb, var(--tc) 35%, transparent), var(--tc)); }
+/* the tag: a chamfered box whose outline follows the cut corners (the tier color behind, the card color 1px inside;
+   a plain border would get sliced off at the corners and look out of line) */
+.ps-track em { position: absolute; top: 50%; transform: translate(-50%, -50%); isolation: isolate; min-width: 36px; padding: 3px 7px; background: var(--tc); color: var(--tc);
+  font-style: normal; font-size: 11px; line-height: 14px; font-weight: 700; letter-spacing: .04em; text-align: center; white-space: nowrap; text-transform: uppercase;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+.ps-track em::before { content: ""; position: absolute; inset: 1px; z-index: -1; background: var(--card);
+  clip-path: polygon(5.6px 0, 100% 0, 100% calc(100% - 5.6px), calc(100% - 5.6px) 100%, 0 100%, 0 5.6px); }
+.ps-track em.ps-nr { left: 50%; background: var(--line); color: var(--muted); }
+@media (min-width: 800px) {
+  .ps-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 0 32px; align-items: start; }
+  .ps-sec.main .ps-rows, .ps-groups { columns: 2; column-gap: 32px; }
+  .ps-sec.main .ps-rows { display: block; }
+  .ps-sec.main .ps-row, .ps-groups .ps-sec { break-inside: avoid; }
+  .ps-groups .ps-rows { display: grid; }
+}
+.ps-more { margin-top: 16px; }
+.ps-more summary { cursor: pointer; color: var(--accent); font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
 .tk-hl { list-style: none; margin: 8px 0 0; padding: 0; }
 .tk-hl li { padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; line-height: 1.45; }
 .tk-hl li:first-child { border-top: 0; }
@@ -3925,3 +3966,47 @@ body.drawer-open .bot-fab { transform: translateX(calc(100% + 40px)); opacity: 0
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) .wr-chart, :root:not([data-theme="dark"]) .wr-legend { --wr-up: #2f6fdb; --wr-dn: #d9480f; }
 }
+
+/* ------------------------------------------------------------------ circuit theme for charts (Terry, Oct 28: match the
+   Season stats look across the site). Thin neon traces, hollow nodes, chamfered tags, faint glow only. Rules here win
+   over the older chart rules above. */
+/* win probability */
+.wp-line { stroke-width: 2; filter: drop-shadow(0 0 2px color-mix(in srgb, var(--accent) 55%, transparent)); }
+.wp-mid, .wp-q { stroke-dasharray: 2 4; }
+.wp-dot { background: var(--card); border: 2px solid var(--accent-fill, var(--accent)); box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 40%, transparent); }
+.wp-tip { border-radius: 0; border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); border-left: 2px solid var(--accent); }
+/* player career chart: lines are traces, dots hollow nodes, bars outlined */
+.cc-chart .cc-line { stroke-width: 2; filter: drop-shadow(0 0 2px color-mix(in srgb, var(--accent) 45%, transparent)); }
+.cc-chart .cc-dot:not(.cc-bdot) { fill: var(--card); stroke: var(--dc, var(--accent)); stroke-width: 2; }
+.cc-chart .cc-bar { fill-opacity: .55; stroke-width: 1.25; }
+/* kicker seasons */
+.ky-bar, .ky-part { fill-opacity: .55; stroke: var(--accent); stroke-width: 1.25; }
+.ky-part.xp { stroke: #4f9dff; }
+/* team At a glance: share bars become traces into the number, the points line gets hollow nodes */
+.gl-track { position: relative; height: 12px; border-radius: 0; overflow: visible;
+  background: linear-gradient(color-mix(in srgb, var(--muted) 30%, transparent), color-mix(in srgb, var(--muted) 30%, transparent)) 0 50% / 100% 1px no-repeat,
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--muted) 35%, transparent) 0 1px, transparent 1px 10%) 0 50% / 100% 5px no-repeat; }
+.gl-track i { --gc: var(--accent); position: relative; height: 2px; margin-top: 5px; border-radius: 0; background: linear-gradient(90deg, color-mix(in srgb, var(--gc) 35%, transparent), var(--gc));
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--gc) 55%, transparent)); }
+.gl-track i.gl-alt { --gc: #35c8ff; background: linear-gradient(90deg, color-mix(in srgb, var(--gc) 35%, transparent), var(--gc)); }
+.gl-track i.gl-low { --gc: #2f7bff; background: linear-gradient(90deg, color-mix(in srgb, var(--gc) 35%, transparent), var(--gc)); }
+.gl-track i::after { content: ""; position: absolute; right: -3px; top: -2px; width: 6px; height: 6px; border-radius: 50%; background: var(--gc); }
+.gl-svg polyline { stroke-width: 2; }
+.gl-svg polyline.gl-for { filter: drop-shadow(0 0 2px color-mix(in srgb, var(--accent) 55%, transparent)); }
+.gl-svg circle.gl-for, .gl-svg circle.gl-against { fill: var(--card); stroke-width: 2; }
+.gl-svg circle.gl-for { stroke: var(--accent); } .gl-svg circle.gl-against { stroke: var(--muted); }
+.gl-svg line.gl-grid { stroke-dasharray: 2 4; }
+.gl-card { border-radius: 0; }
+/* This Week charts */
+.wr-mv line { stroke-width: 1.75; }
+.wr-up line { filter: drop-shadow(0 0 2px color-mix(in srgb, var(--wr-up) 55%, transparent)); }
+.wr-dn line { filter: drop-shadow(0 0 2px color-mix(in srgb, var(--wr-dn) 55%, transparent)); }
+.wr-mv circle { fill: var(--card); stroke-width: 2; }
+.wr-up circle { stroke: var(--wr-up); } .wr-dn circle { stroke: var(--wr-dn); }
+.wr-track { stroke-width: 1; stroke-dasharray: 2 4; }
+.wr-gap { stroke-width: 1.75; opacity: .7; }
+.wr-ours { fill: var(--card); stroke: var(--wr-dn); }
+/* Takes talking points and team conversation starters: a trace along the top ending in a node */
+.tk-st-item { position: relative; border-top: 1px solid var(--accent); }
+.tk-st-item::before { content: ""; position: absolute; top: -3.5px; left: -1px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.tk-st-item::after { content: ""; position: absolute; top: -1px; right: -1px; width: 12px; height: 12px; border-top: 1px solid var(--accent); border-right: 1px solid var(--accent); }

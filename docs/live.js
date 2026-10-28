@@ -3379,34 +3379,43 @@ const Live = (() => {
         `<span><small>${esc(l)}</small><b>${v}</b>${sub ? `<i>${sub}</i>` : ""}</span>`).join("")}</div><p class="note">${p.note}</p></div>`).join("")}</div>`;
   }
   // Player Overview: "Season stats" (Terry: in-depth stats like the Real app). Every stat we chart on him this season with his
-  // rank at his position (Viz.playerStats, the same numbers as Visualize), the main ones up top, each one opening its chart,
-  // and his last 8 games as bars (ESPN's game log, so it has his latest game).
+  // rank at his position (Viz.playerStats, the same numbers as Visualize), color-coded by percentile: what he's best and
+  // worst at, then the main ones and the rest, each one opening its chart. (No game bars: Terry found them bulky.)
   const PS_TOP = { QB: ["pass_yds", "pass_td", "int", "cmp_pct", "ypa", "rating", "eff", "epa_db", "ppa_play", "rush_yds", "rush_td", "sacked", "ppr"],
     RB: ["rush_yds", "carries", "ypc", "rush_td", "rec", "rec_yds", "scrim", "epa_rush", "ppa_play", "ppr"],
     WR: ["rec_yds", "rec", "targets", "rec_td", "ypr", "catch_pct", "yac", "epa_tgt", "ppa_play", "ppr"],
     DEF: ["tackles", "def_sacks", "tfl", "qb_hits", "pd", "def_int"], K: ["fg_made", "fg_att", "fg_pct"] };
   const ordN = (n) => n + ([11, 12, 13].includes(n % 100) ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th");
+  // ranks: "T2" when he shares it (Terry: "like T2 or T32"), and a color tier from his percentile at his position
+  const psRank = (x) => (x.rank ? (x.tie ? `T${x.rank}` : ordN(x.rank)) : "–");
+  const psTier = (x) => (x.pct == null ? "t0" : x.pct >= 0.9 ? "t5" : x.pct >= 0.7 ? "t4" : x.pct >= 0.4 ? "t3" : x.pct >= 0.2 ? "t2" : "t1");
   async function seasonStatsInto(lg, a, gl, slot) {
     const P = await Viz.playerStats(lg, a.id).catch(() => null);
-    if (!slot?.isConnected) return;
-    const G = Takes.games(gl), key = KEY_METRIC[PRIMARY(a.position?.abbreviation)];
-    if (!P && !(key && G.length)) return;
-    const viz = (k) => `#/stats?${new URLSearchParams({ league: lg, show: "visualize", him: a.id, stat: k, pos: P?.pos || "" })}`;
-    const cell = (x) => `<a class="ps-cell" href="${viz(x.key)}" title="${esc(x.label)}"><small>${esc(x.label)}</small><b>${esc(x.txt)}</b>${x.rank
-      ? `<i class="${x.rank <= 3 ? "top" : ""}">${x.rank <= 3 ? "🏆 " : ""}${ordN(x.rank)}</i>` : `<i class="muted">–</i>`}</a>`;
-    const all = P ? P.cats.flatMap(([, l]) => l) : [], byKey = Object.fromEntries(all.map((x) => [x.key, x]));
-    const top = (PS_TOP[P?.pos] || []).map((k) => byKey[k]).filter(Boolean);
-    const head = top.length ? top : all.slice(0, 8);
-    // recent games: his main stat, last 8 (tallest bar = his best of them)
-    const R = key ? G.filter((g) => g.s[key] != null).slice(-8) : [], hi = Math.max(1, ...R.map((g) => g.s[key]));
-    const bars = R.length >= 2 ? `<h4 class="ps-h">Recent games <small class="muted">${esc(GL_KEY_LABEL[key] || key.replace(/([A-Z])/g, " $1").toLowerCase())}</small></h4>
-      <div class="ps-bars">${R.map((g) => `<a class="ps-bar" href="${link("game", g.m.id || "", { league: lg })}" title="${esc(`${g.m.atVs || ""} ${g.m.opponent?.abbreviation || ""}: ${g.m.gameResult || ""} ${g.m.score || ""}`)}">
-        <span>${esc((+g.s[key]).toLocaleString())}</span><i class="${g.m.gameResult === "L" ? "l" : ""}" style="height:${Math.max(3, (100 * Math.max(0, g.s[key])) / hi).toFixed(0)}%"></i>
-        <small>${esc(g.m.atVs === "@" ? "@" : "vs")}<br>${esc(g.m.opponent?.abbreviation || "")}</small></a>`).join("")}</div>` : "";
-    slot.innerHTML = `<div class="card ps-card"><div class="tk-st-head"><h3>Season stats</h3>${P ? `<small class="muted">${P.season} · ${P.g} game${P.g > 1 ? "s" : ""} through week ${P.week} · rank among ${esc(P.posTxt)}</small>` : ""}</div>
-      ${head.length ? `<div class="ps-grid">${head.map(cell).join("")}</div>` : ""}${bars}
-      ${all.length > head.length ? `<details class="ps-more"><summary>Every stat (${all.length})</summary>${P.cats.map(([g, l]) => `<h4 class="ps-h">${esc(g)}</h4><div class="ps-grid">${l.map(cell).join("")}</div>`).join("")}</details>` : ""}
-      ${P ? `<p class="note muted">Tap a stat to chart it in Visualize. Ranks: 1 = best among ${esc(P.posTxt)} (rates count players with at least 35% of the leader's volume; "fewer is better" totals like interceptions aren't ranked). From the weekly chart data, so the newest game can take a day to show up; the bars are live.</p>` : ""}</div>`;
+    if (!slot?.isConnected || !P) return;
+    const viz = (k) => `#/stats?${new URLSearchParams({ league: lg, show: "visualize", him: a.id, stat: k, pos: P.pos })}`;
+    // one row per stat (Terry picked these over tiles, Oct 28): name (wraps), his number, and a bar to his percentile
+    // with his rank in the bubble
+    // (the bar is LED-style segments: .ps-fill glows, its <i> is cut into blocks)
+    const cell = (x) => `<a class="ps-row ${psTier(x)}" href="${viz(x.key)}" title="${esc(x.label)}"><span class="ps-l">${esc(x.label)}</span><b>${esc(x.txt)}</b>
+      <span class="ps-track">${x.pct == null ? `<em class="ps-nr">${psRank(x)}</em>` : `<span class="ps-fill" style="width:${(100 * x.pct).toFixed(0)}%"><i></i></span><em style="left:${(100 * x.pct).toFixed(0)}%">${psRank(x)}</em>`}</span></a>`;
+    const wrap = (l) => `<div class="ps-rows">${l.map(cell).join("")}</div>`;
+    const sec = (title, l, cls = "") => `<section class="ps-sec ${cls}"><h4 class="ps-h"><span>${title}</span><small>[${String(l.length).padStart(2, "0")}]</small></h4>${wrap(l)}</section>`;
+    const all = P.cats.flatMap(([g, l]) => l.map((x) => ({ ...x, g }))), byKey = Object.fromEntries(all.map((x) => [x.key, x]));
+    const head = (PS_TOP[P.pos] || []).map((k) => byKey[k]).filter(Boolean);
+    // what he leads in / where he struggles: his best and worst percentiles at his position (big enough groups, no field-zone splits)
+    // (his position's own stats, or everyone's more-is-better ones: not a QB's "fewest run stops", where half the league ties at 0)
+    const ranked = all.filter((x) => x.pct != null && x.n >= 10 && !/where|zone|penalt|erased/i.test(x.g)
+      && (x.pos === P.pos || (!x.pos && !x.low)) && x.same < x.n / 10);
+    const seen = new Set(), uniq = (l) => l.filter((x) => !seen.has(x.label) && seen.add(x.label));
+    const best = uniq([...ranked].sort((x, y) => y.pct - x.pct || x.rank - y.rank).filter((x) => x.pct >= 0.8)).slice(0, 6);
+    const worst = uniq([...ranked].sort((x, y) => x.pct - y.pct).filter((x) => x.pct <= 0.3)).slice(0, 4);
+    const key = `<p class="ps-key"><span class="t5">Top 10%</span><span class="t4">Top 30%</span><span class="t3">Middle</span><span class="t2">Bottom 40%</span><span class="t1">Bottom 20%</span></p>`;
+    slot.innerHTML = `<div class="card ps-card"><div class="tk-st-head"><h3>Season stats</h3><small class="muted">${P.season} · ${P.g} game${P.g > 1 ? "s" : ""} through week ${P.week} · rank among ${esc(P.posTxt)}</small></div>
+      ${key}
+      ${best.length || worst.length ? `<div class="ps-pair">${best.length ? sec("What he's best at", best, "up") : ""}${worst.length ? sec("Where he struggles", worst, "down") : ""}</div>` : ""}
+      ${head.length ? sec("The main stats", head, "main") : ""}
+      ${all.length > head.length ? `<details class="ps-more"><summary>Every stat (${all.length})</summary><div class="ps-groups">${P.cats.map(([g, l]) => sec(esc(g), l)).join("")}</div></details>` : ""}
+      <p class="note muted">Tap a stat to chart it in Visualize. Colors and ranks are against ${esc(P.posTxt)} this season, 1 = best (rates count players with at least 35% of the leader's volume, and "fewer is better" stats like interceptions thrown count only the regulars). T = tied. From the weekly chart data, so the newest game can take a day to show up.</p></div>`;
   }
 
   async function outlookInto(lg, id, slot, gl) {
@@ -3581,7 +3590,7 @@ const Live = (() => {
       pts.forEach((p, i) => { if (p) d += `${pts[i - 1] ? "L" : "M"}${p.x.toFixed(1)},${p.y.toFixed(1)}`; });
       const dots = pts.filter(Boolean).map((p) => {
         nodes.push({ x: p.x, y: p.y, si, label: align === "career" ? `Career yr ${xs[p.gi]} · ${p.r.year}` : String(p.r.year), team: p.r.team.abbr, val: p.r.vals[metric] });
-        return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" class="cc-dot" data-n="${nodes.length - 1}" style="fill:${shade(sr, p.r)};animation-delay:${(0.1 + si * 0.15 + (p.gi / Math.max(1, xs.length - 1)) * 0.9).toFixed(2)}s"></circle>`;
+        return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" class="cc-dot" data-n="${nodes.length - 1}" style="--dc:${shade(sr, p.r)};animation-delay:${(0.1 + si * 0.15 + (p.gi / Math.max(1, xs.length - 1)) * 0.9).toFixed(2)}s"></circle>`;
       }).join("");
       return `<path d="${d}" stroke="${sr.color}" class="cc-line" pathLength="1" style="animation-delay:${si * 0.15}s"/>${dots}`;
     }).join("");
@@ -3598,7 +3607,7 @@ const Live = (() => {
       const bx = padL + gi * gw + (gw - bw * series.length) / 2 + si * bw, by = py(r.v), w = bw - 2, cx = bx + w / 2, b = one ? benchAt(x) : null;
       bnodes.push({ x: cx, y: by, x0: bx, x1: bx + w, si, label: align === "career" ? `Career yr ${x} · ${r.year}` : String(r.year), team: r.team.abbr, val: r.vals[metric] });
       const fill = mixLv && r.level === "NCAA" ? shade(sr, r) : `url(#cc-g${si})`;
-      return `${one ? `<rect class="ky-track" x="${bx.toFixed(1)}" y="${top}" width="${w.toFixed(1)}" height="${(base - top).toFixed(1)}" rx="7"/>` : ""}<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${w.toFixed(1)}" height="${(base - by).toFixed(1)}" rx="${one ? 7 : 3}" class="cc-bar" data-n="${bnodes.length - 1}" style="fill:${fill};animation-delay:${(0.05 + (gi / Math.max(1, xs.length - 1)) * 0.6).toFixed(2)}s"/>`
+      return `${one ? `<rect class="ky-track" x="${bx.toFixed(1)}" y="${top}" width="${w.toFixed(1)}" height="${(base - top).toFixed(1)}" rx="7"/>` : ""}<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${w.toFixed(1)}" height="${(base - by).toFixed(1)}" rx="${one ? 7 : 3}" class="cc-bar" data-n="${bnodes.length - 1}" style="fill:${fill};stroke:${sr.color};animation-delay:${(0.05 + (gi / Math.max(1, xs.length - 1)) * 0.6).toFixed(2)}s"/>`
         + (b != null ? `<line class="ky-bench" x1="${(bx - 5).toFixed(1)}" x2="${(bx + w + 5).toFixed(1)}" y1="${py(b).toFixed(1)}" y2="${py(b).toFixed(1)}"/>` : "")
         + (tags ? tag(cx, by, r.vals[metric]) : small ? `<text class="ky-val" x="${cx.toFixed(1)}" y="${(by - 6).toFixed(1)}">${esc(r.vals[metric])}</text>` : "");
     }).join("")).join("");

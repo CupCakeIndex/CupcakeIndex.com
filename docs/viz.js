@@ -2229,7 +2229,7 @@ const Viz = (() => {
         ${myList.length ? list.length ? body : `<p class="muted">No saved chart matches “${esc(mineQ)}”.</p>` : `<p class="muted">Nothing saved yet. Make a chart, then tap <b>☆ Save to My charts</b> under it. It keeps the seasons, filters and look, so it opens exactly the same later.</p>`}
         <p class="muted vz-pl-note">${signed ? "Saved to your account, so they're on every device you sign in on (the little pictures stay on the device that saved them)." : "Saved on this device. Sign in (Settings) to keep them on every device."} Up to 30 ${league === "nfl" ? "NFL" : "college"} charts.</p></div>`;
     })();
-    // Everything on one player: every group he has a number in, each stat with his number and rank; tap one to chart it.
+    // Everything on one player (under the chart, so the chart comes first: Terry, Oct 28): every group he has a number in, each stat with his number and rank; tap one to chart it.
     // Ranks are against players at his position in these weeks (rates: anyone with 35% of the leader's volume), whatever the
     // filters. "Fewer is better" totals (interceptions thrown, penalties) get no rank: everyone who barely played would beat him.
     const plPanel = (() => {
@@ -2254,10 +2254,10 @@ const Viz = (() => {
         <div class="vz-pl-cats">${cats.map(([g, l]) => `<details${l.some(([s]) => s === stat) ? " open" : ""}><summary>${esc(g)} <small>${l.length}</small></summary><div class="vz-pl-stats">${l.map(([s, v, r]) => `<button type="button" data-pls="${s[0]}" title="${esc(s[1])}" class="${s === stat ? "on" : ""}"><span>${esc(s[1])}</span><b>${esc(v)}</b>${r ? `<small>#${r}</small>` : ""}</button>`).join("")}</div></details>`).join("")}</div>
         <p class="muted vz-pl-note">Tap a group, then a stat to chart it with ${esc(m[0])} highlighted. Totals for ${esc(seasonTxt)}, ${esc(weeksTxt.toLowerCase())}; # = his rank among ${esc({ QB: "QBs", RB: "running backs", WR: "receivers and tight ends", K: "kickers", OL: "offensive linemen", DEF: "defenders" }[posK] || "players")} (rates: ones with at least 35% of the leader's volume).</p></div>`;
     })();
-    const frame = `${plPanel}${chipRow}<div class="vz-frame" id="vz-frame"><div class="vz-title"><b>${esc(title)}</b><small>${esc(sub)}</small></div>
+    const frame = `${chipRow}<div class="vz-frame" id="vz-frame"><div class="vz-title"><b>${esc(title)}</b><small>${esc(sub)}</small></div>
         ${body.html || `<div class="vz-canvas" style="height:${body.h}px"><canvas id="vz-chart"></canvas></div>`}
         <div class="vz-mark">cupcakeindex.com · ${esc(league === "nfl" ? "data: nflverse" : "data: CollegeFootballData.com")}</div></div>
-      ${seasonOnly ? `<p class="note">Our ratings and college PPA are season-long numbers (as of the latest rankings), so they ignore the weeks you picked.</p>` : ""}`;
+      ${seasonOnly ? `<p class="note">Our ratings and college PPA are season-long numbers (as of the latest rankings), so they ignore the weeks you picked.</p>` : ""}${plPanel}`;
     const actions = `<div class="vz-actions">${st.type === "table" ? `<button class="btn" id="vz-csv">Download spreadsheet (CSV)</button>` : Share.phone() && navigator.share ? "" : `<button class="btn" id="vz-png">Download picture</button>`}<button class="btn" id="vz-link">Copy link</button>${navigator.share && st.type !== "table" ? `<button class="btn" id="vz-share">Share</button>` : ""}<button class="btn" id="vz-save" type="button">☆ Save to My charts</button><button class="btn vz-reset" id="vz-reset">Start over</button></div>
       <div class="vz-saveform hidden" id="vz-saveform"><input id="vz-pname" maxlength="40" placeholder="Name this chart"><button class="btn tour-next" id="vz-pok" type="button">Save</button><button class="btn" id="vz-pno" type="button">Cancel</button></div>
       <small class="muted vz-pmsg" id="vz-pmsg"></small>`;
@@ -2279,6 +2279,26 @@ const Viz = (() => {
     function custom() { return st.radar ? st.radar.split(",") : who === "teams" ? RADAR.teams : RADAR.players[st.pos] || RADAR.players[""]; }
     function axes() { return custom().filter((k) => all.some((s) => s[0] === k)); }
 
+    // circuit look (the site's chart theme, Terry Oct 28): bars get a see-through fill with a solid edge, lines a thinner
+    // trace with hollow nodes, grid lines go dashed. Only plain #rrggbb colors are touched (team logos, gradients and
+    // the highlight outline stay as they are).
+    if (cfg && ["bar", "line"].includes(cfg.type)) {
+      const hex = (c) => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c), see = (c) => (hex(c) ? c + "59" : c);
+      for (const ds of cfg.data.datasets) {
+        if ((ds.type || cfg.type) === "bar") {
+          const bg = ds.backgroundColor, edge = (c, i) => { const b = Array.isArray(ds.borderColor) ? ds.borderColor[i] : ds.borderColor; return b && b !== "transparent" ? b : c; };
+          if (Array.isArray(bg)) { ds.borderColor = bg.map((c, i) => edge(c, i)); ds.backgroundColor = bg.map(see); }
+          else if (hex(bg)) { ds.borderColor = edge(bg, 0); ds.backgroundColor = see(bg); }
+          ds.borderWidth = Math.max(1.5, +ds.borderWidth || 0);
+        } else {
+          ds.borderWidth = Math.min(2.5, +ds.borderWidth || 2);
+          ds.pointBorderColor = ds.pointBackgroundColor || ds.borderColor;
+          ds.pointBackgroundColor = C("--card");
+          ds.pointBorderWidth = 1.75;
+        }
+      }
+      for (const ax of Object.values(cfg.options?.scales || {})) if (ax?.grid) ax.border = { ...(ax.border || {}), dash: [2, 4] };
+    }
     chart?.destroy();
     chart = cfg ? new Chart(document.getElementById("vz-chart"), cfg) : null;
     if (typeof Stats !== "undefined") Stats.count("charts"); // analytics: charts made
@@ -2914,6 +2934,7 @@ const Viz = (() => {
   // Every stat on one player this season, for his page and his Takes (live.js, takes.js): the same numbers and ranks as
   // Visualize's "All his stats" panel (all weeks, no filters). null if he isn't in this season's chart data.
   // { season, week, pos, posTxt, cats: [[group, [{key, label, v, txt, rank, n}]]] }
+  const PS_VOL = { QB: (S) => S.att, RB: (S) => S.carries, WR: (S) => S.targets || S.rec, DEF: (S) => S.tackles, K: (S) => S.fg_att, OL: (S) => S.snaps };
   async function playerStats(lg, id) {
     idx = idx || await getJSON("data/viz/index.json").catch(() => ({}));
     const season = (idx[lg] || []).at(-1), D = season && season >= (idx.players?.[lg] || 0) && await file(season, lg);
@@ -2928,16 +2949,22 @@ const Viz = (() => {
       let v;
       try { v = value(s, me.S, me.g, "total"); } catch { return null; }
       const den = s[3].den;
-      if (v == null || Number.isNaN(v) || typeof v !== "number" || (s[3].count ? !v : den && !den(me.S, me.g))) return null;
-      let n = 0, better = 0;
-      const minD = den ? 0.35 * Math.max(0, ...everyone.map((x) => den(agg[x].S, agg[x].g) || 0)) : 0;
-      if ((!den || den(me.S, me.g) >= minD) && !(s[3].count && s[3].low)) for (const x of everyone) {
-        if (den && (den(agg[x].S, agg[x].g) || 0) < minD) continue;
+      // (0 interceptions thrown is still a stat for a QB)
+      if (v == null || Number.isNaN(v) || typeof v !== "number" || (s[3].count ? !v && !(s[3].low && s[3].pos === posK) : den && !den(me.S, me.g))) return null;
+      // rates: players with 35% of the leader's volume in it. "Fewer is better" totals (interceptions thrown, times
+      // sacked): only the regulars at his position (35% of the leader's attempts, carries, catches...), or everyone who
+      // barely played would beat him (Terry wanted those ranked too)
+      let n = 0, better = 0, same = 0;
+      const vol = s[3].count && s[3].low ? PS_VOL[posK] : den;
+      const minD = vol ? 0.35 * Math.max(0, ...everyone.map((x) => vol(agg[x].S, agg[x].g) || 0)) : 0;
+      if (!vol || (vol(me.S, me.g) || 0) >= minD) for (const x of everyone) {
+        if (vol && (vol(agg[x].S, agg[x].g) || 0) < minD) continue;
         const w = value(s, agg[x].S, agg[x].g, "total");
         if (w == null || Number.isNaN(w)) continue;
-        n++; if (s[3].low ? w < v : w > v) better++;
+        n++; if (s[3].low ? w < v : w > v) better++; else if (x !== id && w === v) same++;
       }
-      return { key: s[0], label: s[1], v, txt: fmt(s, v, "total"), rank: n ? better + 1 : 0, n, low: !!s[3].low, pos: s[3].pos || "" };
+      const rank = n ? better + 1 : 0;
+      return { key: s[0], label: s[1], v, txt: fmt(s, v, "total"), rank, tie: same > 0, same, n, pct: n > 1 ? 1 - (rank - 1) / (n - 1) : null, low: !!s[3].low, pos: s[3].pos || "" };
     }).filter(Boolean)]).filter(([, l]) => l.length);
     return { season: D.season, week: Math.max(...D.prows.filter((r) => r[0] === id).map((r) => r[1])), g: me.g, pos: posK,
       posTxt: { QB: "QBs", RB: "running backs", WR: "receivers and tight ends", K: "kickers", OL: "offensive linemen", DEF: "defenders" }[posK] || "players", cats };
