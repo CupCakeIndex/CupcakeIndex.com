@@ -3875,3 +3875,31 @@ body.drawer-open .bot-fab { transform: translateX(calc(100% + 40px)); opacity: 0
 @media (max-width: 640px) { .wr-two { grid-template-columns: 1fr; } }
 .wr-take { margin: 0 0 12px; padding: 10px 14px; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); border-radius: 0 8px 8px 0; line-height: 1.5; }
 .wr-take a { display: block; margin-top: 6px; font-size: 12px; }
+/* This Week charts (moversChart, lyingChart): blue = climbing, orange = falling / our rank, ring = rank by record */
+.wr-chart { display: block; width: 100%; max-width: 560px; height: auto; margin: 4px 0 14px; font: 11px "JetBrains Mono", ui-monospace, monospace; }
+.wr-chart text { fill: var(--muted); }
+.wr-chart .wr-r, .wr-chart .wr-name { fill: var(--ink); }
+.wr-chart .wr-ax { fill: var(--muted); font-size: 10px; }
+.wr-chart .hit { fill: transparent; }
+.wr-mv line { stroke-width: 2; stroke-linecap: round; }
+.wr-mv circle { stroke: var(--card); stroke-width: 2; }
+.wr-up line { stroke: var(--wr-up); } .wr-up circle { fill: var(--wr-up); }
+.wr-dn line { stroke: var(--wr-dn); } .wr-dn circle { fill: var(--wr-dn); }
+.wr-chart:hover .wr-mv, .wr-chart:hover .wr-db { opacity: .35; transition: opacity .15s; }
+.wr-chart .wr-mv:hover, .wr-chart .wr-db:hover { opacity: 1; }
+.wr-track { stroke: var(--line); stroke-width: 2; }
+.wr-gap { stroke: var(--wr-dn); stroke-width: 2; opacity: .45; }
+.wr-rec { fill: var(--card); stroke: var(--ink); stroke-width: 2; }
+.wr-ours { fill: var(--wr-dn); stroke: var(--card); stroke-width: 2; }
+.wr-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--muted); margin: 6px 0 2px; }
+.wr-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.wr-sw { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+.wr-sw.wr-up { background: var(--wr-up); } .wr-sw.wr-dn { background: var(--wr-dn); }
+.wr-sw.wr-ring { border: 2px solid var(--ink); width: 6px; height: 6px; }
+/* the charts' own blue / orange, the same in every theme (themes repaint --bar and --accent, sometimes to the same
+   color); a pair that passed the colorblind check in each mode */
+.wr-chart, .wr-legend { --wr-up: #5b8def; --wr-dn: #ff7a3d; }
+:root[data-theme="light"] .wr-chart, :root[data-theme="light"] .wr-legend { --wr-up: #2f6fdb; --wr-dn: #d9480f; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .wr-chart, :root:not([data-theme="dark"]) .wr-legend { --wr-up: #2f6fdb; --wr-dn: #d9480f; }
+}

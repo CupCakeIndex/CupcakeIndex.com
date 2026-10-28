@@ -290,7 +290,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "500"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "501"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -877,11 +877,11 @@ function headToHead(list, lg = league) {
 // explanation in a small bubble
 document.addEventListener("click", (e) => {
   document.querySelector(".tip-pop")?.remove();
-  const p = e.target.closest?.(".pill[title], .gl[title]");
+  const p = e.target.closest?.(".pill[title], .gl[title], [data-gtip]");
   if (!p) return;
   e.stopPropagation(); e.preventDefault();
   const r = p.getBoundingClientRect(), tip = document.createElement("div");
-  tip.className = "tip-pop"; tip.textContent = p.title;
+  tip.className = "tip-pop"; tip.textContent = p.title || p.dataset.gtip;
   tip.style.top = `${r.bottom + window.scrollY + 6}px`;
   tip.style.left = `${Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - 268))}px`;
   document.body.appendChild(tip);
@@ -1652,6 +1652,7 @@ async function renderRecap() {
   const last = (t) => { const g = (t.schedule || []).filter((x) => x.result).at(-1); return g && g.week === lt.week ? `${g.result === "W" ? "beat" : "lost to"} ${esc(g.opp)} ${esc(g.score || "")}` : "didn't play"; };
   const up = moves.filter((m) => m.d > 0).sort((a, b) => b.d - a.d).slice(0, 5), down = moves.filter((m) => m.d < 0).sort((a, b) => a.d - b.d).slice(0, 5);
   const mv = (m) => row(m.t, `#${wasRank.get(m.t.team)} → #${m.t.rank} · ${last(m.t)}`, `<span class="${m.d > 0 ? "up" : "down"}">${m.d > 0 ? "▲" : "▼"}${Math.abs(m.d)}</span>`);
+  el("wr-movers-chart").innerHTML = prev && (up.length || down.length) ? moversChart([...up, ...down], wasRank) : "";
   el("wr-movers").innerHTML = prev ? `<div><b>Climbing</b><ol class="hs-list">${up.map(mv).join("") || '<li class="muted">Nobody</li>'}</ol></div>
     <div><b>Falling</b><ol class="hs-list">${down.map(mv).join("") || '<li class="muted">Nobody</li>'}</ol></div>` : `<p class="muted">First week of the season: nothing to compare yet.</p>`;
   el("wr-movers").onclick = open;
@@ -1669,6 +1670,7 @@ async function renderRecap() {
   const byRec = [...now].sort((a, b) => pct(b) - pct(a) || b.wins - a.wins || a.rank - b.rank), recRank = new Map(byRec.map((t, i) => [t.team, i + 1]));
   const lying = now.filter((t) => t.wins > t.losses && t.rank - recRank.get(t.team) >= (nfl ? 8 : 20))
     .sort((a, b) => (b.rank - recRank.get(b.team)) - (a.rank - recRank.get(a.team))).slice(0, 5);
+  el("wr-frauds-chart").innerHTML = lying.length ? lyingChart(lying, recRank) : "";
   el("wr-frauds").innerHTML = lying.map((t) => row(t, `${esc(t.record)}, a #${recRank.get(t.team)} record · we rank them #${t.rank}`)).join("")
     || `<li class="muted">No records lying this week.</li>`;
   el("wr-frauds").onclick = open;
@@ -1680,6 +1682,57 @@ async function renderRecap() {
   el("wr-takes").innerHTML = tk.length ? tk.map((x) => `<blockquote class="wr-take">${esc(x.text.replace(/\s*(?:[@#]\w+\s*)+$/, ""))}
       ${safeUrl(x.x) ? `<a href="${esc(x.x)}" target="_blank" rel="noopener">See it on X</a>` : ""}</blockquote>`).join("")
     : `<p class="muted">No takes this week yet. <a href="${link("takes")}">All takes →</a></p>`;
+}
+
+// spread labels at least `gap` apart (sorted top to bottom), so close ranks don't print on top of each other
+function spreadY(ys, gap, lo, hi) {
+  const o = ys.map((y, i) => ({ y, i })).sort((a, b) => a.y - b.y);
+  o.forEach((p, k) => { if (k) p.y = Math.max(p.y, o[k - 1].y + gap); });
+  const over = o.length ? o.at(-1).y - hi : 0;
+  if (over > 0) o.forEach((p) => (p.y -= over));
+  o.forEach((p, k) => { if (k) p.y = Math.max(p.y, o[k - 1].y + gap); p.y = Math.max(p.y, lo); });
+  const out = []; o.forEach((p) => (out[p.i] = p.y)); return out;
+}
+// Biggest movers as a slope chart: last week's rank on the left, this week's on the right, #1 at the top.
+// Blue = climbing, orange = falling (the site's red/green failed the colorblind check), and each line's slope says it too.
+function moversChart(ms, wasRank) {
+  const W = 360, top = 30, H = 230, x0 = 46, x1 = 190;
+  const ranks = ms.flatMap((m) => [wasRank.get(m.t.team), m.t.rank]), lo = Math.min(...ranks), hi = Math.max(...ranks);
+  const y = (r) => top + ((r - lo) / Math.max(1, hi - lo)) * H;
+  const ly = spreadY(ms.map((m) => wasRank.get(m.t.team)).map(y), 13, top, top + H), ry = spreadY(ms.map((m) => y(m.t.rank)), 13, top, top + H);
+  const lines = ms.map((m, i) => {
+    const a = wasRank.get(m.t.team), b = m.t.rank, cls = m.d > 0 ? "wr-up" : "wr-dn";
+    const tip = `${m.t.team}: #${a} → #${b} (${m.d > 0 ? "up" : "down"} ${Math.abs(m.d)})`;
+    return `<g class="wr-mv ${cls}" data-gtip="${esc(tip)}"><title>${esc(tip)}</title>
+      <line x1="${x0}" y1="${y(a).toFixed(1)}" x2="${x1}" y2="${y(b).toFixed(1)}"/>
+      <circle cx="${x0}" cy="${y(a).toFixed(1)}" r="4"/><circle cx="${x1}" cy="${y(b).toFixed(1)}" r="4"/>
+      <text class="wr-l" x="${x0 - 9}" y="${(ly[i] + 4).toFixed(1)}" text-anchor="end">#${a}</text>
+      <text class="wr-r" x="${x1 + 9}" y="${(ry[i] + 4).toFixed(1)}">#${b} ${esc(m.t.team)}</text>
+      <rect class="hit" x="0" y="${(Math.min(y(a), y(b)) - 8).toFixed(1)}" width="${W}" height="${(Math.abs(y(a) - y(b)) + 16).toFixed(1)}"/></g>`;
+  }).join("");
+  return `<div class="wr-legend"><span><i class="wr-sw wr-up"></i>Climbing</span><span><i class="wr-sw wr-dn"></i>Falling</span></div>
+    <svg class="wr-chart" viewBox="0 0 ${W} ${top + H + 14}" role="img" aria-label="Biggest movers, last week's rank to this week's">
+    <text class="wr-ax" x="${x0}" y="14" text-anchor="middle">Last week</text><text class="wr-ax" x="${x1}" y="14" text-anchor="middle">Now</text>${lines}</svg>`;
+}
+// Record lying as a dumbbell per team: a ring where the record alone would rank them, a filled dot where we do
+// (#1 on the left). The longer the bar, the more the record is lying.
+function lyingChart(ts, recRank) {
+  const W = 360, x0 = 14, x1 = 346, rowH = 44, top = 8, max = Math.ceil(Math.max(...ts.map((t) => t.rank)) / 25) * 25;
+  const x = (r) => x0 + ((r - 1) / (max - 1)) * (x1 - x0);
+  const rows = ts.map((t, i) => {
+    const a = recRank.get(t.team), b = t.rank, yy = top + i * rowH + 30;
+    const tip = `${t.team} (${t.record}): the record says #${a}, we say #${b}`;
+    return `<g class="wr-db" data-gtip="${esc(tip)}"><title>${esc(tip)}</title>
+      <text class="wr-name" x="${x0}" y="${yy - 13}">${esc(t.team)} <tspan class="wr-ax">${esc(t.record)}</tspan></text>
+      <line class="wr-track" x1="${x0}" y1="${yy}" x2="${x1}" y2="${yy}"/><line class="wr-gap" x1="${x(a).toFixed(1)}" y1="${yy}" x2="${x(b).toFixed(1)}" y2="${yy}"/>
+      <circle class="wr-rec" cx="${x(a).toFixed(1)}" cy="${yy}" r="5"/><circle class="wr-ours" cx="${x(b).toFixed(1)}" cy="${yy}" r="5"/>
+      <text class="wr-l" x="${x(a).toFixed(1)}" y="${yy + 17}" text-anchor="middle">#${a}</text>
+      <text class="wr-r" x="${x(b).toFixed(1)}" y="${yy + 17}" text-anchor="middle">#${b}</text>
+      <rect class="hit" x="0" y="${yy - 26}" width="${W}" height="${rowH}"/></g>`;
+  }).join("");
+  return `<div class="wr-legend"><span><i class="wr-sw wr-ring"></i>Where the record ranks them</span><span><i class="wr-sw wr-dn"></i>Where we rank them</span></div>
+    <svg class="wr-chart" viewBox="0 0 ${W} ${top + ts.length * rowH + 14}" role="img" aria-label="Rank by record vs our rank">${rows}
+    <text class="wr-ax" x="${x0}" y="${top + ts.length * rowH + 12}">#1</text><text class="wr-ax" x="${x1}" y="${top + ts.length * rowH + 12}" text-anchor="end">#${max}</text></svg>`;
 }
 
 let cmpSort = { k: "ours", dir: 1 };
