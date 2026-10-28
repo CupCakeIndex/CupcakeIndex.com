@@ -1509,6 +1509,7 @@ const Viz = (() => {
 
   function draw(el, seasons, Ds) {
     const D = Ds.at(-1), who = st.who, multi = Ds.length > 1;
+    let order = st.order; // Best / Worst for this chart (a tie at 0 can flip it below)
     const have = { league: D.league, pcols: D.pcols, // a stat shows if every season picked has it (team run stops etc.: added up from players)
       tcols: [...D.tcols.filter((c) => Ds.every((d) => d.tcols.includes(c))), ...(D.tx || []).filter((c) => Ds.every((d) => d.tx?.includes(c)))] };
     const groups = statsFor(who, have), all = groups.flatMap(([, l]) => l);
@@ -1595,7 +1596,7 @@ const Viz = (() => {
     const zeroOk = (k) => st.type === "scatter" ? !(val(stat, k) === 0 && val(ystat, k) === 0) : val(stat, k) !== 0;
     if (st.nz && (st.type === "scatter" || st.type === "bar" || st.type === "table")) keys = keys.filter((k) => picks.includes(k) || zeroOk(k));
     const whereRead = W.groups.length ? W.read.join(" or ") + (W.groups.flat().some((c) => c.k === "stat" && c.s[3].count) && per === "game" ? " (per game)" : "") : "";
-    const rank = (s, list) => list.filter((k) => val(s, k) != null).sort((a, b) => (s[3].low ? 1 : -1) * (val(s, a) - val(s, b)) * (st.order === "worst" ? -1 : 1));
+    const rank = (s, list) => list.filter((k) => val(s, k) != null).sort((a, b) => (s[3].low ? 1 : -1) * (val(s, a) - val(s, b)) * (order === "worst" ? -1 : 1));
     const top = st.top === "all" ? 9999 : +st.top || 10;
     // team radar views (Change this radar): the first 5 of each list this league has; rview = the one on now, for the chip and title
     const RVIEWS = who !== "teams" ? [] : [["Offense", "⚔", ["epa_play", "ppa_play", "succ", "ypp", "pts", "third", "pts_drive", "giveaways"]],
@@ -1603,14 +1604,12 @@ const Viz = (() => {
       .map(([n, ic, l]) => [n, ic, l.filter((k) => all.some((s) => s[0] === k)).slice(0, 5)]).filter(([, , l]) => l.length >= 3);
     const rview = st.type === "radar" && st.radar ? RVIEWS.find(([, , l]) => l.join(",") === st.radar)?.[0] : null;
     // a rare bad thing (points erased by penalties) on Best: the whole chart is a tie at 0, which says nothing, so show the most
-    // (only for that stat: switching to another one, like Interceptions thrown -> Passing TDs in the "Every stat on" panel,
-    // goes back to Best instead of listing everyone with 0 TDs)
+    // (only on this chart: the flip lives in `order`, never in the saved settings, so the next stat, a reload or a shared
+    // link starts on Best again instead of listing everyone with 0 TDs)
     let tieFlip = false;
-    if (flipFor && flipFor !== stat[0] && st.order === "worst") st.order = "best";
-    flipFor = "";
-    if (st.order !== "worst" && stat[3].low && stat[3].count && (st.type === "bar" || st.type === "table")) {
+    if (order !== "worst" && stat[3].low && stat[3].count && (st.type === "bar" || st.type === "table")) {
       const r = rank(stat, keys);
-      if (r.length > Math.min(top, 10) && val(stat, r[Math.min(top, 10)]) === val(stat, r[0])) { st.order = "worst"; tieFlip = true; flipFor = stat[0]; }
+      if (r.length > Math.min(top, 10) && val(stat, r[Math.min(top, 10)]) === val(stat, r[0])) { order = "worst"; tieFlip = true; }
     }
     // a Head coach stat on the chart: teams go by their coach ("Macdonald", hover: "Mike Macdonald (Seattle Seahawks)")
     const coachy = who === "teams" && [stat[0], st.type === "scatter" ? st.y : ""].some((s) => s.startsWith("co_"));
@@ -1987,7 +1986,7 @@ const Viz = (() => {
       tableRows = shown.map((k, i) => [i + 1, name(k), ...(who === "players" ? [tm(teamOf(k))[1], pos(k)] : []), ...cs.map((s) => fmt(s, val(s, k), per))]);
       tableHead = ["#", who === "players" ? "Player" : "Team", ...(who === "players" ? ["Team", "Pos"] : []), ...cs.map((s) => s[1] + perTxt(s))];
       body = { h: 0, html: `<div class="vz-twrap"><table class="box vz-table"><thead><tr><th class="num">#</th><th>${who === "players" ? "Player" : "Team"}</th>${who === "players" ? "<th>Team</th><th>Pos</th>" : ""}
-        ${cs.map((s) => `<th class="num${s === stat ? " on" : ""}" data-sort="${s[0]}" title="${esc(s[1] + perTxt(s))}: click to sort">${esc(s[1].replace(/ \(.+\)$/, ""))}${s === stat ? (st.order === "worst" ? " ▲" : " ▼") : ""}</th>`).join("")}</tr></thead>
+        ${cs.map((s) => `<th class="num${s === stat ? " on" : ""}" data-sort="${s[0]}" title="${esc(s[1] + perTxt(s))}: click to sort">${esc(s[1].replace(/ \(.+\)$/, ""))}${s === stat ? (order === "worst" ? " ▲" : " ▼") : ""}</th>`).join("")}</tr></thead>
         <tbody>${shown.map((k, i) => `<tr${hl(k) ? ' class="hl"' : ""}><td class="num muted">${i + 1}</td><td class="vz-tname">${lg(k)}${link(k)}</td>${who === "players" ? `<td>${esc(tm(teamOf(k))[1])}</td><td class="muted">${esc(pos(k))}</td>` : ""}
           ${cs.map((s) => `<td class="num${s === stat ? " on" : ""}">${esc(fmt(s, val(s, k), per))}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${cs.length + 4}" class="muted">Nobody matches.</td></tr>`}</tbody></table></div>` };
       note = `${shown.length < list.length ? `Top ${shown.length} of ${list.length}` : `${list.length}`} ${who}${whereRead ? " that match the filter" : ""}${stat[3].den ? ` (at least ${minFor(stat)} ${unitOf(stat)} for ${stat[1].toLowerCase()})` : ""}. Click a column to sort by it, again to flip it.`;
@@ -2108,7 +2107,7 @@ const Viz = (() => {
       if (!ks.length) return "";
       const v = (k) => fmt(s, val(s, k), per);
       if (st.type === "pie") { const tot = ks.reduce((a, k) => a + val(s, k), 0); return `${name(ks[0])} has ${Math.round((100 * val(s, ks[0])) / tot)}% of the ${who === "players" && st.team ? "team's" : "total"} ${lc(s[1])}${ks[1] ? `; ${name(ks[1])} is next with ${Math.round((100 * val(s, ks[1])) / tot)}%` : ""}.`; }
-      return `${name(ks[0])} ${st.order === "worst" ? (s[3].low ? "has the most" : "is at the bottom") : "leads"} with ${v(ks[0])}${ks[1] ? `; ${name(ks[1])} is next at ${v(ks[1])}` : ""}${ks.length > 2 && st.order !== "worst" ? `. ${ks.length} ${who} qualify` : ""}.`;
+      return `${name(ks[0])} ${order === "worst" ? (s[3].low ? "has the most" : "is at the bottom") : "leads"} with ${v(ks[0])}${ks[1] ? `; ${name(ks[1])} is next at ${v(ks[1])}` : ""}${ks.length > 2 && st.order !== "worst" ? `. ${ks.length} ${who} qualify` : ""}.`;
     })();
     // Related: the next questions, built by rule from this chart (same stat, same team, a closer look); they only offer stats this data has
     const related = (() => {
@@ -2187,7 +2186,7 @@ const Viz = (() => {
           <label>Depth chart${sel("vz-role", [["", "Any"], ...["QB1", "QB2", "RB1", "RB2", "RB3", "WR1", "WR2", "WR3", "WR4", "TE1", "TE2"].map((r) => [r, r])], st.role)}</label>` : ""}
         ${whole ? "" : `<label>How many${sel("vz-top", [...[5, 10, 15, 20, 25, 50, 100].map((x) => [x, `Top ${x}`]), ["all", "All"]], st.top)}</label>`}
         ${whole ? "" : denOf(stat) && st.type !== "pie" || (st.type === "radar" && who === "players") ? `<label>Minimum <small class="muted">${esc(st.type === "radar" ? { QB: "pass attempts", RB: "carries", WR: "catches", DEF: "tackles", CB: "tackles", S: "tackles", K: "field goal tries" }[st.pos] || "touches" : unitOf(stat))}</small><input id="vz-min" type="number" min="0" inputmode="numeric" placeholder="auto ${st.type === "radar" ? "" : autoMin(stat)}" value="${esc(st.min)}"></label>` : ""}
-        ${(st.type === "bar" || st.type === "table") && !whole ? `<label>Show${seg("vz-order", [["best", "Best"], ["worst", "Worst"]], st.order)}</label>` : ""}
+        ${(st.type === "bar" || st.type === "table") && !whole ? `<label>Show${seg("vz-order", [["best", "Best"], ["worst", "Worst"]], order)}</label>` : ""}
         <label class="vz-wide vz-findwrap">Highlight / compare<input id="vz-find" placeholder="Type a ${who === "teams" ? "team" : "player"}…" autocomplete="off" spellcheck="false"><div class="vz-sugg" id="vz-sugg" hidden></div></label>
         <div class="vz-picks">${picks.map((k) => `<button data-k="${esc(k)}" title="Remove">${esc(name(k))} ×</button>${who === "players" && st.pl !== k ? `<button data-plk="${esc(k)}" class="vz-plk" title="Every stat we have on him">All his stats</button>` : ""}`).join("")}</div>
       </div>`)}
@@ -2354,7 +2353,6 @@ const Viz = (() => {
       st[k] = b.dataset.v;
       if (k === "who") { st.pick = ""; st.team = ""; st.pos = ""; st.radar = ""; st.stat = b.dataset.v === "players" ? "scrim" : "epa_play"; st.y = b.dataset.v === "players" ? "tds" : "pts"; }
       if (k === "type") st.radar = "";
-      if (k === "order") flipFor = ""; // picked by hand: it stays
       redo();
     });
     const on = (id, k, again = redo) => { const x = document.getElementById(id); if (x) x.onchange = () => { st[k] = x.value; if (k === "pos") st.radar = ""; if (k === "stat" || k === "pos") st.min = ""; again(); }; };
@@ -2392,7 +2390,7 @@ const Viz = (() => {
       document.getElementById("vz-cols")?.closest("details")?.setAttribute("open", "");
     };
     el.querySelectorAll(".vz-table th[data-sort]").forEach((th) => th.onclick = () => {
-      if (st.stat === th.dataset.sort) st.order = st.order === "worst" ? "best" : "worst"; else { st.stat = th.dataset.sort; st.order = "best"; st.min = ""; }
+      if (st.stat === th.dataset.sort) st.order = order === "worst" ? "best" : "worst"; else { st.stat = th.dataset.sort; st.order = "best"; st.min = ""; }
       redo();
     });
     el.querySelectorAll("[data-quad]").forEach((x) => x.onchange = () => {
@@ -2449,9 +2447,14 @@ const Viz = (() => {
     });
     el.querySelectorAll("[data-pls]").forEach((b) => b.onclick = () => {
       const s = all.find((x) => x[0] === b.dataset.pls); if (!s) return;
-      // chart it against everyone: filters that could leave him out come off, and he's highlighted
-      Object.assign(st, { stat: s[0], pick: [...new Set([...picks, st.pl])].slice(-6).join(","), team: "", pos: "", role: "", group: "", exp: "", draft: "", where: "", min: "", radar: "" });
-      if (!["bar", "line", "table"].includes(st.type)) st.type = "bar";
+      // chart it against his position (the same players his ranks in the panel are against: a QB's yards per carry next
+      // to other QBs, not running backs), with filters that could leave him out off, and he's highlighted
+      const plPos = agg[st.pl] ? POS_OF(meta(st.pl)?.[1], agg[st.pl].S) : "";
+      Object.assign(st, { stat: s[0], pick: [...new Set([...picks, st.pl])].slice(-6).join(","), team: "", pos: posOpts.some(([k]) => k === plPos) ? plPos : "", role: "", group: "", exp: "", draft: "", where: "", min: "", radar: "" });
+      // bar, week-by-week line and table keep their type; a scatter keeps it with this stat across (and a new one up if it
+      // was that stat); pie (a split stat) and radar (a set of stats) can't show one stat, so they go to bars
+      if (!["bar", "line", "table", "scatter"].includes(st.type)) st.type = "bar";
+      if (st.type === "scatter" && st.y === s[0]) st.y = "";
       if (s[3].count && st.per !== "game") st.per = "total";
       redo();
       document.getElementById("vz-frame")?.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -2837,7 +2840,7 @@ const Viz = (() => {
         st.group && (league === "nfl" ? "Division: " : "Conference: ") + st.group,
         st.team && `Team: ${tm(st.team)[0]}`,
         st.role ? `Depth chart: ${st.role} (by use)` : st.pos && `Position: ${st.pos === "DEF" ? "Defense" : st.pos === "WR" ? "WR/TE" : st.pos}`,
-        st.type === "bar" && !whole && `${st.order === "worst" ? "Worst" : "Top"} ${top}`,
+        st.type === "bar" && !whole && `${order === "worst" ? "Worst" : "Top"} ${top}`,
         whole ? `${st.group || "whole league"}, one ${st.type} per season` : (st.type === "line" || st.type === "radar" || st.type === "pie") && !picks.length && `Top ${top}`,
         picks.length && `Highlighted: ${picks.map(name).join(", ")}`,
         st.noexit && "games left by halftime left out",
@@ -3025,7 +3028,6 @@ const Viz = (() => {
   const PL_SECS = [["Passing", /^Passing|Accuracy|QB under pressure/], ["Throw map", /^Where /], ["Running and catching", /^Rushing|Scrambles|Drops|offense|Big plays|4th downs/],
     ["Usage", /Usage|^Advanced|Heisman/], ["Defense", /Defense|run defense|pass rush|coverage|Fumbles/], ["Kicking", /Kick/], ["Penalties", /enalt|Offensive line/], ["More", /$^/]];
   let plSec = ""; // the section picked in that menu
-  let flipFor = ""; // the stat whose chart we flipped to Worst on our own (a tie at 0 on Best)
   const ZONE_FOLDERS = [["Left, middle, right", (z) => ZS[z]], ["Short, intermediate, deep", (z) => ZD[z]],
     ...Object.entries(ZD).map(([d, l]) => [`${l} zones (left, middle, right)`, (z) => z.length === 2 && z[0] === d]), ["Other", (z) => !ZS[z] && !ZD[z] && !ZONES.includes(z)]];
   const PS_VOL = { QB: (S) => S.att, RB: (S) => S.carries, WR: (S) => S.targets || S.rec, DEF: (S) => S.tackles, K: (S) => S.fg_att, OL: (S) => S.snaps };
