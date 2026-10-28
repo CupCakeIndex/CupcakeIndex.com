@@ -397,7 +397,7 @@ def _():
     ts, by, wk = teams("nfl")
     rows = []
     for t in ts:
-        ow, ol = (int(x) for x in t.get("one_score", "0-0").split("-"))
+        ow, ol = (int(x) for x in t.get("one_score", "0-0").split("-")[:2])  # "3-1-1": ties after the second dash
         if t["wins"] > t["losses"] and ow:
             rows.append((t, ow / t["wins"] + ow * 0.01, ("both wins" if ow == t["wins"] == 2 else f"all {ow} wins" if ow == t["wins"] else f"{ow} of {t['wins']} wins")))
     rows.sort(key=lambda r: -r[1])
@@ -413,7 +413,7 @@ def _():
     ts, by, wk = teams("nfl")
     rows = []
     for t in ts:
-        ow, ol = (int(x) for x in t.get("one_score", "0-0").split("-"))
+        ow, ol = (int(x) for x in t.get("one_score", "0-0").split("-")[:2])  # "3-1-1": ties after the second dash
         if ow + ol:
             rows.append((t, ow + ol + 0.01 * ow, f"{ow + ol} ({ow}-{ol})"))
     rows.sort(key=lambda r: -r[1])
@@ -999,18 +999,21 @@ def team_logo(p):
     return logo
 
 
-LOOKS = ("broadcast", "poster", "podium", "trading", "slab", "frontback", "hand")  # flare_card.py (broadcast), card_looks.py,
-# and collector.py (slab, frontback, hand), all in the site's orange
+LOOKS = ("broadcast", "poster", "podium", "trading", "slab", "frontback", "hand", "circuit")  # flare_card.py (broadcast),
+# card_looks.py, collector.py (slab, frontback, hand) and circuit_card.py (team posts), all in the site's orange
 PLAYER_LOOKS = ("trading", "slab", "frontback", "hand")
 ORANGE = (255, 107, 44)
 
 
 def look_for(key, f):
     """Each kind of stat has its own look, so the feed rotates between them and you can tell the posts apart:
-    weekly series (Fraud watch, Over-achievers) = poster, hot takes = broadcast, team lists (schedules, injuries,
-    blowouts, records) = podium, player stats = one of the collector cards (the same one every time for a stat)."""
+    weekly series (Fraud watch, Over-achievers) = poster, team posts (hot takes, schedules, injuries, blowouts,
+    records) = circuit (Terry, 2026-10-28), player hot takes = broadcast, player stats = one of the collector cards
+    (the same one every time for a stat)."""
     if key.startswith("weekly_"):
         return "poster"
+    if f["kind"] == "team":
+        return "circuit"
     if key.startswith("hot_"):
         return "broadcast"
     if f["kind"] != "player":
@@ -1021,9 +1024,14 @@ def look_for(key, f):
 def card(f, look=None):
     """A stat card in one of the LOOKS; anything else (an old site-theme name, None) picks one at random."""
     import card_looks
+    import circuit_card
     import collector
     import flare_card
     look = look if look in LOOKS else random.choice(LOOKS)
+    if look == "circuit":  # team posts only (it needs a team's logo and record)
+        if f["kind"] == "team":
+            return circuit_card.draw(f, ORANGE, image, team_logo, f.get("stat", ""))
+        look = random.choice(PLAYER_LOOKS)
     draw = {"broadcast": flare_card.draw, "poster": card_looks.poster, "podium": card_looks.podium, "trading": card_looks.trading,
             "slab": collector.look_slab, "frontback": collector.look_frontback, "hand": collector.look_hand}[look]
     return draw(f, ORANGE, image, team_logo)
@@ -1171,6 +1179,7 @@ def make(key, out, theme=None, f=None):
         return None
     theme = theme if theme in LOOKS else random.choice(LOOKS) if theme == "random" else look_for(key, f)  # the card look
     os.makedirs(out, exist_ok=True)
+    f["stat"] = key  # the circuit look picks its layout by stat
     png = os.path.join(out, f"obscure-{key}.png")
     card(f, theme).convert("RGB").save(png, optimize=True)
     text = tweet(f["text"], "", with_link=False)  # never a link (Terry's rule)
