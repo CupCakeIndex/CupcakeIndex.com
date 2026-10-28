@@ -878,7 +878,7 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
     },
     {
       name: "news",
-      description: "The latest headlines (title, source, time, one-line summary), newest first: our News page plus ESPN's live feed, so breaking news (a trade minutes ago) is here. Optional search words (a team, a player, 'trade'). Use it for 'what happened with', 'any news on', 'why is he out', and before saying a trade or signing hasn't happened.",
+      description: "The latest headlines (title, source, time, one-line summary), newest first: our News page, ESPN's live feed and our insider wire (checked every 5 minutes), so breaking news (a trade minutes ago) is here. Wire items carry status: 'reported' (a source or insider says so, not done yet: say who reported it and that it isn't official), 'official' (done) or 'news'; and insider (Schefter, Rapoport...) when one is named. Optional search words (a team, a player, 'trade'). Use it for 'what happened with', 'any news on', 'why is he out', and before saying a trade or signing hasn't happened.",
       input_schema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, search: { type: "string" } }, required: [] },
       async execute(a) {
         // our News page is collected hourly (src/news.py), so a trade from 20 minutes ago isn't in it yet (Buckner to
@@ -886,14 +886,18 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
         const espn = (lg) => fetch(`https://site.api.espn.com/apis/site/v2/sports/football/${lg === "cfb" ? "college-football" : "nfl"}/news?limit=50`)
           .then((r) => (r.ok ? r.json() : { articles: [] })).then((d) => (d.articles || []).map((x) => ({ league: lg, title: x.headline, source: "ESPN", published: x.published, summary: x.description })))
           .catch(() => []);
-        const [n, ...live] = await Promise.all([getJSON(`data/news.json?_=${Date.now()}`), ...(a.league ? [a.league] : ["nfl", "cfb"]).map(espn)]);
+        // the insider wire (workers/analyst.js, NFL): ESPN's and Google News' insider items, tagged reported/official
+        const wire = a.league === "cfb" ? Promise.resolve([]) : fetch(`${URL_}/wire`).then((r) => (r.ok ? r.json() : { items: [] }))
+          .then((d) => (d.items || []).map((x) => ({ league: "nfl", title: x.title, source: x.src, published: x.at, summary: x.desc || undefined, status: x.status, insider: x.insider || undefined })))
+          .catch(() => []);
+        const [n, wl, ...live] = await Promise.all([getJSON(`data/news.json?_=${Date.now()}`), wire, ...(a.league ? [a.league] : ["nfl", "cfb"]).map(espn)]);
         const w = BotTools.norm(a.search || "").split(" ").filter(Boolean), seen = new Set();
-        const items = [...(n.items || []), ...live.flat()]
+        const items = [...wl, ...(n.items || []), ...live.flat()] // the wire first, so its tagged copy wins the dedupe
           .filter((x) => x.title && (!a.league || x.league === a.league) && w.every((t) => BotTools.norm(`${x.title} ${x.summary || ""}`).includes(t)))
           .filter((x) => { const k = BotTools.norm(x.title); return !seen.has(k) && seen.add(k); })
           .sort((x, y) => String(y.published || "").localeCompare(String(x.published || "")));
         if (!items.length) throw new Error(`No headlines (our News page or ESPN's live feed) match "${a.search || ""}" right now.`);
-        return { updated: new Date().toISOString(), headlines: items.slice(0, 12).map((x) => ({ title: x.title, source: x.source, published: x.published, summary: x.summary || undefined })) };
+        return { updated: new Date().toISOString(), headlines: items.slice(0, 12).map((x) => ({ title: x.title, source: x.source, published: x.published, summary: x.summary || undefined, status: x.status, insider: x.insider })) };
       },
     },
     {

@@ -51,6 +51,67 @@ const TEST_LINKS = ["https://buy.stripe.com/test_8x24gy4ax5RBaaw8xc6sw00", "http
 const PAID = ["active", "trialing", "past_due"]; // past_due: Stripe is still retrying the card, so keep access meanwhile
 const STRIPE_FEE = (usd) => usd * 0.029 + usd * 0.007 + 0.30; // card 2.9% + 30¢, Billing 0.7%: about what Stripe keeps
 
+// ---------- the insider wire: every 5 minutes (Cron Trigger), the latest NFL news, tagged ----------
+// Schefter and the other insiders post on X first, but X charges to read posts, so we read where their scoops land
+// within minutes: ESPN's news and "Now" feeds (ESPN's insiders and beat reporters) and a Google News search for the
+// NFL Network and other insiders' names. Each item is tagged reported (a source, "per X", "expected to") or official
+// (a move that's done), with the insider's name, and kept 30 days (KV "wire", written only when something's new).
+// Rumors feed Trade watch and the Analyst; game predictions only ever use official news (src/trade_watch.py, docs/bot.js).
+const INSIDERS = ["Adam Schefter", "Ian Rapoport", "Tom Pelissero", "Mike Garafolo", "Dianna Russini", "Jeremy Fowler",
+  "Jay Glazer", "Albert Breer", "Jordan Schultz", "Josina Anderson", "Field Yates", "Mike Florio", "Peter Schrager", "Ari Meirov"];
+// last names that are only ever the insider (not Schultz: Dalton Schultz plays; not Fowler, Anderson or Yates either)
+const SOLO = ["Schefter", "Rapoport", "Pelissero", "Garafolo", "Russini", "Glazer", "Breer", "Florio", "Schrager", "Meirov"];
+const WIRE_FEEDS = [
+  ["ESPN", "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=50"],
+  ["ESPN", "https://now.core.api.espn.com/v1/sports/news?limit=50&sport=football&league=nfl"],
+  ["Google News", `https://news.google.com/rss/search?q=${encodeURIComponent(`(${SOLO.slice(0, 7).map((n) => `"${n}"`).join(" OR ")} OR "Jeremy Fowler") NFL when:1d`)}&hl=en-US&gl=US&ceid=US:en`],
+];
+const RUMOR = /\b(per (a |league |team )?sources?|sources?( say|:| told| tell| said)|according to|reports?(ed)?|reportedly|expected to|in talks|talks|discussing|exploring|interest(ed)? in|could|would|likely|believed|plans? to|nearing|close to|finalizing|working on)\b/i;
+const DONE = /\b(officially|announced|have (signed|released|waived|traded|acquired|claimed)|has (signed|been released|been waived|been traded)|placed on (injured reserve|ir)|activated|acquired|claimed off waivers|traded to|agreed? to terms)\b/i;
+const KINDS = [["trade", /\btrad(e|es|ed|ing)\b|\bdeal\b|\bacquir|\bmove\b|\bmade available\b|\bavailable for\b|\bshopp?(ing|ed)\b|\bdeadline\b/i], ["injury", /\binjur|\bIR\b|\bout for\b|\bACL\b|\bconcussion|\bsprain|\bquestionable\b|\bdoubtful\b/i],
+  ["signing", /\bsign(s|ed|ing)?\b|\bextension\b|\bcontract\b/i], ["release", /\breleas|\bwaiv|\bcut\b/i], ["coach", /\bcoach|\bcoordinator|\bfired\b/i]];
+const unxml = (s) => String(s || "").replace(/<!\[CDATA\[|\]\]>/g, "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/<[^>]+>/g, "").trim();
+function tagWire(x) {
+  const text = `${x.title} ${x.desc || ""}`, who = `${text} ${x.by || ""}`;
+  const insider = INSIDERS.find((n) => who.includes(n) || (SOLO.includes(n.split(" ")[1]) && new RegExp(`\\b${n.split(" ")[1]}\\b`).test(text))) || null;
+  const status = RUMOR.test(text) || (insider && !DONE.test(text)) ? "reported" : DONE.test(text) ? "official" : "news";
+  return { ...x, insider, status, kind: (KINDS.find(([, re]) => re.test(text)) || ["other"])[0] };
+}
+async function readFeed([src, url]) {
+  try {
+    const r = await fetch(url, { headers: { "User-Agent": "CupcakeIndex/1.0 (https://cupcakeindex.com)" }, cf: { cacheTtl: 60 } });
+    if (!r.ok) return [];
+    if (src === "Google News") {
+      return [...(await r.text()).matchAll(/<item>([\s\S]*?)<\/item>/g)].map(([, it]) => {
+        const f = (t) => unxml(it.match(new RegExp(`<${t}[^>]*>([\\s\\S]*?)</${t}>`))?.[1]);
+        const outlet = f("source"), title = f("title").replace(new RegExp(`\\s+-\\s+${outlet.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`), "");
+        const when = new Date(f("pubDate"));
+        return { id: "g:" + f("guid"), title, src: outlet || src, url: f("link"), at: isNaN(when) ? null : when.toISOString() };
+      });
+    }
+    const d = await r.json();
+    return (d.articles || d.headlines || []).map((a) => ({ id: "e:" + (a.nowId || a.id), title: a.headline || a.title, desc: a.description || "",
+      by: a.byline || "", src, url: a.links?.web?.href || "", at: a.published }));
+  } catch (e) { return []; }
+}
+async function refreshWire(env) {
+  const old = (await env.USAGE.get("wire", "json")) || { items: [] }, seen = new Set(old.items.map((x) => x.id));
+  const titleKey = (t) => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const titles = new Set(old.items.map((x) => titleKey(x.title)));
+  const fresh = [];
+  for (const x of (await Promise.all(WIRE_FEEDS.map(readFeed))).flat()) {
+    const k = titleKey(x.title);
+    if (!x.title || !x.at || seen.has(x.id) || titles.has(k)) continue;
+    seen.add(x.id); titles.add(k);
+    fresh.push(tagWire({ ...x, seen: new Date().toISOString() })); // seen = when we first picked it up
+  }
+  if (!fresh.length) return 0; // KV's free plan allows 1,000 writes a day: only write when something's new
+  const cut = Date.now() - 30 * 86400000;
+  const items = [...fresh, ...old.items].filter((x) => Date.parse(x.at) > cut).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 600);
+  await env.USAGE.put("wire", JSON.stringify({ updated: new Date().toISOString(), items }));
+  return fresh.length;
+}
+
 // ---------- Firebase sign-in tokens (RS256, Google's public keys) ----------
 let jwks = null, jwksUntil = 0;
 const b64u = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(s.length / 4) * 4, "=")), (c) => c.charCodeAt(0));
@@ -194,6 +255,10 @@ const billing = (me, env, a) => ({ comped: a.comped,
   prices: TIERS.map((t) => t[1]), limits: LIMITS.map((L) => ({ q: L.q, day: L.day, takes: L.takes })), free_q: FREE(env).q, test_mode: testing(env) });
 
 export default {
+  // Cloudflare dashboard > this worker > Settings > Trigger events > Cron Triggers: */5 * * * *
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(refreshWire(env));
+  },
   async fetch(req, env) {
     const url = new URL(req.url), origin = req.headers.get("Origin") || "";
     const cors = { "Access-Control-Allow-Origin": ALLOWED.includes(origin) ? origin : ALLOWED[0], Vary: "Origin" };
@@ -204,6 +269,11 @@ export default {
     }
     if (origin && !ALLOWED.includes(origin)) return json({ error: "not allowed" }, 403);
     if (url.pathname === "/free") return json({ questions: FREE(env).q });
+    if (url.pathname === "/wire") { // public: the Analyst (docs/bot.js) and Trade watch (src/trade_watch.py) read it
+      const w = (await env.USAGE.get("wire", "json")) || { updated: null, items: [] }, since = Date.parse(url.searchParams.get("since") || "") || 0;
+      return new Response(JSON.stringify({ updated: w.updated, items: since ? w.items.filter((x) => Date.parse(x.at) >= since) : w.items }),
+        { headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "public, max-age=60" } });
+    }
 
     let me;
     try { me = await signedIn(req); } catch (e) { return json({ error: "sign-in check failed" }, 503); }

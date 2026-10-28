@@ -32,6 +32,7 @@ OUT = os.path.join(DOCS, "nfl", "trade_watch.json")
 DEADLINE = "2026-11-10"  # NFL 2026-27 calendar: Tuesday after Week 9, 4 p.m. ET
 SIMS = 10000
 UA = {"User-Agent": "CupcakeIndex/1.0 (https://cupcakeindex.com)"}
+WIRE = "https://cupcake-analyst.thecupcakeindex-support.workers.dev"  # the insider wire (workers/analyst.js /wire)
 
 # which team unit a position plays in, and how we measure that unit (lower rank = bigger need)
 UNIT = {"QB": "QB", "RB": "RB", "WR": "WR", "TE": "WR", "OL": "OL", "EDGE": "RUSH", "IDL": "RUSH", "LB": "RUND", "CB": "COV", "S": "COV"}
@@ -113,6 +114,18 @@ def headlines(teams):
             seen.add(k)
             out.append((title, html.unescape(l.group(1).strip()) if l else ""))
         time.sleep(0.3)
+    # the insider wire (workers/analyst.js, every 5 minutes): ESPN's insiders and Schefter/Rapoport-style reports, which
+    # often land before Google News has them. Rumors count as trade talk here; predictions never use them.
+    try:
+        since = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=14)).isoformat()
+        wire = requests.get(f"{WIRE}/wire", params={"since": since}, headers=UA, timeout=20).json().get("items", [])
+    except (requests.RequestException, ValueError):
+        wire = []
+    for x in wire:
+        title, k = (x.get("title") or "").strip(), (x.get("title") or "").strip().lower()
+        if x.get("kind") == "trade" and title and k not in seen and TALK_WORDS.search(title):
+            seen.add(k)
+            out.append((title, x.get("url") or ""))
     return out
 
 
