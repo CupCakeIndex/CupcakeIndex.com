@@ -7,6 +7,7 @@
 const Bot = (() => {
   const URL_ = "https://cupcake-analyst.thecupcakeindex-support.workers.dev";
   const MAX_ROUNDS = 8; // tool rounds per question
+  const LAST_ROUND = "That was your last lookup. Answer now with what you've found, and say plainly what you couldn't check.";
   let closeChat = () => {}; // set once the panel is built: closeChat(false) closes it
   let me = null, msgs = [], sys = null, busy = false, el = null, user = null, tools = null, mode = "ask", tone = "straight", quiet = false;
   const TONES = [["straight", "Straight"], ["funny", "Funny"], ["sarcastic", "Sarcastic"]];
@@ -389,6 +390,7 @@ const Bot = (() => {
           if (s.length > 40000) s = s.slice(0, 40000) + "…(cut: ask for a narrower list)";
           results.push({ type: "tool_result", tool_use_id: b.id, content: s, ...(bad ? { is_error: true } : {}) });
         }
+        if (round === MAX_ROUNDS - 2) results.push({ type: "text", text: LAST_ROUND }); // answer next time, never "ran out of steps"
         msgs.push({ role: "user", content: results }); // every result of the round in one message
         steps.innerHTML = `<span class="bot-dots">Thinking</span>`;
       }
@@ -512,16 +514,28 @@ A filter checks the replies after you answer; anything it catches gets rewritten
   }
   // the one review call: a logic check on every reply and the headline, plus a rewrite of anything the filter caught
   async function review(res, banned, system) {
-    const rp = res.replies || {}, keys = ["answer", "agree", "pushback"].filter((k) => rp[k]), issues = {};
-    for (const k of keys) { const i = styleIssues(rp[k], banned); if (i.length) issues[k] = i; }
+    // a question gets one answer; a claim gets one reply that backs it and one that pushes back. The model sometimes
+    // filled "answer" and "agree" with the same text, and the card showed both (Oct 27 2026): keep only the right
+    // slots, and a missing or duplicate one is written fresh below
+    const rp = (res.replies ||= {}), q = res.verdict === "question";
+    if (q) rp.answer ||= rp.agree || rp.pushback;
+    else if (!rp.agree && rp.answer) rp.agree = rp.answer;
+    for (const k of q ? ["agree", "pushback"] : ["answer"]) delete rp[k];
+    const keys = q ? ["answer"] : ["agree", "pushback"], issues = {};
+    for (const k of keys) {
+      if (!rp[k]) { rp[k] = "(missing)"; issues[k] = [`is missing: write it from the facts above${k === "pushback" ? ", with a different stat that pushes back or adds the nuance" : ""}`]; continue; }
+      const i = styleIssues(rp[k], banned); if (i.length) issues[k] = i;
+    }
+    if (!q && BotTools.norm(rp.agree) === BotTools.norm(rp.pushback)) (issues.pushback ||= []).push("is the same as the other reply: write one that pushes back (or adds the nuance) with a different stat");
     const a = words(rp.agree)[0], b = words(rp.pushback)[0];
     if (a && a === b) (issues.pushback ||= []).push(`opens with the same word as the other reply ("${a}")`);
+    const toneAsk = tone === "straight" ? "" : ` The member picked this tone for the replies: ${TONE_RULE[tone]} A reply that reads flat or straight instead counts as a problem: rewrite it in that tone.`;
     const ask = `You're reviewing reply drafts before a member posts them. The facts they were built from:
 ${JSON.stringify({ headline: res.headline, claims: res.claims })}
 
 ${["headline", ...keys].map((k) => `"${k}": ${k === "headline" ? res.headline : rp[k]}${issues[k] ? `\nFilter caught: ${issues[k].join("; ")}` : ""}`).join("\n\n")}
 
-For the headline and each draft: does its conclusion follow from its own numbers and the facts above (a yes/no or "probably" the numbers point the other way on, a comparison that doesn't bear on the question, a number used to mean something it doesn't)? Rewrite ONLY a draft with a logic problem or a filter catch: keep every number, name and fact exactly, roughly the same length and the same opening shape, fix each problem, at most 280 characters, plain words, no em dashes, no hashtags, no links.${banned.length ? ` Phrases that must not appear: ${banned.join(" | ")}.` : ""}
+For the headline and each draft: does its conclusion follow from its own numbers and the facts above (a yes/no or "probably" the numbers point the other way on, a comparison that doesn't bear on the question, a number used to mean something it doesn't)?${toneAsk} Rewrite ONLY a draft with a logic problem, a tone problem or a filter catch: keep every number, name and fact exactly, roughly the same length and the same opening shape, fix each problem, at most 280 characters, plain words, no em dashes, no hashtags, no links.${banned.length ? ` Phrases that must not appear: ${banned.join(" | ")}.` : ""}
 Reply with ONLY JSON, no other text: ${JSON.stringify(Object.fromEntries(["headline", ...keys].map((k) => [k, "the text, rewritten only if it had a problem"])))}`;
     try {
       const out = await call("/chat", { system, tools: [], messages: [{ role: "user", content: ask }], newQuestion: false });
@@ -531,6 +545,8 @@ Reply with ONLY JSON, no other text: ${JSON.stringify(Object.fromEntries(["headl
       for (const k of keys) if (typeof j[k] === "string" && j[k].trim() && styleIssues(j[k], banned).length <= (issues[k] || []).length) rp[k] = j[k].trim();
       if (typeof j.headline === "string" && j.headline.trim()) res.headline = j.headline.trim();
     } catch (e) { /* keep the drafts as they were */ }
+    for (const k of keys) if (rp[k] === "(missing)") delete rp[k]; // the review didn't write it: show nothing, not a placeholder
+    if (!q && rp.pushback && BotTools.norm(rp.agree) === BotTools.norm(rp.pushback)) delete rp.pushback; // never the same reply twice
     res.replies = rp;
     return res;
   }
@@ -601,6 +617,9 @@ Reply with ONLY JSON, no other text: ${JSON.stringify(Object.fromEntries(["headl
           if (s.length > 40000) s = s.slice(0, 40000) + "…(cut: ask for a narrower list)";
           results.push({ type: "tool_result", tool_use_id: b.id, content: s, ...(bad ? { is_error: true } : {}) });
         }
+        // a busy take (a screenshot with a whole chart in it) used to stop at "I ran out of steps": the round before
+        // the last, it's told to deliver the verdict with what it has, unchecked claims marked cant_check
+        if (round === MAX_ROUNDS) results.push({ type: "text", text: "That was your last lookup. Call take_verdict now with what you've found; mark any claim you didn't get to as cant_check and say what's missing." });
         tm.push({ role: "user", content: results });
         steps.innerHTML = `<span class="bot-dots">Checking the numbers</span>`;
       }
@@ -859,13 +878,22 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
     },
     {
       name: "news",
-      description: "Our News page: the latest headlines (title, source, time, one-line summary), newest first. Optional search words (a team, a player, 'trade'). Use it for 'what happened with', 'any news on', 'why is he out'.",
+      description: "The latest headlines (title, source, time, one-line summary), newest first: our News page plus ESPN's live feed, so breaking news (a trade minutes ago) is here. Optional search words (a team, a player, 'trade'). Use it for 'what happened with', 'any news on', 'why is he out', and before saying a trade or signing hasn't happened.",
       input_schema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, search: { type: "string" } }, required: [] },
       async execute(a) {
-        const n = await getJSON(`data/news.json?_=${Date.now()}`), w = BotTools.norm(a.search || "").split(" ").filter(Boolean);
-        const items = (n.items || []).filter((x) => (!a.league || x.league === a.league) && w.every((t) => BotTools.norm(`${x.title} ${x.summary || ""}`).includes(t)));
-        if (!items.length) throw new Error(`No headlines on our News page match "${a.search || ""}" right now.`);
-        return { updated: n.updated, headlines: items.slice(0, 12).map((x) => ({ title: x.title, source: x.source, published: x.published, summary: x.summary || undefined })) };
+        // our News page is collected hourly (src/news.py), so a trade from 20 minutes ago isn't in it yet (Buckner to
+        // the 49ers, Oct 27 2026): ESPN's live headlines fill the gap, read straight from the browser like live.js does
+        const espn = (lg) => fetch(`https://site.api.espn.com/apis/site/v2/sports/football/${lg === "cfb" ? "college-football" : "nfl"}/news?limit=50`)
+          .then((r) => (r.ok ? r.json() : { articles: [] })).then((d) => (d.articles || []).map((x) => ({ league: lg, title: x.headline, source: "ESPN", published: x.published, summary: x.description })))
+          .catch(() => []);
+        const [n, ...live] = await Promise.all([getJSON(`data/news.json?_=${Date.now()}`), ...(a.league ? [a.league] : ["nfl", "cfb"]).map(espn)]);
+        const w = BotTools.norm(a.search || "").split(" ").filter(Boolean), seen = new Set();
+        const items = [...(n.items || []), ...live.flat()]
+          .filter((x) => x.title && (!a.league || x.league === a.league) && w.every((t) => BotTools.norm(`${x.title} ${x.summary || ""}`).includes(t)))
+          .filter((x) => { const k = BotTools.norm(x.title); return !seen.has(k) && seen.add(k); })
+          .sort((x, y) => String(y.published || "").localeCompare(String(x.published || "")));
+        if (!items.length) throw new Error(`No headlines (our News page or ESPN's live feed) match "${a.search || ""}" right now.`);
+        return { updated: new Date().toISOString(), headlines: items.slice(0, 12).map((x) => ({ title: x.title, source: x.source, published: x.published, summary: x.summary || undefined })) };
       },
     },
     {
