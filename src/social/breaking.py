@@ -46,11 +46,14 @@ QB = re.compile(r"\b(QB|quarterback)\b")
 STARS = 80
 NOT_NEWS = re.compile(
     r"\?|\b(rumou?rs?|could|should|would|might|may|if|why|how|what|who|which|deadline|grades?|candidates?|targets?|"
-    r"ideas?|mock|rankings?|best|worst|predictions?|(expert|staff|our|week \d+) picks|odds|bets?|betting|fantasy|start|sit|waiver wire|"
+    r"ideas?|mock|rankings?|best|worst|predictions?|(expert|staff|our|week \d+) picks|odds|bets?|betting|fantasy|start(?:/| or | and )sit|sit/start|start 'em|sit 'em|waiver wire|"
     r"practice squad|recruit\w*|commit\w*|offer|visit|transfer portal|basketball|baseball|softball|volleyball|soccer|"
     r"hockey|podcast|takeaways|winners|losers|film|watch|live|updates?|tracker|reaction|reacts|"
     r"jersey|number|hall of fame|anniversary|on this day|catch|here's|know|depth chart|polls?|ratings|instead|cautionary|"
-    r"lessons?|column|opinion|analysis|notebook|observations|thoughts|explained|breakdown|it's not|it’s not|isn't|isn’t)\b|--", re.I)
+    r"lessons?|column|opinion|analysis|notebook|observations|thoughts|explained|breakdown|it's not|it’s not|isn't|isn’t|"
+    # people reacting to the news, not the news (Terry, Oct 28: "Oklahoma Fans Put Lincoln Riley Under Fire" went out as coach news)
+    r"fans?|fanbase|statement|slams?|blasts?|rips?|responds?|response|fires back|calls? out|backlash|criticism|criticized|"
+    r"under fire|hot seat|defends?|sounds off|vents?|frustrat\w*|furious|angry|upset|mocks?|trolls?)\b|--", re.I)
 # the same kind of story about the same player (or team) within this many days is the same story
 # (Maryland's coach went out twice, three days apart)
 SAME_STORY_DAYS = 30
@@ -104,7 +107,8 @@ def kind_of(title, stars=(), qbs=(), coaches=()):
             return None
         # the coach has to be the one fired or hired ("Fired ESPN host loses cool at Deion Sanders" isn't about him)
         who = "(head coach" + "".join("|" + re.escape(n) for n in coaches) + ")"
-        verb = r"\b(fire[sd]?|parts ways with|hire[sd]?|names|resigns|steps down|let go|out as)\b"
+        # "fire" only as the verb: not "under fire", "on fire", "fires back"
+        verb = r"\b((?<!under )(?<!on )fire[sd]?(?! back)|parts ways with|hire[sd]?|names?|named|resigns|steps down|let go|out as)\b"
         return k if re.search(verb + ".{0,22}" + who, title, re.I) or re.search(who + ".{0,25}" + verb, title, re.I) else None
     if k == "trade":
         return k
