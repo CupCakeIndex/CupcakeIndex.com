@@ -2131,6 +2131,24 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
 .tk-st-item small { display: block; margin-top: 2px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 .tk-st-item p { margin: 8px 0 0; font-size: 13px; line-height: 1.45; color: var(--ink); }
 .tk-posts-h { margin: 22px 0 0; }
+.tk-st-viz { display: inline-block; margin-top: 8px; font-size: 12px; }
+.tk-st-all { margin: 12px 0 0; }
+.ps-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+.ps-cell { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 8px 4px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); text-decoration: none; min-width: 0; }
+.ps-cell:hover { border-color: var(--accent); }
+.ps-cell small { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; line-height: 1.2; min-height: 2.4em; overflow: hidden; }
+.ps-cell b { font-size: 20px; line-height: 1.2; margin-top: 2px; }
+.ps-cell i { font-style: normal; font-size: 12px; color: var(--accent); margin-top: 2px; }
+.ps-cell i.top { font-weight: 700; }
+.ps-h { margin: 16px 0 8px; font-size: 13px; }
+.ps-bars { display: flex; gap: 6px; align-items: flex-end; height: 150px; }
+.ps-bar { flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; text-decoration: none; color: var(--ink); }
+.ps-bar span { font-size: 11px; margin-bottom: 3px; }
+.ps-bar i { display: block; width: 100%; background: var(--accent); }
+.ps-bar i.l { opacity: .55; }
+.ps-bar small { font-size: 10px; color: var(--muted); text-align: center; line-height: 1.2; margin-top: 4px; }
+.ps-more { margin-top: 14px; }
+.ps-more summary { cursor: pointer; color: var(--accent); font-size: 13px; }
 .tk-hl { list-style: none; margin: 8px 0 0; padding: 0; }
 .tk-hl li { padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; line-height: 1.45; }
 .tk-hl li:first-child { border-top: 0; }

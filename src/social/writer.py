@@ -33,7 +33,8 @@ STYLE = """Write like a sharp football fan with a stats habit, posting from @Cup
 - Plain words. No em dashes or en dashes, no colon reveals ("The reason: ..."), no lists of three, no wrap-up line at the end, no stock AI phrasing.
 - At most 280 characters, counting every @ and hashtag. No links.
 - Tag the official team accounts from the allowed list where a team comes up, and end with one or two hashtags from the allowed list. Never tag a player and never invent a tag.
-- Emoji are fine, one at most."""
+- Emoji are fine, one at most.
+- Sound like a real fan talking, not someone trying to sound cool. No slang, catchphrases or stock sports-Twitter idioms. Every sentence has to make sense to someone who hasn't read the article."""
 
 NUM = re.compile(r"\d[\d,]*(?:\.\d+)?")
 TAG = re.compile(r"[@#]\w+")
@@ -124,7 +125,12 @@ def punch_up(meta):
     allowed = allowed_tags(text, lg)
     must = "for fun, not betting advice" if "betting advice" in text.lower() else ""
     keep = [k for k in meta.get("keep", []) if k in text]  # words the post asks to keep exactly as written (primetime's "BUT")
-    got = ask(STYLE, f"""Rewrite this post so it lands harder and gets people replying. Keep every fact and number exactly as given; add no new numbers or claims.
+    # news posts (breaking.py) stay straight news: Claude once spun a coach's quote into "says the quiet part out loud" and
+    # called our own model's number "light" (Terry, Oct 28: "trying too hard to sound cool... doesn't make much sense")
+    news = meta.get("day") == "news"
+    ask_for = ("This is a breaking news post. Make it read cleanly and clearly: say what happened and who reported it, then our model's number as a plain fact. "
+               "Add no opinion, no commentary on the number, and nothing the headline doesn't say.") if news else         "Rewrite this post so it reads well and gives people something to reply to."
+    got = ask(STYLE, f"""{ask_for} Keep every fact and number exactly as given; add no new numbers or claims.
 {f'Keep the words "{must}" in it.' if must else ''}
 {''.join(f'Keep the word "{k}" exactly as written, in capitals. ' for k in keep)}
 League: {lg.upper() or 'unknown'}

@@ -1239,7 +1239,10 @@ const Viz = (() => {
     const m = him && Ds.at(-1).pmeta?.[him];
     if (m) {
       const p = (m[1] || "").toUpperCase();
-      st = { ...DEF, from: st.from, to: st.to, mode: st.mode, who: "players", type: "bar", per: "total", top: "15", stat: PL_FIRST[p] || (league === "cfb" && !p ? "scrim" : "tackles"), pick: him, pl: him };
+      // a stat= and pos= in the link (player page stats, Takes) chart that stat among his position; else his main stat
+      const want = params.get("stat") && findStat("players", Ds.at(-1), params.get("stat")) ? params.get("stat") : "";
+      st = { ...DEF, from: st.from, to: st.to, mode: st.mode, who: "players", type: "bar", per: "total", top: "15", stat: want || PL_FIRST[p] || (league === "cfb" && !p ? "scrim" : "tackles"),
+        pos: want ? params.get("pos") || "" : "", pick: him, pl: him };
       save(); // the address becomes the chart's own, so Back and Copy link work
     }
     draw(el, seasons, Ds);
@@ -2908,5 +2911,37 @@ const Viz = (() => {
     return { players: list("players"), teams: list("teams") };
   }
 
-  return { render, glance, catalog };
+  // Every stat on one player this season, for his page and his Takes (live.js, takes.js): the same numbers and ranks as
+  // Visualize's "All his stats" panel (all weeks, no filters). null if he isn't in this season's chart data.
+  // { season, week, pos, posTxt, cats: [[group, [{key, label, v, txt, rank, n}]]] }
+  async function playerStats(lg, id) {
+    idx = idx || await getJSON("data/viz/index.json").catch(() => ({}));
+    const season = (idx[lg] || []).at(-1), D = season && season >= (idx.players?.[lg] || 0) && await file(season, lg);
+    if (!D?.pmeta?.[id]) return null;
+    const saved = st; st = { ...DEF }; // sum() reads the Visualize settings
+    let agg;
+    try { agg = sum(D, "players", 1, 99); } finally { st = saved; }
+    if (!agg[id]) return null;
+    const m = D.pmeta[id], me = agg[id], posK = POS_OF(m[1], me.S);
+    const everyone = Object.keys(agg).filter((x) => POS_OF(D.pmeta[x]?.[1], agg[x].S) === posK);
+    const cats = statsFor("players", D).map(([g, l]) => [g, l.filter((s) => !s[3].split).map((s) => {
+      let v;
+      try { v = value(s, me.S, me.g, "total"); } catch { return null; }
+      const den = s[3].den;
+      if (v == null || Number.isNaN(v) || typeof v !== "number" || (s[3].count ? !v : den && !den(me.S, me.g))) return null;
+      let n = 0, better = 0;
+      const minD = den ? 0.35 * Math.max(0, ...everyone.map((x) => den(agg[x].S, agg[x].g) || 0)) : 0;
+      if ((!den || den(me.S, me.g) >= minD) && !(s[3].count && s[3].low)) for (const x of everyone) {
+        if (den && (den(agg[x].S, agg[x].g) || 0) < minD) continue;
+        const w = value(s, agg[x].S, agg[x].g, "total");
+        if (w == null || Number.isNaN(w)) continue;
+        n++; if (s[3].low ? w < v : w > v) better++;
+      }
+      return { key: s[0], label: s[1], v, txt: fmt(s, v, "total"), rank: n ? better + 1 : 0, n, low: !!s[3].low, pos: s[3].pos || "" };
+    }).filter(Boolean)]).filter(([, l]) => l.length);
+    return { season: D.season, week: Math.max(...D.prows.filter((r) => r[0] === id).map((r) => r[1])), g: me.g, pos: posK,
+      posTxt: { QB: "QBs", RB: "running backs", WR: "receivers and tight ends", K: "kickers", OL: "offensive linemen", DEF: "defenders" }[posK] || "players", cats };
+  }
+
+  return { render, glance, catalog, playerStats };
 })();

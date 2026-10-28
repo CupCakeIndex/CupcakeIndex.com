@@ -3378,6 +3378,37 @@ const Live = (() => {
       ${panes.map((p) => `<div class="ol-pane${p.k === on ? "" : " hidden"}" data-k="${p.k}"><div class="ol-line">${p.cells.map(([l, v, sub]) =>
         `<span><small>${esc(l)}</small><b>${v}</b>${sub ? `<i>${sub}</i>` : ""}</span>`).join("")}</div><p class="note">${p.note}</p></div>`).join("")}</div>`;
   }
+  // Player Overview: "Season stats" (Terry: in-depth stats like the Real app). Every stat we chart on him this season with his
+  // rank at his position (Viz.playerStats, the same numbers as Visualize), the main ones up top, each one opening its chart,
+  // and his last 8 games as bars (ESPN's game log, so it has his latest game).
+  const PS_TOP = { QB: ["pass_yds", "pass_td", "int", "cmp_pct", "ypa", "rating", "eff", "epa_db", "ppa_play", "rush_yds", "rush_td", "sacked", "ppr"],
+    RB: ["rush_yds", "carries", "ypc", "rush_td", "rec", "rec_yds", "scrim", "epa_rush", "ppa_play", "ppr"],
+    WR: ["rec_yds", "rec", "targets", "rec_td", "ypr", "catch_pct", "yac", "epa_tgt", "ppa_play", "ppr"],
+    DEF: ["tackles", "def_sacks", "tfl", "qb_hits", "pd", "def_int"], K: ["fg_made", "fg_att", "fg_pct"] };
+  const ordN = (n) => n + ([11, 12, 13].includes(n % 100) ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th");
+  async function seasonStatsInto(lg, a, gl, slot) {
+    const P = await Viz.playerStats(lg, a.id).catch(() => null);
+    if (!slot?.isConnected) return;
+    const G = Takes.games(gl), key = KEY_METRIC[PRIMARY(a.position?.abbreviation)];
+    if (!P && !(key && G.length)) return;
+    const viz = (k) => `#/stats?${new URLSearchParams({ league: lg, show: "visualize", him: a.id, stat: k, pos: P?.pos || "" })}`;
+    const cell = (x) => `<a class="ps-cell" href="${viz(x.key)}" title="${esc(x.label)}"><small>${esc(x.label)}</small><b>${esc(x.txt)}</b>${x.rank
+      ? `<i class="${x.rank <= 3 ? "top" : ""}">${x.rank <= 3 ? "🏆 " : ""}${ordN(x.rank)}</i>` : `<i class="muted">–</i>`}</a>`;
+    const all = P ? P.cats.flatMap(([, l]) => l) : [], byKey = Object.fromEntries(all.map((x) => [x.key, x]));
+    const top = (PS_TOP[P?.pos] || []).map((k) => byKey[k]).filter(Boolean);
+    const head = top.length ? top : all.slice(0, 8);
+    // recent games: his main stat, last 8 (tallest bar = his best of them)
+    const R = key ? G.filter((g) => g.s[key] != null).slice(-8) : [], hi = Math.max(1, ...R.map((g) => g.s[key]));
+    const bars = R.length >= 2 ? `<h4 class="ps-h">Recent games <small class="muted">${esc(GL_KEY_LABEL[key] || key.replace(/([A-Z])/g, " $1").toLowerCase())}</small></h4>
+      <div class="ps-bars">${R.map((g) => `<a class="ps-bar" href="${link("game", g.m.id || "", { league: lg })}" title="${esc(`${g.m.atVs || ""} ${g.m.opponent?.abbreviation || ""}: ${g.m.gameResult || ""} ${g.m.score || ""}`)}">
+        <span>${esc((+g.s[key]).toLocaleString())}</span><i class="${g.m.gameResult === "L" ? "l" : ""}" style="height:${Math.max(3, (100 * Math.max(0, g.s[key])) / hi).toFixed(0)}%"></i>
+        <small>${esc(g.m.atVs === "@" ? "@" : "vs")}<br>${esc(g.m.opponent?.abbreviation || "")}</small></a>`).join("")}</div>` : "";
+    slot.innerHTML = `<div class="card ps-card"><div class="tk-st-head"><h3>Season stats</h3>${P ? `<small class="muted">${P.season} · ${P.g} game${P.g > 1 ? "s" : ""} through week ${P.week} · rank among ${esc(P.posTxt)}</small>` : ""}</div>
+      ${head.length ? `<div class="ps-grid">${head.map(cell).join("")}</div>` : ""}${bars}
+      ${all.length > head.length ? `<details class="ps-more"><summary>Every stat (${all.length})</summary>${P.cats.map(([g, l]) => `<h4 class="ps-h">${esc(g)}</h4><div class="ps-grid">${l.map(cell).join("")}</div>`).join("")}</details>` : ""}
+      ${P ? `<p class="note muted">Tap a stat to chart it in Visualize. Ranks: 1 = best among ${esc(P.posTxt)} (rates count players with at least 35% of the leader's volume; "fewer is better" totals like interceptions aren't ranked). From the weekly chart data, so the newest game can take a day to show up; the bars are live.</p>` : ""}</div>`;
+  }
+
   async function outlookInto(lg, id, slot, gl) {
     const html = outlookCard(lg === "cfb" ? await Promise.all([cfbProjPane(id, gl), cfbPacePane(id, gl)]) : await nflPanes(id));
     if (!html || !slot?.isConnected) return;
@@ -4101,8 +4132,10 @@ const Live = (() => {
     if (my !== token) return;
     const logGl = cseason && cgl ? cgl : gl, logLg = logGl === cgl ? "cfb" : lg;
     // Takes tab: talking points from this season's games and headlines about him, then our X posts (takes.js)
-    const points = season ? [] : Takes.playerPoints(a, gl, lg, PRIMARY(a.position?.abbreviation));
-    const heads = await Takes.headlines(a, lg).catch(() => []);
+    // ex: his career (pace vs his best season) and every stat we chart on him (his deeper top-5 ranks), both already loading
+    const [pts, heads] = await Promise.all([season || a.active === false ? null : Promise.all([careersP.then((cs) => cs?.[0]).catch(() => null), Viz.playerStats(lg, id).catch(() => null)]),
+      Takes.headlines(a, lg).catch(() => [])]);
+    const points = pts ? Takes.playerPoints(a, gl, lg, PRIMARY(a.position?.abbreviation), { career: pts[0], stats: pts[1] }) : [];
     if (my !== token) return;
     const nTakes = points.length + heads.length + takes.length;
     const facts = [
@@ -4193,7 +4226,7 @@ const Live = (() => {
         return `<a class="subtab${ptab === k ? " on" : ""}" href="${link("player", id, { ...(k ? { tab: k } : {}), ...(k === "takes" ? {} : keep) })}">${label}</a>`;
       }).join("")}</div>`;
     if (ptab === "takes") {
-      view("player").innerHTML = head + `<div class="card">${Takes.pointsHtml(points)}${Takes.headlinesHtml(heads, !points.length)}${takes.length
+      view("player").innerHTML = head + `<div class="card">${Takes.pointsHtml(points, a, lg, !!pts?.[1])}${Takes.headlinesHtml(heads, !points.length)}${takes.length
         ? `${points.length || heads.length ? `<h3 class="tk-posts-h">From our X account</h3>` : ""}${Takes.list(takes)}`
         : nTakes ? "" : `<p class="muted">No takes about this player yet. <a href="${link("takes")}">See all our Takes →</a></p>`}</div>`;
       fillFaces(view("player"));
@@ -4218,6 +4251,7 @@ const Live = (() => {
     }
     view("player").innerHTML = head + (ptab === "" ? `
       ${summary ? `<div class="card pl-sum"><div class="stats wide">${summary}</div></div>${caughtUp ? `<p class="note muted">Added up from his game-by-game stats, so it includes his latest game. Ranks come back once the overnight totals update.</p>` : ""}` : ""}
+      <div id="ps-slot"></div>
       <div id="ol-slot"></div>
       ${injInfo(inj) ? injCard(inj, a.id, fa ? "" : a.team?.id)
         : params.get("inj") ? `<div class="card inj-card" id="pl-inj"><h3>Injury</h3><p class="muted">ESPN has no injury details on file for this player right now.</p></div>` : ""}`
@@ -4235,6 +4269,7 @@ const Live = (() => {
     }).catch(() => {});
     if (ptab === "") {
       if (my === token) outlookInto(lg, id, $("#ol-slot"), season ? null : gl).catch(() => {});
+      if (!season) seasonStatsInto(lg, a, gl, $("#ps-slot")).catch(() => {});
       const toInj = params.get("inj") && $("#pl-inj");
       if (toInj) pulse(toInj);
       return;

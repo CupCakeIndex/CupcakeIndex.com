@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import posted
 from render import DATA, ROOT, chance, latest, short, tweet, x_len
 
+QUOTE = re.compile(r"^[A-Z][\w.'’-]+(?: [A-Z][\w.'’-]+){1,2}: ")  # "First Last: what he said" headlines
 MAX_PER_DAY = 3        # only big news (Terry, Oct 6: posts like "WVU releases updated depth chart" are dumb)
 FRESH_HOURS = 3        # older than this isn't breaking any more
 SOURCES = {"ESPN", "CBS Sports", "Yahoo Sports", "Pro Football Talk", "On3"}  # news desks, not opinion blogs
@@ -165,6 +166,9 @@ def candidates(hours=FRESH_HOURS, now=None):
     coaches = head_coaches()
     out = []
     for it in fresh:
+        # "Liam Coen: Colts traded away two good players..." is someone talking about the news, not the news (Terry, Oct 28)
+        if QUOTE.match(it["title"]):
+            continue
         k = kind_of(it["title"], stars, qbs, coaches)
         if k:
             out.append(it | {"kind": k, "subject": subject(it, [*qbs, *stars, *coaches]), "angle": model_angle(it, preds, qbs)})
