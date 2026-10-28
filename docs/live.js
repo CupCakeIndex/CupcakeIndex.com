@@ -3729,11 +3729,12 @@ const Live = (() => {
   function ccPref(k, def) { try { return localStorage.getItem("cc-" + k) ?? def; } catch { return def; } }
   function ccSetPref(k, v) { try { localStorage.setItem("cc-" + k, v); } catch {} }
 
-  let playerIndexP = null; // all-time NFL player list, loaded the first time someone searches
-  const playerIndex = () => (playerIndexP ||= fetch("data/players_nfl.json").then((r) => r.json()).catch(() => { playerIndexP = null; return []; }));
+  // all-time NFL player list, loaded the first time someone searches. no-cache: check for a newer copy (a cached old one, without teams, sorted search wrong)
+  let playerIndexP = null;
+  const playerIndex = () => (playerIndexP ||= fetch("data/players_nfl.json", { cache: "no-cache" }).then((r) => r.json()).catch(() => { playerIndexP = null; return []; }));
   // nicknames and other names NFL players go by ("Bill" = Jacory Croskey-Merritt; src/player_aliases.py)
   let aliasesP = null;
-  const aliases = () => (aliasesP ||= fetch("data/player_aliases.json").then((r) => r.json()).then((d) => d.players || {}).catch(() => { aliasesP = null; return {}; }));
+  const aliases = () => (aliasesP ||= fetch("data/player_aliases.json", { cache: "no-cache" }).then((r) => r.json()).then((d) => d.players || {}).catch(() => { aliasesP = null; return {}; }));
 
   // search result headshot: initials underneath, ESPN's photo on top (removed if ESPN has none, so the initials show)
   const searchFace = (lg, id, name) => `<span class="gs-face">${esc(initials(name))}<img src="${esc(thumb(`https://a.espncdn.com/i/headshots/${lg === "nfl" ? "nfl" : "college-football"}/players/full/${encodeURIComponent(id)}.png`, 22, 22, true))}" alt="" loading="lazy" decoding="async" onerror="this.remove()"></span>`;
