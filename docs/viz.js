@@ -1603,10 +1603,14 @@ const Viz = (() => {
       .map(([n, ic, l]) => [n, ic, l.filter((k) => all.some((s) => s[0] === k)).slice(0, 5)]).filter(([, , l]) => l.length >= 3);
     const rview = st.type === "radar" && st.radar ? RVIEWS.find(([, , l]) => l.join(",") === st.radar)?.[0] : null;
     // a rare bad thing (points erased by penalties) on Best: the whole chart is a tie at 0, which says nothing, so show the most
+    // (only for that stat: switching to another one, like Interceptions thrown -> Passing TDs in the "Every stat on" panel,
+    // goes back to Best instead of listing everyone with 0 TDs)
     let tieFlip = false;
+    if (flipFor && flipFor !== stat[0] && st.order === "worst") st.order = "best";
+    flipFor = "";
     if (st.order !== "worst" && stat[3].low && stat[3].count && (st.type === "bar" || st.type === "table")) {
       const r = rank(stat, keys);
-      if (r.length > Math.min(top, 10) && val(stat, r[Math.min(top, 10)]) === val(stat, r[0])) { st.order = "worst"; tieFlip = true; }
+      if (r.length > Math.min(top, 10) && val(stat, r[Math.min(top, 10)]) === val(stat, r[0])) { st.order = "worst"; tieFlip = true; flipFor = stat[0]; }
     }
     // a Head coach stat on the chart: teams go by their coach ("Macdonald", hover: "Mike Macdonald (Seattle Seahawks)")
     const coachy = who === "teams" && [stat[0], st.type === "scatter" ? st.y : ""].some((s) => s.startsWith("co_"));
@@ -2248,11 +2252,13 @@ const Viz = (() => {
       });
       secs.sort((x, y) => PL_SECS.findIndex(([n]) => n === x[0]) - PL_SECS.findIndex(([n]) => n === y[0]));
       if (!secs.length) return "";
-      const open = secs.find(([n]) => n === plSec) || secs.find(([, gs]) => gs.some(([, l]) => l.some((x) => x.key === stat[0]))) || secs[0];
-      const P = Live.ps, count = cats.reduce((a, [, l]) => a + l.length, 0);
+      // first: his best and worst (the same picks as his page's "What he's best at" / "Where he struggles"); it opens first
+      const P = Live.ps, bw = P.bestWorst(cats, posK), count = cats.reduce((a, [, l]) => a + l.length, 0);
+      if (bw.best.length || bw.worst.length) secs.unshift(["Best and worst", [["What he's best at", bw.best], ["Where he struggles", bw.worst]].filter(([, l]) => l.length)]);
+      const open = secs.find(([n]) => n === (plSec || "Best and worst")) || secs.find(([, gs]) => gs.some(([, l]) => l.some((x) => x.key === stat[0]))) || secs[0];
       const row = (x) => `<button type="button" class="ps-row ${P.tier(x)}${x.key === stat[0] ? " on" : ""}" data-pls="${esc(x.key)}" title="${esc(x.label)}"><span class="ps-l">${esc(x.label)}</span><b>${esc(x.txt)}</b>
         <span class="ps-track">${x.pct == null ? `<em class="ps-nr">${P.rank(x)}</em>` : `<span class="ps-fill" style="width:${(100 * x.pct).toFixed(0)}%"><i></i></span><em style="left:${(100 * x.pct).toFixed(0)}%">${P.rank(x)}</em>`}</span></button>`;
-      const sec = (g, l) => `<section class="ps-sec"><h4 class="ps-h"><span>${esc(g)}</span><small>[${String(l.length).padStart(2, "0")}]</small></h4><div class="ps-rows">${l.map(row).join("")}</div></section>`;
+      const sec = (g, l, cls = "") => `<section class="ps-sec ${cls}"><h4 class="ps-h"><span>${esc(g)}</span><small>[${String(l.length).padStart(2, "0")}]</small></h4><div class="ps-rows">${l.map(row).join("")}</div></section>`;
       // Throw map has 60-odd stats (Terry: "subfolders for the throw chart stats"): folders by part of the field, closed
       // except the one with the charted stat. Zone stat keys end in the zone: l/m/r = side, s/i/d = depth, "dl" = one zone
       const zoneFolders = (l) => ZONE_FOLDERS.map(([name, test]) => [name, l.filter((x) => test(x.key.split("_").pop()))]).filter(([, f]) => f.length)
@@ -2264,7 +2270,7 @@ const Viz = (() => {
       return `<div class="vz-pl card ps-card" style="${P.palette()}"><div class="vz-pl-head"><div class="tk-st-head"><h3>Every stat on ${esc(m[0])}</h3><small class="muted">${esc([m[1], tm(teamOf(k))[0], seasonTxt, `${count} stats`, `rank among ${posTxt}`].filter(Boolean).join(" · "))}</small></div><button type="button" class="vz-pl-x" id="vz-plx" title="Close">✕</button></div>
         <p class="ps-key"><span class="t5">Top 10%</span><span class="t4">Top 30%</span><span class="t3">Middle</span><span class="t2">Bottom 40%</span><span class="t1">Bottom 20%</span></p>
         <div class="vz-pl-body"><div class="vz-pl-nav">${secs.map(([n, gs]) => `<button type="button" data-plsec="${esc(n)}" class="${n === open[0] ? "on" : ""}"><span>${esc(n)}</span><small>${gs.reduce((a, [, l]) => a + l.length, 0)}</small></button>`).join("")}</div>
-        <div>${secs.map(([n, gs]) => `<div data-plsec="${esc(n)}"${n === open[0] ? "" : " hidden"}>${n === "Throw map" ? zoneFolders(gs.flatMap(([, l]) => l)) : gs.map(([g, l]) => sec(g, l)).join("")}</div>`).join("")}</div></div>
+        <div>${secs.map(([n, gs]) => `<div data-plsec="${esc(n)}"${n === open[0] ? "" : " hidden"}>${n === "Throw map" ? zoneFolders(gs.flatMap(([, l]) => l)) : gs.map(([g, l]) => sec(g, l, g === "Where he struggles" ? "down" : "")).join("")}</div>`).join("")}</div></div>
         <p class="muted vz-pl-note">Tap a stat to chart it with ${esc(m[0])} highlighted. ${esc(seasonTxt)}, ${esc(weeksTxt.toLowerCase())}; 1st = best among ${esc(posTxt)} (rates count players with at least 35% of the leader's volume, and "fewer is better" stats like interceptions thrown count only the regulars). T = tied.</p></div>`;
     })();
     const frame = `${chipRow}<div class="vz-frame" id="vz-frame"><div class="vz-title"><b>${esc(title)}</b><small>${esc(sub)}</small></div>
@@ -2348,6 +2354,7 @@ const Viz = (() => {
       st[k] = b.dataset.v;
       if (k === "who") { st.pick = ""; st.team = ""; st.pos = ""; st.radar = ""; st.stat = b.dataset.v === "players" ? "scrim" : "epa_play"; st.y = b.dataset.v === "players" ? "tds" : "pts"; }
       if (k === "type") st.radar = "";
+      if (k === "order") flipFor = ""; // picked by hand: it stays
       redo();
     });
     const on = (id, k, again = redo) => { const x = document.getElementById(id); if (x) x.onchange = () => { st[k] = x.value; if (k === "pos") st.radar = ""; if (k === "stat" || k === "pos") st.min = ""; again(); }; };
@@ -3018,6 +3025,7 @@ const Viz = (() => {
   const PL_SECS = [["Passing", /^Passing|Accuracy|QB under pressure/], ["Throw map", /^Where /], ["Running and catching", /^Rushing|Scrambles|Drops|offense|Big plays|4th downs/],
     ["Usage", /Usage|^Advanced|Heisman/], ["Defense", /Defense|run defense|pass rush|coverage|Fumbles/], ["Kicking", /Kick/], ["Penalties", /enalt|Offensive line/], ["More", /$^/]];
   let plSec = ""; // the section picked in that menu
+  let flipFor = ""; // the stat whose chart we flipped to Worst on our own (a tie at 0 on Best)
   const ZONE_FOLDERS = [["Left, middle, right", (z) => ZS[z]], ["Short, intermediate, deep", (z) => ZD[z]],
     ...Object.entries(ZD).map(([d, l]) => [`${l} zones (left, middle, right)`, (z) => z.length === 2 && z[0] === d]), ["Other", (z) => !ZS[z] && !ZD[z] && !ZONES.includes(z)]];
   const PS_VOL = { QB: (S) => S.att, RB: (S) => S.carries, WR: (S) => S.targets || S.rec, DEF: (S) => S.tackles, K: (S) => S.fg_att, OL: (S) => S.snaps };

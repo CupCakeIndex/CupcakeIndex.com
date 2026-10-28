@@ -3405,6 +3405,17 @@ const Live = (() => {
     const good = hue < 0 || dim ? (light ? "#15803d" : "#22c55e") : "var(--accent)";
     return `--t5:${good};--t4:color-mix(in srgb, ${good} 68%, var(--ink));--t3:var(--muted);--t2:color-mix(in srgb, ${bad} 68%, var(--ink));--t1:${bad}`;
   }
+  // what he leads in / where he struggles: his best and worst percentiles at his position (big enough groups, no field-zone splits)
+  // (his position's own stats, or everyone's more-is-better ones: not a QB's "fewest run stops", where half the league ties at 0).
+  // Also Visualize's "Every stat on" panel (its Best and worst section)
+  function psBestWorst(cats, pos) {
+    const all = cats.flatMap(([g, l]) => l.map((x) => ({ ...x, g })));
+    const ranked = all.filter((x) => x.pct != null && x.n >= 10 && !/where|zone|penalt|erased/i.test(x.g)
+      && (x.pos === pos || (!x.pos && !x.low)) && x.same < x.n / 10);
+    const seen = new Set(), uniq = (l) => l.filter((x) => !seen.has(x.label) && seen.add(x.label));
+    return { best: uniq([...ranked].sort((x, y) => y.pct - x.pct || x.rank - y.rank).filter((x) => x.pct >= 0.8)).slice(0, 6),
+      worst: uniq([...ranked].sort((x, y) => x.pct - y.pct).filter((x) => x.pct <= 0.3)).slice(0, 4) };
+  }
   async function seasonStatsInto(lg, a, gl, slot) {
     const P = await Viz.playerStats(lg, a.id).catch(() => null);
     if (!slot?.isConnected || !P) return;
@@ -3418,13 +3429,7 @@ const Live = (() => {
     const sec = (title, l, cls = "") => `<section class="ps-sec ${cls}"><h4 class="ps-h"><span>${title}</span><small>[${String(l.length).padStart(2, "0")}]</small></h4>${wrap(l)}</section>`;
     const all = P.cats.flatMap(([g, l]) => l.map((x) => ({ ...x, g }))), byKey = Object.fromEntries(all.map((x) => [x.key, x]));
     const head = (PS_TOP[P.pos] || []).map((k) => byKey[k]).filter(Boolean);
-    // what he leads in / where he struggles: his best and worst percentiles at his position (big enough groups, no field-zone splits)
-    // (his position's own stats, or everyone's more-is-better ones: not a QB's "fewest run stops", where half the league ties at 0)
-    const ranked = all.filter((x) => x.pct != null && x.n >= 10 && !/where|zone|penalt|erased/i.test(x.g)
-      && (x.pos === P.pos || (!x.pos && !x.low)) && x.same < x.n / 10);
-    const seen = new Set(), uniq = (l) => l.filter((x) => !seen.has(x.label) && seen.add(x.label));
-    const best = uniq([...ranked].sort((x, y) => y.pct - x.pct || x.rank - y.rank).filter((x) => x.pct >= 0.8)).slice(0, 6);
-    const worst = uniq([...ranked].sort((x, y) => x.pct - y.pct).filter((x) => x.pct <= 0.3)).slice(0, 4);
+    const { best, worst } = psBestWorst(P.cats, P.pos);
     const key = `<p class="ps-key"><span class="t5">Top 10%</span><span class="t4">Top 30%</span><span class="t3">Middle</span><span class="t2">Bottom 40%</span><span class="t1">Bottom 20%</span></p>`;
     slot.innerHTML = `<div class="card ps-card" style="${psPalette()}"><div class="tk-st-head"><h3>Season stats</h3><small class="muted">${P.season} · ${P.g} game${P.g > 1 ? "s" : ""} through week ${P.week} · rank among ${esc(P.posTxt)}</small></div>
       ${key}
@@ -5838,5 +5843,5 @@ const Live = (() => {
     finally { league = keep; }
   }
   return { stop, teamId, scores, game, stats, player, standings, team, freeagents, trades, searchPlayers, career, fillBugs, kit, simField, statsSubtabs: (on) => stSubStats(on),
-    ps: { palette: psPalette, tier: psTier, rank: psRank } }; // the Season stats look, for Visualize's "Every stat on" panel
+    ps: { palette: psPalette, tier: psTier, rank: psRank, bestWorst: psBestWorst } }; // the Season stats look, for Visualize's "Every stat on" panel
 })();
