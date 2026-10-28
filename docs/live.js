@@ -3389,6 +3389,22 @@ const Live = (() => {
   // ranks: "T2" when he shares it (Terry: "like T2 or T32"), and a color tier from his percentile at his position
   const psRank = (x) => (x.rank ? (x.tie ? `T${x.rank}` : ordN(x.rank)) : "–");
   const psTier = (x) => (x.pct == null ? "t0" : x.pct >= 0.9 ? "t5" : x.pct >= 0.7 ? "t4" : x.pct >= 0.4 ? "t3" : x.pct >= 0.2 ? "t2" : "t1");
+  // the tier colors follow the theme: good = its accent (orange, green, amber, gold, your team's color), bad = blue, or
+  // orange when the accent itself is blue (a blue team in My Team). Darker shades in light mode so the text stays readable.
+  function psPalette() {
+    const light = document.documentElement.dataset.theme === "light";
+    const c = getComputedStyle(document.body).getPropertyValue("--accent").trim(), m = /^#?([0-9a-f]{6})$/i.exec(c);
+    let hue = -1, dim = false;
+    if (m) {
+      const [r, g, b] = [0, 2, 4].map((i) => parseInt(m[1].substr(i, 2), 16) / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+      dim = mx < 0.25; // a black or near-black accent (a black-and-gold team in light mode) can't be the "good" color
+      if (d > 0.08) hue = (mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60, hue = (hue + 360) % 360;
+    }
+    const bad = hue >= 170 && hue <= 270 ? (light ? "#c2410c" : "#ff6b2c") : light ? "#1d5fd1" : "#2f7bff";
+    // no color in the accent (black, gray): good = green instead
+    const good = hue < 0 || dim ? (light ? "#15803d" : "#22c55e") : "var(--accent)";
+    return `--t5:${good};--t4:color-mix(in srgb, ${good} 68%, var(--ink));--t3:var(--muted);--t2:color-mix(in srgb, ${bad} 68%, var(--ink));--t1:${bad}`;
+  }
   async function seasonStatsInto(lg, a, gl, slot) {
     const P = await Viz.playerStats(lg, a.id).catch(() => null);
     if (!slot?.isConnected || !P) return;
@@ -3410,7 +3426,7 @@ const Live = (() => {
     const best = uniq([...ranked].sort((x, y) => y.pct - x.pct || x.rank - y.rank).filter((x) => x.pct >= 0.8)).slice(0, 6);
     const worst = uniq([...ranked].sort((x, y) => x.pct - y.pct).filter((x) => x.pct <= 0.3)).slice(0, 4);
     const key = `<p class="ps-key"><span class="t5">Top 10%</span><span class="t4">Top 30%</span><span class="t3">Middle</span><span class="t2">Bottom 40%</span><span class="t1">Bottom 20%</span></p>`;
-    slot.innerHTML = `<div class="card ps-card"><div class="tk-st-head"><h3>Season stats</h3><small class="muted">${P.season} · ${P.g} game${P.g > 1 ? "s" : ""} through week ${P.week} · rank among ${esc(P.posTxt)}</small></div>
+    slot.innerHTML = `<div class="card ps-card" style="${psPalette()}"><div class="tk-st-head"><h3>Season stats</h3><small class="muted">${P.season} · ${P.g} game${P.g > 1 ? "s" : ""} through week ${P.week} · rank among ${esc(P.posTxt)}</small></div>
       ${key}
       ${best.length || worst.length ? `<div class="ps-pair">${best.length ? sec("What he's best at", best, "up") : ""}${worst.length ? sec("Where he struggles", worst, "down") : ""}</div>` : ""}
       ${head.length ? sec("The main stats", head, "main") : ""}

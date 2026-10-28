@@ -2283,10 +2283,25 @@ const Viz = (() => {
     // trace with hollow nodes, grid lines go dashed. Only plain #rrggbb colors are touched (team logos, gradients and
     // the highlight outline stay as they are).
     if (cfg && ["bar", "line"].includes(cfg.type)) {
-      const hex = (c) => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c), see = (c) => (hex(c) ? c + "59" : c);
+      const hex = (c) => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c);
+      // team colors as neon: dark ones (navy, black) get lifted on the dark page, pale ones get deepened on the light
+      // page, and every one gets a little more saturation, so no bar fades into the background (Terry: "more vibrant")
+      const light = document.documentElement.dataset.theme === "light";
+      const neon = (c) => {
+        if (!hex(c)) return c;
+        const [r, g, b] = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16) / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+        let h = 0, l = (mx + mn) / 2, sat = mx === mn ? 0 : (mx - mn) / (1 - Math.abs(2 * l - 1));
+        if (mx !== mn) h = mx === r ? ((g - b) / (mx - mn) + 6) % 6 : mx === g ? (b - r) / (mx - mn) + 2 : (r - g) / (mx - mn) + 4;
+        l = light ? Math.min(l, 0.5) : Math.max(l, 0.58);
+        sat = sat < 0.08 ? sat : Math.min(1, sat * 1.2 + 0.1);
+        const k = (n) => (n + h * 2) % 12, A = sat * Math.min(l, 1 - l);
+        const f = (n) => Math.round(255 * (l - A * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))));
+        return "#" + [0, 8, 4].map((n) => f(n).toString(16).padStart(2, "0")).join("");
+      };
+      const see = (c) => (hex(c) ? neon(c) + (light ? "4d" : "66") : c);
       for (const ds of cfg.data.datasets) {
         if ((ds.type || cfg.type) === "bar") {
-          const bg = ds.backgroundColor, edge = (c, i) => { const b = Array.isArray(ds.borderColor) ? ds.borderColor[i] : ds.borderColor; return b && b !== "transparent" ? b : c; };
+          const bg = ds.backgroundColor, edge = (c, i) => { const b = Array.isArray(ds.borderColor) ? ds.borderColor[i] : ds.borderColor; return b && b !== "transparent" ? b : neon(c); };
           if (Array.isArray(bg)) { ds.borderColor = bg.map((c, i) => edge(c, i)); ds.backgroundColor = bg.map(see); }
           else if (hex(bg)) { ds.borderColor = edge(bg, 0); ds.backgroundColor = see(bg); }
           ds.borderWidth = Math.max(1.5, +ds.borderWidth || 0);
@@ -2951,6 +2966,18 @@ const Viz = (() => {
       const den = s[3].den;
       // (0 interceptions thrown is still a stat for a QB)
       if (v == null || Number.isNaN(v) || typeof v !== "number" || (s[3].count ? !v && !(s[3].low && s[3].pos === posK) : den && !den(me.S, me.g))) return null;
+      // only stats that apply to his position: if fewer than 1 in 5 players there have any of it (run stops for a QB,
+      // sacks made by a running back), it isn't his stat, even when it shows up as a 0 (Terry: "run defense for bryce young doesnt make sense")
+      if (!v) {
+        let has = 0, seen = 0;
+        for (const x of everyone) {
+          let w;
+          try { w = value(s, agg[x].S, agg[x].g, "total"); } catch { continue; }
+          if (w == null || Number.isNaN(w)) continue;
+          seen++; if (w) has++;
+        }
+        if (has < 0.2 * seen) return null;
+      }
       // rates: players with 35% of the leader's volume in it. "Fewer is better" totals (interceptions thrown, times
       // sacked): only the regulars at his position (35% of the leader's attempts, carries, catches...), or everyone who
       // barely played would beat him (Terry wanted those ranked too)

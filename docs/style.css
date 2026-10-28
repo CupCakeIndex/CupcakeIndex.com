@@ -4010,3 +4010,12 @@ body.drawer-open .bot-fab { transform: translateX(calc(100% + 40px)); opacity: 0
 .tk-st-item { position: relative; border-top: 1px solid var(--accent); }
 .tk-st-item::before { content: ""; position: absolute; top: -3.5px; left: -1px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 .tk-st-item::after { content: ""; position: absolute; top: -1px; right: -1px; width: 12px; height: 12px; border-top: 1px solid var(--accent); border-right: 1px solid var(--accent); }
+
+/* circuit theme in light mode: no glow (it smudges on white), lines a touch heavier */
+:root[data-theme="light"] .ps-fill, :root[data-theme="light"] .wp-line, :root[data-theme="light"] .cc-chart .cc-line, :root[data-theme="light"] .gl-track i,
+:root[data-theme="light"] .gl-svg polyline.gl-for, :root[data-theme="light"] .wr-up line, :root[data-theme="light"] .wr-dn line { filter: none; }
+:root[data-theme="light"] .ps-track em, :root[data-theme="light"] .wp-dot { box-shadow: none; }
+:root[data-theme="light"] .ps-key span::before { box-shadow: none; }
+/* the extremes stand out in every theme and mode: top 10% and bottom 20% tags are filled in */
+.ps-row.t5 .ps-track em::before, .ps-row.t1 .ps-track em::before { background: var(--tc); }
+.ps-row.t5 .ps-track em, .ps-row.t1 .ps-track em { color: var(--card); }
