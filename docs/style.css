@@ -2141,8 +2141,7 @@ a.th-rk.ours:hover { border-color: #ff6b2c; text-decoration: none; }
     linear-gradient(90deg, color-mix(in srgb, var(--accent) 3%, transparent) 1px, transparent 1px);
   background-size: 22px 22px; }
 .ps-card::before, .ps-card::after { content: ""; position: absolute; width: 46px; height: 18px; pointer-events: none;
-  background: linear-gradient(var(--accent), var(--accent)) 0 0 / 100% 1px no-repeat, linear-gradient(var(--accent), var(--accent)) 0 0 / 1px 100% no-repeat,
-    radial-gradient(circle, var(--accent) 0 2px, transparent 2.5px) 100% 0 / 6px 6px no-repeat; }
+  background: linear-gradient(var(--accent), var(--accent)) 0 0 / 100% 1px no-repeat, linear-gradient(var(--accent), var(--accent)) 0 0 / 1px 100% no-repeat; }
 .ps-card::before { top: -1px; left: -1px; }
 .ps-card::after { bottom: -1px; right: -1px; transform: rotate(180deg); }
 .ps-key { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 2px 0 6px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }

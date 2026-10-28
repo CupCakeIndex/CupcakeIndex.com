@@ -1785,8 +1785,11 @@ const Viz = (() => {
       const list = rank(stat, qualify(stat));
       const shown = [...new Set([...list.slice(0, top), ...picks.filter((k) => list.includes(k))])];
       title = `${stat[1]}${perTxt(stat)}`;
+      // team colors as they are (Terry, Oct 28: "use the teams primary and secondary colors... actual color codes"):
+      // the bar is the team's main color with its second color as the edge
+      const real = teamPal && !plain && !(who === "players" && st.team), tc = (k) => TCOL[teamOf(k)] || [];
       cfg = { type: "bar", data: { labels: shown.map(short), datasets: [{ data: shown.map((k) => val(stat, k)), backgroundColor: shown.map((k) => hl(k) ? hi : color(k)), borderRadius: radius,
-        borderColor: shown.map((k) => (hl(k) ? ink : "transparent")), borderWidth: 2 }] },
+        borderColor: shown.map((k) => (hl(k) ? ink : real && hexOk(tc(k)[1]) && tc(k)[1] !== tc(k)[0] ? tc(k)[1] : "transparent")), borderWidth: 2, real }] },
         options: { ...base, indexAxis: "y", layout: { padding: { right: 56 } }, plugins: { ...base.plugins, legend: { display: false }, tooltip: { ...base.plugins.tooltip, callbacks: { title: (c) => name(shown[c[0].dataIndex]), label: (c) => fmt(stat, c.raw, per) } } },
           scales: { ...base.scales, y: { ...base.scales.y, ticks: { ...base.scales.y.ticks, font: { family: "JetBrains Mono", size: px(10 * LS) }, autoSkip: false, display: showNames, padding: showLogo ? 8 + 20 * LS : 3 },
             afterFit: (sc) => { if (showLogo) sc.width = Math.max(sc.width, 10 + 20 * LS); } } } },
@@ -2300,7 +2303,8 @@ const Viz = (() => {
       };
       const see = (c) => (hex(c) ? neon(c) + (light ? "4d" : "66") : c);
       for (const ds of cfg.data.datasets) {
-        if ((ds.type || cfg.type) === "bar") {
+        if ((ds.type || cfg.type) === "bar" && ds.real) ds.borderWidth = 2;
+        else if ((ds.type || cfg.type) === "bar") {
           const bg = ds.backgroundColor, edge = (c, i) => { const b = Array.isArray(ds.borderColor) ? ds.borderColor[i] : ds.borderColor; return b && b !== "transparent" ? b : neon(c); };
           if (Array.isArray(bg)) { ds.borderColor = bg.map((c, i) => edge(c, i)); ds.backgroundColor = bg.map(see); }
           else if (hex(bg)) { ds.borderColor = edge(bg, 0); ds.backgroundColor = see(bg); }
