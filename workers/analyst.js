@@ -94,21 +94,35 @@ async function readFeed([src, url]) {
       by: a.byline || "", src, url: a.links?.web?.href || "", at: a.published }));
   } catch (e) { return []; }
 }
+// the first run fills in the past week: ESPN's Now feed paged back 7 days (about 12 pages of 50) and a 7-day Google News
+// search per insider (up to 100 each). About 27 fetches, under the free plan's 50 per run. Done once ("backfilled" in KV).
+async function backfillFeeds() {
+  const cut = Date.now() - 7 * 86400000, espn = [];
+  for (let off = 0; off < 1000; off += 50) {
+    const page = await readFeed(["ESPN", `https://now.core.api.espn.com/v1/sports/news?limit=50&sport=football&league=nfl&offset=${off}`]);
+    espn.push(...page);
+    if (page.length < 50 || page.some((x) => Date.parse(x.at) < cut)) break;
+  }
+  const google = await Promise.all(INSIDERS.map((n) => readFeed(["Google News",
+    `https://news.google.com/rss/search?q=${encodeURIComponent(`"${n}" NFL when:7d`)}&hl=en-US&gl=US&ceid=US:en`])));
+  return [...espn, ...google.flat()].filter((x) => Date.parse(x.at) >= cut);
+}
 async function refreshWire(env) {
   const old = (await env.USAGE.get("wire", "json")) || { items: [] }, seen = new Set(old.items.map((x) => x.id));
   const titleKey = (t) => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const titles = new Set(old.items.map((x) => titleKey(x.title)));
   const fresh = [];
-  for (const x of (await Promise.all(WIRE_FEEDS.map(readFeed))).flat()) {
+  const got = [...(await Promise.all(WIRE_FEEDS.map(readFeed))).flat(), ...(old.backfilled ? [] : await backfillFeeds())];
+  for (const x of got) {
     const k = titleKey(x.title);
     if (!x.title || !x.at || seen.has(x.id) || titles.has(k)) continue;
     seen.add(x.id); titles.add(k);
     fresh.push(tagWire({ ...x, seen: new Date().toISOString() })); // seen = when we first picked it up
   }
-  if (!fresh.length) return 0; // KV's free plan allows 1,000 writes a day: only write when something's new
+  if (!fresh.length && old.backfilled) return 0; // KV's free plan allows 1,000 writes a day: only write when something's new
   const cut = Date.now() - 30 * 86400000;
-  const items = [...fresh, ...old.items].filter((x) => Date.parse(x.at) > cut).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 600);
-  await env.USAGE.put("wire", JSON.stringify({ updated: new Date().toISOString(), items }));
+  const items = [...fresh, ...old.items].filter((x) => Date.parse(x.at) > cut).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 2500);
+  await env.USAGE.put("wire", JSON.stringify({ updated: new Date().toISOString(), backfilled: true, items }));
   return fresh.length;
 }
 
