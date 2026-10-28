@@ -3862,3 +3862,5 @@ body.drawer-open .bot-fab { transform: translateX(calc(100% + 40px)); opacity: 0
 @media (max-width: 640px) { .brand h1 { font-size: 20px; } }
 @media (max-width: 389px) { .brand h1 { font-size: 18.5px; } }
 @media (max-width: 369px) { .brand h1 { font-size: 17px; } }
+/* a player's nickname under his name, like an epithet (player page; src/player_aliases.py) */
+.pl-nick { margin: -6px 0 8px; color: var(--accent); font-style: italic; font-size: 15px; letter-spacing: .02em; }

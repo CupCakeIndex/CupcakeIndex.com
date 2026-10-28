@@ -28,8 +28,8 @@ SPARQL = """SELECT ?espn ?title ?nick WHERE { ?p wdt:P3686 ?espn.
   OPTIONAL { ?a schema:about ?p; schema:isPartOf <https://en.wikipedia.org/>; schema:name ?title. }
   OPTIONAL { ?p wdt:P1449 ?nick. FILTER(LANG(?nick) = "en") } }"""
 NFLV_PLAYERS = "https://github.com/nflverse/nflverse-data/releases/download/players/players.csv"
-# well-known media nicknames Wikipedia's first line doesn't carry (add more here; matched to our players by name)
-KNOWN = {"Christian McCaffrey": ["CMC"], "Jaxon Smith-Njigba": ["JSN"], "Amon-Ra St. Brown": ["ARSB", "Sun God"],
+# well-known media and meme nicknames Wikipedia's first line doesn't carry (add more here; matched to our players by name)
+KNOWN = {"Christian McCaffrey": ["CMC"], "Jaxon Smith-Njigba": ["JSN", "Emerald City Route Artist"], "Amon-Ra St. Brown": ["ARSB", "Sun God"],
          "Marquise Brown": ["Hollywood"], "Marvin Harrison Jr.": ["MHJ"], "Brian Thomas Jr.": ["BTJ"], "Kenneth Walker III": ["KW3"],
          "A.J. Brown": ["AJB"], "Travis Etienne": ["ETN"], "Aidan Hutchinson": ["Hutch"], "Jonathan Taylor": ["JT"],
          "Christian Watson": ["Big Dog"], "Patrick Mahomes": ["Showtime"], "Justin Jefferson": ["JJettas"], "Saquon Barkley": ["Kong"]}

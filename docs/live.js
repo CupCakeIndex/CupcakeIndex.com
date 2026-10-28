@@ -4084,7 +4084,6 @@ const Live = (() => {
     if (my !== token) return;
     const logGl = cseason && cgl ? cgl : gl, logLg = logGl === cgl ? "cfb" : lg;
     const facts = [
-      nick.length ? `Goes by ${nick.map((n) => `“${n}”`).join(", ")}` : "",
       a.position?.displayName, a.displayJersey,
       [a.displayHeight, a.displayWeight].filter(Boolean).join(", "),
       a.age ? `Age ${a.age}` : "", a.displayDraft,
@@ -4159,6 +4158,7 @@ const Live = (() => {
           ${hsLabel ? `<span class="hs-tag">${esc(hsLabel)}</span>` : ""}</div>
         <div>
           <h2>${esc(a.displayName)}${lg === "nfl" && a.active === false ? ` <span class="retired-tag">Retired</span>` : ""}${recs.length ? ` <a class="rec-tag${ptab === "records" ? " on" : ""}" href="${link("player", id, ptab === "records" ? {} : { tab: "records" })}" title="${esc(recs.map((r) => r[0]).join(" · "))}">★ NFL record${recs.length > 1 ? `s (${recs.length})` : ""}</a>` : ""}</h2>
+          ${nick.length ? `<p class="pl-nick">${nick.map((n) => `“${esc(n)}”`).join(" · ")}</p>` : ""}
           <p>${a.team ? `<a href="${link("team", a.team.id)}"><span class="tm">${img(a.team.logos?.[0]?.href || a.team.logo, "xs")} ${esc(a.team.displayName)}</span></a>` : ""}
             ${injInfo(inj) ? ` <span class="inj-line">${injTag(inj, a.id, fa ? "" : a.team?.id)} ${esc(injInfo(inj).tip)}</span>` : ""}</p>
           <p class="muted">${facts.map(esc).join(" · ")}<span id="pl-exp">${exp ? " · " + esc(exp) : ""}</span></p>
