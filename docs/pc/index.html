@@ -204,7 +204,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   <section id="grail"></section>
   <div class="tools" id="tools">
     <input type="search" id="q" placeholder="Search player, team, set…" aria-label="Search cards">
-    <button class="chip" data-f="rc">RC</button><button class="chip" data-f="auto">AUTO</button><button class="chip" data-f="num">NUMBERED</button><button class="chip" data-f="graded">GRADED</button>
+    <button class="chip" data-f="rc">RC</button><button class="chip" data-f="auto">AUTO</button><button class="chip" data-f="num">NUMBERED</button><button class="chip" data-f="graded">GRADED</button><button class="chip" id="enh" title="Fix the lighting and sharpen card photos on screen. Your saved photos aren't changed.">✨ ENHANCE</button>
     <select id="sort" aria-label="Sort"><option value="team">By team</option><option value="new">Newest added</option><option value="year">Year (newest)</option><option value="player">Player A-Z</option></select>
   </div>
   <section class="grid" id="grid"></section>
@@ -214,6 +214,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 <script src="../firebase-config.js"></script>
 <script src="cardcrop.js?v=2"></script>
 <script src="cardread.js?v=2"></script>
+<script src="enhance.js?v=1"></script>
 <script>window.VAULT_SEARCH_URL = "https://vault-search.thecupcakeindex-support.workers.dev"; // the Cloudflare Worker (workers/vault-search.js) that searches eBay</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -273,7 +274,24 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   }
   const paint = (c) => document.querySelectorAll(`.card[data-id="${CSS.escape(c.id)}"] .face.front`).forEach((f) => {
     f.classList.remove("loading", "empty"); f.textContent = ""; f.style.backgroundImage = c.thumb || c.front ? `url('${c.thumb || c.front}')` : "";
+    polish(f.parentNode);
   });
+  // Enhance (on unless switched off): each photo on screen is swapped for a touched-up copy (enhance.js).
+  // Only the screen changes; what's saved, listed on eBay or read by the card reader is the original.
+  let enhanceOn = true;
+  try { enhanceOn = localStorage.getItem("pcb-enhance") !== "0"; } catch (e) { /* no storage */ }
+  const shown = new WeakMap(); // element -> the original photo it should show
+  function polish(root) {
+    if (!window.CardEnhance) return;
+    root.querySelectorAll(".face, .v-face").forEach((el) => {
+      const m = /url\(["']?(.*?)["']?\)$/.exec(el.style.backgroundImage || "");
+      if (!m || m[1].startsWith("blob:")) return;
+      const src = m[1];
+      shown.set(el, src);
+      if (!enhanceOn) return;
+      CardEnhance.enhance(src).then((u) => { if (enhanceOn && shown.get(el) === src && u !== src) el.style.backgroundImage = `url('${u}')`; });
+    });
+  }
   // cards saved before thumbnails existed: show their full front for now; when you're signed in, save a thumbnail for next time
   let thumbing = false;
   async function thumbs() {
@@ -355,6 +373,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     }
     $("#grid").innerHTML = html || `<div class="empty-state" style="grid-column:1/-1"><h3>${!loaded ? "Opening…" : cards.length ? "No matches" : "The binder is empty"}</h3>
       ${!loaded ? "Loading the cards." : cards.length ? "Try a different search or filter." : isOwner() ? "Tap <b>+ Add card</b> to put your first card in." : "Cards are on the way."}</div>`;
+    polish(document);
   }
 
   // ---------- card viewer: tap a card and it comes up close over a blurred page, like holding the real thing.
@@ -494,9 +513,11 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
         <p class="hint">Drag to turn it · tap to flip · two fingers to bring it closer and move it</p></div>`;
     document.body.appendChild(v); document.body.style.overflow = "hidden";
     showPrice(c, v.querySelector("#v-price"));
+    polish(v);
     if (!c.front) full(c).then(() => {
       const [fr, bk] = v.querySelectorAll(".v-face");
       fr.style.backgroundImage = c.front ? `url('${c.front}')` : ""; bk.style.backgroundImage = c.back ? `url('${c.back}')` : ""; bk.textContent = c.back ? "" : "No back photo";
+      polish(v);
     }).catch(() => {});
     const card = v.querySelector(".v-card"), stage = v.querySelector(".v-stage");
     // Like holding the card: one finger tilts and turns it; two fingers bring it closer (pinch), twist it and move it,
@@ -597,6 +618,12 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   $("#q").oninput = draw;
   $("#sort").onchange = draw;
 
+  $("#enh").classList.toggle("on", enhanceOn);
+  $("#enh").onclick = () => {
+    enhanceOn = !enhanceOn; $("#enh").classList.toggle("on", enhanceOn);
+    try { localStorage.setItem("pcb-enhance", enhanceOn ? "1" : "0"); } catch (e) { /* no storage */ }
+    draw();
+  };
   document.querySelectorAll(".chip[data-f]").forEach((b) => b.onclick = () => { filters.has(b.dataset.f) ? filters.delete(b.dataset.f) : filters.add(b.dataset.f); b.classList.toggle("on"); draw(); });
 
   // ---------- sign in / claim the vault
