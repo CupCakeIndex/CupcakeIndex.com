@@ -1,7 +1,8 @@
 """Post a reviewed thread to X: data/threads/<name>/thread.json ({"posts": [{"text", "image"}]}) plus its pictures.
 
 Each post replies to the one before it. Same switch and keys as post_to_x.py (X_POSTING_ENABLED + the four X secrets);
-without them it only prints what it would post. No links, 280 characters max, checked before anything goes out.
+without them it only prints what it would post. No links, 280 characters max (or LONG_MAX with "long": true in
+thread.json, for one long Premium post), checked before anything goes out.
 
 Never leaves half a thread: after the first post it reads how many posts X says are left for the next 24 hours. If
 there isn't room for the rest, it deletes that first post and stops, and the log says when to try again.
@@ -22,6 +23,7 @@ from render import x_len
 UPLOAD_URL = "https://api.x.com/2/media/upload"
 TWEET_URL = "https://api.x.com/2/tweets"
 SECRETS = ["X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_SECRET"]
+LONG_MAX = 25000  # X Premium's long-post limit
 
 
 def left_today(r):
@@ -39,10 +41,11 @@ def reset_at(r):
 def main():
     folder = sys.argv[1]
     with open(os.path.join(folder, "thread.json"), encoding="utf-8") as f:
-        posts = json.load(f)["posts"]
+        data = json.load(f)
+    posts, cap = data["posts"], LONG_MAX if data.get("long") else 280
     for i, p in enumerate(posts, 1):  # check everything before posting anything
-        if x_len(p["text"]) > 280:
-            sys.exit(f"Post {i} is {x_len(p['text'])} characters (over 280). Nothing posted.")
+        if x_len(p["text"]) > cap:
+            sys.exit(f"Post {i} is {x_len(p['text'])} characters (over {cap}). Nothing posted.")
         if "http" in p["text"] or ".com" in p["text"]:
             sys.exit(f"Post {i} has a link (Terry's rule: no links). Nothing posted.")
         if p.get("image") and not os.path.exists(os.path.join(folder, p["image"])):
