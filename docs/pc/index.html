@@ -379,7 +379,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     if (!el || !window.VAULT_SEARCH_URL || !c.player) return;
     el.textContent = "Checking eBay for a price…";
     const sold = "https://www.ebay.com/sch/i.html?_sacat=261328&LH_Sold=1&LH_Complete=1&_nkw="
-      + encodeURIComponent([c.year, c.set, c.player, c.parallel, c.serial, c.grade].filter(Boolean).join(" "));
+      + encodeURIComponent([c.year, c.set, c.player, c.parallel, (String(c.serial || "").match(/\/\s*\d+/) || [""])[0].replace(/\s/g, ""), c.grade].filter(Boolean).join(" "));
     priceOf(c).then((p) => {
       if (!el.isConnected) return;
       if (!p.estimate) { el.innerHTML = `No price yet: ${esc(p.reason)} <a href="${sold}" target="_blank" rel="noopener">Sold on eBay</a>`; return; }

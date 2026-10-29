@@ -63,13 +63,19 @@ const ESTIMATE_TOOL = {
 
 async function estimate(env, card) {
   const name = [card.year, card.set, card.player, card.number, card.parallel, card.serial, card.grade].filter(Boolean).join(" ");
-  // a wide search (any parallel, so there's something to compare with) and a narrow one (the exact card)
+  // Serial numbering: "01/10" is copy 1 of 10. Sellers write "/10", so that's what gets searched.
+  const sm = (card.serial || "").match(/(\d+)?\s*\/\s*(\d+)/), copy = sm?.[1] ? +sm[1] : 0, run = sm ? +sm[2] : 0;
+  const serialQ = run ? "/" + run : "";
+  // three searches: the exact card, the same print run without year or color (titles often leave those out),
+  // and the player's whole set (other parallels, so there's something to compare with when the exact card isn't listed)
   const wide = [card.year, card.set, card.player].filter(Boolean).join(" ");
-  const narrow = [wide, card.parallel, card.serial, card.grade].filter(Boolean).join(" ");
+  const narrow = [wide, card.parallel, serialQ, card.grade].filter(Boolean).join(" ");
+  const middle = run ? [card.player, card.set, serialQ].filter(Boolean).join(" ") : "";
+  const queries = [...new Set([narrow, middle, wide].filter(Boolean))];
   const seen = new Map();
-  for (const list of await Promise.all([listings(env, narrow), narrow !== wide ? listings(env, wide) : []]))
+  for (const list of await Promise.all(queries.map((q) => listings(env, q))))
     for (const it of list) if (!seen.has(it.itemId)) seen.set(it.itemId, it);
-  const items = [...seen.values()].slice(0, 80);
+  const items = [...seen.values()].slice(0, 90);
   if (!items.length) return { estimate: 0, low: 0, high: 0, confidence: "low", reason: "No eBay listings found for this card.", count: 0, comps: [] };
   const lines = items.map((it, i) => {
     const ship = +(it.shippingOptions?.[0]?.shippingCost?.value || 0);
@@ -84,6 +90,13 @@ async function estimate(env, card) {
       messages: [{ role: "user", content:
         `Estimate what this football card would sell for today: ${name}.\n` +
         (card.grade ? `It is graded ${card.grade}; only listings with that same grade are this card.\n` : "It is raw (not graded); graded copies are not this card.\n") +
+        (run === 1 ? "It is a 1 of 1: the only copy made, so there are no other copies to compare with. Judge from the scarcest numbered parallels of this player in this set and similar sets, and price it well above them.\n"
+          : run ? `It is serial-numbered ${copy ? `${copy}/${run}, copy ${copy} of` : "out of"} only ${run} made. Scarcity drives the price: ` +
+            `a /${run} is worth clearly more than a /25 or /50 of the same card, and much more than unnumbered parallels or the base card. ` +
+            `If this exact /${run} isn't listed, start from the nearest numbered parallels of this player in this set and scale up for how much rarer it is. ` +
+            (copy === 1 || copy === run ? `Copy ${copy} of ${run} (${copy === 1 ? "the first one" : "the last one"}) can carry a small premium with some collectors. ` : "") +
+            "If the copy number matches the player's jersey number, that carries a premium too.\n"
+          : "") +
         "Below are current eBay listings (asking prices, which usually run above what cards actually sell for; auction bids are not final). " +
         "Pick the listings that are this exact card: same player, year, set, parallel or insert, serial numbering and grade. " +
         "Lots, reprints, customs and other parallels don't count, though they can help you judge if there are no exact matches. " +
