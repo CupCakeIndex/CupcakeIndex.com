@@ -169,6 +169,10 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 .v-info b { font: 400 26px/1.1 var(--display); text-transform: uppercase; }
 .v-info span { color: var(--muted); font-size: 13px; }
 .v-acts { display: flex; gap: 8px; margin-top: 6px; }
+.v-price { margin: 4px 0 0; font-size: 13px; color: var(--muted); min-height: 1.3em; max-width: 92vw; }
+.v-price .pv { color: var(--gold2); font-weight: 700; font-size: 16px; }
+.v-price small { display: block; margin-top: 2px; }
+.v-price a { color: var(--gold2); }
 .hidden { display: none !important; }
 @media (max-width: 640px) {
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -359,6 +363,31 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     if (el) viewer(cards.find((c) => c.id === el.dataset.id));
   });
   document.addEventListener("keydown", (e) => { const el = e.target.closest?.(".card"); if (el && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); viewer(cards.find((c) => c.id === el.dataset.id)); } });
+  // Price estimate: the eBay worker finds listings for the card and Claude picks the real matches and prices it.
+  // Kept a day here (and a day on the worker), so opening a card again doesn't ask again.
+  const PRICE_KEYS = ["player", "year", "set", "parallel", "number", "serial", "grade"];
+  const money = (n) => "$" + (n >= 100 ? Math.round(n).toLocaleString() : (+n).toFixed(2));
+  async function priceOf(c) {
+    const qs = new URLSearchParams(PRICE_KEYS.map((k) => [k, c[k] == null ? "" : String(c[k])])).toString(), key = "pcb-price:" + qs;
+    try { const hit = JSON.parse(localStorage.getItem(key)); if (hit && Date.now() - hit.at < 86400000) return hit.p; } catch (e) { /* no storage */ }
+    const r = await fetch(window.VAULT_SEARCH_URL + "/price?" + qs), p = await r.json();
+    if (!r.ok || p.error) throw new Error(p.error || r.status);
+    try { localStorage.setItem(key, JSON.stringify({ at: Date.now(), p })); } catch (e) { /* no storage */ }
+    return p;
+  }
+  function showPrice(c, el) {
+    if (!el || !window.VAULT_SEARCH_URL || !c.player) return;
+    el.textContent = "Checking eBay for a price…";
+    const sold = "https://www.ebay.com/sch/i.html?_sacat=261328&LH_Sold=1&LH_Complete=1&_nkw="
+      + encodeURIComponent([c.year, c.set, c.player, c.parallel, c.serial, c.grade].filter(Boolean).join(" "));
+    priceOf(c).then((p) => {
+      if (!el.isConnected) return;
+      if (!p.estimate) { el.innerHTML = `No price yet: ${esc(p.reason)} <a href="${sold}" target="_blank" rel="noopener">Sold on eBay</a>`; return; }
+      el.innerHTML = `Est. value <span class="pv">${money(p.estimate)}</span> · ${money(p.low)}–${money(p.high)}`
+        + `<small>${esc(p.confidence[0].toUpperCase() + p.confidence.slice(1))} confidence. ${esc(p.reason)} ${p.count ? `${p.count} matching listing${p.count > 1 ? "s" : ""}.` : ""} <a href="${sold}" target="_blank" rel="noopener">Sold on eBay</a></small>`;
+    }).catch(() => { if (el.isConnected) el.textContent = "Couldn't get a price right now."; });
+  }
+
   function viewer(c) {
     if (!c) return;
     // a slab is taller (1130 / 700), much thicker, with small corners
@@ -392,8 +421,10 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       <div class="v-info"><b>${esc(c.player || "Unknown player")}</b><span>${esc([c.year, c.set, c.number, c.parallel, c.serial, c.grade].filter(Boolean).join(" · "))}</span>
         <div class="tags">${tagsOf(c)}</div>
         <div class="v-acts"><button type="button" id="v-flip">Flip</button><button type="button" id="v-turn">Turn</button></div>
+        <p class="v-price" id="v-price"></p>
         <p class="hint">Drag to turn it · tap to flip · two fingers to bring it closer and move it</p></div>`;
     document.body.appendChild(v); document.body.style.overflow = "hidden";
+    showPrice(c, v.querySelector("#v-price"));
     if (!c.front) full(c).then(() => {
       const [fr, bk] = v.querySelectorAll(".v-face");
       fr.style.backgroundImage = c.front ? `url('${c.front}')` : ""; bk.style.backgroundImage = c.back ? `url('${c.back}')` : ""; bk.textContent = c.back ? "" : "No back photo";
