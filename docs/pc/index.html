@@ -173,6 +173,8 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 .v-price .pv { color: var(--gold2); font-weight: 700; font-size: 16px; }
 .v-price small { display: block; margin-top: 2px; }
 .v-price a { color: var(--gold2); }
+.sheet.sell { z-index: 80; }
+.sell .done a { color: var(--gold2); font-weight: 700; }
 .hidden { display: none !important; }
 @media (max-width: 640px) {
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -388,6 +390,73 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     }).catch(() => { if (el.isConnected) el.textContent = "Couldn't get a price right now."; });
   }
 
+  // Sell on eBay (owner only): a confirm sheet, then the worker uploads the photos and lists the card with the
+  // owner's own Seller Hub policies. Nothing is listed until "List it on eBay" is tapped.
+  async function sellApi(path, body) {
+    const tok = await auth.currentUser.getIdToken();
+    const r = await fetch(window.VAULT_SEARCH_URL + path, { method: "POST", headers: { Authorization: "Bearer " + tok, "Content-Type": "application/json" },
+      body: JSON.stringify(body || {}) });
+    const d = await r.json().catch(() => ({ error: "HTTP " + r.status }));
+    if (!r.ok || d.error) throw new Error(d.error || "HTTP " + r.status);
+    return d;
+  }
+  function sellTitle(c) {
+    const run = (String(c.serial || "").match(/\/\s*\d+/) || [""])[0].replace(/\s/g, "");
+    const num = c.number ? (String(c.number).startsWith("#") ? c.number : "#" + c.number) : "";
+    return [c.year, c.set, c.player, c.parallel, num, run, c.rookie && "RC", c.auto && "Auto", c.grade].filter(Boolean).join(" ").replace(/\s+/g, " ").slice(0, 80);
+  }
+  function sellSheet(c) {
+    const w = document.createElement("div");
+    w.className = "sheet sell";
+    const title = sellTitle(c);
+    w.innerHTML = `<form>
+      <h2>Sell on eBay</h2>
+      <label class="f">Title (80 characters max)<input name="title" maxlength="80" required value="${esc(title)}"></label>
+      <div class="row2"><label class="f">Buy It Now price ($)<input name="price" inputmode="decimal" required placeholder="Checking…"></label>
+        ${c.grade ? `<label class="f">Condition<input value="Graded ${esc(c.grade)}" disabled></label>`
+          : `<label class="f">Condition<select name="condition"><option>Near mint or better</option><option>Excellent</option><option>Very good</option><option>Poor</option></select></label>`}</div>
+      <label class="f">Description<textarea name="description" rows="4">${esc(title + ". The card in the photos is the exact card you'll get.")}</textarea></label>
+      <p class="hint" id="sell-est"></p>
+      <p class="hint">Lists it now as Buy It Now, quantity 1, with both photos and your Seller Hub shipping, payment and return policies.</p>
+      <div class="status" id="sell-st">Checking your eBay connection…</div>
+      <div class="acts"><button type="submit" class="primary" id="sell-go" disabled>List it on eBay</button><button type="button" id="sell-x">Cancel</button></div></form>`;
+    document.body.appendChild(w);
+    const f = w.querySelector("form"), st = w.querySelector("#sell-st"), go = w.querySelector("#sell-go");
+    const close = () => w.remove();
+    w.querySelector("#sell-x").onclick = close;
+    w.addEventListener("click", (e) => { if (e.target === w) close(); });
+    priceOf(c).then((p) => {
+      if (p.estimate && !f.price.value) f.price.value = Math.max(0.99, Math.round(p.estimate)).toFixed(2);
+      f.price.placeholder = "25.00";
+      w.querySelector("#sell-est").textContent = p.estimate ? `Our estimate: ${money(p.estimate)} (${money(p.low)}–${money(p.high)}).` : "";
+    }).catch(() => { f.price.placeholder = "25.00"; });
+    sellApi("/ebay/status").then((d) => {
+      if (d.connected) { st.textContent = ""; go.disabled = false; return; }
+      st.innerHTML = `Connect your eBay account once first. <button type="button" id="sell-c">Connect eBay</button>`;
+      w.querySelector("#sell-c").onclick = async () => {
+        try { location.href = (await sellApi("/ebay/connect")).url; } catch (e) { st.textContent = e.message; }
+      };
+    }).catch((e) => { st.textContent = e.message; });
+    f.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const price = parseFloat(String(f.price.value).replace(/[$,\s]/g, ""));
+      if (!(price >= 0.99)) { st.textContent = "Enter a price of at least $0.99."; return; }
+      go.disabled = true; st.textContent = "Uploading the photos and listing it…";
+      try {
+        const d = await sellApi("/ebay/sell", { id: c.id, title: f.title.value.trim(), price, condition: f.condition ? f.condition.value : "",
+          description: f.description.value.trim() });
+        st.className = "status done";
+        st.innerHTML = `${d.already ? "It's already listed" : "Listed"}: <a href="${esc(d.url)}" target="_blank" rel="noopener">see it on eBay</a>`;
+        go.textContent = "Done"; go.onclick = (ev) => { ev.preventDefault(); close(); }; go.disabled = false;
+      } catch (err) { st.textContent = "Not listed: " + err.message; go.disabled = false; }
+    });
+  }
+  if (/^#ebay-(connected|failed)$/.test(location.hash)) {
+    const ok = location.hash === "#ebay-connected";
+    history.replaceState(null, "", location.pathname);
+    setTimeout(() => alertish(ok ? "eBay is connected. Open a card and tap Sell on eBay." : "eBay didn't connect. Try Connect eBay again."), 1500);
+  }
+
   function viewer(c) {
     if (!c) return;
     // a slab is taller (1130 / 700), much thicker, with small corners
@@ -420,7 +489,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       <div class="v-stage"><div class="v-card" style="width:${W}px;height:${H}px;--t:${T / 2}px">${side(c.front || c.thumb, "front", "No photo")}${side(c.back, "back", c.front ? "No back photo" : "Loading…")}${edge}${sleeve}</div></div>
       <div class="v-info"><b>${esc(c.player || "Unknown player")}</b><span>${esc([c.year, c.set, c.number, c.parallel, c.serial, c.grade].filter(Boolean).join(" · "))}</span>
         <div class="tags">${tagsOf(c)}</div>
-        <div class="v-acts"><button type="button" id="v-flip">Flip</button><button type="button" id="v-turn">Turn</button></div>
+        <div class="v-acts"><button type="button" id="v-flip">Flip</button><button type="button" id="v-turn">Turn</button>${isOwner() && window.VAULT_SEARCH_URL ? `<button type="button" id="v-sell">Sell on eBay</button>` : ""}</div>
         <p class="v-price" id="v-price"></p>
         <p class="hint">Drag to turn it · tap to flip · two fingers to bring it closer and move it</p></div>`;
     document.body.appendChild(v); document.body.style.overflow = "hidden";
@@ -505,6 +574,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     }, { passive: false });
     v.querySelector("#v-flip").onclick = flip;
     v.querySelector("#v-turn").onclick = () => { turn++; set(true); };
+    if (v.querySelector("#v-sell")) v.querySelector("#v-sell").onclick = () => sellSheet(c);
     const close = () => { v.classList.remove("on"); document.body.style.overflow = ""; removeEventListener("keydown", key); setTimeout(() => v.remove(), 250); };
     const key = (e) => { if (e.key === "Escape") close(); if (e.key === " " || e.key === "Enter") { e.preventDefault(); flip(); } };
     addEventListener("keydown", key);

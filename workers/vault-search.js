@@ -13,6 +13,19 @@
 //   EBAY_CLIENT_ID      your eBay App ID (Client ID), as a Secret
 //   EBAY_CLIENT_SECRET  your eBay Cert ID (Client Secret), as a Secret
 //   ANTHROPIC_API_KEY   a Claude API key, as a Secret (the same one the Analyst worker uses), for /price
+//
+// Selling (owner only: the PCB owner's Firebase sign-in is checked on every call):
+//   POST /ebay/status   -> { connected }            is Terry's eBay account linked?
+//   POST /ebay/connect  -> { url }                  eBay's "allow access" page; it comes back to /ebay/callback
+//   POST /ebay/sell     { id, title, price, condition, description } -> { url, listingId }
+//        uploads the card's photos to eBay, makes the listing (Buy It Now, quantity 1) with the card's details and
+//        Terry's own shipping, payment and return policies from Seller Hub, and publishes it. A card can only be
+//        listed once at a time (its SKU is pcb-<card id>): asking again gives back the listing that's already up.
+//   Setup for selling:
+//   EBAY_RUNAME         the eBay "RuName" (developer.ebay.com > User Tokens > eBay Redirect URL whose accepted URL is
+//                       https://<this worker>/ebay/callback), as a Secret
+//   KV namespace bound as VAULT (keeps Terry's eBay sign-in)
+//   EBAY_POSTAL_CODE    (optional) ZIP the cards ship from, only needed if Seller Hub has no ship-from location yet
 
 const ALLOWED = ["https://cupcakeindex.com", "https://www.cupcakeindex.com", "http://localhost:8765"];
 const CATEGORY = "261328"; // eBay: Sports Trading Card Singles
@@ -112,12 +125,245 @@ async function estimate(env, card) {
            count: comps.length, comps: comps.slice(0, 5) };
 }
 
+// ---------- selling on eBay (owner only) ----------
+const PROJECT = "cupcake-index";
+const FS = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`;
+const SELL_SCOPES = ["https://api.ebay.com/oauth/api_scope", "https://api.ebay.com/oauth/api_scope/sell.inventory",
+  "https://api.ebay.com/oauth/api_scope/sell.account"].join(" ");
+
+// Firebase sign-in tokens (RS256, Google's public keys), the same check as the Analyst worker
+let jwks = null, jwksUntil = 0;
+const b64u = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(s.length / 4) * 4, "=")), (c) => c.charCodeAt(0));
+async function googleKeys() {
+  if (jwks && Date.now() < jwksUntil) return jwks;
+  const r = await fetch("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com");
+  if (!r.ok) throw new Error("couldn't get Google's sign-in keys");
+  jwks = (await r.json()).keys;
+  jwksUntil = Date.now() + 3600 * 1000;
+  return jwks;
+}
+async function signedIn(req) {
+  const tok = (req.headers.get("Authorization") || "").replace(/^Bearer /, "");
+  const [h, p, sig] = tok.split(".");
+  if (!h || !p || !sig) return null;
+  const dec = (x) => JSON.parse(new TextDecoder().decode(b64u(x)));
+  const head = dec(h), body = dec(p), now = Date.now() / 1000;
+  const jwk = (await googleKeys()).find((k) => k.kid === head.kid);
+  if (!jwk || head.alg !== "RS256") return null;
+  const key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+  const ok = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, b64u(sig), new TextEncoder().encode(h + "." + p));
+  if (!ok || body.aud !== PROJECT || body.iss !== "https://securetoken.google.com/" + PROJECT || body.exp < now || body.iat > now + 60 || !body.sub) return null;
+  return { uid: body.sub };
+}
+// Firestore REST values -> plain values
+const fval = (v) => !v ? undefined : "stringValue" in v ? v.stringValue : "integerValue" in v ? +v.integerValue : "doubleValue" in v ? v.doubleValue : "booleanValue" in v ? v.booleanValue : null;
+async function isOwner(req) {
+  const me = await signedIn(req);
+  if (!me) return false;
+  const r = await fetch(`${FS}/pcmeta/owner`);
+  return r.ok && fval((await r.json()).fields?.uid) === me.uid;
+}
+
+// Terry's eBay sign-in: a refresh token kept in KV, turned into a short-lived access token when needed
+let userTok = null, userTokUntil = 0;
+async function ebayUser(env) {
+  if (userTok && Date.now() < userTokUntil) return userTok;
+  const refresh = await env.VAULT.get("ebay:refresh");
+  if (!refresh) throw new Error("eBay isn't connected yet");
+  const r = await fetch("https://api.ebay.com/identity/v1/oauth2/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded", Authorization: "Basic " + btoa(env.EBAY_CLIENT_ID + ":" + env.EBAY_CLIENT_SECRET) },
+    body: "grant_type=refresh_token&refresh_token=" + encodeURIComponent(refresh) + "&scope=" + encodeURIComponent(SELL_SCOPES),
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error("eBay sign-in expired, connect eBay again (" + (d.error_description || r.status) + ")");
+  userTok = d.access_token;
+  userTokUntil = Date.now() + (d.expires_in - 120) * 1000;
+  return userTok;
+}
+async function sellApi(env, method, path, body, extra = {}) {
+  const r = await fetch(path.startsWith("http") ? path : "https://api.ebay.com" + path, {
+    method, headers: { Authorization: "Bearer " + (await ebayUser(env)), "Content-Type": "application/json", "Content-Language": "en-US",
+      "Accept-Language": "en-US", "X-EBAY-C-MARKETPLACE-ID": "EBAY_US", ...extra },
+    body: body == null ? undefined : JSON.stringify(body),
+  });
+  const text = await r.text();
+  let d = {};
+  try { d = text ? JSON.parse(text) : {}; } catch (e) { d = { raw: text }; }
+  return { ok: r.ok, status: r.status, d, headers: r.headers };
+}
+const ebayErr = (step, res) => new Error(`${step}: ` + ((res.d.errors || []).map((e) => e.longMessage || e.message).join(" ") || res.status));
+
+// a photo saved as a data: URL -> an eBay-hosted picture URL (eBay listings need their pictures on eBay)
+async function uploadPhoto(env, dataUrl) {
+  const m = /^data:(image\/[\w+.-]+);base64,(.*)$/s.exec(dataUrl || "");
+  if (!m) return null;
+  const form = new FormData();
+  form.append("image", new Blob([b64u(m[2].replace(/\+/g, "-").replace(/\//g, "_"))], { type: m[1] }), "card.jpg");
+  const r = await fetch("https://apim.ebay.com/commerce/media/v1_beta/image/create_image_from_file", {
+    method: "POST", headers: { Authorization: "Bearer " + (await ebayUser(env)) }, body: form,
+  });
+  const text = await r.text();
+  let d = {};
+  try { d = text ? JSON.parse(text) : {}; } catch (e) { /* empty body */ }
+  if (!r.ok) throw new Error("photo upload: " + ((d.errors || []).map((e) => e.longMessage || e.message).join(" ") || r.status));
+  if (d.imageUrl) return d.imageUrl;
+  const loc = r.headers.get("Location");
+  if (!loc) throw new Error("photo upload: eBay didn't say where the picture went");
+  const g = await sellApi(env, "GET", loc);
+  if (!g.ok || !g.d.imageUrl) throw ebayErr("photo upload", g);
+  return g.d.imageUrl;
+}
+
+// eBay's trading-card conditions: Graded (2750) with grader / grade / cert, or Ungraded (4000) with card condition.
+// The IDs come from eBay itself, matched by name, so nothing is guessed.
+async function cardCondition(env, card, rawCondition) {
+  const res = await sellApi(env, "GET", `/sell/metadata/v1/marketplace/EBAY_US/get_item_condition_policies?filter=categoryIds:%7B${CATEGORY}%7D`);
+  if (!res.ok) throw ebayErr("card conditions", res);
+  const conds = res.d.itemConditionPolicies?.[0]?.itemConditions || [];
+  const descs = (id) => conds.find((c) => c.conditionId === id)?.conditionDescriptors || [];
+  const pick = (list, re) => list.find((d) => re.test(d.conditionDescriptorName || ""));
+  const value = (desc, test) => desc?.conditionDescriptorValues?.find((v) => test(v.conditionDescriptorValueName || ""));
+  const g = /\b(PSA|BGS|SGC|CGC|CSG|HGA|TAG|BCCG|BVG|KSA|GMA|ISA)\b\s*(?:GEM\s*(?:MINT|MT)\s*|MINT\s*|PRISTINE\s*)?(10|[1-9](?:\.5)?)?/i.exec(card.grade || "");
+  if (g) {
+    const list = descs("2750"), grader = pick(list, /grader/i), grade = pick(list, /^grade$/i), cert = pick(list, /cert/i);
+    const gv = value(grader, (n) => new RegExp("\\b" + g[1] + "\\b", "i").test(n)) || value(grader, (n) => /other/i.test(n));
+    const out = [];
+    if (grader && gv) out.push({ name: grader.conditionDescriptorId, values: [gv.conditionDescriptorValueId] });
+    const nv = g[2] && value(grade, (n) => n.trim() === g[2]);
+    if (grade && nv) out.push({ name: grade.conditionDescriptorId, values: [nv.conditionDescriptorValueId] });
+    if (cert && card.cert) out.push({ name: cert.conditionDescriptorId, additionalInfo: String(card.cert).slice(0, 30) });
+    return { condition: "LIKE_NEW", conditionDescriptors: out };
+  }
+  const cc = pick(descs("4000"), /condition/i);
+  const want = (rawCondition || "Near mint or better").toLowerCase();
+  const cv = value(cc, (n) => n.toLowerCase() === want) || value(cc, (n) => /near mint/i.test(n));
+  return { condition: "USED_VERY_GOOD", conditionDescriptors: cc && cv ? [{ name: cc.conditionDescriptorId, values: [cv.conditionDescriptorValueId] }] : [] };
+}
+
+async function policies(env) {
+  const get = async (kind) => {
+    const r = await sellApi(env, "GET", `/sell/account/v1/${kind}_policy?marketplace_id=EBAY_US`);
+    if (!r.ok) throw ebayErr(kind + " policy", r);
+    const list = r.d[kind + "Policies"] || [];
+    if (!list.length) throw new Error(`no ${kind} policy in Seller Hub yet (Seller Hub > Account > Business policies)`);
+    return (list.find((x) => /card/i.test(x.name || "")) || list[0])[kind + "PolicyId"];
+  };
+  const [fulfillmentPolicyId, paymentPolicyId, returnPolicyId] = await Promise.all(["fulfillment", "payment", "return"].map(get));
+  return { fulfillmentPolicyId, paymentPolicyId, returnPolicyId };
+}
+async function shipFrom(env) {
+  const r = await sellApi(env, "GET", "/sell/inventory/v1/location?limit=20");
+  const loc = (r.d.locations || []).find((l) => l.merchantLocationStatus !== "DISABLED");
+  if (loc) return loc.merchantLocationKey;
+  if (!env.EBAY_POSTAL_CODE) throw new Error("eBay needs a ship-from ZIP: add EBAY_POSTAL_CODE to the worker's variables");
+  const c = await sellApi(env, "POST", "/sell/inventory/v1/location/pcb-home",
+    { location: { address: { postalCode: env.EBAY_POSTAL_CODE, country: "US" } }, locationTypes: ["WAREHOUSE"], name: "Cards" });
+  if (!c.ok && c.status !== 409) throw ebayErr("ship-from location", c);
+  return "pcb-home";
+}
+
+async function sellCard(env, body) {
+  const id = String(body.id || "");
+  const price = Math.round(+body.price * 100) / 100, title = String(body.title || "").trim().slice(0, 80);
+  if (!id || !title) throw new Error("missing card or title");
+  if (!(price >= 0.99)) throw new Error("the price has to be at least $0.99");
+  const sku = ("pcb-" + id).replace(/[^\w-]/g, "").slice(0, 50);
+  // already listed? give that listing back instead of listing the card twice
+  const old = await sellApi(env, "GET", `/sell/inventory/v1/offer?sku=${encodeURIComponent(sku)}&marketplace_id=EBAY_US`);
+  const live = (old.d.offers || []).find((o) => o.status === "PUBLISHED" && o.listing?.listingId && o.listing.listingStatus === "ACTIVE");
+  if (live) return { listingId: live.listing.listingId, url: "https://www.ebay.com/itm/" + live.listing.listingId, already: true };
+
+  const doc = await fetch(`${FS}/pc/${encodeURIComponent(id)}`);
+  if (!doc.ok) throw new Error("couldn't read the card");
+  const f = (await doc.json()).fields || {}, card = {};
+  for (const k of Object.keys(f)) card[k] = fval(f[k]);
+  const imageUrls = [];
+  for (const k of ["front", "back"]) { const u = await uploadPhoto(env, card[k]); if (u) imageUrls.push(u); }
+  if (!imageUrls.length) throw new Error("the card needs a photo first");
+  const run = (String(card.serial || "").match(/\/\s*(\d+)/) || [])[1];
+  const aspects = { Sport: ["Football"], "Player/Athlete": [card.player], Team: [card.team], Season: [card.year], "Year Manufactured": [card.year],
+    Set: [card.set], "Parallel/Variety": [card.parallel], "Card Number": [card.number], "Print Run": run ? [run] : undefined,
+    Autographed: [card.auto ? "Yes" : "No"], Type: ["Sports Trading Card"], Features: card.rookie ? ["Rookie"] : undefined,
+    "Card Name": [card.player], "Country/Region of Manufacture": undefined };
+  for (const k of Object.keys(aspects)) {
+    const v = (aspects[k] || []).filter((x) => x != null && String(x).trim()).map((x) => String(x).trim().slice(0, 65));
+    if (v.length) aspects[k] = v; else delete aspects[k];
+  }
+  const cond = await cardCondition(env, card, body.condition);
+  const description = String(body.description || title).slice(0, 4000);
+  const item = await sellApi(env, "PUT", `/sell/inventory/v1/inventory_item/${sku}`, {
+    availability: { shipToLocationAvailability: { quantity: 1 } }, ...cond,
+    product: { title, description, imageUrls, aspects },
+  });
+  if (!item.ok) throw ebayErr("card details", item);
+  const offer = { sku, marketplaceId: "EBAY_US", format: "FIXED_PRICE", availableQuantity: 1, categoryId: CATEGORY,
+    listingDescription: description, listingPolicies: await policies(env), merchantLocationKey: await shipFrom(env),
+    pricingSummary: { price: { value: price.toFixed(2), currency: "USD" } } };
+  let offerId = (old.d.offers || [])[0]?.offerId;
+  if (offerId) {
+    const u = await sellApi(env, "PUT", `/sell/inventory/v1/offer/${offerId}`, offer);
+    if (!u.ok) throw ebayErr("listing", u);
+  } else {
+    const c = await sellApi(env, "POST", "/sell/inventory/v1/offer", offer);
+    if (!c.ok) throw ebayErr("listing", c);
+    offerId = c.d.offerId;
+  }
+  const pub = await sellApi(env, "POST", `/sell/inventory/v1/offer/${offerId}/publish`, {});
+  if (!pub.ok) throw ebayErr("publishing", pub);
+  return { listingId: pub.d.listingId, url: "https://www.ebay.com/itm/" + pub.d.listingId };
+}
+
+async function selling(req, env, url, cors) {
+  const json = (d, status = 200) => Response.json(d, { status, headers: cors });
+  if (url.pathname === "/ebay/callback") {
+    // eBay sends Terry back here after "Agree": swap the code for a long-lived sign-in and keep it
+    const state = url.searchParams.get("state") || "", code = url.searchParams.get("code") || "";
+    const back = (msg) => Response.redirect("https://cupcakeindex.com/pc/#" + msg, 302);
+    if (!code || !state || !(await env.VAULT.get("ebay:state:" + state))) return back("ebay-failed");
+    await env.VAULT.delete("ebay:state:" + state);
+    const r = await fetch("https://api.ebay.com/identity/v1/oauth2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Authorization: "Basic " + btoa(env.EBAY_CLIENT_ID + ":" + env.EBAY_CLIENT_SECRET) },
+      body: "grant_type=authorization_code&code=" + encodeURIComponent(code) + "&redirect_uri=" + encodeURIComponent(env.EBAY_RUNAME),
+    });
+    const d = await r.json();
+    if (!r.ok || !d.refresh_token) return back("ebay-failed");
+    await env.VAULT.put("ebay:refresh", d.refresh_token);
+    userTok = d.access_token; userTokUntil = Date.now() + (d.expires_in - 120) * 1000;
+    return back("ebay-connected");
+  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: { ...cors, "Access-Control-Allow-Methods": "POST", "Access-Control-Allow-Headers": "Authorization, Content-Type" } });
+  if (req.method !== "POST") return json({ error: "POST only" }, 405);
+  if (!env.VAULT || !env.EBAY_RUNAME) return json({ error: "Selling isn't set up yet (the worker needs the VAULT storage and EBAY_RUNAME)." }, 503);
+  if (!(await isOwner(req))) return json({ error: "Only the binder's owner can do that." }, 403);
+  try {
+    if (url.pathname === "/ebay/status") return json({ connected: !!(await env.VAULT.get("ebay:refresh")) });
+    if (url.pathname === "/ebay/connect") {
+      const state = crypto.randomUUID();
+      await env.VAULT.put("ebay:state:" + state, "1", { expirationTtl: 900 });
+      const a = new URL("https://auth.ebay.com/oauth2/authorize");
+      a.searchParams.set("client_id", env.EBAY_CLIENT_ID); a.searchParams.set("redirect_uri", env.EBAY_RUNAME);
+      a.searchParams.set("response_type", "code"); a.searchParams.set("scope", SELL_SCOPES); a.searchParams.set("state", state);
+      return json({ url: a.toString() });
+    }
+    if (url.pathname === "/ebay/sell") return json(await sellCard(env, await req.json()));
+  } catch (e) {
+    return json({ error: String(e.message || e) }, 502);
+  }
+  return json({ error: "unknown" }, 404);
+}
+
 const big = (u) => (u || "").replace(/s-l\d+\./, "s-l1600."); // full-size photo instead of the thumbnail
 
 export default {
   async fetch(req, env) {
     const url = new URL(req.url), origin = req.headers.get("Origin") || "";
     const cors = { "Access-Control-Allow-Origin": ALLOWED.includes(origin) ? origin : ALLOWED[0], Vary: "Origin" };
+    if (url.pathname.startsWith("/ebay/")) {
+      if (origin && !ALLOWED.includes(origin)) return new Response("not allowed", { status: 403 });
+      return selling(req, env, url, cors);
+    }
     if (req.method === "OPTIONS") return new Response(null, { headers: { ...cors, "Access-Control-Allow-Methods": "GET" } });
 
     if (url.pathname === "/search") {
