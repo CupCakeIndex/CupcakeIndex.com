@@ -41,6 +41,7 @@ button:hover, .btn:hover { border-color: var(--gold); }
 .worth { margin: 18px 0 0; padding: 16px 18px 14px; border: 1px solid #5a4a20; border-radius: 14px; display: grid; justify-items: center; text-align: center; gap: 4px;
   background: linear-gradient(180deg, #221d10, #121216); box-shadow: inset 0 1px 0 rgba(243,220,143,.12); }
 .worth:empty { display: none; }
+.meta .cv { display: block; margin-top: 3px; font: 400 20px/1 var(--display); font-style: normal; color: var(--gold2); letter-spacing: .02em; }
 .worth .w-k { font: 700 11px var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--gold); }
 .worth .w-v { font: 400 54px/1 var(--display); color: var(--gold2); letter-spacing: .02em; text-shadow: 0 0 22px rgba(243,220,143,.18); }
 .worth .w-s { font-size: 12.5px; color: var(--muted); }
@@ -225,7 +226,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   <div class="tools" id="tools">
     <input type="search" id="q" placeholder="Search player, team, set…" aria-label="Search cards">
     <button class="chip" data-f="rc">RC</button><button class="chip" data-f="auto">AUTO</button><button class="chip" data-f="num">NUMBERED</button><button class="chip" data-f="graded">GRADED</button><button class="chip" id="enh" title="Fix the lighting and sharpen card photos on screen. Your saved photos aren't changed.">✨ ENHANCE</button>
-    <select id="sort" aria-label="Sort"><option value="team">By team</option><option value="new">Newest added</option><option value="year">Year (newest)</option><option value="player">Player A-Z</option></select>
+    <select id="sort" aria-label="Sort"><option value="team">By team</option><option value="new">Newest added</option><option value="year">Year (newest)</option><option value="player">Player A-Z</option><option value="value">Value (highest)</option></select>
   </div>
   <section class="grid" id="grid"></section>
   <footer>Tap a card to see it up close. Part of <a href="../">the Cupcake Index</a>.</footer>
@@ -359,7 +360,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   const face = (img, cls, label) => img ? `<div class="face ${cls}" style="background-image:url('${img}')"></div>` : `<div class="face ${cls} ${label ? "empty" : "loading"}">${label}</div>`;
   const cardHtml = (c) => `<article class="card${c.frontWide ? " fw" : ""}${c.backWide ? " bw" : ""}${c.slab ? " slab" : ""}" data-id="${esc(c.id)}" tabindex="0" aria-label="${esc([c.year, c.set, c.player].filter(Boolean).join(" "))}">
       <div class="inner">${face(c.thumb || c.front, "front", "")}${c.slab ? `<i class="slabglare"></i>` : `<i class="sleeve"></i>`}</div>
-      <div class="meta"><b>${esc(c.player || "Unknown player")}</b><span>${esc([c.year, c.set, c.parallel].filter(Boolean).join(" · "))}${c.team && $("#sort").value !== "team" ? " · " + esc(c.team) : ""}</span>
+      <div class="meta"><b>${esc(c.player || "Unknown player")}</b><span>${esc([c.year, c.set, c.parallel].filter(Boolean).join(" · "))}${c.team && $("#sort").value !== "team" ? " · " + esc(c.team) : ""}</span>${$("#sort").value === "value" && c.worthAt && c.worth ? `<em class="cv">${money(c.worth)}</em>` : ""}
         <div class="tags">${tagsOf(c)}</div>
         ${isOwner() ? `<div class="own"><button data-edit="${esc(c.id)}">Edit</button><button data-del="${esc(c.id)}">Delete</button></div>` : ""}</div></article>`;
 
@@ -380,7 +381,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     let list = cards.filter((c) => (!q || [c.player, c.team, c.set, c.parallel, c.year].join(" ").toLowerCase().includes(q))
       && (!filters.has("rc") || c.rookie) && (!filters.has("auto") || c.auto) && (!filters.has("num") || c.serial) && (!filters.has("graded") || c.grade));
     const s = $("#sort").value;
-    list.sort(s === "year" ? (a, b) => (b.year || 0) - (a.year || 0) : s === "player" ? (a, b) => (a.player || "").localeCompare(b.player || "")
+    list.sort(s === "value" ? (a, b) => (b.worthAt ? +b.worth || 0 : -1) - (a.worthAt ? +a.worth || 0 : -1) || (b.added || 0) - (a.added || 0) : s === "year" ? (a, b) => (b.year || 0) - (a.year || 0) : s === "player" ? (a, b) => (a.player || "").localeCompare(b.player || "")
       : s === "team" ? (a, b) => (a.team || "~").localeCompare(b.team || "~") || (b.added || 0) - (a.added || 0) : (a, b) => (b.added || 0) - (a.added || 0));
     // By team: a header (logo, name, count) before each team's cards
     let html = "", last = null;
