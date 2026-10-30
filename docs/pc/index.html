@@ -146,6 +146,8 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 .viewer { position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 56px 16px max(20px, env(safe-area-inset-bottom));
   background: rgba(5,5,8,.55); -webkit-backdrop-filter: blur(14px) saturate(.8); backdrop-filter: blur(14px) saturate(.8); opacity: 0; transition: opacity .25s; }
 .viewer.on { opacity: 1; }
+/* computers: a live blur behind a moving 3D card costs ~4x the frame time on a big screen, so a darker plain backdrop there (phones keep the blur) */
+@media (hover: hover) and (pointer: fine) { .viewer { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(5,5,8,.88); } }
 .v-stage { perspective: 1400px; touch-action: none; padding: 18px; cursor: grab; transform: scale(.7); transition: transform .35s cubic-bezier(.3,1.3,.5,1); }
 .viewer.on .v-stage { transform: none; }
 .v-card { position: relative; transform-style: preserve-3d; transition: transform .6s cubic-bezier(.3,1.2,.5,1); }
