@@ -65,7 +65,7 @@ const ESTIMATE_TOOL = {
     type: "object",
     properties: {
       matches: { type: "array", items: { type: "integer" }, description: "Numbers of the listings that are this exact card" },
-      estimate: { type: "number", description: "Most likely sale price in US dollars, 0 if there's nothing to go on" },
+      estimate: { type: "number", description: "Most likely sale price in US dollars. Only 0 if no listing shows this player at all" },
       low: { type: "number" }, high: { type: "number" },
       confidence: { type: "string", enum: ["high", "medium", "low"] },
       reason: { type: "string", description: "One short plain sentence on what the estimate is based on" },
@@ -75,16 +75,22 @@ const ESTIMATE_TOOL = {
 };
 
 async function estimate(env, card) {
-  const name = [card.year, card.set, card.player, card.number, card.parallel, card.serial, card.grade].filter(Boolean).join(" ");
+  // a nickname in quotes (Kaytron "Fatman" Allen) isn't in eBay titles, and eBay needs every word to match
+  const player = (card.player || "").replace(/[“”"][^“”"]*[“”"]/g, " ").replace(/\s+/g, " ").trim();
+  const auto = card.auto === "true", rookie = card.rookie === "true", autoQ = auto ? "auto" : "";
+  const name = [card.year, card.set, player, card.number, card.parallel, card.serial, card.grade, rookie && "rookie", auto && "autograph"].filter(Boolean).join(" ");
   // Serial numbering: "01/10" is copy 1 of 10. Sellers write "/10", so that's what gets searched.
   const sm = (card.serial || "").match(/(\d+)?\s*\/\s*(\d+)/), copy = sm?.[1] ? +sm[1] : 0, run = sm ? +sm[2] : 0;
   const serialQ = run ? "/" + run : "";
   // three searches: the exact card, the same print run without year or color (titles often leave those out),
   // and the player's whole set (other parallels, so there's something to compare with when the exact card isn't listed)
-  const wide = [card.year, card.set, card.player].filter(Boolean).join(" ");
-  const narrow = [wide, card.parallel, serialQ, card.grade].filter(Boolean).join(" ");
-  const middle = run ? [card.player, card.set, serialQ].filter(Boolean).join(" ") : "";
-  const queries = [...new Set([narrow, middle, wide].filter(Boolean))];
+  // (plus the same card without its grade, and the player's autos in the set, which a plain search buries under base cards)
+  const wide = [card.year, card.set, player].filter(Boolean).join(" ");
+  const narrow = [wide, card.parallel, serialQ, autoQ, card.grade].filter(Boolean).join(" ");
+  const ungraded = card.grade ? [wide, card.parallel, serialQ, autoQ].filter(Boolean).join(" ") : "";
+  const middle = run ? [player, card.set, serialQ].filter(Boolean).join(" ") : "";
+  const autos = auto ? [wide, "auto"].join(" ") : "";
+  const queries = [...new Set([narrow, ungraded, middle, autos, wide].filter(Boolean))];
   const seen = new Map();
   const add = (lists) => { for (const list of lists) for (const it of list) if (!seen.has(it.itemId)) seen.set(it.itemId, it); };
   add(await Promise.all(queries.map((q) => listings(env, q))));
@@ -92,7 +98,7 @@ async function estimate(env, card) {
   // sellers shorten). Search again with just the brand (first word of the set) and with the print run.
   if (seen.size < 20) {
     const brand = (card.set || "").trim().split(/\s+/)[0] || "";
-    const more = [[card.year, card.player, brand], run ? [card.player, brand, serialQ] : null]
+    const more = [[card.year, player, brand], auto ? [player, brand, "auto"] : null, run ? [player, brand, serialQ] : null]
       .filter(Boolean).map((q) => q.filter(Boolean).join(" ")).filter((q) => !queries.includes(q));
     add(await Promise.all(more.map((q) => listings(env, q))));
   }
@@ -110,7 +116,8 @@ async function estimate(env, card) {
       model: PRICE_MODEL, max_tokens: 1500, tools: [ESTIMATE_TOOL], tool_choice: { type: "tool", name: "price_estimate" },
       messages: [{ role: "user", content:
         `Estimate what this football card would sell for today: ${name}.\n` +
-        (card.grade ? `It is graded ${card.grade}; only listings with that same grade are this card.\n` : "It is raw (not graded); graded copies are not this card.\n") +
+        (card.grade ? `It is graded ${card.grade}; only listings with that same grade are exact matches, but raw copies and other grades of the same card still help.\n` : "It is raw (not graded); graded copies are not exact matches, but they still help.\n") +
+        (auto ? "It is an autograph, worth clearly more than the same card without one. Listings often say auto or signed.\n" : "") +
         (run === 1 ? "It is a 1 of 1: the only copy made, so there are no other copies to compare with. Judge from the scarcest numbered parallels of this player in this set and similar sets, and price it well above them.\n"
           : run ? `It is serial-numbered ${copy ? `${copy}/${run}, copy ${copy} of` : "out of"} only ${run} made. Scarcity drives the price: ` +
             `a /${run} is worth clearly more than a /25 or /50 of the same card, and much more than unnumbered parallels or the base card. ` +
@@ -119,13 +126,16 @@ async function estimate(env, card) {
             "If the copy number matches the player's jersey number, that carries a premium too.\n"
           : "") +
         "Below are current eBay listings (asking prices, which usually run above what cards actually sell for; auction bids are not final). " +
-        "Pick the listings that are this exact card: same player, year, set, parallel or insert, serial numbering and grade. " +
-        "Lots, reprints, customs and other parallels don't count, though they can help you judge if there are no exact matches. " +
+        "Put in matches only the listings that are this exact card: same player, year, set, parallel or insert, serial numbering and grade. " +
+        "Lots, reprints and customs don't count. " +
         "The set name was typed by hand and may be misspelled or shortened: match listings by what the card is, not exact spelling. " +
         "A Chrome, Prizm, Optic or other premium version is a different product from the plain set of the same name, unless this card's set says so. " +
         "A serial-numbered card is never worth less than unnumbered copies of the same card: if you only find base or unnumbered copies, " +
         "estimate from the usual premium for that print run and keep the confidence low. " +
-        "Then give a realistic sale price and range. If the exact card has few or no listings, say so and lower the confidence. " +
+        "Then give a realistic sale price and range. This card is real and the owner has it, so always give a price above 0 if any listing shows this player. " +
+        "If the exact card isn't listed, work from the closest thing and adjust for the difference: the same card raw or in another grade, " +
+        "then other parallels of it, then this player's similar cards (autos for an auto, numbered cards for a numbered card) in this set or similar sets. " +
+        "Use low confidence, and say what the price is based on. " +
         "Keep the reason to one or two short sentences about the card (no \"I\").\n\n" + lines }],
     }),
   });
@@ -403,11 +413,11 @@ export default {
     if (url.pathname === "/price") {
       if (origin && !ALLOWED.includes(origin)) return new Response("not allowed", { status: 403 });
       const card = {};
-      for (const k of ["player", "year", "set", "parallel", "number", "serial", "grade"]) card[k] = (url.searchParams.get(k) || "").slice(0, 60).trim();
+      for (const k of ["player", "year", "set", "parallel", "number", "serial", "grade", "auto", "rookie"]) card[k] = (url.searchParams.get(k) || "").slice(0, 60).trim();
       if (!card.player) return Response.json({ error: "no player" }, { status: 400, headers: cors });
       if (!env.ANTHROPIC_API_KEY) return Response.json({ error: "price estimates aren't set up yet" }, { status: 503, headers: cors });
       // one estimate per card a day: the same card asked again gets the saved answer (no eBay or Claude call)
-      const key = new Request("https://vault-price.cache/v2/" + encodeURIComponent(JSON.stringify(Object.values(card)).toLowerCase()));
+      const key = new Request("https://vault-price.cache/v3/" + encodeURIComponent(JSON.stringify(Object.values(card)).toLowerCase()));
       const hit = await caches.default.match(key);
       if (hit) return new Response(hit.body, { headers: { ...cors, "Content-Type": "application/json" } });
       try {

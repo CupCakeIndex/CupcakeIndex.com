@@ -416,21 +416,21 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
   document.addEventListener("keydown", (e) => { const el = e.target.closest?.(".card"); if (el && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); viewer(cards.find((c) => c.id === el.dataset.id)); } });
   // Price estimate: the eBay worker finds listings for the card and Claude picks the real matches and prices it.
   // Kept a day here (and a day on the worker), so opening a card again doesn't ask again.
-  const PRICE_KEYS = ["player", "year", "set", "parallel", "number", "serial", "grade"];
+  const PRICE_KEYS = ["player", "year", "set", "parallel", "number", "serial", "grade", "auto", "rookie"];
   const money = (n) => "$" + (n >= 10 ? Math.round(n).toLocaleString() : (+n).toFixed(2));
   async function priceOf(c) {
     const qs = new URLSearchParams(PRICE_KEYS.map((k) => [k, c[k] == null ? "" : String(c[k])])).toString(), key = "pcb-price:" + qs;
     try { const hit = JSON.parse(localStorage.getItem(key)); if (hit && Date.now() - hit.at < 86400000) return hit.p; } catch (e) { /* no storage */ }
     const r = await fetch(window.VAULT_SEARCH_URL + "/price?" + qs), p = await r.json();
     if (!r.ok || p.error) throw new Error(p.error || r.status);
-    try { localStorage.setItem(key, JSON.stringify({ at: Date.now(), p })); } catch (e) { /* no storage */ }
+    if (p.estimate) try { localStorage.setItem(key, JSON.stringify({ at: Date.now(), p })); } catch (e) { /* no storage */ }
     return p;
   }
   // Collection worth: each card's estimate is saved on the card (owner only), so everyone sees the total without
-  // asking eBay again. When the owner is signed in, cards with no price, an old one (a week) or edited details get priced.
+  // asking eBay again. When the owner is signed in, cards with no price, an old one (a week, or a day if it found no price) or edited details get priced.
   const WORTH_DAYS = 7;
   const priceFor = (c) => new URLSearchParams(PRICE_KEYS.map((k) => [k, c[k] == null ? "" : String(c[k])])).toString();
-  const stale = (c) => !c.worthAt || c.worthFor !== priceFor(c) || Date.now() - Date.parse(c.worthAt) > WORTH_DAYS * 864e5;
+  const stale = (c) => !c.worthAt || c.worthFor !== priceFor(c) || Date.now() - Date.parse(c.worthAt) > (+c.worth ? WORTH_DAYS : 1) * 864e5;
   let worthing = null; // { done, of } while pricing
   async function keepWorth(c, p) {
     if (!isOwner() || !c.id || !p) return;
