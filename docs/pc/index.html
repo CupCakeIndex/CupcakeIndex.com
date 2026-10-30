@@ -156,7 +156,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 .viewer.on { opacity: 1; }
 /* computers: a live blur behind a moving 3D card costs ~4x the frame time on a big screen, so a darker plain backdrop there (phones keep the blur) */
 @media (hover: hover) and (pointer: fine) { .viewer { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(5,5,8,.88); } }
-.v-stage { perspective: 1400px; touch-action: none; padding: 18px; cursor: grab; transform: scale(.7); transition: transform .35s cubic-bezier(.3,1.3,.5,1); }
+.v-stage { flex: none; perspective: 1400px; touch-action: none; padding: 18px; cursor: grab; transform: scale(.7); transition: transform .35s cubic-bezier(.3,1.3,.5,1); }
 .viewer.on .v-stage { transform: none; }
 .v-card { position: relative; transform-style: preserve-3d; transition: transform .6s cubic-bezier(.3,1.2,.5,1); }
 .v-face { position: absolute; inset: 0; background: #1a1a20 center / cover no-repeat; border: 1px solid transparent; background-clip: padding-box; outline: 1px solid transparent; -webkit-backface-visibility: hidden; backface-visibility: hidden; display: grid; place-items: center; color: var(--muted); font: 12px var(--mono); }
@@ -175,7 +175,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 .v-sleeve.slabg { border: 1px solid rgba(255,255,255,.35); box-shadow: inset 0 0 0 3px rgba(255,255,255,.06), inset 0 0 24px rgba(255,255,255,.07); }
 .v-wall { background: linear-gradient(90deg, rgba(255,255,255,.22), rgba(255,255,255,.5) 50%, rgba(255,255,255,.22)); opacity: .55; }
 .v-x { position: absolute; top: max(14px, env(safe-area-inset-top)); right: 14px; width: 42px; height: 42px; padding: 0; border-radius: 50%; font-size: 16px; }
-.v-info { display: grid; gap: 4px; justify-items: center; text-align: center; max-width: 420px; }
+.v-info { display: grid; gap: 4px; justify-items: center; text-align: center; max-width: 420px; min-height: 0; overflow-y: auto; scrollbar-width: thin; } /* scrolls by itself, so nothing gets cut off and a zoomed card never adds scrollbars */
 .v-info b { font: 400 26px/1.1 var(--display); text-transform: uppercase; }
 .v-info span { color: var(--muted); font-size: 13px; }
 .v-acts { display: flex; gap: 8px; margin-top: 6px; }
@@ -193,6 +193,13 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
 .v-price details { font-size: 12.5px; max-width: 360px; line-height: 1.45; }
 .v-price summary { cursor: pointer; color: var(--muted); }
 .v-price .pv-load { font: 12px var(--mono); letter-spacing: .05em; }
+/* computers and sideways phones: the card on the left, everything about it in a panel on the right */
+@media (min-width: 760px) and (orientation: landscape) {
+  .viewer { flex-direction: row; gap: 32px; }
+  .v-info { flex: none; width: 380px; max-width: none; max-height: 100%; justify-items: start; text-align: left; }
+  .v-price { justify-items: start; max-width: 100%; }
+  .v-price .pv-meta { justify-content: flex-start; }
+}
 .sheet.sell { z-index: 80; }
 .sell .done a { color: var(--gold2); font-weight: 700; }
 .hidden { display: none !important; }
@@ -456,6 +463,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       <div class="w-s">${priced.length ? `${money(sum("worthLow"))}–${money(sum("worthHigh"))} · ` : ""}${priced.length} of ${cards.length} cards priced`
       + `${worthing ? ` · pricing the rest (${worthing.done}/${worthing.of})…` : when ? ` · from eBay, updated ${when}` : ""}</div>`;
   }
+  const VIEW_SIDE = "(min-width: 760px) and (orientation: landscape)"; // same as the viewer's side-by-side CSS
   function showPrice(c, el) {
     if (!el || !window.VAULT_SEARCH_URL || !c.player) return;
     el.innerHTML = `<span class="pv-load">Checking eBay for a price…</span>`;
@@ -469,7 +477,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       el.innerHTML = `<div class="pv-tag"><span class="pv-k">Est. value</span><span class="pv">${money(p.estimate)}</span><span class="pv-r">${money(p.low)}–${money(p.high)}</span></div>
         <div class="pv-meta"><span class="conf ${conf}">${conf[0].toUpperCase() + conf.slice(1)} confidence</span>`
         + `${p.count ? `<span>${p.count} matching listing${p.count > 1 ? "s" : ""}</span>` : ""}<a href="${sold}" target="_blank" rel="noopener">Sold on eBay ↗</a></div>`
-        + (p.reason ? `<details><summary>Why this price</summary>${esc(p.reason)}</details>` : "");
+        + (p.reason ? `<details${matchMedia(VIEW_SIDE).matches ? " open" : ""}><summary>Why this price</summary>${esc(p.reason)}</details>` : "");
     }).catch(() => { if (el.isConnected) el.innerHTML = `<span class="pv-load">Couldn't get a price right now.</span>`; });
   }
 
@@ -544,7 +552,10 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     if (!c) return;
     // a slab is taller (1130 / 700), much thicker, with small corners
     const tall = c.slab ? 1130 / 700 : 1.4;
-    const W = Math.round(Math.min(innerWidth * 0.62, (innerHeight - 230) / tall, 400)), H = Math.round(W * tall);
+    // side by side: the card gets the height and whatever width the info panel leaves (and room to turn sideways, m)
+    const beside = matchMedia(VIEW_SIDE).matches, room = innerWidth - 480;
+    const W = Math.round(beside ? Math.min(room, (innerHeight - 120) / tall, 400) : Math.min(innerWidth * 0.62, (innerHeight - 340) / tall, 400)), H = Math.round(W * tall);
+    const m = beside ? Math.max(0, Math.min(room, H) - W) / 2 : 0, wideFit = beside ? W + 2 * m : innerWidth - 40;
     const T = c.slab ? Math.round(W * 0.055) : Math.max(3, Math.round(W * 0.012)), R = c.slab ? W * 0.025 : W * 0.04;
     // the edge: thin strips around the rounded outline, each shaded by which way it faces
     const outline = [], seg = 5;
@@ -571,7 +582,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
     const v = document.createElement("div");
     v.className = "viewer";
     v.innerHTML = `<button type="button" class="v-x" aria-label="Close">✕</button>
-      <div class="v-stage"><div class="v-card" style="width:${W}px;height:${H}px;--t:${T / 2}px">${side(c.front || c.thumb, "front", "No photo")}${side(c.back, "back", c.front ? "No back photo" : "Loading…")}${edge}${sleeve}</div></div>
+      <div class="v-stage" style="margin:0 ${m}px"><div class="v-card" style="width:${W}px;height:${H}px;--t:${T / 2}px">${side(c.front || c.thumb, "front", "No photo")}${side(c.back, "back", c.front ? "No back photo" : "Loading…")}${edge}${sleeve}</div></div>
       <div class="v-info"><b>${esc(c.player || "Unknown player")}</b><span>${esc([c.year, c.set, c.number, c.parallel, c.serial, c.grade].filter(Boolean).join(" · "))}</span>
         <div class="tags">${tagsOf(c)}</div>
         <div class="v-acts"><button type="button" id="v-flip">Flip</button><button type="button" id="v-turn">Turn</button>${isOwner() && window.VAULT_SEARCH_URL ? `<button type="button" id="v-sell">Sell on eBay</button>` : ""}</div>
@@ -604,7 +615,7 @@ label.f input, label.f select, label.f textarea { font: 16px var(--body); paddin
       const face = ((((ry - (backUp() ? 180 : 0)) % 360) + 540) % 360) - 180;
       card.style.setProperty("--gx", (50 - face * 1.4).toFixed(1) + "%"); card.style.setProperty("--gy", (50 + rx * 1.4).toFixed(1) + "%");
       card.style.transform = `translateZ(${(PERSP * (1 - 1 / zoom)).toFixed(1)}px) rotateZ(${twist.toFixed(1)}deg)`
-        + ` scale(${wide ? Math.min(1, (innerWidth - 40) / H).toFixed(3) : 1}) rotateX(${rx.toFixed(1)}deg) rotateY(${ry.toFixed(1)}deg) rotateZ(${z * (backUp() ? -90 : 90)}deg)`; // flipped over, a turn runs the other way in the card's own plane
+        + ` scale(${wide ? Math.min(1, wideFit / H).toFixed(3) : 1}) rotateX(${rx.toFixed(1)}deg) rotateY(${ry.toFixed(1)}deg) rotateZ(${z * (backUp() ? -90 : 90)}deg)`; // flipped over, a turn runs the other way in the card's own plane
     };
     set(false);
     requestAnimationFrame(() => v.classList.add("on"));
