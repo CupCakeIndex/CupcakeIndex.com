@@ -42,7 +42,15 @@ const Profile = (() => {
            <img src="${esc(thumb(f.logo, 22))}" alt="" width="22" height="22"> ${esc(f.name)} <small>${f.lg === "nfl" ? "NFL" : "CFB"}</small></a>`).join("")}</div>`}</div>`);
     if (!one) {
       const box = ctl.querySelector(".my-team"), btn = box.querySelector("button"), menu = box.querySelector(".my-team-menu");
-      const set = (on) => { menu.classList.toggle("hidden", !on); btn.setAttribute("aria-expanded", on); };
+      const set = (on) => {
+        menu.classList.toggle("hidden", !on);
+        btn.setAttribute("aria-expanded", on);
+        menu.style.right = "";
+        if (on) { // the logo sits on the left on most phone pages: slide the menu over so it stays on screen
+          const off = 8 - menu.getBoundingClientRect().left;
+          if (off > 0) menu.style.right = `${-off}px`;
+        }
+      };
       btn.onclick = (e) => { e.stopPropagation(); set(menu.classList.contains("hidden")); };
       menu.onclick = () => set(false);
       closeMenu = () => set(false);
