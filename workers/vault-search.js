@@ -86,9 +86,17 @@ async function estimate(env, card) {
   const middle = run ? [card.player, card.set, serialQ].filter(Boolean).join(" ") : "";
   const queries = [...new Set([narrow, middle, wide].filter(Boolean))];
   const seen = new Map();
-  for (const list of await Promise.all(queries.map((q) => listings(env, q))))
-    for (const it of list) if (!seen.has(it.itemId)) seen.set(it.itemId, it);
-  const items = [...seen.values()].slice(0, 90);
+  const add = (lists) => { for (const list of lists) for (const it of list) if (!seen.has(it.itemId)) seen.set(it.itemId, it); };
+  add(await Promise.all(queries.map((q) => listings(env, q))));
+  // Few results usually means a word in the set name doesn't match eBay titles (a typo like "Holliday", or a name
+  // sellers shorten). Search again with just the brand (first word of the set) and with the print run.
+  if (seen.size < 20) {
+    const brand = (card.set || "").trim().split(/\s+/)[0] || "";
+    const more = [[card.year, card.player, brand], run ? [card.player, brand, serialQ] : null]
+      .filter(Boolean).map((q) => q.filter(Boolean).join(" ")).filter((q) => !queries.includes(q));
+    add(await Promise.all(more.map((q) => listings(env, q))));
+  }
+  const items = [...seen.values()].slice(0, 100);
   if (!items.length) return { estimate: 0, low: 0, high: 0, confidence: "low", reason: "No eBay listings found for this card.", count: 0, comps: [] };
   const lines = items.map((it, i) => {
     const ship = +(it.shippingOptions?.[0]?.shippingCost?.value || 0);
@@ -113,7 +121,12 @@ async function estimate(env, card) {
         "Below are current eBay listings (asking prices, which usually run above what cards actually sell for; auction bids are not final). " +
         "Pick the listings that are this exact card: same player, year, set, parallel or insert, serial numbering and grade. " +
         "Lots, reprints, customs and other parallels don't count, though they can help you judge if there are no exact matches. " +
-        "Then give a realistic sale price and range. If the exact card has few or no listings, say so and lower the confidence.\n\n" + lines }],
+        "The set name was typed by hand and may be misspelled or shortened: match listings by what the card is, not exact spelling. " +
+        "A Chrome, Prizm, Optic or other premium version is a different product from the plain set of the same name, unless this card's set says so. " +
+        "A serial-numbered card is never worth less than unnumbered copies of the same card: if you only find base or unnumbered copies, " +
+        "estimate from the usual premium for that print run and keep the confidence low. " +
+        "Then give a realistic sale price and range. If the exact card has few or no listings, say so and lower the confidence. " +
+        "Keep the reason to one or two short sentences about the card (no \"I\").\n\n" + lines }],
     }),
   });
   const out = await r.json();
@@ -394,7 +407,7 @@ export default {
       if (!card.player) return Response.json({ error: "no player" }, { status: 400, headers: cors });
       if (!env.ANTHROPIC_API_KEY) return Response.json({ error: "price estimates aren't set up yet" }, { status: 503, headers: cors });
       // one estimate per card a day: the same card asked again gets the saved answer (no eBay or Claude call)
-      const key = new Request("https://vault-price.cache/" + encodeURIComponent(JSON.stringify(Object.values(card)).toLowerCase()));
+      const key = new Request("https://vault-price.cache/v2/" + encodeURIComponent(JSON.stringify(Object.values(card)).toLowerCase()));
       const hit = await caches.default.match(key);
       if (hit) return new Response(hit.body, { headers: { ...cors, "Content-Type": "application/json" } });
       try {
