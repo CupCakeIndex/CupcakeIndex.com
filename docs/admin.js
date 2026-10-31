@@ -285,7 +285,7 @@ const Admin = (() => {
     ["cupcakeindex.com domain", null, "yearly renewal, shown per month", "domainYear", "year"],
     ["Firebase (accounts, alerts, analytics)", 0, "free Spark plan"],
     ["GitHub (site + all the automatic jobs)", 0, "free for a public repo"],
-    ["CollegeFootballData", 0, "free plan"],
+    ["CollegeFootballData", 5, "Patreon Tier 2"],
     ["Cloudflare (runs the Analyst chat)", 0, "free plan"],
   ];
   // the chat's cost against what comes in: each tier's paying subscribers × its price, minus Stripe's cut, counted by

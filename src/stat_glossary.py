@@ -53,6 +53,8 @@ GLOSSARY = {
     "season pace": {"counts": "His per-game average x a full regular season (17 NFL, 12 college). Assumes he plays every game left.", "src": "docs/live.js Projected tab"},
     "heisman race": {"counts": "Production per game vs his position (QBs: pass + rush yards, 20 per TD, minus 45 per INT; others: rush + rec yards, 20 per TD), each game weighted by the opponent's strength, 100 = 10th best at his position; then times team success, popularity (Wikipedia views, 30 days) and position (QB x1.1, RB x0.85).",
                      "src": "docs/viz.js heisGame"},
+    "mvp race": {"counts": "Same idea as the Heisman race for the NFL: production per game vs his position, each game weighted by the opponent's point differential, 100 = 10th best at his position, then x team success (win % and point differential) x popularity (Wikipedia views, 30 days) x position (non-QBs x0.6). Defensive players aren't scored.",
+                 "src": "docs/viz.js heisGame, mvpVoters"},
     "trade watch": {"counts": "0-100 score from the team's playoff chance (10,000 simulations), contract ending soon, age, role (snap share), value and trade headlines in the last 2 weeks. QBs and RBs count less. Best fits = contenders weak at his position. No cap-space data.",
                     "src": "src/trade_watch.py"},
     "coach score": {"counts": "0-100 (50 = average head coach): 35% wins over expected, 30% record vs winning teams (short records pulled toward average), 15% postseason wins per season, 10% team lift (vs the year before he arrived), 10% cupcake padding (share of wins vs losing teams, and FCS teams in college; counts against him). Hot seat = this season vs expectations, the program's usual standard and recent seasons.",

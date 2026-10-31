@@ -681,8 +681,8 @@ const TOOLS = [
   },
   {
     name: "site_lists",
-    description: "More of our site's lists. 'coach': a team's head coach (coach score and rank, career record, hot seat and why, background, scheme tags, tendencies like pass rate over expected, play action, motion, blitz rate, man coverage, 4th-down aggression, each ranked). 'records': NFL records a player holds (name). 'trade_watch': NFL Trade watch, players most likely to be traded before the deadline, why, best fits (optional name or team). 'heisman': our Heisman race, college, current season (production weighted by opponent, times team success, popularity and position; optional name).",
-    inputSchema: { type: "object", properties: { list: { type: "string", enum: ["coach", "records", "trade_watch", "heisman"] }, league: { type: "string", enum: ["nfl", "cfb"] }, team: { type: "string" }, name: { type: "string" }, top: { type: "integer" } }, required: ["list"] },
+    description: "More of our site's lists. 'coach': a team's head coach (coach score and rank, career record, hot seat and why, background, scheme tags, tendencies like pass rate over expected, play action, motion, blitz rate, man coverage, 4th-down aggression, each ranked). 'records': NFL records a player holds (name). 'trade_watch': NFL Trade watch, players most likely to be traded before the deadline, why, best fits (optional name or team). 'heisman': our Heisman race, college, current season (production weighted by opponent, times team success, popularity and position; optional name). 'mvp': same for the NFL MVP.",
+    inputSchema: { type: "object", properties: { list: { type: "string", enum: ["coach", "records", "trade_watch", "heisman", "mvp"] }, league: { type: "string", enum: ["nfl", "cfb"] }, team: { type: "string" }, name: { type: "string" }, top: { type: "integer" } }, required: ["list"] },
     async execute(a) {
       const X = (await base()).extra || {}, top = Math.min(Number(a.top) || 10, 25), q = norm(a.name || a.team || "");
       if (a.list === "coach") {
@@ -707,10 +707,11 @@ const TOOLS = [
         const hit = q ? list.filter((p) => norm(p.name).includes(q) || norm(p.team) === q || p.best_fits.some((f) => norm(f[0]) === q)) : list;
         return { updated: T.updated, trade_deadline: T.deadline, how: "score 0-100: team's playoff chance, contract, age, role, value and trade headlines in the last 2 weeks.", players: hit.slice(0, top) };
       }
-      say(`Running our Heisman race${a.name ? " for " + a.name : ""}`);
-      const rows = await heisman();
+      const lg = a.list === "mvp" ? "nfl" : "cfb";
+      say(`Running our ${lg === "nfl" ? "MVP" : "Heisman"} race${a.name ? " for " + a.name : ""}`);
+      const rows = await heisman(lg);
       const out = rows.map((r, i) => ({ rank: i + 1, ...r }));
-      return { season: seasons("cfb")[0], how: "score = production per game vs his position (opponent-weighted, 100 = the 10th best) x team success x popularity (Wikipedia views, 30 days) x position (QB 1.1, RB 0.85).",
+      return { season: seasons(lg)[0], how: lg === "nfl" ? "score = production per game vs his position (opponent-weighted by point differential, 100 = the 10th best) x team success x popularity (Wikipedia views, 30 days) x position (non-QBs x0.6). Defensive players are not scored." : "score = production per game vs his position (opponent-weighted, 100 = the 10th best) x team success x popularity (Wikipedia views, 30 days) x position (QB 1.1, RB 0.85).",
         top: out.slice(0, top), ...(q ? { asked: out.filter((r) => norm(r.name).includes(q)).slice(0, 3) } : {}) };
     },
   },
@@ -810,17 +811,18 @@ const TOOLS = [
 ];
 
 // our Heisman race, the same model as Stats > Visualize "Heisman score" (docs/viz.js heisGame/hzIdx/hzVoters), current season
-async function heisman() {
-  const s = seasons("cfb")[0], D = await load("cfb", s), X = R.extra?.heisman_buzz;
-  const rat = {};
-  if (R.cfb.season === s) for (const t of R.cfb.teams) rat[norm(t.team)] = t.rating;
-  const RT = (k) => rat[norm(D.teams[k]?.[0])];
-  const bz = (pid) => (X?.season === s ? Math.min(1.25, Math.max(0.8, ((X.views[pid] || 8000) / 50000) ** 0.1)) : 1);
+async function heisman(lg = "cfb") {
+  const nfl = lg === "nfl", s = seasons(lg)[0], D = await load(lg, s), X = nfl ? R.extra?.mvp_buzz : R.extra?.heisman_buzz;
+  const rat = {}, pd = {}, tn = {};
+  if (nfl) for (const t of D.trows) { pd[t[0]] = (pd[t[0]] || 0) + t[3] - t[4]; tn[t[0]] = (tn[t[0]] || 0) + 1; }
+  else if (R.cfb.season === s) for (const t of R.cfb.teams) rat[norm(t.team)] = t.rating;
+  const RT = (k) => (nfl ? (tn[k] ? pd[k] / tn[k] : 0) : rat[norm(D.teams[k]?.[0])]);
+  const bz = (pid) => (X?.season === s ? Math.min(1.25, Math.max(0.8, nfl ? ((X.views[pid] || 20000) / 200000) ** 0.1 : ((X.views[pid] || 8000) / 50000) ** 0.1)) : 1);
   const opp = {}, won = {}, TG = {};
   for (const t of D.trows) { opp[`${t[0]}|${t[1]}`] = t[2]; won[`${t[0]}|${t[1]}`] = t[3] > t[4] ? 1 : t[3] === t[4] ? 0.5 : 0; TG[t[0]] = (TG[t[0]] || 0) + 1; }
   const v = (r, c) => r[D.pi[c]] || 0, P = {};
   for (const r of D.prows) {
-    const o = opp[`${r[2]}|${r[1]}`], m = o == null ? 1 : RT(o) == null ? 0.5 : Math.min(1.4, Math.max(0.6, 1 + RT(o) / 40));
+    const o = opp[`${r[2]}|${r[1]}`], m = o == null ? 1 : nfl ? Math.min(1.25, Math.max(0.75, 1 + RT(o) / 30)) : RT(o) == null ? 0.5 : Math.min(1.4, Math.max(0.6, 1 + RT(o) / 40));
     const td = v(r, "rush_td") + v(r, "rec_td"), q = v(r, "pass_yds") + v(r, "rush_yds") + 20 * (v(r, "pass_td") + td) - 45 * v(r, "int"), x = v(r, "rush_yds") + v(r, "rec_yds") + 20 * td;
     const S = P[r[0]] || (P[r[0]] = { g: 0, team: r[2], hq: 0, ho: 0, w: 0, rt: 0, bz: 0, att: 0, carries: 0, rec: 0 });
     S.g++; S.team = r[2]; S.hq += q * m; S.ho += x * m; S.w += won[`${r[2]}|${r[1]}`] ?? 0; S.rt += RT(r[2]) ?? -15; S.bz += bz(r[0]);
@@ -834,7 +836,7 @@ async function heisman() {
   for (const p in L) tenth[p] = Math.max(1, L[p].sort((x, y) => y - x)[Math.min(9, L[p].length - 1)] || 1);
   return Object.entries(P).map(([pid, S]) => {
     const p = pos(S), idx = (100 * prod(S) * Math.sqrt(Math.min(1, S.g / (TG[S.team] || S.g)))) / (tenth[p] || 1);
-    const voters = (0.5 + 0.7 * (S.w / S.g) ** 2) * (1 + S.rt / S.g / 80) * (S.bz / S.g || 1) * ({ QB: 1.1, RB: 0.85 }[p] || 1);
+    const voters = (0.5 + 0.7 * (S.w / S.g) ** 2) * (1 + S.rt / S.g / (nfl ? 40 : 80)) * (S.bz / S.g || 1) * (nfl ? (p === "QB" ? 1 : 0.6) : { QB: 1.1, RB: 0.85 }[p] || 1);
     return { name: D.pmeta[pid]?.[0], team: D.teams[S.team]?.[0], pos: p, games: S.g, score: Math.round(idx * voters), production_index: Math.round(idx) };
   }).filter((x) => x.name && isFinite(x.score)).sort((x, y) => y.score - x.score);
 }

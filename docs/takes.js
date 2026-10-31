@@ -140,7 +140,7 @@ const Takes = (() => {
     // where he ranks at his position in the deeper stats (Visualize's numbers): his best few top-5s that ESPN doesn't show
     const used = new Set(ranked.map((rk) => VK[rk.name]).filter(Boolean));
     // (only stats made for his position, more-is-better ones he actually has, and not the field-zone splits or penalty lists)
-    const deep = (ex.stats?.cats || []).flatMap(([g, l]) => (/where|zone|penalt|erased|usage|heisman/i.test(g) ? [] : l)).filter((x) => x.rank && x.rank <= 5 && x.n >= 20 && x.v && !x.low && x.pos === ex.stats.pos && !used.has(x.key))
+    const deep = (ex.stats?.cats || []).flatMap(([g, l]) => (/where|zone|penalt|erased|usage|heisman|mvp/i.test(g) ? [] : l)).filter((x) => x.rank && x.rank <= 5 && x.n >= 20 && x.v && !x.low && x.pos === ex.stats.pos && !used.has(x.key))
       .sort((x, y) => x.rank - y.rank || y.n - x.n).slice(0, 3);
     const SAY = ["Nobody at his position does it better.", "Only one guy at his position is better at it.", "That's elite company.", "Not many people are talking about that.", "That should get more attention."];
     deep.forEach((x, i) => out.push({ big: `#${x.rank}`, label: `among ${ex.stats.posTxt}: ${x.label}`, viz: x.key,

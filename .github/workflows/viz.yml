@@ -87,6 +87,9 @@ jobs:
       - name: Heisman race popularity (Wikipedia page views for college stars)
         continue-on-error: true
         run: python src/heisman_buzz.py
+      - name: MVP race popularity (Wikipedia page views for NFL stars)
+        continue-on-error: true
+        run: python src/mvp_buzz.py
       - name: NFL trade watch (who gets traded before the deadline, and where)
         continue-on-error: true
         run: python src/trade_watch.py --until-deadline
@@ -109,6 +112,7 @@ jobs:
           git add docs/data/nfl/record_boards.json 2>/dev/null || true
           git add docs/data/nfl/ol_stats.json 2>/dev/null || true
           git add docs/data/cfb/heisman_buzz.json 2>/dev/null || true
+          git add docs/data/nfl/mvp_buzz.json 2>/dev/null || true
           git add docs/data/nfl/trade_watch.json 2>/dev/null || true
           git add docs/data/cfb/portal_watch.json 2>/dev/null || true
           git add docs/data/player_aliases.json 2>/dev/null || true

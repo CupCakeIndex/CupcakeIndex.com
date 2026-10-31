@@ -155,6 +155,8 @@ def extras(plays=True):
          "latest_headline": (p.get("story") or [None])[0]} for p in tw["players"][:40]]}
     bz = _load("cfb", "heisman_buzz.json")
     out["heisman_buzz"] = {"season": bz["season"], "views": bz["views"]}
+    mz = _load("nfl", "mvp_buzz.json")
+    out["mvp_buzz"] = {"season": mz["season"], "views": mz["views"]}
     prof = _load("coach_profile.json")["coaches"]
     co = _load("coaches.json")
     import stat_glossary

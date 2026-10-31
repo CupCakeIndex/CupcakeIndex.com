@@ -394,6 +394,12 @@ const Viz = (() => {
       ["heis_raw", "Heisman production per game vs his position, raw (no opponent weighting)", (S, g) => hzIdx(S, g, 1), { d: 0, lg: "cfb" }],
       ["heis_cup", "Cupcake padding (% of production lost to opponent weighting)", (S, g) => { const p = hzPos(S, g), w = p === "QB" ? S.hq : S.ho, r = p === "QB" ? S.hq_raw : S.ho_raw; return r > 0 ? (100 * (r - w)) / r : null; }, { pct: 1, low: 1, lg: "cfb" }],
     ]],
+    // our MVP race (NFL; heisGame below with mvpVoters): same idea as the Heisman race, tuned on the 2022-25 MVP votes
+    ["MVP race (our model)", [
+      ["mvp", "MVP score (our model)", (S, g) => { const i = hzIdx(S, g); return i == null || !(S.att || S.carries || S.rec) ? null : i * mvpVoters(S, g); }, { d: 0, lg: "nfl", need: ["pass_yds"],
+        about: "MVP score (our model): his production (QBs: passing + rushing yards, 20 per TD, minus 45 per INT; everyone else: rushing + receiving yards, 20 per TD), each game worth a bit more against good teams (by point differential), per game, compared with his position (100 = the 10th best QB, RB or WR/TE), then times what voters weigh: team success (win % and point differential), popularity (Wikipedia page views this month) and position (QBs win nearly every MVP). Defensive players aren't scored." }],
+      ["mvp_prod", "MVP production per game vs his position (opponent-weighted, 100 = 10th best)", (S, g) => hzIdx(S, g), { d: 0, lg: "nfl", need: ["pass_yds"] }],
+    ]],
     ["Advanced", [
       ["epa_total", "Total EPA (pass + rush + catch)", (S) => S.pass_epa + S.rush_epa + S.rec_epa, { count: 1, d: 1, lg: "nfl" }],
       ["epa_db", "EPA per dropback", (S) => div(S.pass_epa, S.att + S.sacked), { den: (S) => S.att + S.sacked, d: 3, pos: "QB", lg: "nfl" }],
@@ -734,6 +740,8 @@ const Viz = (() => {
     havoc: "disruptive plays|chaos plays|splash plays",
     fg_att: "field goal attempts|kicks attempted",
     fg_made: "made field goals|fgs",
+    mvp: "mvp race|mvp favorite|mvp ranking|mvp chance|most valuable player",
+    mvp_prod: "mvp production",
     heisman: "heisman race|heisman favorite|heisman ranking|heisman chance",
     heis_prod: "heisman production|adjusted production",
     heis_raw: "raw production",
@@ -942,8 +950,8 @@ const Viz = (() => {
       const k = D.league === "cfb" ? `cfb:${t.id}` : byName[t.team];
       if (k) D.ours[k] = { ci_rating: t.rating, ci_rank: t.power_rank, ci_sos: t.scores?.sos, ci_cupcake: t.scores?.cupcake, ci_resume: t.scores?.resume, ci_eff: t.scores?.efficiency };
     }
-    // Heisman popularity (Wikipedia page views; src/heisman_buzz.py): this season only
-    const bz = D.league === "cfb" ? await getJSON("data/cfb/heisman_buzz.json").catch(() => null) : null;
+    // Heisman and MVP popularity (Wikipedia page views; src/heisman_buzz.py, src/mvp_buzz.py): this season only
+    const bz = await getJSON(D.league === "cfb" ? "data/cfb/heisman_buzz.json" : "data/nfl/mvp_buzz.json").catch(() => null);
     if (bz?.season === D.season) D.buzz = bz.views;
     const co = await Coaches.forSeason(D.league, D.season).catch(() => ({})); // NFL by abbreviation, college by name
     for (const [k, t] of Object.entries(D.teams)) {
@@ -1014,6 +1022,7 @@ const Viz = (() => {
     [/adot|depth of target|air yards|air-yards/, "Deep threat", "Underneath"],
     [/scramble/, "Scrambly", "Pocket-bound"],
     [/heisman/, "Heisman-ish", "Anonymous"],
+    [/mvp/, "MVP-ish", "Anonymous"],
     [/cupcake/, "Padded", "Legit"],
     [/seasons as/, "Grizzled", "Fresh"],
     [/win %|résumé|coach|power rating/, "Winning", "Losing"],
@@ -1077,15 +1086,21 @@ const Viz = (() => {
   // Back-tested on 2025 (no popularity data for past seasons): Mendoza, Smith, Chambliss, Love, Pavia.
   // Columns per game: hq/ho = weighted QB/other production (hq_raw/ho_raw unweighted), hz_w = his team won, hz_r = team rating,
   // hz_bz = popularity; hz_tg (season totals only) = his team's games in the weeks picked.
+  // The NFL MVP race uses the same columns: each game x(1 + opponent's point differential per game/30), kept between x0.75 and
+  // x1.25; then mvpVoters: team success x(0.5 + 0.7 x win %²) x (1 + point differential per game/40), popularity (src/mvp_buzz.py:
+  // x(views/200k)^0.1, between x0.8 and x1.25; no page counts as 20k) and position (non-QBs x0.6). Point differential, not our
+  // rating, so past seasons work too. Back-tested on the 2022-25 votes: the real MVP was 1st, 1st, 3rd and 2nd.
   let HZB = { QB: 1, RB: 1, WR: 1, rQB: 1, rRB: 1, rWR: 1 }; // the 10th best per game at each position (set by sum())
   function heisGame(D) {
-    const opp = {}, won = {}, R = (k) => D.ours?.[k]?.ci_rating;
-    const bz = (k) => (D.buzz ? Math.min(1.25, Math.max(0.8, ((D.buzz[k] || 8000) / 50000) ** 0.1)) : 1);
+    const nfl = D.league === "nfl", pd = {}, tg = {};
+    if (nfl) for (const t of D.trows) { pd[t[0]] = (pd[t[0]] || 0) + t[3] - t[4]; tg[t[0]] = (tg[t[0]] || 0) + 1; }
+    const opp = {}, won = {}, R = (k) => (nfl ? (tg[k] ? pd[k] / tg[k] : 0) : D.ours?.[k]?.ci_rating);
+    const bz = (k) => (D.buzz ? Math.min(1.25, Math.max(0.8, nfl ? ((D.buzz[k] || 20000) / 200000) ** 0.1 : ((D.buzz[k] || 8000) / 50000) ** 0.1)) : 1);
     for (const t of D.trows) { opp[`${t[0]}|${t[1]}`] = t[2]; won[`${t[0]}|${t[1]}`] = t[3] > t[4] ? 1 : t[3] === t[4] ? 0.5 : 0; }
     const ix = Object.fromEntries(D.pcols.map((c, i) => [c, i + 3]));
     const v = (r, c) => r[ix[c]] || 0;
     return (r) => {
-      const o = opp[`${r[2]}|${r[1]}`], m = o == null ? 1 : R(o) == null ? 0.5 : Math.min(1.4, Math.max(0.6, 1 + R(o) / 40));
+      const o = opp[`${r[2]}|${r[1]}`], m = o == null ? 1 : nfl ? Math.min(1.25, Math.max(0.75, 1 + R(o) / 30)) : R(o) == null ? 0.5 : Math.min(1.4, Math.max(0.6, 1 + R(o) / 40));
       const td = v(r, "rush_td") + v(r, "rec_td");
       const q = v(r, "pass_yds") + v(r, "rush_yds") + 20 * (v(r, "pass_td") + td) - 45 * v(r, "int"), x = v(r, "rush_yds") + v(r, "rec_yds") + 20 * td;
       return { hq: q * m, ho: x * m, hq_raw: q, ho_raw: x, hz_w: won[`${r[2]}|${r[1]}`] ?? 0, hz_r: R(r[2]) ?? -15, hz_bz: bz(r[0]) };
@@ -1095,6 +1110,7 @@ const Viz = (() => {
   const hzProd = (S, g, raw) => { const p = hzPos(S, g); return (p === "QB" ? (raw ? S.hq_raw : S.hq) : raw ? S.ho_raw : S.ho) / g; };
   const hzIdx = (S, g, raw) => { if (S.hq == null || !g) return null; const p = hzPos(S, g); return (100 * hzProd(S, g, raw) * Math.sqrt(Math.min(1, g / (S.hz_tg || g)))) / HZB[(raw ? "r" : "") + p]; };
   const hzVoters = (S, g) => (0.5 + 0.7 * (S.hz_w / g) ** 2) * (1 + S.hz_r / g / 80) * (S.hz_bz / g || 1) * ({ QB: 1.1, RB: 0.85 }[hzPos(S, g)] || 1);
+  const mvpVoters = (S, g) => (0.5 + 0.7 * (S.hz_w / g) ** 2) * (1 + S.hz_r / g / 40) * (S.hz_bz / g || 1) * (hzPos(S, g) === "QB" ? 1 : 0.6);
   function sum(D, who, w1, w2, byWeek) {
     const cols = who === "players" ? D.pcols : D.tcols, rows = who === "players" ? D.prows : D.trows, out = {};
     const mx = cols.map((c) => c.startsWith("mx_")); // season highs (longest field goal): the biggest one, not the sum
@@ -1128,7 +1144,7 @@ const Viz = (() => {
       for (let i = 0; i < cols.length; i++) t[i] += r[i + 3];
     }
     // the Heisman race (college players): each game's production, weighted by who it came against, and whether his team won
-    const heis = who === "players" && D.league === "cfb" ? heisGame(D) : null;
+    const heis = who === "players" && (D.league === "cfb" || D.pcols.includes("pass_yds")) ? heisGame(D) : null;
     for (const r of rows) {
       if (!keep(r) || (lastOk && !lastOk[r[0]]?.has(r[1]))) continue;
       const o = out[r[0]] || (out[r[0]] = { S: Object.fromEntries(cols.map((c) => [c, 0])), g: 0, wk: {}, team: r[2] });
@@ -1256,6 +1272,9 @@ const Viz = (() => {
   const T_ = (o) => ({ who: "teams", ...o }), P_ = (o) => ({ who: "players", ...o });
   const PRESETS = {
     nfl: [
+      "MVP race",
+      ["MVP race: who we think should win it", P_({ type: "bar", stat: "mvp", top: "10" })],
+      ["MVP race week by week", P_({ type: "line", stat: "mvp", top: "5", cum: "1" })],
       "Teams",
       ["Schedule vs record (the Schedules chart)", T_({ type: "scatter", stat: "ci_sos", y: "win_pct", top: "all" })],
       ["Who's for real: EPA per play vs points", T_({ type: "scatter", stat: "epa_play", y: "pts", top: "all" })],
@@ -3026,7 +3045,7 @@ const Viz = (() => {
   // { season, week, pos, posTxt, cats: [[group, [{key, label, v, txt, rank, n}]]] }
   // the "Every stat on" panel's menu: each player stat group goes in the first section whose pattern matches it (else More)
   const PL_SECS = [["Passing", /^Passing|Accuracy|QB under pressure/], ["Throw map", /^Where /], ["Running and catching", /^Rushing|Scrambles|Drops|offense|Big plays|4th downs/],
-    ["Usage", /Usage|^Advanced|Heisman/], ["Defense", /Defense|run defense|pass rush|coverage|Fumbles/], ["Kicking", /Kick/], ["Penalties", /enalt|Offensive line/], ["More", /$^/]];
+    ["Usage", /Usage|^Advanced|Heisman|MVP/], ["Defense", /Defense|run defense|pass rush|coverage|Fumbles/], ["Kicking", /Kick/], ["Penalties", /enalt|Offensive line/], ["More", /$^/]];
   let plSec = ""; // the section picked in that menu
   const ZONE_FOLDERS = [["Left, middle, right", (z) => ZS[z]], ["Short, intermediate, deep", (z) => ZD[z]],
     ...Object.entries(ZD).map(([d, l]) => [`${l} zones (left, middle, right)`, (z) => z.length === 2 && z[0] === d]), ["Other", (z) => !ZS[z] && !ZD[z] && !ZONES.includes(z)]];
