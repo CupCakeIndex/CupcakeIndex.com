@@ -42,6 +42,8 @@ Block a post only for a real problem a reader would notice or be misled by:
   or the post says something the recent headlines show is no longer true (a starter who is out, a game that moved)
 - rules: the account's own betting numbers (its own spread, model line or odds; a win chance or percent is fine, and
   sportsbook lines are fine only labeled "for fun, not betting advice"), a link, an em dash or en dash
+A number next to a team on a card is our own Cupcake Index ranking unless it's labeled AP or Coaches. Ours is meant to
+differ from the polls in headlines, so that alone is never a problem (Oct 31 2026: game day was blocked for Georgia #7 vs AP No. 3).
 Opinions, hot takes, team tags, hashtags and jokes are fine. Don't block for style. When unsure, pass it.
 problem: "image" if only the picture is wrong, "text" if only the text is, "both", or "none"."""
 

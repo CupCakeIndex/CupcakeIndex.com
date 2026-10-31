@@ -135,14 +135,35 @@ def cfb_players():
     return _cache["cfb"]
 
 
+def live_records(league):
+    """Today's records from ESPN, {team: "3-4"}: the rankings file stops at the last full week, so a team that played
+    Thursday night still showed its old record (Oct 31 2026: Panthers 3-3 after a loss). {} if ESPN can't be reached."""
+    if league != "nfl":  # college rankings refresh right after each Saturday, so the lag barely shows
+        return {}
+    try:
+        data = _session.get("https://site.api.espn.com/apis/v2/sports/football/nfl/standings", timeout=30).json()
+        out = {}
+        for conf in data.get("children", []):
+            for row in conf.get("standings", {}).get("entries", []):
+                for s in row.get("stats", []):
+                    if s.get("name") == "overall" or s.get("type") == "total":
+                        out[row["team"]["displayName"]] = s.get("displayValue") or s.get("summary")
+        return {k: v for k, v in out.items() if v}
+    except (requests.RequestException, ValueError, KeyError) as e:
+        print(f"Live records unavailable ({e}); using the rankings file's.")
+        return {}
+
+
 def teams(league):
     """The latest rankings file's teams (site order), each with name/record/logo/color, plus a name lookup."""
     key = "teams-" + league
     if key not in _cache:
         cur, _, _ = latest(league)
         ts = ranked(cur)
+        live = live_records(league)
         for t in ts:
             t["name"] = t["team"]
+            t["record"] = live.get(t["team"], t["record"])
         _cache[key] = (ts, {t["team"]: t for t in ts}, cur["week"])
     return _cache[key]
 
