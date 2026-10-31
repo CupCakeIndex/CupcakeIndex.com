@@ -23,7 +23,7 @@
      ],
      "accuracy": {
       "games": 792,
-      "correct": 595,
+      "correct": 596,
       "mae": 12.4,
       "vegas_su": {
        "games": 792,
@@ -31,17 +31,19 @@
       },
       "model_su_lined": {
        "games": 792,
-       "correct": 595
+       "correct": 596
       },
       "ats": {
-       "games": 768,
+       "games": 765,
        "correct": 404
       },
       "ats_strong": {
-       "games": 405,
-       "correct": 221
+       "games": 400,
+       "correct": 218
       },
-      "vegas_mae": 11.9
+      "vegas_mae": 11.9,
+      "score_games": 792,
+      "score_mae": 8.8
      }
     },
     "2026": {
@@ -94,7 +96,7 @@
     {
      "key": "resume",
      "label": "R\u00e9sum\u00e9",
-     "help": "Strength of record: how many more wins than an average top-25 team would have with this schedule."
+     "help": "Strength of record: how many more wins than a playoff-level (#12) team would have with this schedule. Every loss costs at least half a win."
     },
     {
      "key": "efficiency",
@@ -124,45 +126,50 @@
     }
    ],
    "default_weights": {
-    "power": 30,
-    "resume": 20,
-    "efficiency": 20,
-    "sos": 10,
-    "recent": 10,
-    "cupcake": 5,
-    "luck": 5
+    "resume": 30,
+    "market": 25,
+    "power": 15,
+    "efficiency": 15,
+    "cupcake": 10,
+    "recent": 5,
+    "sos": 0,
+    "luck": 0
    },
-   "updated": "2026-10-25T03:57+00:00",
+   "updated": "2026-10-31T15:42+00:00",
    "modes": {
     "best": {
-     "power": 60,
-     "resume": 0,
-     "efficiency": 30,
+     "power": 10,
+     "resume": 5,
+     "efficiency": 25,
      "sos": 0,
-     "recent": 5,
+     "recent": 15,
      "cupcake": 5,
-     "luck": 0
+     "luck": 0,
+     "market": 40
     },
     "deserving": {
      "resume": 60,
      "sos": 25,
      "cupcake": 15
     },
-    "games": 1105,
+    "games": 714,
     "accuracy": {
-     "best": 0.7113122171945702,
-     "deserving": 0.6271493212669683,
-     "old_default": 0.7013574660633484,
-     "power_only": 0.7110507246376812
+     "best": 0.7296918767507002,
+     "deserving": 0.6526610644257703,
+     "old_default": 0.7254901960784313,
+     "power_only": 0.726507713884993
     },
     "out_of_sample": {
-     "trained_on": 2025,
-     "tested_on": 2026,
-     "games": 391,
-     "best": 0.6956521739130435,
-     "old_default": 0.6777493606138107
+     "trained_on": 2024,
+     "tested_on": 2025,
+     "games": 714,
+     "best": null,
+     "old_default": 0.7254901960784313
     }
-   }
+   },
+   "hidden": [
+    "market"
+   ]
   },
   "nfl": {
    "seasons": {
@@ -321,5 +328,5 @@
    }
   }
  },
- "updated": "2026-10-30T23:05+00:00"
+ "updated": "2026-10-31T15:42+00:00"
 }
