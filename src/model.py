@@ -13,13 +13,17 @@ INVERTED = {"cupcake"}  # higher score = worse; the website blends these as (100
 
 FACTORS = [
     ("power", "Power", "Opponent-adjusted scoring margin, capped so blowouts of bad teams don't count extra."),
-    ("resume", "Résumé", "Strength of record: how many more wins than an average top-25 team would have with this schedule."),
+    ("resume", "Résumé", "Strength of record: how many more wins than a playoff-level (#12) team would have with this schedule. Every loss costs at least half a win."),
     ("efficiency", "Efficiency", "Opponent-adjusted EPA/play and success rate, garbage time removed."),
     ("sos", "Schedule", "How hard was your road? The average strength of the FBS teams you played, no matter how good you are. FCS games are left out here (they count in Cupcake). Higher = tougher schedule."),
     ("recent", "Recent form", "How the team has played in its last few games."),
     ("cupcake", "Cupcake", "How much did you pad it? Only the games far below YOUR level count: FCS opponents, plus below-average teams 14+ points worse than you (bigger mismatches count more). A bad team playing other bad teams isn't padding. Higher = more padded, and it counts against the team. Only games already played count."),
     ("luck", "Bad luck", "Higher = has had bad luck: lost games they statistically won, so the record undersells them. Lower = has been winning coin flips."),
+    ("market", "Market", "What the betting markets think of each team: strength implied by the books' lines on games already played."),
 ]
+# Blended in but never shown as a column or slider (Terry, Oct 27 2026: the markets help accuracy, but the site doesn't
+# promote betting). The weights panel and team breakdown say in one line that it's part of the blend.
+HIDDEN = {"market"}
 
 NFL_HELP = {
     "power": "Team strength in points from our NFL model: opponent-adjusted scoring margin (capped at 17) blended with EPA per play, with last season carried over, recent weeks counting a bit more, and a small boost (or ding) for the head coach.",
@@ -315,12 +319,28 @@ def to_scores(raw):
     return {t: round(float(np.clip(50 + 50 / 3 * (v - mu) / sd, 0, 100)), 1) for t, v in raw.items()}
 
 
-def build_week(fbs, games, advanced, polls, week, cfg, prior, rgames=None, node_prior=None, ratings=None):
-    """ratings: precomputed team ratings (the NFL uses its own model, src/nfl_model.py); None = fit them here."""
+def market_ratings(teams, played, lines, cfg, prior):
+    """Team strength implied by the books: the same solve as the power rating, fit to each played FBS game's median
+    line (expected home margin) instead of its final score. Only games already played, so nothing peeks ahead."""
+    team_set, rows = set(teams), []
+    for x in played:
+        books = lines.get(x["id"]) if x["home"] in team_set and x["away"] in team_set else None
+        if books:
+            vegas = -float(np.median([b["spread"] for b in books]))
+            rows.append((x["home"], x["away"], vegas - (0 if x["neutral"] else cfg["home_field"]), 1.0))
+    if not rows:
+        return None
+    return solve(teams, rows, prior=prior, prior_strength=cfg.get("market_prior_games", 2.0))
+
+
+def build_week(fbs, games, advanced, polls, week, cfg, prior, rgames=None, node_prior=None, ratings=None, lines=None):
+    """ratings: precomputed team ratings (the NFL uses its own model, src/nfl_model.py); None = fit them here.
+    lines: {game id: [book lines]} for the hidden Market factor (falls back to the power rating without them)."""
     teams = sorted(fbs)
     played = [x for x in (rgames if rgames is not None else games) if x["done"] and x["week"] <= week]
     k = prior_strength(week, cfg)
     R = dict(ratings) if ratings else power_ratings(teams, played, cfg, prior, k, node_prior)
+    M = market_ratings(teams, [x for x in games if x["done"] and x["week"] <= week], lines or {}, cfg, prior) or R
     is_low = lambda n: n not in fbs  # FCS or lower division
     rank = {t: i + 1 for i, t in enumerate(sorted(teams, key=lambda t: -R[t]))}
     ppa, sr = efficiency_ratings(teams, advanced, fbs, week, cfg)
@@ -362,7 +382,9 @@ def build_week(fbs, games, advanced, polls, week, cfg, prior, rgames=None, node_
                 wins += won
                 losses += not (won or tie)
                 ties += tie
-                sor += (1 - p25) if won else (0.5 - p25) if tie else -p25
+                # a loss costs at least loss_floor wins, even to a great team (Oct 27 2026: a 1-point road loss was
+                # nearly free, so 6-2 LSU sat at #1 over both teams that beat it)
+                sor += (1 - p25) if won else (0.5 - p25) if tie else -max(p25, cfg.get("loss_floor", 0.0))
                 wp = x["hwp"] if home else (1 - x["hwp"] if x["hwp"] is not None else None)
                 xw += float(wp) if wp is not None else phi((us - them) / 7)
                 if abs(us - them) <= cfg["one_score"]:
@@ -393,6 +415,7 @@ def build_week(fbs, games, advanced, polls, week, cfg, prior, rgames=None, node_
         raw["recent"][t] = float(np.mean(perfs[-cfg["recent_games"]:])) if perfs else R[t]
         raw["cupcake"][t] = cup_sum / n if n else 0.0
         raw["luck"][t] = -(wins + 0.5 * ties - xw)
+        raw["market"][t] = M[t]
         qbs = [r["qb"] for r in sched if r.get("qb") and "result" in r]
         nxt = next((r for r in sched if r.get("upcoming")), None)
         detail[t] = {
@@ -414,7 +437,7 @@ def build_week(fbs, games, advanced, polls, week, cfg, prior, rgames=None, node_
             "logo": logos[0] if logos else None, "rating": round(R[t], 2), "power_rank": rank[t],
             "ap_rank": ap.get(t), "prior": round(prior.get(t, 0), 1) if prior else None,
             "scores": {f: scores[f][t] for f in scores},
-            "raw": {f: round(raw[f][t], 3) for f in raw},
+            "raw": {f: round(raw[f][t], 3) for f in raw if f not in HIDDEN},  # no market-implied point ratings in public files
             **detail[t],
         })
     low = sorted(((n, r) for n, r in R.items() if is_low(n) and n != FCS), key=lambda x: -x[1])

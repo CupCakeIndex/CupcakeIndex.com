@@ -29,7 +29,7 @@ def game_rows(league, seasons, factors, inverted):
                 if "actual" not in p or not p["actual"] or p["home"] not in s or p["away"] not in s:
                     continue
                 h, a = s[p["home"]], s[p["away"]]
-                val = lambda sc, k: (100 - sc[k]) if k in inverted else sc[k]
+                val = lambda sc, k: (100 - sc.get(k, 50)) if k in inverted else sc.get(k, 50)  # 50 = average, for a factor an older file lacks
                 X.append([val(h, k) - val(a, k) for k in factors])
                 y.append(1.0 if p["actual"] > 0 else 0.0)
     return np.array(X, dtype=float), np.array(y)

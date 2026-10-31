@@ -16,7 +16,9 @@ const Breakdown = (() => {
   // each factor's share of the overall score (0-100): weight share x score (Cupcake counts backwards)
   function parts(t) {
     const total = Object.values(weights).reduce((a, b) => a + b, 0) || 1;
-    return LG.factors.map((f) => {
+    // hidden factors (the betting markets' view) get a plain row only when they're in the blend, so the parts add up
+    const hidden = (LG.hidden || []).filter((k) => weights[k] > 0).map((k) => ({ key: k, label: "Market", help: `Also blended in: ${HIDDEN_NOTE[k] || k}.` }));
+    return [...LG.factors, ...hidden].map((f) => {
       const s = t.scores[f.key] ?? 50, val = f.invert ? 100 - s : s;
       return { f, score: s, w: (weights[f.key] || 0) / total, pts: ((weights[f.key] || 0) / total) * val };
     });
@@ -88,7 +90,7 @@ const Breakdown = (() => {
       <div class="table-wrap"><table class="box bd-tbl"><thead><tr><th>Factor</th><th class="num">Weight</th><th class="num">Score</th><th class="num" title="Rank of ${n} teams">Rank</th><th class="num">Adds</th></tr></thead>
         <tbody>${P.map(row).join("")}</tbody>
         <tfoot><tr><td><b>Overall</b></td><td class="num">100%</td><td></td><td class="num">#${t.rank}</td><td class="num"><b>${P.reduce((a, p) => a + p.pts, 0).toFixed(1)}</b></td></tr></tfoot></table></div>
-      <p class="note">Each factor is scored 0–100 against every ${nfl ? "NFL" : "FBS"} team; “Adds” is its weight times its score (Cupcake counts backwards: less padding adds more). Weights are ${Object.values(weights).join("/") === Object.values(LG.default_weights).join("/") ? "the default ones" : "your own (Rankings > Weights)"}. Hover a factor for what it measures.</p>
+      <p class="note">Each factor is scored 0–100 against every ${nfl ? "NFL" : "FBS"} team; “Adds” is its weight times its score (Cupcake counts backwards: less padding adds more). Weights are ${blendKeys().every((k) => (weights[k] || 0) === (LG.default_weights[k] || 0)) ? "the default ones" : "your own (Rankings > Weights)"}. Hover a factor for what it measures.</p>
       <h3>Next to them</h3>
       ${vs(all[t.rank - 2]) || ""}${vs(all[t.rank])}
       <h3>Rank by week</h3><div class="bd-weeks" id="bd-weeks"><span class="muted">Loading…</span></div>

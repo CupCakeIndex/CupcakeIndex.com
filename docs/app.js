@@ -290,7 +290,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "523"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "524"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });
@@ -580,13 +580,19 @@ function presetTips() {
 }
 
 const sameWeights = (a, b) => LG.factors.every((f) => (a[f.key] || 0) === ((b || {})[f.key] || 0));
+// Every key in the blend: the sliders' factors plus hidden ones (index.json "hidden", src/model.py HIDDEN: the betting
+// markets' view, blended in but never a column or slider; the weights panel says so in one line)
+const blendKeys = (l = league) => [...INDEX.leagues[l].factors.map((f) => f.key), ...(INDEX.leagues[l].hidden || [])];
+const HIDDEN_NOTE = { market: "what the betting markets think of each team" };
+// "blend_" replaced "weights_" on Oct 27 2026 (new default blend): old saved blends start over on the new default
+const WKEY = "blend_";
 
 function loadWeights(l) {
   const lgInfo = INDEX.leagues[l];
-  let saved = store.get("weights_" + l);
+  let saved = store.get(WKEY + l);
   // a saved blend with only one factor on is a leftover column sort (older bug), not a real blend
   if (saved && Object.values(saved).filter((v) => v > 0).length <= 1) saved = null;
-  return Object.fromEntries(lgInfo.factors.map((f) => [f.key, (saved && f.key in saved ? saved : lgInfo.default_weights)[f.key] ?? 0]));
+  return Object.fromEntries(blendKeys(l).map((k) => [k, (saved && k in saved ? saved : lgInfo.default_weights)[k] ?? 0]));
 }
 
 function fillWeeks() {
@@ -773,7 +779,7 @@ function buildSliders() {
   LG.factors.forEach((f) => {
     const el = $("#w-" + f.key);
     el.value = weights[f.key] ?? 0;
-    el.oninput = () => { reverse = false; colSort = null; weights[f.key] = +el.value; store.set("weights_" + league, weights); showWeights(); render(); };
+    el.oninput = () => { reverse = false; colSort = null; weights[f.key] = +el.value; store.set(WKEY + league, weights); showWeights(); render(); };
   });
   showWeights();
 }
@@ -781,8 +787,8 @@ function buildSliders() {
 // save=false for temporary views (column-header sorts) so they never overwrite the user's saved blend
 function setWeights(w, rev = false, save = true) {
   reverse = rev;
-  weights = Object.fromEntries(LG.factors.map((f) => [f.key, (w || {})[f.key] ?? 0]));
-  if (save) store.set("weights_" + league, weights);
+  weights = Object.fromEntries(blendKeys().map((k) => [k, (w || {})[k] ?? 0]));
+  if (save) store.set(WKEY + league, weights);
   LG.factors.forEach((f) => ($("#w-" + f.key).value = weights[f.key]));
   showWeights();
   if (DATA) render();
@@ -811,7 +817,7 @@ function restoreBlend() {
 
 function soloKey() {
   const on = Object.entries(weights).filter(([, w]) => w > 0);
-  return on.length === 1 ? on[0][0] : null;
+  return on.length === 1 && factor(on[0][0]) ? on[0][0] : null; // a hidden factor alone isn't a column sort
 }
 
 function showWeights() {
@@ -825,8 +831,10 @@ function showWeights() {
   document.querySelectorAll("#presets button").forEach((b) => b.classList.toggle("on", sameWeights(weights, P[b.dataset.preset])));
   const active = Object.keys(P).find((k) => sameWeights(weights, P[k]));
   $("#wf-preset").textContent = only ? `${factor(only).label} only` : active || "Custom";
+  const hid = (LG.hidden || []).filter((k) => weights[k] > 0).map((k) => `${HIDDEN_NOTE[k] || k} (${Math.round((100 * weights[k]) / total)}%)`);
   $("#weights-note").textContent = !total ? "All weights are 0. Showing teams ordered by Power rating. Move a slider or click a column header."
-    : only ? `Sorted by ${factor(only).label} only, ${soloDir === "hi" ? "high to low. Click the header again for low to high." : "low to high. Click the header again to go back to your blend."}` : "";
+    : only ? `Sorted by ${factor(only).label} only, ${soloDir === "hi" ? "high to low. Click the header again for low to high." : "low to high. Click the header again to go back to your blend."}`
+    : hid.length ? `Also blended in: ${hid.join(", ")}.` : "";
 }
 
 // Blended score. Inverted factors count as (100 - score). Then head-to-head (h2h): see headToHead.
