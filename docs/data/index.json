@@ -58,27 +58,27 @@
       8
      ],
      "accuracy": {
-      "games": 465,
-      "correct": 349,
-      "mae": 12.1,
+      "games": 476,
+      "correct": 355,
+      "mae": 12.2,
       "vegas_su": {
-       "games": 465,
-       "correct": 364
+       "games": 476,
+       "correct": 372
       },
       "model_su_lined": {
-       "games": 465,
-       "correct": 349
+       "games": 476,
+       "correct": 355
       },
       "ats": {
-       "games": 455,
-       "correct": 237
+       "games": 465,
+       "correct": 242
       },
       "ats_strong": {
-       "games": 255,
-       "correct": 132
+       "games": 259,
+       "correct": 131
       },
       "vegas_mae": 11.2,
-      "score_games": 465,
+      "score_games": 476,
       "score_mae": 8.9
      }
     }
@@ -135,36 +135,36 @@
     "sos": 0,
     "luck": 0
    },
-   "updated": "2026-10-31T15:42+00:00",
+   "updated": "2026-10-31T15:44+00:00",
    "modes": {
     "best": {
-     "power": 10,
-     "resume": 5,
+     "power": 5,
+     "resume": 0,
      "efficiency": 25,
      "sos": 0,
      "recent": 15,
      "cupcake": 5,
      "luck": 0,
-     "market": 40
+     "market": 50
     },
     "deserving": {
      "resume": 60,
      "sos": 25,
      "cupcake": 15
     },
-    "games": 714,
+    "games": 1116,
     "accuracy": {
-     "best": 0.7296918767507002,
-     "deserving": 0.6526610644257703,
-     "old_default": 0.7254901960784313,
-     "power_only": 0.726507713884993
+     "best": 0.7114695340501792,
+     "deserving": 0.6281362007168458,
+     "old_default": 0.7060931899641577,
+     "power_only": 0.7094170403587444
     },
     "out_of_sample": {
-     "trained_on": 2024,
-     "tested_on": 2025,
-     "games": 714,
-     "best": null,
-     "old_default": 0.7254901960784313
+     "trained_on": 2025,
+     "tested_on": 2026,
+     "games": 402,
+     "best": 0.6990049751243781,
+     "old_default": 0.6716417910447762
     }
    },
    "hidden": [
@@ -328,5 +328,5 @@
    }
   }
  },
- "updated": "2026-10-31T15:42+00:00"
+ "updated": "2026-10-31T15:44+00:00"
 }
