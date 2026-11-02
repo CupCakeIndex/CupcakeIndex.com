@@ -28,7 +28,7 @@ const BASE_PRESETS = {
 const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", recent: "FORM", cupcake: "CUP", luck: "UNLK" };
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
 const RANK_VIEWS = new Set(["rankings", "schedules", "resume"]);
-const VIEWS = new Set(["rankings", "recap", "picks", "schedules", "resume", "shame", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "trades", "daily", "hilo", "dynasty", "mock", "fantasy", "news", "takes", "coaches", "coach", "admin", "breakdown", "games", "settings", "privacy"]);
+const VIEWS = new Set(["rankings", "recap", "picks", "schedules", "resume", "shame", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "trades", "daily", "hilo", "parlays", "dynasty", "mock", "fantasy", "news", "takes", "coaches", "coach", "admin", "breakdown", "games", "settings", "privacy"]);
 // The 5 tabs and the pages inside each, shown in a drop-down when you tap the tab (like More). An item is
 // [view, label, params, league]: params pick a page that shares a view (Stats ?show=visualize), league hides it in the
 // other league. "also" = pages with no pill of their own that still light up the tab (a game's box score -> Scores).
@@ -36,7 +36,7 @@ const GROUPS = [
   { tab: "rankings", items: [["rankings", "Rankings"], ["recap", "This Week"], ["resume", "Résumé Check"], ["schedules", "Schedules"], ["shame", "Hall of Shame"], ["coaches", "Coaches"], ["compare", "Compare", null, "cfb"]], also: ["breakdown", "coach"] },
   { tab: "scores", items: [["scores", "Scores"], ["standings", "Standings"], ["standings", "Playoff picture", { show: "playoff" }]], also: ["game"] },
   { tab: "stats", items: [["stats", "Leaders"], ["stats", "Visualize", { show: "visualize" }], ["stats", "Injuries", { show: "injuries" }], ["fantasy", "Fantasy", null, "nfl"], ["stats", "Projected", { show: "projected" }], ["stats", "Frauds", { show: "frauds" }, "nfl"], ["stats", "Records", { show: "records" }, "nfl"]] },
-  { tab: "play", items: [["picks", "Pick'em"], ["daily", "Daily player"], ["hilo", "Higher or Lower"], ["dynasty", "Dynasty Draft"], ["mock", "Mock draft"], ["picks", "Leaderboard", { board: 1 }]], also: ["games"] },
+  { tab: "play", items: [["picks", "Pick'em"], ["parlays", "Picks of the Week", null, "nfl"], ["daily", "Daily player"], ["hilo", "Higher or Lower"], ["dynasty", "Dynasty Draft"], ["mock", "Mock draft"], ["picks", "Leaderboard", { board: 1 }]], also: ["games"] },
   { tab: "news", items: [["news", "Headlines"], ["takes", "Takes"], ["trades", "Trade watch", null, "nfl"], ["freeagents", "Free agents", null, "nfl"], ["trades", "Portal watch", null, "cfb"]] },
 ];
 // the page's pill: same view, and its params match (the plain pill, e.g. Leaders, takes any page no other pill claims)
@@ -192,6 +192,8 @@ async function route() {
     renderNotes();
   } else if (r.view === "daily") {
     Daily.render();
+  } else if (r.view === "parlays") {
+    Parlays.render();
   } else if (r.view === "hilo") {
     Hilo.render();
   } else if (r.view === "dynasty") {
@@ -290,7 +292,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "533"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "534"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });

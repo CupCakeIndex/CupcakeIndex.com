@@ -1,0 +1,38 @@
+name: Picks of the Week
+
+# Rebuilds docs/data/parlays.json (src/picks.py) so tickets follow the news: injuries, trades, QB changes, weather.
+# Every 30 minutes in season, because GitHub skips some scheduled runs. Commits only when a ticket or the news changed.
+
+on:
+  schedule:
+    - cron: "11,41 * * 9-12,1 *"
+  workflow_dispatch:          # "Run workflow" button on GitHub
+
+permissions:
+  contents: write
+
+concurrency:
+  group: parlays
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Build the tickets
+        run: python src/picks.py
+      - name: Publish
+        run: |
+          git config user.name "rankings-bot"
+          git config user.email "rankings-bot@users.noreply.github.com"
+          git add docs/data/parlays.json
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "Picks of the Week $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase
+          git push
