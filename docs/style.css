@@ -4137,3 +4137,43 @@ body.drawer-open .bot-fab { transform: translateX(calc(100% + 40px)); opacity: 0
 .acct-form .acct-btns { margin-top: 4px; }
 .acct-link { background: none; border: 0; padding: 8px 2px; color: var(--muted); font-size: 12px; text-decoration: underline; cursor: pointer; }
 .acct-verify { color: var(--accent); }
+/* Home */
+.hm-h { margin: 6px 0 10px; font-size: 22px; }
+.hm-s { margin: 22px 0 8px; font-size: 14px; }
+.hm-today { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hm-today a { padding: 10px 12px; background: var(--card); border: 1px solid var(--line); color: var(--ink); text-decoration: none; min-width: 0; }
+.hm-today span { display: block; font-size: 11px; color: var(--muted); }
+.hm-today b { font-size: 13px; color: var(--accent); }
+.hm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; align-items: start; }
+.hm-card { position: relative; min-width: 0; padding: 12px 14px; background: var(--card); border: 1px solid var(--line); }
+.hm-load { height: 130px; animation: hm-fade 1.2s ease-in-out infinite alternate; }
+.hm-load.tall { height: 170px; }
+@keyframes hm-fade { from { opacity: .45; } to { opacity: 1; } }
+.hm-top { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; padding-right: 30px; min-height: 44px; }
+.hm-top img { flex: none; object-fit: contain; }
+.hm-top div { min-width: 0; }
+.hm-top b { display: block; font-size: 14px; }
+.hm-top small { display: block; color: var(--muted); font-size: 11px; }
+.hm-face { width: 44px; height: 44px; border-radius: 50%; object-fit: cover !important; object-position: top; background: var(--line); }
+.hm-x { position: absolute; top: 6px; right: 6px; width: 40px; height: 40px; background: none; border: 0; color: var(--accent); font-size: 18px; cursor: pointer; }
+.hm-game { display: grid; grid-template-columns: 44px 1fr auto; gap: 8px; align-items: baseline; padding: 8px 0 0; color: var(--ink); text-decoration: none; font-size: 13px; }
+.hm-game span { font-size: 11px; color: var(--muted); }
+.hm-game span.hm-live, .hm-stat .hm-live { color: var(--accent); font-weight: 800; }
+.hm-game small { color: var(--muted); font-size: 11px; }
+.hm-stat { display: block; margin-top: 8px; color: var(--muted); font-size: 11px; text-decoration: none; }
+.hm-line { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 2px; }
+.hm-line b { color: var(--ink); font-size: 14px; }
+.hm-line b:nth-child(2) { color: var(--accent); }
+.hm-season { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
+.hm-note { margin: 8px 0 0; font-size: 12px; color: var(--accent); }
+.hm-news { display: block; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--ink); font-size: 12px; line-height: 1.4; text-decoration: none; }
+.hm-empty { padding: 14px; border: 1px dashed var(--line); font-size: 13px; color: var(--muted); }
+.hm-empty p { margin: 0 0 8px; }
+.hm-empty p:last-child { margin: 0; }
+.hm-sync { margin-top: 16px; }
+.hm-star.on { color: var(--accent); border-color: var(--accent); }
+.pl-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 440px) { /* phones: every tab fits */
+  #nav .tab { padding-left: 5px; padding-right: 5px; font-size: 12px; letter-spacing: .02em; }
+  #nav .tab .more-car { display: none; }
+}

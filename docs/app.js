@@ -28,11 +28,12 @@ const BASE_PRESETS = {
 const SHORT = { power: "PWR", resume: "RES", efficiency: "EFF", sos: "SOS", recent: "FORM", cupcake: "CUP", luck: "UNLK" };
 const LEAGUE_NAME = { cfb: "CFB", nfl: "NFL" };
 const RANK_VIEWS = new Set(["rankings", "schedules", "resume"]);
-const VIEWS = new Set(["rankings", "recap", "picks", "schedules", "resume", "shame", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "trades", "daily", "hilo", "parlays", "dynasty", "mock", "fantasy", "news", "takes", "coaches", "coach", "admin", "breakdown", "games", "settings", "privacy"]);
+const VIEWS = new Set(["home", "rankings", "recap", "picks", "schedules", "resume", "shame", "compare", "about", "updates", "scores", "stats", "standings", "game", "player", "team", "freeagents", "trades", "daily", "hilo", "parlays", "dynasty", "mock", "fantasy", "news", "takes", "coaches", "coach", "admin", "breakdown", "games", "settings", "privacy"]);
 // The 5 tabs and the pages inside each, shown in a drop-down when you tap the tab (like More). An item is
 // [view, label, params, league]: params pick a page that shares a view (Stats ?show=visualize), league hides it in the
 // other league. "also" = pages with no pill of their own that still light up the tab (a game's box score -> Scores).
 const GROUPS = [
+  { tab: "home", items: [["home", "Home"]] },
   { tab: "rankings", items: [["rankings", "Rankings"], ["recap", "This Week"], ["resume", "Résumé Check"], ["schedules", "Schedules"], ["shame", "Hall of Shame"], ["coaches", "Coaches"], ["compare", "Compare", null, "cfb"]], also: ["breakdown", "coach"] },
   { tab: "scores", items: [["scores", "Scores"], ["standings", "Standings"], ["standings", "Playoff picture", { show: "playoff" }]], also: ["game"] },
   { tab: "stats", items: [["stats", "Leaders"], ["stats", "Visualize", { show: "visualize" }], ["stats", "Injuries", { show: "injuries" }], ["fantasy", "Fantasy", null, "nfl"], ["stats", "Projected", { show: "projected" }], ["stats", "Frauds", { show: "frauds" }, "nfl"], ["stats", "Records", { show: "records" }, "nfl"]] },
@@ -119,6 +120,7 @@ async function getJSON(url) {
 // ------------------------------------------------------------------ routing
 function parseHash() {
   const h = location.hash.slice(1);
+  if (!h && typeof Home !== "undefined" && Home.hasAny()) return { view: "home", arg: null, params: new URLSearchParams() }; // opening the site: your page, once you have teams or stars
   if (!h.startsWith("/")) return { view: "rankings", arg: null, params: new URLSearchParams(h) }; // old #league=..&team=.. links
   const [path, qs] = h.slice(1).split("?");
   const [view, arg] = path.split("/");
@@ -192,6 +194,8 @@ async function route() {
     renderNotes();
   } else if (r.view === "daily") {
     Daily.render();
+  } else if (r.view === "home") {
+    Home.render();
   } else if (r.view === "parlays") {
     Parlays.render();
   } else if (r.view === "hilo") {
@@ -292,7 +296,7 @@ function renderGames() {
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
   if (e.data?.type === "open" && e.data.url) { const h = new URL(e.data.url, location.href).hash; if (h && h !== location.hash) location.hash = h; else route(); }
 });
-const SITE_VERSION = "538"; // keep in sync with docs/version.txt and the ?v= in index.html
+const SITE_VERSION = "539"; // keep in sync with docs/version.txt and the ?v= in index.html
 async function checkVersion() {
   try {
     const r = await fetch("version.txt", { cache: "no-store" });

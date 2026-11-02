@@ -132,6 +132,11 @@ const News = (() => {
       <p class="note">Links go to the publisher.</p></div>`;
   }
   // how many headlines mention a team (0 if none), for the team page hub's News button
+  // the newest headlines for a team, for the Home page: [{ title, url }]
+  async function latest(lg, id, n) {
+    try { await load(); } catch { return []; }
+    return D.items.filter((it) => it.teams?.includes(`${lg}:${id}`)).slice(0, n).map((it) => ({ title: it.title, url: it.url }));
+  }
   async function countFor(lg, id) {
     try { await load(); } catch { return 0; }
     return D.items.filter((it) => it.teams?.includes(`${lg}:${id}`)).length;
@@ -139,5 +144,5 @@ const News = (() => {
   // "more ›" on a team page (and its hub's News link) opens the News tab filtered to that team
   document.addEventListener("click", (e) => { const a = e.target.closest(".nw-team [data-q], .th-links [data-q]"); if (a) { st.q = (a.dataset.nwteam && D?.teams?.[a.dataset.nwteam]?.name) || a.dataset.q; st.source = ""; st.shown = PAGE; } });
 
-  return { render, forTeam, countFor };
+  return { render, forTeam, countFor, latest };
 })();

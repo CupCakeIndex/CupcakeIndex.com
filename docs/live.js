@@ -4383,7 +4383,7 @@ const Live = (() => {
           ${nick.length ? `<p class="pl-nick">${nick.map((n) => `“${esc(n)}”`).join(" · ")}</p>` : ""}
           <p>${a.team ? `<a href="${link("team", a.team.id)}"><span class="tm">${img(a.team.logos?.[0]?.href || a.team.logo, "xs")} ${esc(a.team.displayName)}</span></a>` : ""}
             ${injInfo(inj) ? ` <span class="inj-line">${injTag(inj, a.id, fa ? "" : a.team?.id)} ${esc(injInfo(inj).tip)}</span>` : ""}</p>
-          <p class="pl-acts"><a class="btn" href="${link("stats", null, { show: "visualize", him: a.id })}">📈 Chart him</a></p>
+          <p class="pl-acts">${typeof Home !== "undefined" ? Home.button(lg, id, a.displayName) : ""}<a class="btn" href="${link("stats", null, { show: "visualize", him: a.id })}">📈 Chart him</a></p>
         </div>
       </div>
       <div id="pl-live"></div>
@@ -5982,6 +5982,62 @@ const Live = (() => {
     try { return fieldView(s, comp, home, away, { home: teamColor(home.team), away: teamColor(away.team) }, gameId, people, final ? topPlays(s) : null); }
     finally { league = keep; }
   }
-  return { stop, teamId, scores, game, stats, player, standings, team, freeagents, trades, searchPlayers, career, fillBugs, kit, simField, statsSubtabs: (on) => stSubStats(on),
+  // ---------------------------------------------------------------- Home page (home.js)
+  const HOME_KEY = { QB: ["passingYards", "pass yds"], RB: ["rushingYards", "rush yds"], FB: ["rushingYards", "rush yds"], WR: ["receivingYards", "rec yds"], TE: ["receivingYards", "rec yds"],
+    K: ["totalPoints", "pts"], PK: ["totalPoints", "pts"], P: ["punts", "punts"] };
+  // one game's stat groups (ESPN's gameLog) as a short line: 16/29, 217 YDS, 1 TD
+  function homeLine(G, eid, pos) {
+    const pick = (name) => { const g = G.statistics.find((x) => x.displayName === name), e = g?.events?.find((x) => x.eventId === eid); return g && e ? Object.fromEntries(g.labels.map((l, i) => [l, e.stats[i]])) : null; };
+    const p = pick("Passing"), r = pick("Rushing"), c = pick("Receiving"), used = (o, k) => o && parseFloat(o[k]) > 0, out = [];
+    if (used(p, "ATT")) out.push(`${p.CMP}/${p.ATT}`, `${p.YDS} YDS`, `${p.TD} TD`, `${p.INT} INT`);
+    const rush = () => { if (used(r, "CAR")) out.push(`${r.CAR} CAR`, `${r.YDS} YDS`, `${r.TD} TD`); }, rec = () => { if (used(c, "REC") || used(c, "TGTS")) out.push(`${c.REC} REC`, `${c.YDS} YDS`, `${c.TD} TD`); };
+    if (["WR", "TE"].includes(pos)) { rec(); if (!out.length) rush(); } else if (!used(p, "ATT")) { rush(); if (!out.length) rec(); } else if (used(r, "CAR")) out.push(`${r.CAR}-${r.YDS} RUSH`);
+    if (out.length) return out;
+    const g = G.statistics.find((x) => !["Fumbles"].includes(x.displayName)), e = g?.events?.find((x) => x.eventId === eid);
+    return g && e ? g.labels.slice(0, 4).map((l, i) => `${e.stats[i]} ${l}`) : [];
+  }
+  async function homePlayer(lg, id) {
+    const [bio, ov] = await Promise.all([api(`${WEB(lg)}/athletes/${encodeURIComponent(id)}`, 300000), api(`${WEB(lg)}/athletes/${encodeURIComponent(id)}/overview`, 120000)]);
+    const a = fixPos(bio.athlete), pos = a.position?.abbreviation || "", S = ov.statistics, G = ov.gameLog;
+    const eid = G?.statistics?.[0]?.events?.[0]?.eventId, ev = eid && G.events?.[eid];
+    const key = HOME_KEY[pos] || ["totalTackles", "tackles"], at = S?.names?.indexOf(key[0]) ?? -1;
+    const row = (n) => S?.splits?.find((x) => x.displayName === n)?.stats?.[at];
+    const inj = injInfo(a.injuries?.[0]);
+    const out = { name: a.displayName, pos, team: a.team?.abbreviation || "", logo: a.team?.logos?.[0]?.href || a.team?.logo || "", head: a.headshot?.href || "",
+      inj: inj ? inj.tip : "", season: at >= 0 && row("Regular Season") ? { value: row("Regular Season"), label: key[1], pace: row("Projected") ? `${row("Projected")}` : "" } : null,
+      last: ev ? { res: ev.gameResult || "", score: ev.score || "", atVs: ev.atVs || "", opp: ev.opponent?.abbreviation || "", line: homeLine(G, eid, pos) } : null,
+      news: ov.news?.[0]?.links?.web?.href ? { title: ov.news[0].headline, url: ov.news[0].links.web.href } : null, live: null };
+    if (a.team?.id) { // his game right now, from the same feeds as the live panel on his page
+      const sb = await api(lg === "nfl" ? `${SITE(lg)}/scoreboard` : `${SITE(lg)}/scoreboard?groups=80&limit=300`, 20000).catch(() => null);
+      const e = sb?.events?.find((x) => x.competitions?.[0]?.competitors?.some((t) => String(t.team?.id) === String(a.team.id)));
+      if (e?.competitions[0].status.type.state === "in") {
+        const s = await api(`${SITE(lg)}/summary?event=${encodeURIComponent(e.id)}`, 20000).catch(() => null), L = s && liveLine(liveBox(s, a.team.id, a.id), pos);
+        out.live = { clock: liveClock(e.competitions[0].status), main: L ? L.main.map((m) => m.text) : [] };
+      }
+    }
+    return out;
+  }
+  async function homeTeam(lg, id) {
+    const [sc, ranks] = await Promise.all([api(`${SITE(lg)}/teams/${encodeURIComponent(id)}/schedule`, 60000), modelRanks(lg).catch(() => null)]);
+    const t = sc.team || {}, ev = sc.events || [], state = (e) => e.competitions?.[0]?.status?.type?.state;
+    const sides = (e) => { const c = e.competitions[0], me = c.competitors.find((x) => String(x.team?.id) === String(id)), op = c.competitors.find((x) => x !== me); return { c, me, op, home: me?.homeAway === "home" }; };
+    const pts = (x) => String(x?.score?.displayValue ?? x?.score ?? "0");
+    const ne = ev.find((e) => state(e) === "in") || ev.find((e) => state(e) === "pre");
+    let next = null;
+    if (ne) {
+      const { c, me, op, home } = sides(ne);
+      next = { id: ne.id, date: ne.date, home, opp: op?.team?.abbreviation || "", live: state(ne) === "in" ? { my: pts(me), their: pts(op), clock: liveClock(c.status) } : null };
+    }
+    const done = ev.filter((e) => state(e) === "post").pop();
+    let last = null;
+    if (done) {
+      const { me, op, home } = sides(done), a = parseFloat(pts(me)), b = parseFloat(pts(op));
+      last = { id: done.id, res: a > b ? "W" : a < b ? "L" : "T", my: pts(me), their: pts(op), home, opp: op?.team?.abbreviation || "" };
+    }
+    return { name: t.displayName || "", nick: t.name || String(t.displayName || "").split(" ").pop(), abbr: t.abbreviation || "", logo: t.logo || "", record: t.recordSummary || "", standing: t.standingSummary || "",
+      rank: (ranks?.byId?.get(String(id)) || ranks?.byName?.get(t.abbreviation) || ranks?.byName?.get(t.displayName))?.rank || 0, next, last };
+  }
+
+  return { stop, teamId, scores, game, stats, player, standings, team, freeagents, trades, searchPlayers, career, fillBugs, kit, simField, homePlayer, homeTeam, statsSubtabs: (on) => stSubStats(on),
     ps: { palette: psPalette, tier: psTier, rank: psRank, bestWorst: psBestWorst } }; // the Season stats look, for Visualize's "Every stat on" panel
 })();
