@@ -4191,6 +4191,15 @@ const Live = (() => {
       const fix = { yardsPerReception: per("receivingYards", "receptions"), yardsPerRushAttempt: per("rushingYards", "rushingAttempts"),
         completionPct: L.sum.passingAttempts ? (100 * L.sum.completions) / L.sum.passingAttempts : null };
       if (caughtUp) sumStats = sumStats.map((x) => (fix[x.name] != null ? { ...x, displayValue: fix[x.name].toFixed(1), rankDisplayValue: "" } : x));
+      // ESPN's summary only has his main job's stats, so add his second one from the log (Terry: Daniels needs his rushing).
+      // QBs show rushing and RBs receiving; WRs and TEs show rushing once it's real (100+ yards). No rank: ESPN doesn't give one here.
+      const pos = a.position?.abbreviation || "";
+      for (const [kind, yds, tds, min] of [["Rushing", "rushingYards", "rushingTouchdowns", pos === "QB" ? 1 : /^(WR|TE)$/.test(pos) ? 100 : Infinity],
+        ["Receiving", "receivingYards", "receivingTouchdowns", pos === "RB" ? 1 : Infinity]]) {
+        if (!(L.sum[yds] >= min) || sumStats.some((x) => x.name === yds)) continue;
+        sumStats = [...sumStats, { name: yds, displayName: `${kind} Yards`, displayValue: L.sum[yds].toLocaleString() },
+          { name: tds, displayName: `${kind} Touchdowns`, displayValue: String(L.sum[tds] || 0) }];
+      }
     }
     const summary = sumStats.map((x) => `<div class="stat"><small>${esc(x.displayName)}</small><b>${esc(x.displayValue)}</b>${x.rankDisplayValue ? `<small class="muted">${esc(x.rankDisplayValue)}</small>` : ""}</div>`).join("");
 
