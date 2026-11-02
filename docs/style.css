@@ -4033,3 +4033,24 @@ body.drawer-open .bot-fab { transform: translateX(calc(100% + 40px)); opacity: 0
 /* the extremes stand out in every theme and mode: top 10% and bottom 20% tags are filled in */
 .ps-row.t5 .ps-track em::before, .ps-row.t1 .ps-track em::before { background: var(--tc); }
 .ps-row.t5 .ps-track em, .ps-row.t1 .ps-track em { color: var(--card); }
+
+/* player page: live game panel */
+.pl-lv { display: block; margin: 12px 0; color: var(--ink); text-decoration: none; border: 1px solid var(--accent); background: linear-gradient(100deg, color-mix(in srgb, var(--accent) 16%, var(--card)), var(--card) 60%); box-shadow: 0 0 30px color-mix(in srgb, var(--accent) 32%, transparent); }
+.pl-lv:hover { text-decoration: none; }
+.pl-lv-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 16px; background: var(--accent); color: var(--on-accent, #000); font-weight: 800; }
+.pl-lv-bar i { width: 9px; height: 9px; border-radius: 50%; background: currentColor; animation: pl-lv-pulse 1.6s ease-in-out infinite; }
+.pl-lv-bar span { margin-left: auto; }
+@keyframes pl-lv-pulse { 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .pl-lv-bar i { animation: none; } }
+.pl-lv-line { padding: 16px 16px 12px; white-space: nowrap; font-weight: 800; line-height: 1.15; letter-spacing: -.02em; font-size: min(40px, calc((100vw - 76px) / (var(--n) * .6))); }
+.pl-lv-line em { font-style: normal; color: var(--accent); text-shadow: 0 0 16px color-mix(in srgb, var(--accent) 55%, transparent); }
+.pl-lv-line i { font-style: normal; color: var(--muted); opacity: .6; }
+.pl-lv-row { display: flex; flex-wrap: wrap; border-top: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line)); }
+.pl-lv-row span { padding: 9px 16px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; border-right: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line)); }
+.pl-lv-row b { margin-left: 6px; color: var(--ink); font-size: 14px; text-transform: none; }
+.pl-lv-last { padding: 9px 16px; font-size: 12px; color: var(--muted); border-top: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line)); }
+.pl-lv-last b { color: var(--ink); font-weight: 500; }
+.pl-lvf { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 12px 0; padding: 12px 16px; color: var(--ink); text-decoration: none; background: var(--card); border: 1px solid var(--line); }
+.pl-lvf:hover { text-decoration: none; border-color: var(--accent); }
+.pl-lvf-k { color: var(--muted); font-weight: 800; letter-spacing: .1em; }
+.pl-lvf b { font-size: 17px; }

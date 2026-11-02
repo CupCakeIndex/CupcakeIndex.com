@@ -4131,6 +4131,92 @@ const Live = (() => {
       <button type="button" class="gl-reset" data-glreset="${esc(g.name)}">Reset</button>`;
   }
 
+  // ---------------------------------------------------------------- player: live game panel
+  // Glow panel above the tabs while his team plays and he has stats (ESPN's scoreboard + box score, every 30 seconds), then a
+  // small FINAL line until ESPN's scoreboard moves on to the next week. No stats yet (or he isn't playing): nothing shows.
+  function liveBox(s, teamId, id) {
+    const tp = (s?.boxscore?.players || []).find((t) => String(t.team?.id) === String(teamId)), box = {};
+    for (const c of tp?.statistics || []) {
+      const x = c.athletes?.find((q) => String(q.athlete?.id) === String(id));
+      if (x?.stats?.length) box[c.name] = Object.fromEntries((c.labels || []).map((l, i) => [l, x.stats[i]]));
+    }
+    return box;
+  }
+  // [{ text, hot }] for the big line and [[label, value]] for the row under it, by what he actually did today
+  function liveLine(b, pos) {
+    const n = (v) => parseFloat(v) || 0, p = b.passing, r = b.rushing, c = b.receiving, d = b.defensive, ic = b.interceptions, k = b.kicking, u = b.punting;
+    const att = p ? n(String(p["C/ATT"]).split("/")[1]) : 0, ints = n(ic?.INT);
+    const used = { pass: att > 0, rush: n(r?.CAR) > 0, rec: n(c?.REC) + n(c?.TGTS) > 0, def: !!ic || (d && Object.values(d).some((v) => n(v) > 0)), kick: !!k, punt: !!u };
+    const pref = { QB: ["pass", "rush"], RB: ["rush", "rec"], FB: ["rush", "rec"], WR: ["rec", "rush"], TE: ["rec", "rush"], K: ["kick"], PK: ["kick"], P: ["punt"] }[pos] || ["def"];
+    const role = [...pref, "pass", "rush", "rec", "def", "kick", "punt"].find((x) => used[x]);
+    if (!role) return null;
+    const m = (text, hot) => ({ text, hot: !!hot }), more = [], add = (l, v) => more.push([l, v]);
+    let main;
+    if (role === "pass") main = [m(p["C/ATT"]), m(`${p.YDS} YDS`, 1), m(`${p.TD} TD`), m(`${p.INT} INT`)];
+    if (role === "rush") main = [m(`${r.CAR} CAR`), m(`${r.YDS} YDS`, 1), m(`${r.TD} TD`)];
+    if (role === "rec") main = [m(`${c.REC} REC`), m(`${c.YDS} YDS`, 1), m(`${c.TD} TD`)];
+    if (role === "def") {
+      const sk = n(d?.SACKS);
+      main = [m(`${d?.TOT ?? 0} TKL`, !ints && !sk), m(`${d?.SACKS ?? 0} SACK${sk === 1 ? "" : "S"}`, !ints && sk), m(`${ints} INT`, ints)];
+    }
+    if (role === "kick") main = [m(`FG ${k.FG}`, 1), m(`XP ${k.XP}`), m(`${k.PTS} PTS`)];
+    if (role === "punt") main = [m(`${u.NO} PUNTS`), m(`${u.AVG} AVG`, 1), m(`LONG ${u.LONG}`)];
+    if (role === "pass") { add("Sacked", String(p.SACKS || "0").split("-")[0]); add("Rating", p.RTG); }
+    if (role === "rush") add("Long", r.LONG);
+    if (role === "rec") { add("Targets", c.TGTS); add("Long", c.LONG); }
+    if (role === "def") { add("Solo", d?.SOLO ?? 0); add("TFL", d?.TFL ?? 0); add("QB hits", d?.["QB HTS"] ?? 0); add("Pass defl", d?.PD ?? 0); if (n(d?.TD)) add("TD", d.TD); }
+    if (role === "kick") add("Long", k.LONG);
+    if (role === "punt") add("Inside 20", u["In 20"]);
+    if (role !== "rush" && used.rush) { add("Rush", `${r.CAR}-${r.YDS}`); if (n(r.TD)) add("Rush TD", r.TD); }
+    if (role !== "rec" && used.rec) { add("Rec", `${c.REC}-${c.YDS}`); if (n(c.TD)) add("Rec TD", c.TD); }
+    if (role !== "pass" && used.pass) add("Pass", `${p["C/ATT"]}, ${p.YDS} yds`);
+    if (n(b.kickReturns?.NO)) add("Kick ret yds", b.kickReturns.YDS);
+    if (n(b.puntReturns?.NO)) add("Punt ret yds", b.puntReturns.YDS);
+    if (n(b.fumbles?.LOST)) add("Fum lost", b.fumbles.LOST);
+    return { main, more };
+  }
+  const liveClock = (st) => (/HALFTIME/.test(st.type?.name || "") ? "HALFTIME"
+    : st.displayClock && st.period ? `${st.period > 4 ? "OT" : `Q${st.period}`} ${st.displayClock}` : String(st.type?.shortDetail || "").toUpperCase());
+  function liveHtml(e, s, teamId, L) {
+    const c = e.competitions[0], me = c.competitors.find((x) => String(x.team?.id) === String(teamId)), op = c.competitors.find((x) => x !== me);
+    const mine = `${me.team.abbreviation} ${me.score}`, theirs = `${op.team.abbreviation} ${op.score}`, href = link("game", e.id);
+    const big = L.main.map((x) => (x.hot ? `<em>${esc(x.text)}</em>` : esc(x.text))).join(` <i>·</i> `);
+    if (c.status.type.state !== "in") {
+      const res = +me.score > +op.score ? "W" : +me.score < +op.score ? "L" : "T", hi = Math.max(+me.score, +op.score), lo = Math.min(+me.score, +op.score);
+      return `<a class="pl-lvf" href="${href}"><span class="pl-lvf-k">FINAL</span><b>${L.main.map((x) => esc(x.text)).join(" · ")}</b><small class="muted">${res} ${hi}-${lo} ${me.homeAway === "home" ? "vs" : "at"} ${esc(op.team.abbreviation)}</small></a>`;
+    }
+    const lastPlay = s?.drives?.current?.plays?.at(-1)?.text || s?.drives?.previous?.at(-1)?.plays?.at(-1)?.text;
+    const chars = L.main.reduce((a, x) => a + x.text.length + 3, -3);
+    return `<a class="pl-lv" href="${href}"><div class="pl-lv-bar"><i></i>LIVE · ${esc(liveClock(c.status))}<span>${esc(mine)} · ${esc(theirs)}</span></div>
+      <div class="pl-lv-line" style="--n:${chars}">${big}</div>
+      ${L.more.length ? `<div class="pl-lv-row">${L.more.map(([l, v]) => `<span>${esc(l)}<b>${esc(v)}</b></span>`).join("")}</div>` : ""}
+      ${lastPlay ? `<div class="pl-lv-last">Last play: <b>${esc(lastPlay)}</b></div>` : ""}</a>`;
+  }
+  let liveTimer = null;
+  function liveInto(lg, a, slot, my) {
+    clearInterval(liveTimer);
+    const teamId = a.team?.id;
+    if (!slot || !teamId) return;
+    const url = lg === "nfl" ? `${SITE(lg)}/scoreboard` : `${SITE(lg)}/scoreboard?groups=80&limit=300`;
+    const tick = async () => {
+      if (my !== token || !slot.isConnected) return clearInterval(liveTimer);
+      const sb = await api(url, 20000).catch(() => null);
+      const e = sb?.events?.find((x) => x.competitions?.[0]?.competitors?.some((t) => String(t.team?.id) === String(teamId)));
+      const state = e?.competitions[0].status.type.state;
+      if (!e || state === "pre") { // not started: keep watching only in the last hour before kickoff
+        if (!e || Date.parse(e.date) - Date.now() > 3600000) clearInterval(liveTimer);
+        return;
+      }
+      if (state !== "in") clearInterval(liveTimer);
+      const s = await api(`${SITE(lg)}/summary?event=${encodeURIComponent(e.id)}`, state === "in" ? 20000 : 600000).catch(() => null);
+      if (!s || my !== token || !slot.isConnected) return;
+      const L = liveLine(liveBox(s, teamId, a.id), a.position?.abbreviation || "");
+      slot.innerHTML = L ? liveHtml(e, s, teamId, L) : "";
+    };
+    liveTimer = setInterval(() => tick().catch(() => {}), 30000);
+    tick().catch(() => {});
+  }
+
   // ESPN's stat names on the overview tiles -> our Visualize stats
   const OUR_STAT = { passingYards: "pass_yds", passingTouchdowns: "pass_td", interceptions: "int", rushingAttempts: "carries", rushingYards: "rush_yds", rushingTouchdowns: "rush_td",
     receptions: "rec", receivingYards: "rec_yds", receivingTouchdowns: "rec_td", totalTackles: "tackles", sacks: "def_sacks" };
@@ -4270,6 +4356,7 @@ const Live = (() => {
           <p class="pl-acts"><a class="btn" href="${link("stats", null, { show: "visualize", him: a.id })}">📈 Chart him</a></p>
         </div>
       </div>
+      <div id="pl-live"></div>
       <div class="subtabs pl-tabs">${[["", "Overview", summary || injInfo(inj)], ["career", "Career", true], ["log", "Game log", !noLogs], ["charts", hasPc ? "Charts" : "Kick chart", hasCharts],
         ["takes", `Takes <small>${nTakes}</small>`, nTakes]].filter((t) => t[2]).map(([k, label]) => {
         const keep = Object.fromEntries(["season", "cseason"].map((x) => [x, params.get(x)]).filter((x) => x[1]));
@@ -4317,6 +4404,7 @@ const Live = (() => {
       const me = cs?.[0], n = me?.seasons.length;
       if (n && my === token && $("#pl-exp")) $("#pl-exp").textContent = ` · ${n} ${me.lvl === "NFL" ? "NFL" : "college"} season${n > 1 ? "s" : ""} (${me.seasons[0]}${n > 1 ? "–" + me.seasons[n - 1] : ""})`;
     }).catch(() => {});
+    liveInto(lg, a, $("#pl-live"), my);
     if (ptab === "") {
       if (my === token) outlookInto(lg, id, $("#ol-slot"), season ? null : gl).catch(() => {});
       if (!season) seasonStatsInto(lg, a, gl, $("#ps-slot")).catch(() => {});
