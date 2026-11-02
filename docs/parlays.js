@@ -29,7 +29,42 @@ const Parlays = (() => {
 
   const ticket = (t, i) => `<article class="plt-card" style="animation-delay:${i * .09}s,${i * .09 + .5}s"><div class="plt-t"><div class="plt-top"><div class="plt-p" data-p="${t.pays}">~0.0x</div>
     <div class="plt-win">$10 nets about $${Math.round(t.pays * 10)}${t.night ? " · night games" : ""}</div><div class="plt-ch"><b>${Math.round(t.chance * 100)}%</b>chance</div></div>
-    <div class="plt-perf"></div>${t.legs.map((l, j) => leg(l, .2 + i * .09 + j * .07)).join("")}</div></article>`;
+    <div class="plt-perf"></div>${t.legs.map((l, j) => leg(l, .2 + i * .09 + j * .07)).join("")}<button class="plt-share" data-share="${i}">Share ticket</button></div></article>`;
+
+  // A picture of one ticket for Share: the share sheet on phones, a download on computers (Share.download).
+  async function image(t, name) {
+    const pics = new Map(t.legs.map((l, k) => [k, l.id ? `https://a.espncdn.com/i/headshots/nfl/players/full/${l.id}.png` : logo(l.team)]));
+    const blob = await Share.png({
+      title: `PICKS OF THE WEEK · NFL WEEK ${D.week}`,
+      sub: `${name} ticket, ${t.legs.length} legs${t.night ? ", night games" : ""}`,
+      logoUrls: pics,
+      paint: ({ x, text, F, C, logos }) => {
+        text(`~${t.pays.toFixed(1)}x`, 48, 310, F(700, 112), C.accent, "left", 480);
+        text(`$10 nets about $${Math.round(t.pays * 10)}`, 48, 366, F(400, 28), C.ink, "left", 480);
+        text(`${Math.round(t.chance * 100)}% chance`, 48, 412, F(700, 28), C.ink, "left", 480);
+        text("For fun, not betting advice.", 48, 790, F(400, 18), C.muted);
+        text("Pays are estimates. 21+.", 48, 816, F(400, 18), C.muted);
+        const rowH = Math.min(136, 650 / t.legs.length), left = 560, right = 1552;
+        t.legs.forEach((l, k) => {
+          const y = 150 + (650 - rowH * t.legs.length) / 2 + k * rowH, pic = logos.get(k), r = 44, cy = y + rowH / 2 - 6;
+          if (pic) {
+            x.save(); x.beginPath(); x.arc(left + r, cy, r, 0, Math.PI * 2); x.clip();
+            x.fillStyle = C.line; x.fillRect(left, cy - r, r * 2, r * 2);
+            const w = (r * 2) * (pic.width / pic.height); // fill the circle top to bottom, centered
+            x.drawImage(pic, left + r - w / 2, cy - r, w, r * 2);
+            x.restore();
+          }
+          const tx = left + 112, pct = Math.round(l.p * 100), note = (l.notes || []).join(" · ");
+          text(`${l.name} ${l.line}+ ${STAT[l.kind]}`, tx, cy - 16, F(700, 28), C.ink, "left", right - tx - 110);
+          text(`${l.away ? "at" : "vs"} ${l.opp} · ${l.day} · ${l.cleared} of last 5 · ${TIER[l.tier]} D`, tx, cy + 14, F(400, 19), C.muted, "left", right - tx - 110);
+          if (note) text(note, tx, cy + 40, F(400, 18), C.accent, "left", right - tx - 110);
+          text(`${pct}%`, right, cy + 8, F(700, 32), C.ink, "right");
+          if (k < t.legs.length - 1) { x.fillStyle = C.line; x.fillRect(left, y + rowH - 3, right - left, 1); }
+        });
+      },
+    });
+    return { blob, name: `cupcake-index-picks-week-${D.week}.png` };
+  }
 
   function draw(i) {
     const box = $("#view-parlays"), v = LV[i], b = D.backtest[v];
@@ -43,6 +78,16 @@ const Parlays = (() => {
     dots.innerHTML = T.length > 1 ? T.map((_, k) => `<i class="${k ? "" : "on"}"></i>`).join("") : "";
     rail.querySelectorAll(".plt-p").forEach((e) => roll(e, +e.dataset.p));
     requestAnimationFrame(() => requestAnimationFrame(() => rail.querySelectorAll("[data-w]").forEach((e) => { e.style.width = `${e.dataset.w}%`; })));
+    rail.onclick = async (e) => {
+      const b = e.target.closest("[data-share]");
+      if (!b) return;
+      b.textContent = "Drawing...";
+      try {
+        const { blob, name } = await image(T[+b.dataset.share], NAMES[i]);
+        await Share.download(blob, name);
+        b.textContent = "Share ticket";
+      } catch { b.textContent = "Couldn't draw it"; setTimeout(() => { b.textContent = "Share ticket"; }, 2000); }
+    };
     rail.onscroll = () => {
       const c = rail.querySelector(".plt-card");
       if (!c) return;
