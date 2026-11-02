@@ -50,7 +50,8 @@ const Live = (() => {
   const face = (src, name, cls, wiki = false, born = "") => safeUrl(src) ? img(src, cls)
     : `<span class="logo-ph ph-face ${cls}"${wiki ? ` data-wiki="${esc(name)}" data-born="${esc(born)}"` : ""} role="img" aria-label="${esc(name)}">${esc(initials(name))}</span>`;
   const wikiPics = new Map();
-  function wikiPhoto(name, born) {
+  const wikiPhoto = async (name, born) => safeUrl((await wikiSummary(name, born))?.thumbnail?.source) || null;
+  function wikiSummary(name, born) {
     if (!wikiPics.has(name)) wikiPics.set(name, (async () => {
       for (const title of [`${name} (American football)`, name]) {
         try {
@@ -61,7 +62,7 @@ const Live = (() => {
           if (d.type !== "standard" || !/american football|gridiron|\bNFL\b/i.test(desc)) continue;
           const b = desc.match(/born (\d{4})/)?.[1];
           if (born && b && b !== String(born)) continue;
-          return safeUrl(d.thumbnail?.source) || null;
+          return d;
         } catch { /* try the next title */ }
       }
       return null;
@@ -3306,7 +3307,7 @@ const Live = (() => {
 
   // Player page: one compact "outlook" card, small sub-tabs for this week's projection and the season pace.
   // Each pane: { k, tab, cells: [[label, value, "so far" line?]], note }
-  const PACE_MAIN = { QB: ["3", "4", "20", "24"], RB: ["24", "25", "42"], WR: ["42", "53", "43"], TE: ["42", "53", "43"], K: ["83", "84", "86"] };
+  const PACE_MAIN = { QB: ["3", "4", "20", "24", "25"], RB: ["24", "25", "42"], WR: ["42", "53", "43"], TE: ["42", "53", "43"], K: ["83", "84", "86"] };
   // On game day ESPN's season summary (and our weekly pace/projection files) can be a game behind its game log,
   // which updates as soon as a game ends. So season totals get added up from the log when it has more games.
   const RATE = /pct|per|long|qbr|rating|avg/i;
@@ -4217,6 +4218,32 @@ const Live = (() => {
     tick().catch(() => {});
   }
 
+  // Bio card on a player's Overview: a blurb and the basics. The blurb is the lead of his Wikipedia article (same match as his
+  // photo: an American football article, same birth year); until then, or without one, a plain sentence from ESPN's facts.
+  const draftBits = (a) => /^(\d{4}): Rd (\d+), Pk (\d+)(?: \((\w+)\))?/.exec(a.displayDraft || "");
+  function bioBlurb(a, onTeam) {
+    const pos = (a.position?.displayName || "football player").toLowerCase(), d = draftBits(a), college = a.college?.name || a.collegeTeam?.displayName;
+    return [`${a.displayName} is ${/^[aeiou]/.test(pos) ? "an" : "a"} ${pos}${onTeam && a.team?.displayName ? ` for the ${a.team.displayName}` : ""}.`,
+      d ? `He was drafted in round ${d[2]}, No. ${d[3]} overall, in ${d[1]}${d[4] ? ` by ${d[4]}` : ""}.` : "",
+      college ? `He played college football at ${college}.` : "", a.displayBirthPlace ? `He's from ${a.displayBirthPlace}.` : ""].filter(Boolean).join(" ");
+  }
+  function bioCard(a, onTeam, exp) {
+    const d = draftBits(a), rows = [["Position", a.position?.displayName], ["Number", a.displayJersey], ["Size", [a.displayHeight, a.displayWeight].filter(Boolean).join(", ")], ["Age", a.age],
+      ["Drafted", d ? `${d[1]}, Rd ${d[2]}, Pick ${d[3]}${d[4] ? ` (${d[4]})` : ""}` : a.displayDraft], ["College", a.college?.name || a.collegeTeam?.displayName], ["Hometown", a.displayBirthPlace]].filter(([, v]) => v);
+    return `<div class="card pl-bio"><h3>Bio</h3><p id="pl-blurb">${esc(bioBlurb(a, onTeam))}</p><p class="note muted hidden" id="pl-blurb-src"></p>
+      <dl>${rows.map(([l, v]) => `<div><dt>${esc(l)}</dt><dd>${esc(v)}</dd></div>`).join("")}<div${exp ? "" : ' class="hidden"'} id="pl-exp-row"><dt>Experience</dt><dd id="pl-exp">${esc(exp)}</dd></div></dl></div>`;
+  }
+  async function bioInto(a) {
+    const d = await wikiSummary(a.displayName, /(\d{4})$/.exec(a.displayDOB || "")?.[1] || "");
+    const el = $("#pl-blurb"), src = $("#pl-blurb-src");
+    if (!d?.extract || !el?.isConnected) return;
+    let t = d.extract.trim();
+    if (t.length > 520) { const cut = t.lastIndexOf(". ", 520); if (cut > 120) t = t.slice(0, cut + 1); }
+    el.textContent = t;
+    src.innerHTML = `From <a href="${esc(safeUrl(d.content_urls?.desktop?.page) || "#")}" target="_blank" rel="noopener">Wikipedia</a>`;
+    src.classList.remove("hidden");
+  }
+
   // ESPN's stat names on the overview tiles -> our Visualize stats
   const OUR_STAT = { passingYards: "pass_yds", passingTouchdowns: "pass_td", interceptions: "int", rushingAttempts: "carries", rushingYards: "rush_yds", rushingTouchdowns: "rush_td",
     receptions: "rec", receivingYards: "rec_yds", receivingTouchdowns: "rec_td", totalTackles: "tackles", sacks: "def_sacks" };
@@ -4258,13 +4285,6 @@ const Live = (() => {
     const points = pts ? Takes.playerPoints(a, gl, lg, PRIMARY(a.position?.abbreviation), { career: pts[0], stats: pts[1] }) : [];
     if (my !== token) return;
     const nTakes = points.length + heads.length + takes.length;
-    const facts = [
-      a.position?.displayName, a.displayJersey,
-      [a.displayHeight, a.displayWeight].filter(Boolean).join(", "),
-      a.age ? `Age ${a.age}` : "", a.displayDraft,
-      a.college?.name || a.collegeTeam?.displayName ? `College: ${a.college?.name || a.collegeTeam?.displayName}` : "",
-      a.displayBirthPlace ? `From ${a.displayBirthPlace}` : "",
-    ].filter(Boolean);
     const inj = a.injuries?.[0];
     const fa = a.status?.type === "free-agent"; // ESPN keeps a free agent's last team on the record, so check the status
     // this season's tiles: if the game log has a game ESPN's summary hasn't counted yet, add the season up from the log
@@ -4352,7 +4372,6 @@ const Live = (() => {
           ${nick.length ? `<p class="pl-nick">${nick.map((n) => `“${esc(n)}”`).join(" · ")}</p>` : ""}
           <p>${a.team ? `<a href="${link("team", a.team.id)}"><span class="tm">${img(a.team.logos?.[0]?.href || a.team.logo, "xs")} ${esc(a.team.displayName)}</span></a>` : ""}
             ${injInfo(inj) ? ` <span class="inj-line">${injTag(inj, a.id, fa ? "" : a.team?.id)} ${esc(injInfo(inj).tip)}</span>` : ""}</p>
-          <p class="muted">${facts.map(esc).join(" · ")}<span id="pl-exp">${exp ? " · " + esc(exp) : ""}</span></p>
           <p class="pl-acts"><a class="btn" href="${link("stats", null, { show: "visualize", him: a.id })}">📈 Chart him</a></p>
         </div>
       </div>
@@ -4389,6 +4408,7 @@ const Live = (() => {
     view("player").innerHTML = head + (ptab === "" ? `
       ${summary ? `<div class="card pl-sum"><div class="stats wide">${summary}</div></div>${caughtUp ? `<p class="note muted">Added up from his game-by-game stats, so it includes his latest game. Ranks come back once the overnight totals update.</p>` : ""}` : ""}
       <div id="ol-slot"></div>
+      ${bioCard(a, !fa && a.active !== false, exp)}
       <div id="ps-slot"></div>
       ${injInfo(inj) ? injCard(inj, a.id, fa ? "" : a.team?.id)
         : params.get("inj") ? `<div class="card inj-card" id="pl-inj"><h3>Injury</h3><p class="muted">ESPN has no injury details on file for this player right now.</p></div>` : ""}`
@@ -4402,10 +4422,11 @@ const Live = (() => {
     // years in the league for retired players, from his career record (any tab)
     if (!exp) careersP.then((cs) => {
       const me = cs?.[0], n = me?.seasons.length;
-      if (n && my === token && $("#pl-exp")) $("#pl-exp").textContent = ` · ${n} ${me.lvl === "NFL" ? "NFL" : "college"} season${n > 1 ? "s" : ""} (${me.seasons[0]}${n > 1 ? "–" + me.seasons[n - 1] : ""})`;
+      if (n && my === token && $("#pl-exp")) { $("#pl-exp").textContent = `${n} ${me.lvl === "NFL" ? "NFL" : "college"} season${n > 1 ? "s" : ""} (${me.seasons[0]}${n > 1 ? "–" + me.seasons[n - 1] : ""})`; $("#pl-exp-row").classList.remove("hidden"); }
     }).catch(() => {});
     liveInto(lg, a, $("#pl-live"), my);
     if (ptab === "") {
+      bioInto(a).catch(() => {});
       if (my === token) outlookInto(lg, id, $("#ol-slot"), season ? null : gl).catch(() => {});
       if (!season) seasonStatsInto(lg, a, gl, $("#ps-slot")).catch(() => {});
       const toInj = params.get("inj") && $("#pl-inj");
