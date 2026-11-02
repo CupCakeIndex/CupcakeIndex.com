@@ -1702,7 +1702,7 @@ const Viz = (() => {
       return out;
     };
     const lgTxt = league === "nfl" ? "NFL" : "College";
-    let title = "", body = "", note = "", tableRows = [], tableHead = [];
+    let title = "", body = "", note = "", tableRows = [], tableHead = [], tablePic = null;
     // the Table's columns: the sort stat, the stats in the filter, then yours (or a set that fits the position)
     function tableCols() {
       const conds = W.groups.flat(), pk = st.pos || conds.find((c) => c.k === "pos")?.v || "";
@@ -2006,6 +2006,8 @@ const Viz = (() => {
       const pos = (k) => meta(k)?.[3] || meta(k)?.[1] || "";
       tableRows = shown.map((k, i) => [i + 1, name(k), ...(who === "players" ? [tm(teamOf(k))[1], pos(k)] : []), ...cs.map((s) => fmt(s, val(s, k), per))]);
       tableHead = ["#", who === "players" ? "Player" : "Team", ...(who === "players" ? ["Team", "Pos"] : []), ...cs.map((s) => s[1] + perTxt(s))];
+      const firstNum = who === "players" ? 4 : 2;
+      tablePic = { keys: shown, first: firstNum, on: firstNum + cs.indexOf(stat), hl, team: teamOf, heads: [...tableHead.slice(0, firstNum), ...cs.map((s) => s[1].replace(/ \(.+\)$/, ""))] };
       body = { h: 0, html: `<div class="vz-twrap"><table class="box vz-table"><thead><tr><th class="num">#</th><th>${who === "players" ? "Player" : "Team"}</th>${who === "players" ? "<th>Team</th><th>Pos</th>" : ""}
         ${cs.map((s) => `<th class="num${s === stat ? " on" : ""}" data-sort="${s[0]}" title="${esc(s[1] + perTxt(s))}: click to sort">${esc(s[1].replace(/ \(.+\)$/, ""))}${s === stat ? (order === "worst" ? " ▲" : " ▼") : ""}</th>`).join("")}</tr></thead>
         <tbody>${shown.map((k, i) => `<tr${hl(k) ? ' class="hl"' : ""}><td class="num muted">${i + 1}</td><td class="vz-tname">${lg(k)}${link(k)}</td>${who === "players" ? `<td>${esc(tm(teamOf(k))[1])}</td><td class="muted">${esc(pos(k))}</td>` : ""}
@@ -2296,7 +2298,7 @@ const Viz = (() => {
     const frame = `${chipRow}<div class="vz-frame" id="vz-frame"><div class="vz-title"><b>${esc(title)}</b><small>${esc(sub)}</small></div>
         ${body.html || `<div class="vz-canvas" style="height:${body.h}px"><canvas id="vz-chart"></canvas></div>`}
         <div class="vz-mark">cupcakeindex.com · ${esc(league === "nfl" ? "data: nflverse" : "data: CollegeFootballData.com")}</div></div>`;
-    const actions = `<div class="vz-actions">${st.type === "table" ? `<button class="btn" id="vz-csv">Download spreadsheet (CSV)</button>` : Share.phone() && navigator.share ? "" : `<button class="btn" id="vz-png">Download picture</button>`}<button class="btn" id="vz-link">Copy link</button>${navigator.share && st.type !== "table" ? `<button class="btn" id="vz-share">Share</button>` : ""}<button class="btn" id="vz-save" type="button">☆ Save to My charts</button><button class="btn vz-reset" id="vz-reset">Start over</button></div>
+    const actions = `<div class="vz-actions">${st.type === "table" ? `<button class="btn" id="vz-csv">Download spreadsheet (CSV)</button>` : ""}${Share.phone() && navigator.share ? "" : `<button class="btn" id="vz-png">Download picture</button>`}<button class="btn" id="vz-link">Copy link</button>${navigator.share ? `<button class="btn" id="vz-share">Share</button>` : ""}<button class="btn" id="vz-save" type="button">☆ Save to My charts</button><button class="btn vz-reset" id="vz-reset">Start over</button></div>
       <div class="vz-saveform hidden" id="vz-saveform"><input id="vz-pname" maxlength="40" placeholder="Name this chart"><button class="btn tour-next" id="vz-pok" type="button">Save</button><button class="btn" id="vz-pno" type="button">Cancel</button></div>
       <small class="muted vz-pmsg" id="vz-pmsg"></small>`;
     // under the buttons: the numbers table and the notes (the buttons sit right under the chart, before Related)
@@ -2900,12 +2902,47 @@ const Viz = (() => {
       svg.querySelectorAll(".acc").forEach((p) => p.setAttribute("fill", accC));
       return new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg.outerHTML); });
     }
+    // the Table as a picture: same rows, logos and highlights as the page (at most 100 rows, so the picture stays readable)
+    async function tableCanvas() {
+      const S = 2, font = (w, n) => `${w} ${n * S}px JetBrains Mono, monospace`, c = document.createElement("canvas"), x = c.getContext("2d");
+      const rows = tableRows.slice(0, 100), keys = tablePic.keys.slice(0, 100), more = tableRows.length - rows.length, first = tablePic.first;
+      x.font = font(700, 11);
+      const heads = tablePic.heads.map((h, i) => (i < first ? [h] : wrap(x, h, 118 * S)));
+      const logos = await Promise.all(keys.map((k) => new Promise((ok) => {
+        const u = LOGOS?.[tablePic.team(k)]; if (!u) return ok(null);
+        const im = new Image(); im.crossOrigin = "anonymous"; im.onload = () => ok(im); im.onerror = () => ok(null); im.src = u;
+      })));
+      const widths = heads.map((h, i) => {
+        x.font = font(700, 11); const hw = Math.max(...h.map((t) => x.measureText(t).width));
+        x.font = font(i === 1 ? 700 : 400, 13); const rw = Math.max(0, ...rows.map((r) => x.measureText(String(r[i])).width));
+        return Math.max(hw, rw) + (i === 1 ? 44 : 22) * S;
+      });
+      const room = 640 * S - widths.reduce((a, b) => a + b, 0); if (room > 0) widths[1] += room;
+      const rowH = 30 * S, headH = (Math.max(...heads.map((h) => h.length)) * 15 + 12) * S, W = widths.reduce((a, b) => a + b, 0);
+      c.width = W; c.height = headH + (rows.length + (more ? 1 : 0)) * rowH;
+      x.textBaseline = "middle";
+      const left = (i) => i >= 1 && i < first, at = (i) => widths.slice(0, i).reduce((a, b) => a + b, 0);
+      const put = (t, i, y) => { x.textAlign = left(i) ? "left" : "right"; x.fillText(t, left(i) ? at(i) + (i === 1 ? 34 * S : 8 * S) : at(i) + widths[i] - 8 * S, y); };
+      heads.forEach((h, i) => { x.fillStyle = i === tablePic.on ? accent : muted; x.font = font(700, 11); h.forEach((t, l) => put(t, i, headH - (h.length - l - 0.5) * 15 * S - 4 * S)); });
+      x.fillStyle = accent; x.fillRect(0, headH - 2 * S, W, 2 * S);
+      rows.forEach((r, n) => {
+        const y = headH + n * rowH;
+        if (tablePic.hl(keys[n])) { x.fillStyle = st.bg === "light" ? "#fbeee6" : "#2a1a12"; x.fillRect(0, y, W, rowH); }
+        x.fillStyle = line; x.fillRect(0, y + rowH - S, W, S);
+        r.forEach((v, i) => { x.fillStyle = i === 0 ? muted : i === tablePic.on ? accent : ink; x.font = font(i === 1 || i === tablePic.on ? 700 : 400, 13); put(String(v), i, y + rowH / 2); });
+        if (logos[n]) x.drawImage(logos[n], at(1) + 6 * S, y + 5 * S, 20 * S, 20 * S);
+      });
+      if (more) { x.fillStyle = muted; x.font = font(400, 12); x.textAlign = "left"; x.fillText(`...and ${more} more`, 8 * S, headH + rows.length * rowH + rowH / 2); }
+      return c;
+    }
+
     async function picture() {
       const SIZES = { x: [1600, 900, 800], sq: [1350, 1350, 640], story: [1080, 1920, 420] }; // pixels wide, high, and the width it's laid out at
-      const size = SIZES[st.size], cv = document.getElementById("vz-chart"), box = cv.parentElement;
+      const isT = st.type === "table", size = isT ? null : SIZES[st.size], box = isT ? { style: {} } : document.getElementById("vz-chart").parentElement;
       const was = [ink, muted, line, box.style.width, box.style.height];
-      if (st.bg === "light") { ink = "#141414"; muted = "#5c5c5c"; line = "#e4e4e4"; recolor(); }
-      const W = size ? size[0] : cv.width + 2 * 24 * (cv.width / cv.clientWidth), sc = size ? size[0] / size[2] : cv.width / cv.clientWidth, pad = 24 * sc;
+      if (st.bg === "light") { ink = "#141414"; muted = "#5c5c5c"; line = "#e4e4e4"; if (!isT) recolor(); }
+      const cv = isT ? await tableCanvas() : document.getElementById("vz-chart"), scale = isT ? 2 : cv.width / cv.clientWidth;
+      const W = size ? size[0] : cv.width + 2 * 24 * scale, sc = size ? size[0] / size[2] : scale, pad = 24 * sc;
       const probe = document.createElement("canvas").getContext("2d"), font = (w, n) => `${w} ${n * sc}px JetBrains Mono, monospace`;
       probe.font = font(700, 18); const tl = wrap(probe, title, W - 2 * pad);
       probe.font = font(400, 12); const sl = wrap(probe, sub, W - 2 * pad);
@@ -2931,7 +2968,7 @@ const Viz = (() => {
       // put the chart on the page back the way it was
       [ink, muted, line] = was;
       if (size) { box.style.width = was[3]; box.style.height = was[4]; chart.resize(); }
-      if (st.bg === "light" || size) recolor();
+      if (!isT && (st.bg === "light" || size)) recolor();
       return out;
     }
   }
@@ -2998,7 +3035,11 @@ const Viz = (() => {
     const D = await file((idx[lg] || []).at(-1), lg);
     if (!D) return { players: [], teams: [] };
     const list = (who) => statsFor(who, D).flatMap(([g, l]) => l.map((s) => (who === "players" ? [s[0], s[1], g, s[3].pos || ""] : [s[0], s[1], g])));
-    return { players: list("players"), teams: list("teams") };
+    // low: stats where less is better, so a chart's "best" order puts the smallest first (lowCount: the ones that are also counts, like penalties)
+    const flags = (who, test) => new Set(statsFor(who, D).flatMap(([, l]) => l.filter((s) => test(s[3])).map((s) => s[0])));
+    return { players: list("players"), teams: list("teams"),
+      low: { players: flags("players", (o) => o.low), teams: flags("teams", (o) => o.low) },
+      lowCount: { players: flags("players", (o) => o.low && o.count), teams: flags("teams", (o) => o.low && o.count) } };
   }
 
   // one player's stat line against everyone at his position in agg (sum() of the weeks wanted): for each group, his

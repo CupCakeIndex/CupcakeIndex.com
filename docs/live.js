@@ -4131,6 +4131,10 @@ const Live = (() => {
       <button type="button" class="gl-reset" data-glreset="${esc(g.name)}">Reset</button>`;
   }
 
+  // ESPN's stat names on the overview tiles -> our Visualize stats
+  const OUR_STAT = { passingYards: "pass_yds", passingTouchdowns: "pass_td", interceptions: "int", rushingAttempts: "carries", rushingYards: "rush_yds", rushingTouchdowns: "rush_td",
+    receptions: "rec", receivingYards: "rec_yds", receivingTouchdowns: "rec_td", totalTackles: "tackles", sacks: "def_sacks" };
+
   async function player(id, params) {
     const lg = league, my = token;
     loading("player");
@@ -4201,6 +4205,13 @@ const Live = (() => {
           { name: tds, displayName: `${kind} Touchdowns`, displayValue: String(L.sum[tds] || 0) }];
       }
     }
+    // ranks come from our own data (Stats > Visualize, among his position), so every tile uses the same yardstick;
+    // a stat we don't chart (Adjusted QBR) keeps ESPN's rank
+    const ourRanks = new Map((pts?.[1]?.cats || []).flatMap(([, l]) => l).map((x) => [x.key, x]));
+    sumStats = sumStats.map((x) => {
+      const r = ourRanks.get(OUR_STAT[x.name]);
+      return r?.rank ? { ...x, rankDisplayValue: `${r.tie ? "Tied-" : ""}${ordN(r.rank)}` } : x;
+    });
     const summary = sumStats.map((x) => `<div class="stat"><small>${esc(x.displayName)}</small><b>${esc(x.displayValue)}</b>${x.rankDisplayValue ? `<small class="muted">${esc(x.rankDisplayValue)}</small>` : ""}</div>`).join("");
 
     let log = "";
@@ -4290,8 +4301,8 @@ const Live = (() => {
     }
     view("player").innerHTML = head + (ptab === "" ? `
       ${summary ? `<div class="card pl-sum"><div class="stats wide">${summary}</div></div>${caughtUp ? `<p class="note muted">Added up from his game-by-game stats, so it includes his latest game. Ranks come back once the overnight totals update.</p>` : ""}` : ""}
-      <div id="ps-slot"></div>
       <div id="ol-slot"></div>
+      <div id="ps-slot"></div>
       ${injInfo(inj) ? injCard(inj, a.id, fa ? "" : a.team?.id)
         : params.get("inj") ? `<div class="card inj-card" id="pl-inj"><h3>Injury</h3><p class="muted">ESPN has no injury details on file for this player right now.</p></div>` : ""}`
       : ptab === "career" ? `<div id="career-slot">${loadingHtml("Loading stats by year…")}</div>`

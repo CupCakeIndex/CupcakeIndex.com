@@ -730,7 +730,7 @@ How to answer:
   - Comparing teams: a radar or bar with highlight = those teams.
   - Who leads a stat: a bar, top 10, with the player or team they asked about in players / highlight.
   - Two stats against each other: a scatter, with the named players or teams highlighted.
-  When they ask to change the chart ("make it a radar"), keep the same players or teams and redo show_chart; don't drop who they asked about. Never say the chart tool can't do something before trying it.
+  When they ask to change the chart ("make it a radar", "flip it"), keep the same players or teams and redo show_chart, with order for a flip; don't drop who they asked about. Never say the chart tool can't do something before trying it.
   To send them to a page (rankings, a team page, Injuries...), use open_page.
 - Leaderboard stat names: any column (pass_yds, rush_td, tackles, def_sacks, pressure, pen, pts...) or a rate. Player rates: ${Object.keys(BotTools.RATES).join(", ")}, passer_rating, passer_rating_vs_blitz. Team rates: ${Object.keys(BotTools.TEAM_RATES).join(", ")}.
 - "Who wins", "who do you have", "predict this game": call game_prediction and answer with our pick, the win chance and the predicted score, then the one or two reasons that matter most. Never say we don't have a prediction without calling it.
@@ -915,11 +915,11 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
     },
     {
       name: "show_chart",
-      description: "Open a Stats > Visualize chart on the site. stat (and y_stat for a scatter) must be keys from chart_stats. who: players or teams. type: bar, line (week by week), scatter (stat across, y_stat up), pie, radar or table. players: player_ids from find_player (up to 5): a radar then shows exactly them, other charts highlight them. highlight: team names (teams charts: a radar shows exactly them; others color them). radar_stats: 4-8 chart_stats keys for the radar's spokes (leave out for the position's usual profile). team: only that team's players. position: QB RB WR TE K OL EDGE IDL LB CB S (players; set it for a player radar so percentiles compare like with like). top: 5, 10, 15, 25 or all. season_from/season_to, weeks_from/weeks_to: the range (default: this season, every week). per: game or total.",
+      description: "Open a Stats > Visualize chart on the site. stat (and y_stat for a scatter) must be keys from chart_stats. who: players or teams. type: bar, line (week by week), scatter (stat across, y_stat up), pie, radar or table. players: player_ids from find_player (up to 5): a radar then shows exactly them, other charts highlight them. highlight: team names (teams charts: a radar shows exactly them; others color them). radar_stats: 4-8 chart_stats keys for the radar's spokes (leave out for the position's usual profile). team: only that team's players. position: QB RB WR TE K OL EDGE IDL LB CB S (players; set it for a player radar so percentiles compare like with like). top: 5, 10, 15, 25 or all. season_from/season_to, weeks_from/weeks_to: the range (default: this season, every week). per: game or total. order: highest_first or lowest_first sets which end of a bar chart or table is on top, whatever the stat; use it for flip it, reverse it, most at the top or fewest first. Left out, counts of bad things (penalties, sacks allowed, interceptions) show the most first.",
       input_schema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, who: { type: "string", enum: ["players", "teams"] }, type: { type: "string", enum: ["bar", "line", "scatter", "pie", "radar", "table"] },
         stat: { type: "string" }, y_stat: { type: "string" }, team: { type: "string" }, players: { type: "array", items: { type: "string" } }, highlight: { type: "array", items: { type: "string" } },
         radar_stats: { type: "array", items: { type: "string" } }, position: { type: "string" }, top: { type: "string" },
-        season_from: { type: "integer" }, season_to: { type: "integer" }, weeks_from: { type: "integer" }, weeks_to: { type: "integer" }, per: { type: "string", enum: ["game", "total"] }, title: { type: "string" } }, required: ["league", "who", "type", "stat"] },
+        season_from: { type: "integer" }, season_to: { type: "integer" }, weeks_from: { type: "integer" }, weeks_to: { type: "integer" }, per: { type: "string", enum: ["game", "total"] }, order: { type: "string", enum: ["highest_first", "lowest_first"] }, title: { type: "string" } }, required: ["league", "who", "type", "stat"] },
       async execute(a, links) {
         const lg = String(a.league), C = await Viz.catalog(lg), list = C[a.who === "teams" ? "teams" : "players"];
         for (const k of [a.stat, a.y_stat, ...(a.radar_stats || [])].filter(Boolean)) if (!list.some((s) => s[0] === k)) throw new Error(`"${k}" isn't a Visualize stat. Call chart_stats first.`);
@@ -942,6 +942,9 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
         if (a.weeks_from) o.wk1 = String(a.weeks_from);
         if (a.weeks_to) o.wk2 = String(a.weeks_to);
         if (a.per) o.per = a.per;
+        // Visualize's order is Best/Worst, and "best" means smallest first when less is better
+        const w = a.who === "teams" ? "teams" : "players", dir = a.order || (C.lowCount[w].has(a.stat) ? "highest_first" : "");
+        if (dir) o.order = (dir === "highest_first") === C.low[w].has(a.stat) ? "worst" : "best";
         if (a.title) o.ttl = String(a.title).slice(0, 80);
         const href = `#/stats?${new URLSearchParams(o)}`;
         go(href);
