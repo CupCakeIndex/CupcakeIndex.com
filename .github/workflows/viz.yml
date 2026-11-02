@@ -16,6 +16,10 @@ on:
     - cron: "0 1 * 9-12,1 1"     # Sunday 8 PM Eastern (NFL)
     - cron: "0 5 * 9-12,1 1"     # Sunday midnight Eastern (NFL)
     - cron: "0 5 * 9-12,1 2"     # Monday midnight Eastern, after Monday night (NFL)
+    # Later catch-ups (Terry, 2026-11-02): night games end after the midnight runs start, and the morning run can start hours late
+    - cron: "30 8 * 9-12,1 1"    # Monday 3:30 AM Eastern, after Sunday night (NFL)
+    - cron: "30 8 * 9-12,1 2"    # Tuesday 3:30 AM Eastern, after Monday night (NFL)
+    - cron: "30 8 * 9-12,1 5"    # Friday 3:30 AM Eastern, after Thursday night (NFL)
   workflow_dispatch:
     inputs:
       league:

@@ -185,6 +185,7 @@ const Viz = (() => {
     ]],
     ["Penalties grouped", [
       ...PEN_FAM.map(([k, l, ks]) => [`tpen_${k}`, l, (S) => famSum(S, "tp_", ks), { count: 1, low: 1, need: ["tp_fs"] }]),
+      ["tpen_pre_dec", "Pre-snap penalties, including declined flags", (S) => famSum(S, "tp_", PEN_FAM[0][2]) + (S.tp_predec || 0), { count: 1, low: 1, need: ["tp_predec"] }],
       ...PEN_SIDE.map(([k, l]) => [`tpen_side_${k}`, `Penalties on ${l}`, (S) => S[`tps_${k}`], { count: 1, low: 1, need: ["tps_o"] }]),
       ...PEN_SIDE.map(([k, l]) => [`tpen_sidepct_${k}`, `% of penalties on ${l}`, (S) => div(100 * S[`tps_${k}`], S.tps_o + S.tps_d + S.tps_s), { den: (S) => S.tps_o + S.tps_d + S.tps_s, pct: 1, unit: "penalties", need: ["tps_o"] }]),
       ...PEN_FAM.map(([k, l, ks]) => [`tpend_${k}`, `${l.replace(/ \(.*\)$/, "")} drawn`, (S) => famSum(S, "tpd_", ks), { count: 1, need: ["tpd_fs"] }]),
@@ -1298,6 +1299,7 @@ const Viz = (() => {
       ["Most penalized teams", T_({ type: "bar", stat: "pen", order: "worst", top: "15" })],
       ["Most false starts", T_({ type: "bar", stat: "tpen_fs", per: "total", order: "worst", top: "15" })],
       ["Pre-snap penalties, most to fewest", T_({ type: "bar", stat: "tpen_pre", per: "total", order: "worst", top: "all" })],
+      ["Pre-snap flags with declined ones, most to fewest", T_({ type: "bar", stat: "tpen_pre_dec", per: "total", order: "worst", top: "all" })],
       ["Who draws the most pass interference", T_({ type: "bar", stat: "tpend_dpi", per: "total", top: "15" })],
       ["Points erased by their own penalties", T_({ type: "bar", stat: "tpen_ptsnull", per: "total", order: "worst", top: "15" })],
       ["NFL-wide by season: points erased by penalties since 1999", T_({ type: "bar", scope: "league", stat: "tpen_ptsnull", per: "total", from: "1999", to: "" })],

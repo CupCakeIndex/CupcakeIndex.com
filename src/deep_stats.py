@@ -11,8 +11,8 @@ Everyone credited with the tackle (solo or assisted) gets the stop.
 """
 import csv
 import gzip
+import re
 from collections import defaultdict
-from datetime import datetime
 
 import requests
 
@@ -33,6 +33,9 @@ PEN_TYPES = [
     ("tmm", ["Defensive Too Many Men on Field", "Offensive Too Many Men on Field", "Defensive 12 On-field", "Offensive 12 On-field", "Illegal Substitution"]),
 ]
 PEN_OF = {name: k for k, names in PEN_TYPES for name in names}
+PRE_SNAP = {"fs", "offside", "nzi", "enc", "form", "shift", "dog", "tmm"}  # the same list as PEN_FAM "pre" in docs/viz.js
+# Declined flags are usually only in the play text ("Penalty on ATL-71-J.Taylor, Offensive Holding, declined."), with the play's penalty field 0.
+DECLINED = re.compile(r"penalty on ([A-Z]{2,3})(?:-[^,]*)?, ([^,]+), (?:\d+ yards?, )?declined", re.I)
 XCOLS = [
     # defense (tackles, sacks, TFL, hits, PD, INTs are already in the chart data)
     "run_tkl", "run_stop", "run_tkl_yds", "stuff", "sy_tkl", "sy_stop", "pass_tkl", "pass_stop", "third_stop", "rz_stop",
@@ -61,6 +64,8 @@ TCOLS = ["opp_att", "opp_cmp", "opp_yac", "opp_short_att", "opp_short_cmp", "opp
          "opp_db", "ftn_db", "blitz_db",
          # accepted penalties by type: tp_ = the team committed it, tpd_ = the team drew it (the other team committed it)
          *[f"tp_{k}" for k, _ in PEN_TYPES], *[f"tpd_{k}" for k, _ in PEN_TYPES],
+         # pre-snap flags on this team that the other team declined
+         "tp_predec",
          # every accepted penalty by the unit that committed it (o offense, d defense, s special teams) and the unit that drew it
          "tps_o", "tps_d", "tps_s", "tpds_o", "tpds_d", "tpds_s",
          # the same in penalty yards: tpy_/tpdy_ by type, tpsy_/tpdsy_ by unit
@@ -137,13 +142,24 @@ def role(p):
     return pos if pos in ("QB", "RB", "WR", "TE") else ""
 
 
+_pbp_fresh = set()  # seasons already downloaded by this run
+
+
 def pbp(season):
+    """This season's file is downloaded once per run, never reused from an earlier run: a run that kept a file from before
+    Sunday night's kickoff showed that game with no penalties (WAS-PHI, 2026 week 8)."""
     fp = RAW / "nfl" / f"pbp_{season}.csv.gz"
-    if not fp.exists() or (season == season_now() and fp.stat().st_mtime < datetime.now().timestamp() - 6 * 3600):
-        r = requests.get(f"{NFLV}/pbp/play_by_play_{season}.csv.gz", timeout=600)
-        r.raise_for_status()
-        fp.parent.mkdir(parents=True, exist_ok=True)
-        fp.write_bytes(r.content)
+    if not fp.exists() or (season == season_now() and season not in _pbp_fresh):
+        try:
+            r = requests.get(f"{NFLV}/pbp/play_by_play_{season}.csv.gz", timeout=600)
+            r.raise_for_status()
+            fp.parent.mkdir(parents=True, exist_ok=True)
+            fp.write_bytes(r.content)
+            _pbp_fresh.add(season)
+        except requests.RequestException as e:
+            if not fp.exists():
+                raise
+            print(f"  ! play-by-play download failed ({e}), using the saved file")
     with gzip.open(fp, "rt", encoding="utf-8", newline="") as fh:
         yield from csv.DictReader(fh)
 
@@ -181,6 +197,9 @@ def per_game(season, T=None):
                 T_[row["defteam"], w2]["dtwo_att"] += 1
                 T_[row["defteam"], w2]["dtwo_conv"] += ok
             continue
+        for tm_, ty_ in DECLINED.findall(row.get("desc") or ""):
+            if PEN_OF.get(ty_.strip()) in PRE_SNAP and tm_ in (row.get("posteam"), row.get("defteam")):
+                T_[tm_, int(f(row["week"]))]["tp_predec"] += 1
         # accepted penalties, on any play (false starts and holds are often "no_play")
         if row.get("penalty") == "1":
             d = (row.get("desc") or "").lower()
