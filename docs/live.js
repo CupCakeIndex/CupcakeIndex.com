@@ -4436,7 +4436,7 @@ const Live = (() => {
       if (n && my === token && $("#pl-exp")) { $("#pl-exp").textContent = `${n} ${me.lvl === "NFL" ? "NFL" : "college"} season${n > 1 ? "s" : ""} (${me.seasons[0]}${n > 1 ? "–" + me.seasons[n - 1] : ""})`; $("#pl-exp-row").classList.remove("hidden"); }
     }).catch(() => {});
     liveInto(lg, a, $("#pl-live"), my, season ? null : gl);
-    if (ptab === "bio") bioInto(a).catch(() => {});
+    if (ptab === "bio") return void bioInto(a).catch(() => {});
     if (ptab === "") {
       if (my === token) outlookInto(lg, id, $("#ol-slot"), season ? null : gl).catch(() => {});
       if (!season) seasonStatsInto(lg, a, gl, $("#ps-slot")).catch(() => {});
