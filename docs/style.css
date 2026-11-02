@@ -4066,3 +4066,17 @@ body.drawer-open .bot-fab { transform: translateX(calc(100% + 40px)); opacity: 0
 .bot-opts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .bot-opts button { padding: 7px 11px; font: inherit; font-size: 13px; color: var(--ink); background: none; border: 1px solid var(--accent); cursor: pointer; }
 .bot-opts button:hover, .bot-opts button:focus-visible { background: var(--accent); color: var(--on-accent, #000); }
+
+/* player page: the recap after his game (same panel as live, softer) */
+.pl-lv-fin { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 18%, transparent); }
+.pl-lv-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 16px; border-bottom: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line)); }
+.pl-lv-res { display: inline-grid; place-items: center; width: 26px; height: 26px; font-weight: 800; background: var(--line); color: var(--ink); }
+.pl-lv-res.win { background: var(--accent); color: var(--on-accent, #000); }
+.pl-lv-k { font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--muted); }
+.pl-lv-sc { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-size: 13px; color: var(--muted); }
+.pl-lv-sc b { font-size: 18px; font-weight: 800; color: var(--ink); }
+.pl-lv-sc i { font-style: normal; opacity: .5; }
+.pl-lv-sc img { width: 22px; height: 22px; object-fit: contain; }
+.pl-lv-row .pl-lv-hi { color: var(--accent); font-weight: 800; }
+.pl-lv-fin .pl-lv-last div + div { margin-top: 4px; }
+.pl-lv-fin .pl-lv-last b { color: var(--accent); margin-right: 4px; font-weight: 700; }

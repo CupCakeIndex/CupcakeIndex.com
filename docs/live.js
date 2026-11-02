@@ -4174,17 +4174,28 @@ const Live = (() => {
     if (n(b.kickReturns?.NO)) add("Kick ret yds", b.kickReturns.YDS);
     if (n(b.puntReturns?.NO)) add("Punt ret yds", b.puntReturns.YDS);
     if (n(b.fumbles?.LOST)) add("Fum lost", b.fumbles.LOST);
-    return { main, more };
+    return { main, more, role };
   }
   const liveClock = (st) => (/HALFTIME/.test(st.type?.name || "") ? "HALFTIME"
     : st.displayClock && st.period ? `${st.period > 4 ? "OT" : `Q${st.period}`} ${st.displayClock}` : String(st.type?.shortDetail || "").toUpperCase());
-  function liveHtml(e, s, teamId, L) {
+  function liveHtml(e, s, teamId, L, gl, name) {
     const c = e.competitions[0], me = c.competitors.find((x) => String(x.team?.id) === String(teamId)), op = c.competitors.find((x) => x !== me);
     const mine = `${me.team.abbreviation} ${me.score}`, theirs = `${op.team.abbreviation} ${op.score}`, href = link("game", e.id);
     const big = L.main.map((x) => (x.hot ? `<em>${esc(x.text)}</em>` : esc(x.text))).join(` <i>·</i> `);
     if (c.status.type.state !== "in") {
-      const res = +me.score > +op.score ? "W" : +me.score < +op.score ? "L" : "T", hi = Math.max(+me.score, +op.score), lo = Math.min(+me.score, +op.score);
-      return `<a class="pl-lvf" href="${href}"><span class="pl-lvf-k">FINAL</span><b>${L.main.map((x) => esc(x.text)).join(" · ")}</b><small class="muted">${res} ${hi}-${lo} ${me.homeAway === "home" ? "vs" : "at"} ${esc(op.team.abbreviation)}</small></a>`;
+      // the recap: scoreboard, his line, how it compares with his season, and the scores he had a hand in
+      const res = +me.score > +op.score ? "W" : +me.score < +op.score ? "L" : "T", day = new Date(e.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase();
+      const logo = (t) => (safeUrl(t.team.logo) ? `<img src="${esc(t.team.logo)}" alt="">` : "");
+      const Y = gl ? logSeason(gl) : null, yards = { pass: "passingYards", rush: "rushingYards", rec: "receivingYards" }[L.role], names = gl?.names || [], at = names.indexOf(yards);
+      const games = at < 0 || !Y ? [] : [...new Map((gl.seasonTypes?.find((t) => /regular/i.test(t.displayName || ""))?.categories || []).flatMap((c) => c.events || []).map((v) => [v.eventId, parseFloat(String(v.stats?.[at]).replace(/,/g, "")) || 0])).values()];
+      const today = parseFloat(String(L.main.find((x) => x.hot)?.text)) || 0, high = games.length > 2 && today > 0 && today >= Math.max(...games);
+      const more = [...L.more, ...(yards && Y?.n && Y.sum[yards] != null ? [["Season avg", (Y.sum[yards] / Y.n).toFixed(0)]] : [])];
+      const his = (s?.scoringPlays || []).filter((p) => String(p.team?.id) === String(teamId) && (p.text || "").includes(name)).slice(0, 3);
+      return `<a class="pl-lv pl-lv-fin" href="${href}"><div class="pl-lv-top"><span class="pl-lv-res ${res === "W" ? "win" : ""}">${res}</span><span class="pl-lv-k">FINAL · ${esc(day)}</span>
+        <span class="pl-lv-sc">${logo(me)}${esc(me.team.abbreviation)} <b>${esc(me.score)}</b> <i>·</i> <b>${esc(op.score)}</b> ${esc(op.team.abbreviation)}${logo(op)}</span></div>
+      <div class="pl-lv-line" style="--n:${L.main.reduce((a, x) => a + x.text.length + 3, -3)}">${big}</div>
+      ${more.length || high ? `<div class="pl-lv-row">${high ? `<span class="pl-lv-hi">Season high</span>` : ""}${more.map(([l, v]) => `<span>${esc(l)}<b>${esc(v)}</b></span>`).join("")}</div>` : ""}
+      ${his.length ? `<div class="pl-lv-last">${his.map((p) => `<div><b>Q${esc(p.period?.number)}</b> ${esc(p.text)}</div>`).join("")}</div>` : ""}</a>`;
     }
     const lastPlay = s?.drives?.current?.plays?.at(-1)?.text || s?.drives?.previous?.at(-1)?.plays?.at(-1)?.text;
     const chars = L.main.reduce((a, x) => a + x.text.length + 3, -3);
@@ -4194,7 +4205,7 @@ const Live = (() => {
       ${lastPlay ? `<div class="pl-lv-last">Last play: <b>${esc(lastPlay)}</b></div>` : ""}</a>`;
   }
   let liveTimer = null;
-  function liveInto(lg, a, slot, my) {
+  function liveInto(lg, a, slot, my, gl) {
     clearInterval(liveTimer);
     const teamId = a.team?.id;
     if (!slot || !teamId) return;
@@ -4212,7 +4223,7 @@ const Live = (() => {
       const s = await api(`${SITE(lg)}/summary?event=${encodeURIComponent(e.id)}`, state === "in" ? 20000 : 600000).catch(() => null);
       if (!s || my !== token || !slot.isConnected) return;
       const L = liveLine(liveBox(s, teamId, a.id), a.position?.abbreviation || "");
-      slot.innerHTML = L ? liveHtml(e, s, teamId, L) : "";
+      slot.innerHTML = L ? liveHtml(e, s, teamId, L, gl, a.displayName) : "";
     };
     liveTimer = setInterval(() => tick().catch(() => {}), 30000);
     tick().catch(() => {});
@@ -4257,7 +4268,7 @@ const Live = (() => {
     // Sections (Terry, Oct 26: the page was one long scroll): Overview, Stats by year, Game log, Charts, Takes, plus
     // Records from the gold tag. Old links still land in the right place: a shared pass chart (?chart=) opens Charts,
     // a compare or a stats-by-year setting opens Stats by year, a picked game-log season opens Game log.
-    let ptab = ["takes", "records", "career", "log", "charts"].includes(params.get("tab")) ? params.get("tab")
+    let ptab = ["takes", "records", "career", "log", "charts", "bio"].includes(params.get("tab")) ? params.get("tab")
       : params.get("chart") ? "charts"
       : ["vs", "cat", "metric", "align", "lvl", "from", "to"].some((k) => params.get(k)) ? "career"
       : params.get("season") || params.get("cseason") ? "log" : "";
@@ -4377,7 +4388,7 @@ const Live = (() => {
       </div>
       <div id="pl-live"></div>
       <div class="subtabs pl-tabs">${[["", "Overview", summary || injInfo(inj)], ["career", "Career", true], ["log", "Game log", !noLogs], ["charts", hasPc ? "Charts" : "Kick chart", hasCharts],
-        ["takes", `Takes <small>${nTakes}</small>`, nTakes]].filter((t) => t[2]).map(([k, label]) => {
+        ["takes", `Takes <small>${nTakes}</small>`, nTakes], ["bio", "Bio", true]].filter((t) => t[2]).map(([k, label]) => {
         const keep = Object.fromEntries(["season", "cseason"].map((x) => [x, params.get(x)]).filter((x) => x[1]));
         return `<a class="subtab${ptab === k ? " on" : ""}" href="${link("player", id, { ...(k ? { tab: k } : {}), ...(k === "takes" ? {} : keep) })}">${label}</a>`;
       }).join("")}</div>`;
@@ -4408,10 +4419,10 @@ const Live = (() => {
     view("player").innerHTML = head + (ptab === "" ? `
       ${summary ? `<div class="card pl-sum"><div class="stats wide">${summary}</div></div>${caughtUp ? `<p class="note muted">Added up from his game-by-game stats, so it includes his latest game. Ranks come back once the overnight totals update.</p>` : ""}` : ""}
       <div id="ol-slot"></div>
-      ${bioCard(a, !fa && a.active !== false, exp)}
       <div id="ps-slot"></div>
       ${injInfo(inj) ? injCard(inj, a.id, fa ? "" : a.team?.id)
         : params.get("inj") ? `<div class="card inj-card" id="pl-inj"><h3>Injury</h3><p class="muted">ESPN has no injury details on file for this player right now.</p></div>` : ""}`
+      : ptab === "bio" ? bioCard(a, !fa && a.active !== false, exp)
       : ptab === "career" ? `<div id="career-slot">${loadingHtml("Loading stats by year…")}</div>`
       : ptab === "charts" ? `${hasPc ? `<div id="pc-slot">${loadingHtml("Loading pass chart…")}</div>` : ""}${kicker ? `<div id="kc-slot">${hasPc ? "" : loadingHtml("Loading kick chart…")}</div>` : ""}`
       : `<div class="card"><div class="sc-bar"><h3>Game log</h3>
@@ -4424,9 +4435,9 @@ const Live = (() => {
       const me = cs?.[0], n = me?.seasons.length;
       if (n && my === token && $("#pl-exp")) { $("#pl-exp").textContent = `${n} ${me.lvl === "NFL" ? "NFL" : "college"} season${n > 1 ? "s" : ""} (${me.seasons[0]}${n > 1 ? "–" + me.seasons[n - 1] : ""})`; $("#pl-exp-row").classList.remove("hidden"); }
     }).catch(() => {});
-    liveInto(lg, a, $("#pl-live"), my);
+    liveInto(lg, a, $("#pl-live"), my, season ? null : gl);
+    if (ptab === "bio") bioInto(a).catch(() => {});
     if (ptab === "") {
-      bioInto(a).catch(() => {});
       if (my === token) outlookInto(lg, id, $("#ol-slot"), season ? null : gl).catch(() => {});
       if (!season) seasonStatsInto(lg, a, gl, $("#ps-slot")).catch(() => {});
       const toInj = params.get("inj") && $("#pl-inj");
