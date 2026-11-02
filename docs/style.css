@@ -4124,3 +4124,7 @@ body.drawer-open .bot-fab { transform: translateX(calc(100% + 40px)); opacity: 0
 @keyframes plt-sheen { 0% { transform: translateX(-120%) skewX(-18deg); } 60%, 100% { transform: translateX(320%) skewX(-18deg); } }
 @keyframes plt-glow { 0%, 100% { filter: drop-shadow(0 0 calc(2px + 3px * var(--heat)) rgba(255, 107, 44, calc(.12 + .2 * var(--heat)))); } 50% { filter: drop-shadow(0 0 calc(3px + 5px * var(--heat)) rgba(255, 107, 44, calc(.18 + .3 * var(--heat)))); } }
 @media (prefers-reduced-motion: reduce) { .plt-card, .plt-leg, .plt-top:after { animation: none; } }
+@media (min-width: 760px) { /* no swiping with a mouse: show every ticket */
+  .plt-rail { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); align-items: start; overflow: visible; scroll-snap-type: none; margin: 0; padding: 18px 0 8px; }
+  .plt-dots { display: none; }
+}
