@@ -4058,6 +4058,11 @@ body.drawer-open .bot-fab { transform: translateX(calc(100% + 40px)); opacity: 0
 /* player page: Bio card */
 .pl-bio h3 { margin-top: 0; }
 .pl-bio #pl-blurb { margin: 0 0 6px; line-height: 1.55; }
-.pl-bio dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 16px; margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--line); }
+.pl-bio dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 10px 16px; margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--line); }
 .pl-bio dt { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 .pl-bio dd { margin: 2px 0 0; font-weight: 500; }
+
+/* Analyst chat: tappable answers to a follow-up question */
+.bot-opts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.bot-opts button { padding: 7px 11px; font: inherit; font-size: 13px; color: var(--ink); background: none; border: 1px solid var(--accent); cursor: pointer; }
+.bot-opts button:hover, .bot-opts button:focus-visible { background: var(--accent); color: var(--on-accent, #000); }

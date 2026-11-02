@@ -9,6 +9,7 @@ const Bot = (() => {
   const MAX_ROUNDS = 8; // tool rounds per question
   const LAST_ROUND = "That was your last lookup. Answer now with what you've found, and say plainly what you couldn't check.";
   let closeChat = () => {}; // set once the panel is built: closeChat(false) closes it
+  let pendingAsk = null; // set while ask_followup waits for an answer
   let me = null, msgs = [], sys = null, busy = false, el = null, user = null, tools = null, mode = "ask", tone = "straight", quiet = false;
   const TONES = [["straight", "Straight"], ["funny", "Funny"], ["sarcastic", "Sarcastic"]];
   // the stat tools (57 KB) load only for members, the first time the button shows
@@ -208,7 +209,7 @@ const Bot = (() => {
     };
     try { setMax(localStorage.getItem("bot-max") === "1"); } catch (e) { /* private mode */ }
     maxBtn.addEventListener("click", () => { setMax(!el.classList.contains("max")); log().scrollTop = log().scrollHeight; });
-    el.querySelector(".bot-new").addEventListener("click", () => { if (busy) return; msgs = []; sys = null; needsPic = null; el.querySelector(".bot-log").innerHTML = ""; ta.focus(); });
+    el.querySelector(".bot-new").addEventListener("click", () => { if (pendingAsk) { pendingAsk = null; busy = false; el.classList.remove("busy"); } if (busy) return; msgs = []; sys = null; needsPic = null; el.querySelector(".bot-log").innerHTML = ""; ta.focus(); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !panel.hidden) toggle(false); });
     ta.addEventListener("input", () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 120) + "px"; });
     ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); el.querySelector("form").requestSubmit(); } });
@@ -270,6 +271,7 @@ const Bot = (() => {
     el.querySelector("form").addEventListener("submit", (e) => {
       e.preventDefault();
       const q = ta.value.trim();
+      if (pendingAsk && q) { ta.value = ""; ta.style.height = "auto"; pendingAsk(q); return; } // a typed answer to ask_followup
       if ((!q && !pics.length) || busy || pics.some((x) => !x.data)) return;
       ta.value = ""; ta.style.height = "auto";
       const sent = pics.splice(0);
@@ -599,7 +601,7 @@ Reply with ONLY JSON, no other text: ${JSON.stringify(Object.fromEntries(["headl
         ...sent.map((p) => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: p.data } })),
         { type: "text", text: takeRules(shapes, banned) + "\n\nTHE TAKE:\n" + (q || "(see the screenshot)") + (sent.length ? "\n\nA screenshot is attached: read the take, and any numbers in it, from the picture." : "")
           + (post ? `\n\nThe linked post, read from X. ${post.who} wrote: "${post.text}"${post.pic && !sent.length ? "\nIt also has a picture or video that couldn't be seen (they chose to check without a screenshot). If the take depends on it, say what you'd need from it." : ""}` : "") }] }];
-      const defs = [...TOOL_DEFS().filter((t) => t.name !== "show_chart" && t.name !== "open_page"), VERDICT];
+      const defs = [...TOOL_DEFS().filter((t) => t.name !== "show_chart" && t.name !== "open_page" && t.name !== "ask_followup"), VERDICT];
       let res = null, last = null;
       for (let round = 0; round < MAX_ROUNDS + 2 && !res; round++) {
         last = await call("/chat", { system, tools: defs, messages: tm, newQuestion: false, take: round === 0 });
@@ -708,7 +710,7 @@ Reply with ONLY JSON, no other text: ${JSON.stringify(Object.fromEntries(["headl
       : me?.sub && ["active", "trialing", "past_due"].includes(me.sub.status) ? `This member pays for Tier ${me.sub.tier + 1}${me.sub.cancel_at_period_end ? " (canceled; it runs until the end of the period they paid for)" : ""}. This month: ${n(me.questions)} of ${n(me.limit)} questions, ${n(me.takes)} of ${n(me.take_limit)} take checks.`
       : me?.member ? `This member has Tier ${(me.tier || 0) + 1} for free (the site gave it to them). This month: ${n(me.questions)} of ${n(me.limit)} questions, ${n(me.takes)} of ${n(me.take_limit)} take checks.` : "";
     return `About you, the Analyst (answer these from here, never "I can't look that up"):
-- Every message they send you counts as one question. Follow-ups count too. Your lookups and charts don't count extra.
+- Every message they send you counts as one question. Follow-ups count too, except answers to ask_followup. Your lookups and charts don't count extra.
 - Free: anyone signed in with Google gets ${me?.free_q || (me?.free ? me.limit : 0) ? n(me.free_q || me.limit) : "a set number of"} free questions in all, not every month. When they're used up, the chat asks them to upgrade to a plan. Free questions don't include take checks.
 - Plans (paid through Stripe; subscribe, change your card, switch plans or cancel any time in Settings, in the Cupcake Analyst section): ${tiers || "Tier 1 and Tier 2, a month each; the prices and limits are in Settings."} Monthly questions and take checks reset on the 1st.
 - A take check ("Check a take" under the box): paste a take from X or a group chat, or a screenshot of it. You check every claim against our numbers, give a verdict, and write two replies they can post. Plans only.
@@ -730,7 +732,11 @@ How to answer:
   - Comparing teams: a radar or bar with highlight = those teams.
   - Who leads a stat: a bar, top 10, with the player or team they asked about in players / highlight.
   - Two stats against each other: a scatter, with the named players or teams highlighted.
-  When they ask to change the chart ("make it a radar", "flip it"), keep the same players or teams and redo show_chart, with order for a flip; don't drop who they asked about. Never say the chart tool can't do something before trying it.
+  - Rankings of many teams or players: a bar, or a table when they want several stats side by side (columns = chart_stats keys). A trend: a line. A race or running total over the season: a line with cumulative. NFL-wide history: a teams bar with league_wide and season_from. A breakdown of a whole: a pie.
+  - Use the filters rather than leaving them out: rookies = experience "1", first-round picks = drafted "1", undrafted = drafted "U", last 5 games = last, against good teams or cupcakes = against, cold, windy, indoors, grass or division games = conditions, WR1s = role, a conference or division = group, volume or stat limits like "200+ attempts" = minimum or filter.
+  You're an expert at these charts, so get them exactly right without making it work. If the request settles what to chart, build it right away. If a choice would change the chart a lot and you can't tell what they want (which stat when several fit, per game or total, teams or players, this season or a longer stretch), call ask_followup with one short question and 2-4 answers, best guess first. Don't ask about anything they already said or anything the defaults cover (this season, every week). At most 2 ask_followup calls per request. Use ask_followup rather than asking in your reply, and its answers don't use up a question.
+  show_chart gives back the title, first rows and any notes of the chart that opened. Check it's what they asked for; if it's empty or wrong, fix it and call show_chart again before you answer. Only use numbers from those rows or other tools.
+  When they ask to change the chart ("make it a radar", "flip it", "just the NFC", "per game instead"), keep every other setting from the last show_chart and change only that one, with order for a flip; don't drop who they asked about. Never say the chart tool can't do something before trying it.
   To send them to a page (rankings, a team page, Injuries...), use open_page.
 - Leaderboard stat names: any column (pass_yds, rush_td, tackles, def_sacks, pressure, pen, pts...) or a rate. Player rates: ${Object.keys(BotTools.RATES).join(", ")}, passer_rating, passer_rating_vs_blitz. Team rates: ${Object.keys(BotTools.TEAM_RATES).join(", ")}.
 - "Who wins", "who do you have", "predict this game": call game_prediction and answer with our pick, the win chance and the predicted score, then the one or two reasons that matter most. Never say we don't have a prediction without calling it.
@@ -914,12 +920,35 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
       },
     },
     {
+      name: "ask_followup",
+      description: "Ask the member one short question with 2-4 tappable answers, and wait for their answer. It doesn't use up another of their questions. For charts, when a choice would change the chart a lot and the request doesn't settle it. Put your best guess first. They can also type their own answer. options: 2-4 short answers, 40 characters at most.",
+      input_schema: { type: "object", properties: { question: { type: "string" }, options: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 4 } }, required: ["question", "options"] },
+      execute(a) {
+        const wait = [...log().querySelectorAll(".bot-msg.wait")].at(-1);
+        wait?.classList.add("hidden");
+        const box = bubble("bot", `<p>${esc(String(a.question))}</p><div class="bot-opts">${(a.options || []).slice(0, 4).map((o) => `<button type="button">${esc(String(o).slice(0, 60))}</button>`).join("")}</div>`);
+        el.classList.remove("busy");
+        return new Promise((done) => {
+          pendingAsk = (answer) => {
+            pendingAsk = null;
+            box.querySelector(".bot-opts")?.remove();
+            bubble("me", `<p>${esc(answer)}</p>`);
+            if (wait) { log().appendChild(wait); wait.classList.remove("hidden"); }
+            el.classList.add("busy");
+            log().scrollTop = log().scrollHeight;
+            done({ answer });
+          };
+          box.querySelector(".bot-opts")?.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b && pendingAsk) pendingAsk(b.textContent); });
+        });
+      },
+    },
+    {
       name: "show_chart",
-      description: "Open a Stats > Visualize chart on the site. stat (and y_stat for a scatter) must be keys from chart_stats. who: players or teams. type: bar, line (week by week), scatter (stat across, y_stat up), pie, radar or table. players: player_ids from find_player (up to 5): a radar then shows exactly them, other charts highlight them. highlight: team names (teams charts: a radar shows exactly them; others color them). radar_stats: 4-8 chart_stats keys for the radar's spokes (leave out for the position's usual profile). team: only that team's players. position: QB RB WR TE K OL EDGE IDL LB CB S (players; set it for a player radar so percentiles compare like with like). top: 5, 10, 15, 25 or all. season_from/season_to, weeks_from/weeks_to: the range (default: this season, every week). per: game or total. order: highest_first or lowest_first sets which end of a bar chart or table is on top, whatever the stat; use it for flip it, reverse it, most at the top or fewest first. Left out, counts of bad things (penalties, sacks allowed, interceptions) show the most first.",
+      description: "Open a Stats > Visualize chart on the site. stat (and y_stat for a scatter) must be keys from chart_stats. who: players or teams. type: bar, line (week by week), scatter (stat across, y_stat up), pie, radar or table. players: player_ids from find_player (up to 5): a radar then shows exactly them, other charts highlight them. highlight: team names (teams charts: a radar shows exactly them; others color them). radar_stats: 4-8 chart_stats keys for the radar's spokes (leave out for the position's usual profile). team: only that team's players. position: QB RB WR TE K OL EDGE IDL LB CB S (players; set it for a player radar so percentiles compare like with like). top: 5, 10, 15, 25 or all. season_from/season_to, weeks_from/weeks_to: the range (default: this season, every week). per: game or total. filter: the Visualize filter in plain words, like run stops > 20 and sacks >= 3. minimum: lowest volume to count. role: QB1 RB1 WR1 WR2 TE1 etc. experience: 1 (rookies), 2, 3, 1-2 or 4+. drafted: 1, 2-3, 4+ or U (undrafted). against: good or soft. last: each one's last N games. conditions: cold freezing hot windy indoors outdoors grass turf div nondiv (NFL). group: a division or conference name. cumulative: a running total on a line. league_wide: teams bar or line of the whole league by season. columns: chart_stats keys for a table. order: highest_first or lowest_first sets which end of a bar chart or table is on top, whatever the stat; use it for flip it, reverse it, most at the top or fewest first. Left out, counts of bad things (penalties, sacks allowed, interceptions) show the most first.",
       input_schema: { type: "object", properties: { league: { type: "string", enum: ["nfl", "cfb"] }, who: { type: "string", enum: ["players", "teams"] }, type: { type: "string", enum: ["bar", "line", "scatter", "pie", "radar", "table"] },
         stat: { type: "string" }, y_stat: { type: "string" }, team: { type: "string" }, players: { type: "array", items: { type: "string" } }, highlight: { type: "array", items: { type: "string" } },
         radar_stats: { type: "array", items: { type: "string" } }, position: { type: "string" }, top: { type: "string" },
-        season_from: { type: "integer" }, season_to: { type: "integer" }, weeks_from: { type: "integer" }, weeks_to: { type: "integer" }, per: { type: "string", enum: ["game", "total"] }, order: { type: "string", enum: ["highest_first", "lowest_first"] }, title: { type: "string" } }, required: ["league", "who", "type", "stat"] },
+        season_from: { type: "integer" }, season_to: { type: "integer" }, weeks_from: { type: "integer" }, weeks_to: { type: "integer" }, per: { type: "string", enum: ["game", "total"] }, filter: { type: "string" }, minimum: { type: "integer" }, role: { type: "string" }, experience: { type: "string" }, drafted: { type: "string" }, against: { type: "string", enum: ["good", "soft"] }, last: { type: "integer" }, conditions: { type: "string" }, group: { type: "string" }, cumulative: { type: "boolean" }, league_wide: { type: "boolean" }, columns: { type: "array", items: { type: "string" } }, order: { type: "string", enum: ["highest_first", "lowest_first"] }, title: { type: "string" } }, required: ["league", "who", "type", "stat"] },
       async execute(a, links) {
         const lg = String(a.league), C = await Viz.catalog(lg), list = C[a.who === "teams" ? "teams" : "players"];
         for (const k of [a.stat, a.y_stat, ...(a.radar_stats || [])].filter(Boolean)) if (!list.some((s) => s[0] === k)) throw new Error(`"${k}" isn't a Visualize stat. Call chart_stats first.`);
@@ -946,10 +975,26 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
         const w = a.who === "teams" ? "teams" : "players", dir = a.order || (C.lowCount[w].has(a.stat) ? "highest_first" : "");
         if (dir) o.order = (dir === "highest_first") === C.low[w].has(a.stat) ? "worst" : "best";
         if (a.title) o.ttl = String(a.title).slice(0, 80);
-        const href = `#/stats?${new URLSearchParams(o)}`;
+        if (a.filter) o.where = String(a.filter).slice(0, 200);
+        if (a.minimum != null) o.min = String(a.minimum);
+        if (a.role) o.role = String(a.role);
+        if (a.experience) o.exp = String(a.experience);
+        if (a.drafted) o.draft = String(a.drafted);
+        if (a.against) o.opp = String(a.against);
+        if (a.last) o.last = String(a.last);
+        if (a.conditions) o.cond = String(a.conditions);
+        if (a.group) o.group = String(a.group);
+        if (a.cumulative) o.cum = "1";
+        if (a.league_wide) o.scope = "league";
+        if (a.columns?.length) o.cols = a.columns.join(",");
+        const href = `#/stats?${new URLSearchParams(o)}`, before = Viz.renders(), same = location.hash === href;
         go(href);
         links.push({ href, label: a.title ? `Chart: ${a.title}` : "Open the chart" });
-        return { opened: true, note: "The chart is open on the page behind the chat. Say what it shows in a sentence; don't repeat the link." };
+        for (let i = 0; i < 40 && !same && Viz.renders() === before; i++) await new Promise((r) => setTimeout(r, 150));
+        const text = (x) => x?.innerText.replace(/\s+/g, " ").trim() || "";
+        const rows = [...document.querySelectorAll(".vz-table tbody tr, .vz-tbl tbody tr")].slice(0, 12).map((r) => [...r.cells].map((c) => c.textContent.trim()).join(" "));
+        return { opened: true, title: text(document.querySelector(".vz-title b")), subtitle: text(document.querySelector(".vz-title small")), first_rows: rows,
+          notes: [...document.querySelectorAll("#view-stats .note, .vz-wrap .note")].map(text).filter(Boolean).slice(0, 2), link_note: "The chart is open on the page behind the chat. Say what it shows in a sentence or two; don't repeat the link." };
       },
     },
     {
@@ -1155,5 +1200,5 @@ Style: a sharp fan who knows the numbers, talking to another fan. Lead with the 
     return t.execute(input, links);
   }
 
-  return { show, section, wire };
+  return { show, section, wire, run, needTools };
 })();

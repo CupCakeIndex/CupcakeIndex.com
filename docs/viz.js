@@ -963,6 +963,7 @@ const Viz = (() => {
   // team logos: ESPN's small logos (they allow drawing into a picture, so "Download picture" keeps them)
   let LOGOS = null, TCOL = {}; // TCOL: "nfl:28" -> [main color, alternate] (Commanders: burgundy, gold)
   const imgs = new Map();
+  let renders = 0;
   async function loadLogos() {
     if (LOGOS) return;
     const t = await getJSON("data/teams.json").catch(() => ({}));
@@ -2364,6 +2365,7 @@ const Viz = (() => {
     }
     chart?.destroy();
     chart = cfg ? new Chart(document.getElementById("vz-chart"), cfg) : null;
+    renders++; // the Analyst chat waits on this to read the chart it opened
     if (typeof Stats !== "undefined") Stats.count("charts"); // analytics: charts made
     save();
 
@@ -3107,5 +3109,5 @@ const Viz = (() => {
       posTxt: { QB: "QBs", RB: "running backs", WR: "receivers and tight ends", K: "kickers", OL: "offensive linemen", DEF: "defenders" }[posK] || "players", cats };
   }
 
-  return { render, glance, catalog, playerStats };
+  return { render, glance, catalog, playerStats, renders: () => renders };
 })();
