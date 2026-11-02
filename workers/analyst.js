@@ -258,7 +258,7 @@ async function everyone(env, me) {
   return out;
 }
 const summary = (u, me, a) => {
-  const L = a.L, owner = me.email === OWNER;
+  const L = a.L, owner = me.email === OWNER && me.verified;
   return { member: a.member, free: a.free, tier: a.tier, questions: a.free ? a.f.q : u.q, usd: Math.round(u.usd * 10000) / 10000, limit: L.q, day_limit: owner ? null : L.day,
     takes: u.t || 0, take_limit: L.takes, today: u.days[today()]?.q || 0, days: u.days, cap_usd: owner ? OWNER_CAP_USD : L.usd, testing: owner };
 };
@@ -324,7 +324,8 @@ export default {
     if (typeof b.system !== "string" || b.system.length > 60000 || !Array.isArray(b.messages) || !b.messages.length || b.messages.length > 80
       || tools.length > 40 || tools.some((t) => t.type || !t.name || !t.input_schema)) return json({ error: "bad request" }, 400); // our own tools only (no web search etc.)
 
-    const u = await usage(env, me.uid), d = today(), owner = me.email === OWNER, L = a.L, sum = () => summary(u, me, a);
+    if (!me.verified) return json({ error: "Verify your email to use the Analyst. The link is in your inbox, or send it again in Settings." }, 403); // password accounts can be made with any address
+    const u = await usage(env, me.uid), d = today(), owner = me.email === OWNER && me.verified, L = a.L, sum = () => summary(u, me, a);
     u.days[d] ||= { q: 0, usd: 0 };
     if (a.free && (a.f.usd >= L.usd || (b.newQuestion && a.f.q >= L.q))) return json({ error: `You've used your ${L.q} free questions. Subscribe in Settings for more.`, out: true, usage: sum() }, 429);
     if (u.usd >= (owner ? OWNER_CAP_USD : L.usd)) return json({ error: `You've hit this month's limit. It resets on the 1st.`, usage: sum() }, 429);

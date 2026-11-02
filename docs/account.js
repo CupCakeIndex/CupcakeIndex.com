@@ -1,7 +1,7 @@
-// Accounts: "Sign in with Google" (Firebase), so Pick'em, the daily game and your fantasy team follow you to any device.
+// Accounts: Sign in with Google, or an email and password for any other address (Firebase), so Pick'em, the daily game and your fantasy team follow you to any device.
 // OFF until firebase-config.js has a config; then the Settings page shows an Account section.
 // What syncs: the same browser storage the site already uses (SYNCED below). We never see a password (Google
-// handles sign-in) and keep only a user id, a first name and that game data, in Firestore at users/<uid>.
+// or Firebase handles sign-in) and keep only a user id, a first name and that game data, in Firestore at users/<uid>.
 const Account = (() => {
   const CFG = window.FIREBASE_CONFIG;
   const SDK = "https://www.gstatic.com/firebasejs/10.12.2/";
@@ -100,14 +100,60 @@ const Account = (() => {
       setStatus(friendly(e));
     }
   }
+  // Email and password, for Hotmail, Yahoo and everyone else without a Google account. New accounts get a verification
+  // email; paid features and the Analyst need a verified address, and the worker and firestore.rules check that too.
+  const usesPassword = () => !!user?.providerData?.some((p) => p.providerId === "password");
+  function formValues() {
+    const email = document.getElementById("acct-email")?.value.trim() || "", pass = document.getElementById("acct-pass")?.value || "";
+    if (!/^\S+@\S+\.\S+$/.test(email)) { setStatus("Enter your email address."); return null; }
+    return { email, pass };
+  }
+  async function emailIn(e) {
+    e?.preventDefault();
+    const v = formValues();
+    if (!v) return;
+    if (!v.pass) return setStatus("Enter your password.");
+    await start();
+    setStatus("Signing in…");
+    try { await fb.auth().signInWithEmailAndPassword(v.email, v.pass); } catch (err) { setStatus(friendly(err)); }
+  }
+  async function emailCreate() {
+    const v = formValues();
+    if (!v) return;
+    if (v.pass.length < 6) return setStatus("Pick a password with at least 6 characters.");
+    await start();
+    setStatus("Creating your account…");
+    try {
+      const r = await fb.auth().createUserWithEmailAndPassword(v.email, v.pass);
+      await r.user.sendEmailVerification();
+      toast(`Verification email sent to ${v.email}`);
+    } catch (err) { setStatus(friendly(err)); }
+  }
+  async function emailReset() {
+    const v = formValues();
+    if (!v) return;
+    await start();
+    try { await fb.auth().sendPasswordResetEmail(v.email); setStatus(`If ${v.email} has an account, a reset link is on its way. Check your junk folder too.`); }
+    catch (err) { setStatus(friendly(err)); }
+  }
+  async function emailResend() {
+    try { await user.sendEmailVerification(); setStatus(`Sent to ${user.email}. Check your junk folder too.`); }
+    catch (err) { setStatus(friendly(err)); }
+  }
+  // back from the verification link: refresh so the site and the sign-in token both know
+  async function emailRecheck() {
+    if (!user || user.emailVerified) return;
+    try { await user.reload(); if (fb.auth().currentUser?.emailVerified) { await fb.auth().currentUser.getIdToken(true); rerender(); } } catch (e) {}
+  }
   async function signOut() {
     await fb.auth().signOut();
     toast("Signed out");
     setStatus("Signed out. Your picks are saved to your account and come back when you sign in.");
   }
   async function switchAccount() {
+    const password = usesPassword();
     await fb.auth().signOut(); // clears this device's copy (it's safe in the account you're leaving)
-    signIn();
+    if (!password) signIn(); // a password account goes back to the sign-in form instead of Google's picker
   }
   async function deleteAccount() {
     try {
@@ -123,6 +169,10 @@ const Account = (() => {
     }
   }
   const friendly = (e) => ({ "auth/popup-closed-by-user": "Sign-in window closed before finishing.", "auth/network-request-failed": "No connection. Try again.",
+    "auth/invalid-credential": "That email and password don't match. If you normally use Google, tap Sign in with Google.", "auth/wrong-password": "That email and password don't match.", "auth/user-not-found": "That email and password don't match.",
+    "auth/invalid-login-credentials": "That email and password don't match. If you normally use Google, tap Sign in with Google.",
+    "auth/email-already-in-use": "That email already has an account. Sign in instead, or use Sign in with Google if that's how you joined.", "auth/invalid-email": "That doesn't look like an email address.",
+    "auth/weak-password": "Pick a password with at least 6 characters.", "auth/too-many-requests": "Too many tries. Wait a few minutes and try again.", "auth/operation-not-allowed": "Email sign-in isn't turned on yet.",
     "auth/unauthorized-domain": "This web address isn't allowed to sign in yet (Firebase > Authentication > Settings > Authorized domains).",
     "permission-denied": "The account database refused the save (check the Firestore rules)." }[e?.code] || `Something went wrong (${e?.code || e?.message || e}).`);
   // signed in: your Google photo (or initial) on the gear button, so it's obvious from every page
@@ -137,7 +187,7 @@ const Account = (() => {
     const gold = perfects() ? " gold" : ""; // Perfect Pick'em badge (pickem.js)
     if (user) g.insertAdjacentHTML("beforeend", user.photoURL
       ? `<img class="gear-me${gold}" src="${esc(user.photoURL)}" alt="" referrerpolicy="no-referrer">`
-      : `<span class="gear-me${gold}">${esc((user.displayName || "?")[0])}</span>`);
+      : `<span class="gear-me${gold}">${esc((user.displayName || user.email || "?")[0].toUpperCase())}</span>`);
     g.title = user ? `Settings · signed in as ${user.displayName || user.email || "you"}` : "Settings: dark/light mode and theme";
   }
   function toast(msg) {
@@ -159,18 +209,29 @@ const Account = (() => {
     return `<h3>Account</h3>
       ${user ? `<div class="acct-me">${pic}<div><b>Signed in as ${esc(user.displayName || user.email || "you")}</b>${np ? `<span class="pk-badge acct-badge">🏅 Perfect Pick'em${np > 1 ? " ×" + np : ""}</span>` : ""}
           <small>Your Pick'em picks and record, the daily game and your fantasy team are saved to your account and show up on any device you sign in on.</small></div></div>
+        ${usesPassword() && !user.emailVerified ? `<p class="note acct-verify">Check your email and tap the link to verify your address. Subscriptions and the Analyst need a verified email. <button type="button" class="boxbtn" id="acct-resend">Send it again</button></p>` : ""}
         <div class="acct-btns"><button type="button" class="boxbtn" id="acct-switch">Switch account</button><button type="button" class="boxbtn" id="acct-out">Sign out</button>
           <button type="button" class="boxbtn danger" id="acct-del">Delete my account</button></div>
         <div class="acct-confirm hidden" id="acct-confirm"><span>Delete your account and everything saved to it? This can't be undone.</span>
           <button type="button" class="boxbtn danger" id="acct-del-yes">Yes, delete it</button><button type="button" class="boxbtn" id="acct-del-no">Keep it</button></div>`
       : `<p class="note">Sign in to keep your Pick'em record, daily game streak and fantasy team on every device. Free. We never see your password, and you can delete everything any time.</p>
-        <button type="button" class="gbtn" id="acct-in"><svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Sign in with Google</button>`}
+        <button type="button" class="gbtn" id="acct-in"><svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Sign in with Google</button>
+        <form class="acct-form" id="acct-form" novalidate><p class="note">Hotmail, Yahoo or another email? Use it here.</p>
+          <label>Email<input id="acct-email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" inputmode="email"></label>
+          <label>Password<input id="acct-pass" type="password" autocomplete="current-password"></label>
+          <div class="acct-btns"><button type="submit" class="boxbtn">Sign in</button><button type="button" class="boxbtn" id="acct-new">Create account</button><button type="button" class="acct-link" id="acct-reset">Forgot password?</button></div></form>`}
       <p class="note" id="acct-status" role="status">${esc(status)}</p>
       <p class="note"><a href="${link("privacy")}">Privacy: what we keep and why</a></p>`;
   }
   function wire(root) {
     const on = (id, fn) => { const b = root.querySelector("#" + id); if (b) b.onclick = fn; };
     on("acct-in", signIn);
+    on("acct-new", emailCreate);
+    on("acct-reset", emailReset);
+    on("acct-resend", emailResend);
+    const form = root.querySelector("#acct-form");
+    if (form) form.onsubmit = emailIn;
+    emailRecheck();
     on("acct-out", signOut);
     on("acct-switch", switchAccount);
     on("acct-del", () => root.querySelector("#acct-confirm").classList.remove("hidden"));
