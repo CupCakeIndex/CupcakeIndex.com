@@ -136,7 +136,7 @@
     "sos": 0,
     "luck": 0
    },
-   "updated": "2026-11-02T14:17+00:00",
+   "updated": "2026-11-03T14:11+00:00",
    "modes": {
     "best": {
      "power": 5,
@@ -230,28 +230,28 @@
       8
      ],
      "accuracy": {
-      "games": 103,
+      "games": 104,
       "correct": 65,
-      "mae": 9.4,
+      "mae": 9.5,
       "vegas_su": {
-       "games": 103,
+       "games": 104,
        "correct": 67
       },
       "model_su_lined": {
-       "games": 103,
+       "games": 104,
        "correct": 65
       },
       "ats": {
-       "games": 98,
-       "correct": 49
+       "games": 99,
+       "correct": 50
       },
       "ats_strong": {
        "games": 20,
        "correct": 8
       },
-      "vegas_mae": 9.2,
-      "score_games": 104,
-      "score_mae": 7.3
+      "vegas_mae": 9.3,
+      "score_games": 105,
+      "score_mae": 7.4
      }
     }
    },
@@ -299,37 +299,37 @@
     "recent": 10,
     "luck": 5
    },
-   "updated": "2026-11-02T14:18+00:00",
+   "updated": "2026-11-03T14:12+00:00",
    "modes": {
     "best": {
      "power": 80,
-     "resume": 0,
+     "resume": 5,
      "efficiency": 0,
      "sos": 0,
-     "recent": 20,
+     "recent": 15,
      "luck": 0
     },
     "deserving": {
      "resume": 71,
      "sos": 29
     },
-    "games": 358,
+    "games": 359,
     "accuracy": {
-     "best": 0.61731843575419,
-     "deserving": 0.6312849162011173,
-     "old_default": 0.61731843575419,
-     "power_only": 0.6414565826330533
+     "best": 0.6155988857938719,
+     "deserving": 0.6323119777158774,
+     "old_default": 0.6155988857938719,
+     "power_only": 0.6396648044692738
     },
     "out_of_sample": {
      "trained_on": 2025,
      "tested_on": 2026,
-     "games": 103,
-     "best": 0.5339805825242718,
-     "old_default": 0.5922330097087378
+     "games": 104,
+     "best": 0.5288461538461539,
+     "old_default": 0.5865384615384616
     }
    },
    "hidden": []
   }
  },
- "updated": "2026-11-02T14:18+00:00"
+ "updated": "2026-11-03T14:12+00:00"
 }
