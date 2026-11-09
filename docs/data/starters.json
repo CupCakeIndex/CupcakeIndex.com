@@ -1,18 +1,18 @@
 {
- "updated": "2026-11-08T19:05:48Z",
+ "updated": "2026-11-09T02:44:15Z",
  "season": 2026,
  "week": 10,
  "teams": {
   "cfb:333": [
    {
-    "big": "#1 vs #9",
-    "label": "our rank vs the AP",
-    "text": "We have Alabama at No. 1; the AP has them at No. 9. We like them more than the voters do. Who's right?"
-   },
-   {
     "big": "31-13",
     "label": "best win: No. 4 LSU",
     "text": "Alabama's best win so far: 31-13 over No. 4 LSU (No. 4 in our rankings). Résumé-worthy, or not enough yet?"
+   },
+   {
+    "big": "#1 vs #7",
+    "label": "our rank vs the AP",
+    "text": "We have Alabama at No. 1; the AP has them at No. 7. We like them more than the voters do. Who's right?"
    },
    {
     "big": "2.8",
@@ -116,9 +116,9 @@
   ],
   "cfb:99": [
    {
-    "big": "#4 vs #15",
+    "big": "#4 vs #24",
     "label": "our rank vs the AP",
-    "text": "We have LSU at No. 4; the AP has them at No. 15. We like them more than the voters do. Who's right?"
+    "text": "We have LSU at No. 4; the AP has them at No. 24. We like them more than the voters do. Who's right?"
    },
    {
     "big": "0-2",
@@ -158,11 +158,6 @@
     "text": "3 of Miami's 9 games have come against cupcakes. Should the ranking take a hit for that?"
    },
    {
-    "big": "#5 vs #1",
-    "label": "our rank vs the AP",
-    "text": "We have Miami at No. 5; the AP has them at No. 1. The voters like them more than our numbers do. Who's right?"
-   },
-   {
     "big": "45.0",
     "label": "points a game: 1st in the top 25",
     "text": "Miami is 1st in the top 25 in points a game (45.0). Is anyone in the top 25 slowing this offense down?"
@@ -186,6 +181,11 @@
     "big": "9.7",
     "label": "yards per pass attempt: 2nd in the top 25",
     "text": "Miami is 2nd in the top 25 in yards per pass attempt (9.7). Best passing attack in the country?"
+   },
+   {
+    "big": "+12.3",
+    "label": "average margin vs non-cupcakes (6 games)",
+    "text": "Take out the cupcakes and Miami is winning by 12.3 a game, 7th in the top 25. Where does that rank them for you?"
    }
   ],
   "cfb:251": [
@@ -215,14 +215,14 @@
     "text": "Texas is last in the top 25 in yards per carry (3.5). Is the run game good enough when the weather turns?"
    },
    {
-    "big": "#6 vs #10",
-    "label": "our rank vs the AP",
-    "text": "We have Texas at No. 6; the AP has them at No. 10. We like them more than the voters do. Who's right?"
-   },
-   {
     "big": "0",
     "label": "cupcakes played",
     "text": "Texas hasn't played a single cupcake. Only 1 of the top 25 can say that. Does that earn them the benefit of the doubt?"
+   },
+   {
+    "big": "24-27",
+    "label": "worst loss: Florida",
+    "text": "Texas lost 24-27 to Florida. How much should one loss count against them?"
    }
   ],
   "cfb:2633": [
@@ -235,11 +235,6 @@
     "big": "46%",
     "label": "chance to beat No. 4 LSU (home)",
     "text": "Tennessee's toughest game left: vs. No. 4 LSU, Week 12. Our model gives them 46%. Who you got?"
-   },
-   {
-    "big": "#7 vs #16",
-    "label": "our rank vs the AP",
-    "text": "We have Tennessee at No. 7; the AP has them at No. 16. We like them more than the voters do. Who's right?"
    },
    {
     "big": "26-10",
@@ -260,6 +255,11 @@
     "big": "24-27",
     "label": "worst loss: No. 15 South Carolina",
     "text": "Tennessee lost 24-27 to No. 15 South Carolina. How much should one loss count against them?"
+   },
+   {
+    "big": "1-2",
+    "label": "in one-score games",
+    "text": "Tennessee is 1-2 in games decided by 8 points or less. Unlucky, or just not good enough to close?"
    }
   ],
   "cfb:254": [
@@ -284,9 +284,9 @@
     "text": "Utah is last in the top 25 in tackles for loss a game (2.9). Is the defense too passive up front?"
    },
    {
-    "big": "#8 vs #3",
+    "big": "#8 vs #2",
     "label": "our rank vs the AP",
-    "text": "We have Utah at No. 8; the AP has them at No. 3. The voters like them more than our numbers do. Who's right?"
+    "text": "We have Utah at No. 8; the AP has them at No. 2. The voters like them more than our numbers do. Who's right?"
    },
    {
     "big": "62%",
@@ -316,9 +316,9 @@
     "text": "UCLA's best win so far: 17-15 over No. 13 Oregon (No. 13 in our rankings). Résumé-worthy, or not enough yet?"
    },
    {
-    "big": "#9 vs #5",
+    "big": "#9 vs #4",
     "label": "our rank vs the AP",
-    "text": "We have UCLA at No. 9; the AP has them at No. 5. The voters like them more than our numbers do. Who's right?"
+    "text": "We have UCLA at No. 9; the AP has them at No. 4. The voters like them more than our numbers do. Who's right?"
    },
    {
     "big": "1.9",
@@ -341,6 +341,11 @@
     "big": "3 of 9",
     "label": "games against cupcakes",
     "text": "3 of Ohio State's 9 games have come against cupcakes. Should the ranking take a hit for that?"
+   },
+   {
+    "big": "#10 vs #21",
+    "label": "our rank vs the AP",
+    "text": "We have Ohio State at No. 10; the AP has them at No. 21. We like them more than the voters do. Who's right?"
    },
    {
     "big": "19-15",
@@ -366,11 +371,6 @@
     "big": "+8",
     "label": "turnover margin: 2nd in the top 25",
     "text": "Ohio State is 2nd in the top 25 in turnover margin (+8). Skill or luck? Turnovers tend to even out."
-   },
-   {
-    "big": "+3.0",
-    "label": "average margin vs non-cupcakes (6 games)",
-    "text": "Take out the cupcakes and Ohio State is winning by 3.0 a game, 21st in the top 25. Is that a top-25 team?"
    }
   ],
   "cfb:68": [
@@ -380,9 +380,9 @@
     "text": "5 of Boise State's 9 games have come against cupcakes. Should the ranking take a hit for that?"
    },
    {
-    "big": "#11 vs #20",
+    "big": "#11 vs #17",
     "label": "our rank vs the AP",
-    "text": "We have Boise State at No. 11; the AP has them at No. 20. We like them more than the voters do. Who's right?"
+    "text": "We have Boise State at No. 11; the AP has them at No. 17. We like them more than the voters do. Who's right?"
    },
    {
     "big": "27-34",
@@ -422,6 +422,11 @@
     "text": "Ole Miss's best win so far: 32-24 over No. 4 LSU (No. 4 in our rankings). Résumé-worthy, or not enough yet?"
    },
    {
+    "big": "#12 vs #19",
+    "label": "our rank vs the AP",
+    "text": "We have Ole Miss at No. 12; the AP has them at No. 19. We like them more than the voters do. Who's right?"
+   },
+   {
     "big": "26.0",
     "label": "points allowed a game: 2nd to last in the top 25",
     "text": "Ole Miss is second to last in the top 25 in points allowed a game (26.0). Can you win a title giving up this many?"
@@ -440,19 +445,9 @@
     "big": "53%",
     "label": "chance to beat Oklahoma (road)",
     "text": "Ole Miss's toughest game left: at Oklahoma, Week 11. Our model gives them 53%. Who you got?"
-   },
-   {
-    "big": "2-1",
-    "label": "in one-score games",
-    "text": "Ole Miss is 2-1 in games decided by 8 points or less. Clutch, or living on borrowed time?"
    }
   ],
   "cfb:2483": [
-   {
-    "big": "#13",
-    "label": "in our rankings, unranked by the AP",
-    "text": "We have Oregon at No. 13. The AP poll doesn't have them in its top 25 at all. Are the voters sleeping on them, or are we?"
-   },
    {
     "big": "34-27",
     "label": "best win: No. 11 Boise State",
@@ -462,6 +457,11 @@
     "big": "-6",
     "label": "turnover margin: last in the top 25",
     "text": "Oregon is last in the top 25 in turnover margin (-6). Is the ball security going to cost them a big game?"
+   },
+   {
+    "big": "#13 vs #18",
+    "label": "our rank vs the AP",
+    "text": "We have Oregon at No. 13; the AP has them at No. 18. We like them more than the voters do. Who's right?"
    },
    {
     "big": "10-21",
@@ -533,14 +533,14 @@
     "text": "South Carolina's toughest game left: vs. No. 2 Georgia, Week 12. Our model gives them 30%. Who you got?"
    },
    {
-    "big": "#15 vs #23",
-    "label": "our rank vs the AP",
-    "text": "We have South Carolina at No. 15; the AP has them at No. 23. We like them more than the voters do. Who's right?"
-   },
-   {
     "big": "27-24",
     "label": "best win: No. 7 Tennessee",
     "text": "South Carolina's best win so far: 27-24 over No. 7 Tennessee (No. 7 in our rankings). Résumé-worthy, or not enough yet?"
+   },
+   {
+    "big": "#15 vs #20",
+    "label": "our rank vs the AP",
+    "text": "We have South Carolina at No. 15; the AP has them at No. 20. We like them more than the voters do. Who's right?"
    },
    {
     "big": "0.4",
@@ -644,9 +644,9 @@
     "text": "Wake Forest is last in the top 25 in penalty yards a game (83). Are the penalties going to cost them a big one?"
    },
    {
-    "big": "#18 vs #14",
+    "big": "#18 vs #11",
     "label": "our rank vs the AP",
-    "text": "We have Wake Forest at No. 18; the AP has them at No. 14. The voters like them more than our numbers do. Who's right?"
+    "text": "We have Wake Forest at No. 18; the AP has them at No. 11. The voters like them more than our numbers do. Who's right?"
    },
    {
     "big": "2-0",
@@ -670,6 +670,11 @@
    }
   ],
   "cfb:142": [
+   {
+    "big": "#19",
+    "label": "in our rankings, unranked by the AP",
+    "text": "We have Missouri at No. 19. The AP poll doesn't have them in its top 25 at all. Are the voters sleeping on them, or are we?"
+   },
    {
     "big": "2 of 9",
     "label": "games against cupcakes",
@@ -703,11 +708,6 @@
   ],
   "cfb:96": [
    {
-    "big": "#20 vs #8",
-    "label": "our rank vs the AP",
-    "text": "We have Kentucky at No. 20; the AP has them at No. 8. The voters like them more than our numbers do. Who's right?"
-   },
-   {
     "big": "2 of 9",
     "label": "games against cupcakes",
     "text": "2 of Kentucky's 9 games have come against cupcakes. Should the ranking take a hit for that?"
@@ -736,18 +736,23 @@
     "big": "35%",
     "label": "third-down conversion rate: last in the top 25",
     "text": "Kentucky is last in the top 25 in third-down conversion rate (35%). Fixable, or a fatal flaw?"
+   },
+   {
+    "big": "#20 vs #13",
+    "label": "our rank vs the AP",
+    "text": "We have Kentucky at No. 20; the AP has them at No. 13. The voters like them more than our numbers do. Who's right?"
    }
   ],
   "cfb:252": [
    {
-    "big": "#21 vs #7",
-    "label": "our rank vs the AP",
-    "text": "We have BYU at No. 21; the AP has them at No. 7. The voters like them more than our numbers do. Who's right?"
-   },
-   {
     "big": "2 of 9",
     "label": "games against cupcakes",
     "text": "2 of BYU's 9 games have come against cupcakes. Should the ranking take a hit for that?"
+   },
+   {
+    "big": "#21 vs #12",
+    "label": "our rank vs the AP",
+    "text": "We have BYU at No. 21; the AP has them at No. 12. The voters like them more than our numbers do. Who's right?"
    },
    {
     "big": "28-24",
@@ -893,6 +898,11 @@
     "text": "2 of Iowa's 9 games have come against cupcakes. Should the ranking take a hit for that?"
    },
    {
+    "big": "#25 vs #16",
+    "label": "our rank vs the AP",
+    "text": "We have Iowa at No. 25; the AP has them at No. 16. The voters like them more than our numbers do. Who's right?"
+   },
+   {
     "big": "27.8",
     "label": "points a game: last in the top 25",
     "text": "Iowa is last in the top 25 in points a game (27.8). Is the offense good enough for a playoff run?"
@@ -901,11 +911,6 @@
     "big": "6.9",
     "label": "yards per pass attempt: last in the top 25",
     "text": "Iowa is last in the top 25 in yards per pass attempt (6.9). Can they win a big game through the air?"
-   },
-   {
-    "big": "#25 vs #21",
-    "label": "our rank vs the AP",
-    "text": "We have Iowa at No. 25; the AP has them at No. 21. The voters like them more than our numbers do. Who's right?"
    },
    {
     "big": "12.2",
