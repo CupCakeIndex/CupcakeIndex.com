@@ -228,37 +228,38 @@
       5,
       6,
       7,
-      8
+      8,
+      9
      ],
      "accuracy": {
-      "games": 106,
-      "correct": 67,
-      "mae": 9.5,
+      "games": 119,
+      "correct": 79,
+      "mae": 9.3,
       "vegas_su": {
-       "games": 106,
-       "correct": 69
+       "games": 119,
+       "correct": 81
       },
       "model_su_lined": {
-       "games": 106,
-       "correct": 67
+       "games": 119,
+       "correct": 79
       },
       "ats": {
-       "games": 101,
-       "correct": 52
+       "games": 114,
+       "correct": 61
       },
       "ats_strong": {
-       "games": 21,
-       "correct": 9
+       "games": 25,
+       "correct": 13
       },
-      "vegas_mae": 9.4,
-      "score_games": 107,
-      "score_mae": 7.4
+      "vegas_mae": 9.2,
+      "score_games": 120,
+      "score_mae": 7.3
      }
     }
    },
    "latest": {
     "season": 2026,
-    "week": 8
+    "week": 9
    },
    "factors": [
     {
@@ -300,11 +301,11 @@
     "recent": 10,
     "luck": 5
    },
-   "updated": "2026-11-03T14:12+00:00",
+   "updated": "2026-11-10T13:48+00:00",
    "modes": {
     "best": {
-     "power": 75,
-     "resume": 5,
+     "power": 80,
+     "resume": 0,
      "efficiency": 0,
      "sos": 0,
      "recent": 20,
@@ -314,23 +315,23 @@
      "resume": 71,
      "sos": 29
     },
-    "games": 361,
+    "games": 374,
     "accuracy": {
-     "best": 0.6121883656509696,
-     "deserving": 0.6343490304709142,
-     "old_default": 0.6177285318559557,
-     "power_only": 0.6416666666666667
+     "best": 0.6283422459893048,
+     "deserving": 0.6390374331550802,
+     "old_default": 0.6256684491978609,
+     "power_only": 0.6514745308310992
     },
     "out_of_sample": {
      "trained_on": 2025,
      "tested_on": 2026,
-     "games": 106,
-     "best": 0.5377358490566038,
-     "old_default": 0.5943396226415094
+     "games": 119,
+     "best": 0.5882352941176471,
+     "old_default": 0.6218487394957983
     }
    },
    "hidden": []
   }
  },
- "updated": "2026-11-09T08:43+00:00"
+ "updated": "2026-11-10T13:48+00:00"
 }
