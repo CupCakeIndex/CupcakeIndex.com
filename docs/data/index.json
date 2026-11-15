@@ -57,37 +57,38 @@
       7,
       8,
       9,
-      10
+      10,
+      11
      ],
      "accuracy": {
-      "games": 597,
-      "correct": 445,
-      "mae": 12.3,
+      "games": 652,
+      "correct": 482,
+      "mae": 12.5,
       "vegas_su": {
-       "games": 597,
-       "correct": 463
+       "games": 652,
+       "correct": 499
       },
       "model_su_lined": {
-       "games": 597,
-       "correct": 445
+       "games": 652,
+       "correct": 482
       },
       "ats": {
-       "games": 581,
-       "correct": 299
+       "games": 635,
+       "correct": 326
       },
       "ats_strong": {
-       "games": 321,
-       "correct": 163
+       "games": 341,
+       "correct": 172
       },
-      "vegas_mae": 11.4,
-      "score_games": 597,
+      "vegas_mae": 11.7,
+      "score_games": 652,
       "score_mae": 9.0
      }
     }
    },
    "latest": {
     "season": 2026,
-    "week": 10
+    "week": 11
    },
    "factors": [
     {
@@ -137,36 +138,36 @@
     "sos": 0,
     "luck": 0
    },
-   "updated": "2026-11-10T20:26+00:00",
+   "updated": "2026-11-15T12:07+00:00",
    "modes": {
     "best": {
      "power": 5,
      "resume": 0,
      "efficiency": 25,
-     "sos": 0,
+     "sos": 5,
      "recent": 15,
      "cupcake": 5,
      "luck": 0,
-     "market": 50
+     "market": 45
     },
     "deserving": {
      "resume": 60,
      "sos": 25,
      "cupcake": 15
     },
-    "games": 1236,
+    "games": 1291,
     "accuracy": {
-     "best": 0.7119741100323624,
-     "deserving": 0.6294498381877023,
-     "old_default": 0.7087378640776699,
-     "power_only": 0.7109311740890688
+     "best": 0.7149496514329977,
+     "deserving": 0.6281951975213013,
+     "old_default": 0.7087529047250194,
+     "power_only": 0.7106283941039565
     },
     "out_of_sample": {
      "trained_on": 2025,
      "tested_on": 2026,
-     "games": 522,
-     "best": 0.7011494252873564,
-     "old_default": 0.685823754789272
+     "games": 577,
+     "best": 0.707105719237435,
+     "old_default": 0.6880415944540728
     }
    },
    "hidden": [
@@ -333,5 +334,5 @@
    "hidden": []
   }
  },
- "updated": "2026-11-10T20:26+00:00"
+ "updated": "2026-11-15T12:07+00:00"
 }
