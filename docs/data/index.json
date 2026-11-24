@@ -139,7 +139,7 @@
     "sos": 0,
     "luck": 0
    },
-   "updated": "2026-11-23T09:51+00:00",
+   "updated": "2026-11-24T00:44+00:00",
    "modes": {
     "best": {
      "power": 0,
@@ -232,37 +232,38 @@
       7,
       8,
       9,
-      10
+      10,
+      11
      ],
      "accuracy": {
-      "games": 134,
-      "correct": 92,
-      "mae": 9.4,
+      "games": 145,
+      "correct": 100,
+      "mae": 9.3,
       "vegas_su": {
-       "games": 134,
-       "correct": 91
+       "games": 145,
+       "correct": 99
       },
       "model_su_lined": {
-       "games": 134,
-       "correct": 92
+       "games": 145,
+       "correct": 100
       },
       "ats": {
-       "games": 128,
-       "correct": 72
+       "games": 137,
+       "correct": 75
       },
       "ats_strong": {
-       "games": 29,
-       "correct": 15
+       "games": 33,
+       "correct": 16
       },
-      "vegas_mae": 9.4,
-      "score_games": 135,
-      "score_mae": 7.4
+      "vegas_mae": 9.2,
+      "score_games": 146,
+      "score_mae": 7.3
      }
     }
    },
    "latest": {
     "season": 2026,
-    "week": 10
+    "week": 11
    },
    "factors": [
     {
@@ -304,11 +305,11 @@
     "recent": 10,
     "luck": 5
    },
-   "updated": "2026-11-17T21:41+00:00",
+   "updated": "2026-11-24T00:45+00:00",
    "modes": {
     "best": {
-     "power": 75,
-     "resume": 10,
+     "power": 70,
+     "resume": 15,
      "efficiency": 0,
      "sos": 0,
      "recent": 15,
@@ -318,23 +319,23 @@
      "resume": 71,
      "sos": 29
     },
-    "games": 389,
+    "games": 400,
     "accuracy": {
-     "best": 0.6323907455012854,
-     "deserving": 0.6426735218508998,
-     "old_default": 0.6323907455012854,
-     "power_only": 0.6520618556701031
+     "best": 0.625,
+     "deserving": 0.64,
+     "old_default": 0.6325,
+     "power_only": 0.6516290726817042
     },
     "out_of_sample": {
      "trained_on": 2025,
      "tested_on": 2026,
-     "games": 134,
-     "best": 0.6044776119402985,
-     "old_default": 0.6417910447761194
+     "games": 145,
+     "best": 0.6068965517241379,
+     "old_default": 0.6413793103448275
     }
    },
    "hidden": []
   }
  },
- "updated": "2026-11-23T09:51+00:00"
+ "updated": "2026-11-24T00:45+00:00"
 }
