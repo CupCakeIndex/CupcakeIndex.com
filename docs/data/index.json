@@ -62,27 +62,27 @@
       12
      ],
      "accuracy": {
-      "games": 725,
-      "correct": 535,
-      "mae": 12.4,
+      "games": 734,
+      "correct": 543,
+      "mae": 12.3,
       "vegas_su": {
-       "games": 725,
-       "correct": 553
+       "games": 734,
+       "correct": 560
       },
       "model_su_lined": {
-       "games": 725,
-       "correct": 535
+       "games": 734,
+       "correct": 543
       },
       "ats": {
-       "games": 708,
-       "correct": 364
+       "games": 717,
+       "correct": 370
       },
       "ats_strong": {
-       "games": 374,
-       "correct": 191
+       "games": 375,
+       "correct": 192
       },
       "vegas_mae": 11.5,
-      "score_games": 725,
+      "score_games": 734,
       "score_mae": 8.9
      }
     }
@@ -156,19 +156,19 @@
      "sos": 25,
      "cupcake": 15
     },
-    "games": 1360,
+    "games": 1369,
     "accuracy": {
-     "best": 0.711764705882353,
-     "deserving": 0.6338235294117647,
-     "old_default": 0.7073529411764706,
-     "power_only": 0.7106038291605302
+     "best": 0.7121986851716582,
+     "deserving": 0.6347699050401753,
+     "old_default": 0.7078159240321402,
+     "power_only": 0.7110460863204097
     },
     "out_of_sample": {
      "trained_on": 2025,
      "tested_on": 2026,
-     "games": 646,
-     "best": 0.7027863777089783,
-     "old_default": 0.6873065015479877
+     "games": 655,
+     "best": 0.7038167938931298,
+     "old_default": 0.6885496183206107
     }
    },
    "hidden": [
